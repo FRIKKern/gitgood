@@ -1,8 +1,8 @@
+[![Gitgood delivery map: eight milestones, 17 journeys, and separate implementation, verification, and release evidence](docs/images/roadmap.svg)](docs/ROADMAP.md)
+
 # Gitgood
 
 A native forge connecting requirements, tasks, code review, evidence, and releases.
-
-[![Gitgood delivery map: eight milestones, 17 journeys, and separate implementation, verification, and release evidence](docs/images/roadmap.svg)](docs/ROADMAP.md)
 
 [View full-size roadmap](docs/images/roadmap.svg) · [Milestone exit criteria](docs/ROADMAP.md) · [Journey specifications](JOURNEYS.md)
 
