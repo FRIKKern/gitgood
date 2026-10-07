@@ -1,0 +1,13 @@
+{
+  "id": "planning-foundation",
+  "category": "Added",
+  "summary": "Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available.",
+  "impact": "planning",
+  "references": [
+    "PRODUCT.md",
+    "JOURNEYS.md",
+    "docs/EXECUTION.md"
+  ],
+  "journeys": [],
+  "withdrawn": false
+}

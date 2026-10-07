@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "journeys": [
+    {
+      "id": "J01",
+      "milestone": "M2",
+      "title": "Create a private repository",
+      "required": true,
+      "spec": "docs/journeys/J01.md"
+    },
+    {
+      "id": "J02",
+      "milestone": "M2",
+      "title": "Clone and push over HTTPS",
+      "required": true,
+      "spec": "docs/journeys/J02.md"
+    },
+    {
+      "id": "J03",
+      "milestone": "M4",
+      "title": "Use and revoke SSH credentials",
+      "required": true,
+      "spec": "docs/journeys/J03.md"
+    },
+    {
+      "id": "J04",
+      "milestone": "M2",
+      "title": "Browse code and commit history",
+      "required": true,
+      "spec": "docs/journeys/J04.md"
+    },
+    {
+      "id": "J05",
+      "milestone": "M4",
+      "title": "Import a supported repository",
+      "required": true,
+      "spec": "docs/journeys/J05.md"
+    },
+    {
+      "id": "J06",
+      "milestone": "M3",
+      "title": "Review and update a pull request",
+      "required": true,
+      "spec": "docs/journeys/J06.md"
+    },
+    {
+      "id": "J07",
+      "milestone": "M3",
+      "title": "Receive external check results",
+      "required": true,
+      "spec": "docs/journeys/J07.md"
+    },
+    {
+      "id": "J08",
+      "milestone": "M3",
+      "title": "Merge under current policy",
+      "required": true,
+      "spec": "docs/journeys/J08.md"
+    },
+    {
+      "id": "J09",
+      "milestone": "M3",
+      "title": "Recover an interrupted merge",
+      "required": true,
+      "spec": "docs/journeys/J09.md"
+    },
+    {
+      "id": "J10",
+      "milestone": "M5",
+      "title": "Connect tasks and specifications",
+      "required": true,
+      "spec": "docs/journeys/J10.md"
+    },
+    {
+      "id": "J11",
+      "milestone": "M5",
+      "title": "Attach and reassess evidence",
+      "required": true,
+      "spec": "docs/journeys/J11.md"
+    },
+    {
+      "id": "J12",
+      "milestone": "M4",
+      "title": "Publish a basic release",
+      "required": true,
+      "spec": "docs/journeys/J12.md"
+    },
+    {
+      "id": "J13",
+      "milestone": "M4",
+      "title": "Search and follow activity",
+      "required": true,
+      "spec": "docs/journeys/J13.md"
+    },
+    {
+      "id": "J14",
+      "milestone": "M6",
+      "title": "Install through Barkpark Cloud",
+      "required": true,
+      "spec": "docs/journeys/J14.md"
+    },
+    {
+      "id": "J15",
+      "milestone": "M6",
+      "title": "Upgrade and reject unhealthy releases",
+      "required": true,
+      "spec": "docs/journeys/J15.md"
+    },
+    {
+      "id": "J16",
+      "milestone": "M6",
+      "title": "Restore onto a replacement host",
+      "required": true,
+      "spec": "docs/journeys/J16.md"
+    },
+    {
+      "id": "J17",
+      "milestone": "M6",
+      "title": "Export archive and remove",
+      "required": true,
+      "spec": "docs/journeys/J17.md"
+    }
+  ]
+}

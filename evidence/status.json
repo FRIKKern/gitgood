@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "baseline": "planning-2026-10-07",
+  "headCommit": null,
+  "specRevision": "planning-2026-10-07",
+  "maxAgeHours": 24,
+  "sources": {
+    "ledger": {
+      "status": "unconfigured",
+      "observedAt": null
+    },
+    "evidence": {
+      "status": "unconfigured",
+      "observedAt": null
+    },
+    "releases": {
+      "status": "unconfigured",
+      "observedAt": null
+    }
+  },
+  "records": []
+}

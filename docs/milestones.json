@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Scope and ownership",
+      "dependsOn": [],
+      "work": "Confirm private-team scope, ownership, identity boundary, and open experiments.",
+      "exit": "Accepted bounded product baseline; named decision roles; J01/J02 scenarios and data ownership."
+    },
+    {
+      "id": "M1",
+      "title": "Repository ready",
+      "dependsOn": [
+        "M0"
+      ],
+      "work": "Scaffold app/API, isolated Postgres, runtimes, real request contract, local setup, CI.",
+      "exit": "Fresh checkout runs; browser reaches API; secrets stay server-side; isolated migrations and tests pass."
+    },
+    {
+      "id": "M2",
+      "title": "Private repository slice",
+      "dependsOn": [
+        "M1"
+      ],
+      "work": "Complete J01/J02 and minimal J04 with real Git clients and two identities.",
+      "exit": "Authorized create/clone/push/browse; unauthorized reads/writes denied; timeouts and cleanup verified."
+    },
+    {
+      "id": "M3",
+      "title": "Review and merge foundation",
+      "dependsOn": [
+        "M2"
+      ],
+      "work": "Complete review, check reporting, protected merge, and interruption recovery; start packaging experiment.",
+      "exit": "Concurrent and stale-state behavior proven; exact result reconciles after service failure."
+    },
+    {
+      "id": "M4",
+      "title": "Usable private forge",
+      "dependsOn": [
+        "M3"
+      ],
+      "work": "Add SSH, import, fuller browsing, releases, and permission-aware activity.",
+      "exit": "Pilot daily workflow works; compatibility limitations and measured performance targets are documented."
+    },
+    {
+      "id": "M5",
+      "title": "Connected workspace",
+      "dependsOn": [
+        "M4"
+      ],
+      "work": "Adopt verified Barkpark capabilities and revision-specific evidence.",
+      "exit": "Links preserve both owners' permissions; current/stale verification is clear; scoped agent APIs follow ordinary rules."
+    },
+    {
+      "id": "M6",
+      "title": "Managed lifecycle",
+      "dependsOn": [
+        "M5"
+      ],
+      "work": "Finish Cloud launch, upgrade, restore, export/archive; recovery research starts earlier.",
+      "exit": "Clean install, unhealthy-release rejection, real replacement-host restore, supported export and removal."
+    },
+    {
+      "id": "M7",
+      "title": "First complete release",
+      "dependsOn": [
+        "M6"
+      ],
+      "work": "Complete bounded pilot and reconcile all accepted scope, artifact identity, runbooks, and evidence.",
+      "exit": "Every required journey has current release-candidate evidence; no blocking correctness gap; owners accept their gates."
+    }
+  ]
+}

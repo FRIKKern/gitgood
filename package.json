@@ -1,0 +1,16 @@
+{
+  "name": "gitpark-plan",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.1 <23"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "check": "node scripts/check.mjs && node --test scripts/report.test.mjs",
+    "status": "node scripts/status.mjs",
+    "release:check": "node scripts/status.mjs --release",
+    "freshness": "node scripts/status.mjs --freshness"
+  }
+}

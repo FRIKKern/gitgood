@@ -1,0 +1,20 @@
+name: Planning freshness
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+permissions:
+  contents: read
+jobs:
+  freshness:
+    if: vars.GITPARK_MAINTENANCE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - run: npm run check
+      - run: npm run freshness
+# Configure authenticated source reconciliation and deduplicated alerts in S16
+# before enabling this gate. This workflow neither fetches sources nor writes main.

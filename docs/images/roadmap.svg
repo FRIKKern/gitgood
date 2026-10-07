@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" role="img" aria-labelledby="title desc">
+<title id="title">Gitpark delivery roadmap</title>
+<desc id="desc">Eight milestones from scope to a complete native forge. Implementation, verification and release are separate. A question mark means unavailable or stale input, not zero progress.</desc>
+<style>:root{color-scheme:light dark} .bg{fill:#f5f7fa}.card{fill:#fff;stroke:#ced8e4}.text{fill:#162739}.muted{fill:#52677a}.accent{fill:#136e68}.line{stroke:#ced8e4} text{font-family:Arial,Helvetica,sans-serif} @media(prefers-color-scheme:dark){.bg{fill:#121c27}.card{fill:#1b2938;stroke:#405365}.text{fill:#eef5fb}.muted{fill:#bccbd7}.accent{fill:#82d6c8}.line{stroke:#405365}}</style>
+<rect class="bg" width="1120" height="720" rx="20"/>
+<text class="text" x="36" y="54" font-size="30" font-weight="700">GITPARK</text>
+<text class="muted" x="36" y="86" font-size="16">Native forge · Barkpark integration · Managed Cloud lifecycle</text>
+<text class="accent" x="36" y="121" font-size="14" font-weight="700">PLANNING BASELINE · Product completion requires connected evidence</text>
+<rect class="card" x="36" y="151" width="250" height="177" rx="12"/>
+<text class="accent" x="54" y="179" font-size="13" font-weight="700">M0</text>
+<text class="text" x="54" y="208" font-size="17" font-weight="700">Scope and ownership</text>
+<text class="muted" x="54" y="264" font-size="13">Milestone exit evidence required</text>
+<text class="text" x="54" y="296" font-size="12">Acceptance: unverified</text>
+<rect class="card" x="302" y="151" width="250" height="177" rx="12"/>
+<text class="accent" x="320" y="179" font-size="13" font-weight="700">M1</text>
+<text class="text" x="320" y="208" font-size="17" font-weight="700">Repository ready</text>
+<text class="muted" x="320" y="264" font-size="13">Milestone exit evidence required</text>
+<text class="text" x="320" y="296" font-size="12">Acceptance: unverified</text>
+<rect class="card" x="568" y="151" width="250" height="177" rx="12"/>
+<text class="accent" x="586" y="179" font-size="13" font-weight="700">M2</text>
+<text class="text" x="586" y="208" font-size="17" font-weight="700">Private repository</text>
+<text class="text" x="586" y="230" font-size="17" font-weight="700">slice</text>
+<text class="muted" x="586" y="259" font-size="13">3 journeys assigned here</text>
+<text class="text" x="586" y="284" font-size="12">Implemented ? · Verified ?</text>
+<text class="text" x="586" y="305" font-size="12">Released ?</text>
+<rect class="card" x="834" y="151" width="250" height="177" rx="12"/>
+<text class="accent" x="852" y="179" font-size="13" font-weight="700">M3</text>
+<text class="text" x="852" y="208" font-size="17" font-weight="700">Review and merge</text>
+<text class="text" x="852" y="230" font-size="17" font-weight="700">foundation</text>
+<text class="muted" x="852" y="259" font-size="13">4 journeys assigned here</text>
+<text class="text" x="852" y="284" font-size="12">Implemented ? · Verified ?</text>
+<text class="text" x="852" y="305" font-size="12">Released ?</text>
+<rect class="card" x="36" y="345" width="250" height="177" rx="12"/>
+<text class="accent" x="54" y="373" font-size="13" font-weight="700">M4</text>
+<text class="text" x="54" y="402" font-size="17" font-weight="700">Usable private forge</text>
+<text class="muted" x="54" y="453" font-size="13">4 journeys assigned here</text>
+<text class="text" x="54" y="478" font-size="12">Implemented ? · Verified ?</text>
+<text class="text" x="54" y="499" font-size="12">Released ?</text>
+<rect class="card" x="302" y="345" width="250" height="177" rx="12"/>
+<text class="accent" x="320" y="373" font-size="13" font-weight="700">M5</text>
+<text class="text" x="320" y="402" font-size="17" font-weight="700">Connected workspace</text>
+<text class="muted" x="320" y="453" font-size="13">2 journeys assigned here</text>
+<text class="text" x="320" y="478" font-size="12">Implemented ? · Verified ?</text>
+<text class="text" x="320" y="499" font-size="12">Released ?</text>
+<rect class="card" x="568" y="345" width="250" height="177" rx="12"/>
+<text class="accent" x="586" y="373" font-size="13" font-weight="700">M6</text>
+<text class="text" x="586" y="402" font-size="17" font-weight="700">Managed lifecycle</text>
+<text class="muted" x="586" y="453" font-size="13">4 journeys assigned here</text>
+<text class="text" x="586" y="478" font-size="12">Implemented ? · Verified ?</text>
+<text class="text" x="586" y="499" font-size="12">Released ?</text>
+<rect class="card" x="834" y="345" width="250" height="177" rx="12"/>
+<text class="accent" x="852" y="373" font-size="13" font-weight="700">M7</text>
+<text class="text" x="852" y="402" font-size="17" font-weight="700">First complete release</text>
+<text class="muted" x="852" y="458" font-size="13">Milestone exit evidence required</text>
+<text class="text" x="852" y="490" font-size="12">Acceptance: unverified</text>
+<line class="line" x1="36" y1="558" x2="1084" y2="558"/>
+<text class="text" x="36" y="588" font-size="15">17 scoped journeys · ? = unknown or stale · task closure does not prove verification</text>
+<text class="muted" x="36" y="617" font-size="13">Snapshot: No connected implementation evidence</text>
+<text class="muted" x="36" y="643" font-size="13">Sources: ledger: unconfigured · evidence: unconfigured · releases: unconfigured</text>
+<text class="muted" x="36" y="670" font-size="12">Freshness limit: 24 hours. This static image does not refresh itself.</text>
+<text class="muted" x="36" y="694" font-size="12">Baseline: planning-2026-10-07 · Open ROADMAP.md for exit criteria and limitations.</text>
+</svg>
