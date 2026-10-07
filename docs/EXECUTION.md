@@ -2,7 +2,7 @@
 
 ## Immediate sequence
 
-1. Confirm remote owner, visibility, project license, and first-release scope. Local planning work can proceed while publication remains unresolved.
+1. Remote owner and private visibility are recorded in D01. Resolve the project license and first-release scope; private repository work can proceed.
 2. Resolve identity/data ownership and write the first permission scenarios.
 3. Scaffold app/API and isolated Postgres with pinned runtimes.
 4. Establish the real request boundary, local setup, CI, and evidence contracts.
@@ -18,7 +18,7 @@ No task below is automatically complete because its planning document or script 
 
 | ID | Deliverable | Depends on | Acceptance |
 |---|---|---|---|
-| S01 | Repository governance | D01 | Remote owner, visibility, license, scope recorded before publication |
+| S01 | Repository governance | D01 | Owner/private visibility recorded; license and scope remain open before public publication or release baseline acceptance |
 | S02 | Product and journey baseline | S01 | Owners accept scope, invariants, J01/J02 |
 | S03 | Development skeleton | Local planning may start before S01 | Runtime pins, isolated worktree convention, ignore/lock rules |
 | S04 | API/Postgres | S03 | Clean migration, version identity, backend checks |

@@ -4,7 +4,7 @@ Accepted direction: [Native forge](0001-native-forge.md). Other decisions below 
 
 | ID | Decision | Gate |
 |---|---|---|
-| D01 | [Repository governance and first release](D01.md) | Before publication or baseline acceptance. |
+| D01 | [Repository governance and first release](D01.md) | Owner/private visibility resolved; remaining decisions before public publication or release baseline acceptance. |
 | D02 | [Identity and bootstrap](D02.md) | Before J01 acceptance or authenticated Barkpark writes. |
 | D03 | [Barkpark reuse](D03.md) | Before adopting each capability. |
 | D04 | [Native Git transport](D04.md) | Before real repository hosting. |

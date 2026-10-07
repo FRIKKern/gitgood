@@ -9,7 +9,7 @@ A native forge connecting requirements, tasks, code review, evidence, and releas
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — planning foundation.** Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. No Gitpark application release has been published.
+**Unreleased — planning foundation.** Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Private GitHub repository FRIKKern/gitpark established with planning verification on pushes and pull requests. No Gitpark application release has been published.
 <!-- whats-new:end -->
 
 ## Start here
@@ -52,4 +52,4 @@ Requires Node 22.13.1 or a compatible Node 22 runtime. No npm dependencies are n
 
 The upstream design discussion is preserved in the [initial reference Page](https://chatgpt.com/space/page_fd72d3f936c88191b2f83ed1217f7f82); access to that Page is separate. These repository files are the normative implementation baseline.
 
-Remote ownership, visibility, license, identity bootstrap, and release staffing remain open in [decisions](docs/decisions/README.md). Scheduled workflows are not active in this local checkout.
+The upstream repository is [FRIKKern/gitpark](https://github.com/FRIKKern/gitpark), created as private on 7 October 2026. Planning checks run on pushes to `main` and pull requests. The scheduled freshness job remains disabled until its sources and alerts are configured. License, identity bootstrap, and release staffing remain open in [decisions](docs/decisions/README.md).

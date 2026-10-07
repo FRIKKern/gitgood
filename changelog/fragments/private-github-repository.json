@@ -1,0 +1,9 @@
+{
+  "id": "private-github-repository",
+  "category": "Added",
+  "summary": "Private GitHub repository FRIKKern/gitpark established with planning verification on pushes and pull requests.",
+  "impact": "planning",
+  "references": ["docs/decisions/D01.md"],
+  "journeys": [],
+  "withdrawn": false
+}
