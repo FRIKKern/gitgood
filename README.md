@@ -9,7 +9,7 @@ A native forge connecting requirements, tasks, code review, evidence, and releas
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — planning foundation.** Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Private GitHub repository FRIKKern/gitpark established with planning verification on pushes and pull requests. No Gitpark application release has been published.
+**Unreleased — planning foundation.** Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Private GitHub repository FRIKKern/gitpark established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner. No Gitpark application release has been published.
 <!-- whats-new:end -->
 
 ## Start here
