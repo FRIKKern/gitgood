@@ -1,0 +1,9 @@
+{
+  "id": "gantt-roadmap",
+  "category": "Changed",
+  "summary": "Converted the top README roadmap to a milestone Gantt showing delivery surfaces and proposed research overlap; retained the detailed journey evidence map as a separate generated view.",
+  "impact": "planning",
+  "references": ["docs/ROADMAP.md", "docs/images/journey-evidence.svg"],
+  "journeys": [],
+  "withdrawn": false
+}

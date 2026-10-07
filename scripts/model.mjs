@@ -41,6 +41,18 @@ export function validate(m, now = new Date()) {
   for (const p of milestones) {
     if (!/^M\d+$/.test(p.id) || !nonempty(p.title) || !nonempty(p.work) || !nonempty(p.exit) || !Array.isArray(p.dependsOn)) errors.push('Invalid milestone: ' + p.id)
     for (const d of p.dependsOn ?? []) if (!phases.has(d) || d === p.id) errors.push('Invalid milestone dependency: ' + p.id)
+    for (const key of ['surface', 'delivery']) if (p[key] !== undefined && !nonempty(p[key])) errors.push('Invalid milestone display field: ' + p.id + '.' + key)
+    for (const d of p.dependsOn ?? []) if (milestones.findIndex(m => m.id === d) >= milestones.indexOf(p)) errors.push('Milestone order must follow dependencies: ' + p.id)
+  }
+  const tracks = m.milestones.supportTracks ?? []
+  if (!Array.isArray(tracks)) errors.push('Support tracks must be an array')
+  else {
+    unique(tracks, 'id', 'support track ID', errors)
+    for (const t of tracks) {
+      if (!/^[A-Z][A-Z0-9]*$/.test(t.id) || phases.has(t.id) || !nonempty(t.title) || !nonempty(t.surface) || !nonempty(t.note) || !['research','continuous'].includes(t.kind)) errors.push('Invalid support track: ' + t.id)
+      const start = milestones.findIndex(p => p.id === t.start), end = milestones.findIndex(p => p.id === t.end)
+      if (start < 0 || end < start) errors.push('Invalid support track span: ' + t.id)
+    }
   }
   const visited = new Set(), active = new Set()
   const visit = id => {
