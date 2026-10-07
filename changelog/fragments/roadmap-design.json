@@ -1,0 +1,9 @@
+{
+  "id": "roadmap-design",
+  "category": "Changed",
+  "summary": "Redesigned the README roadmap with journey-level status, milestone dependencies and exit criteria, separate progress summaries, and light/dark palettes.",
+  "impact": "planning",
+  "references": ["docs/ROADMAP.md", "scripts/roadmap-svg.mjs"],
+  "journeys": [],
+  "withdrawn": false
+}

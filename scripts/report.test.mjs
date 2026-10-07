@@ -28,7 +28,8 @@ test('unconfigured inputs do not become zero or verified',()=>{
   const m=clone()
   assert.deepEqual(validate(m,now),[])
   assert.deepEqual(classify(undefined,m.snapshot,now),{implementation:'unknown',verification:'unknown',release:'unknown'})
-  assert.match(svg(m),/Implemented \?/)
+  assert.match(svg(m),/Implemented: 0 confirmed · 1 unknown or stale/)
+  assert.match(svg(m),/Status source not connected/)
   assert.ok(releaseProblems(m,now).length)
 })
 test('task completion alone cannot establish verification or release',()=>{
@@ -81,6 +82,41 @@ test('SVG output is deterministic and escapes injected labels',()=>{
   assert.equal(svg(m),svg(m))
   assert.ok(!svg(m).includes('<script>'))
   assert.match(svg(m),/&lt;script&gt;/)
+})
+
+test('roadmap shows partial evidence without turning unknown into zero',()=>{
+  const m=connected();m.snapshot.records=[record()]
+  m.catalog.journeys.push({id:'J02',milestone:'M1',title:'Second journey',required:true,spec:'docs/journeys/J02.md'})
+  const out=svg(m)
+  assert.match(out,/Implemented: 1 confirmed · 1 unknown or stale/)
+  assert.match(out,/Verified: 1 of 2 journeys/)
+  assert.match(out,/Released: 1 confirmed · 1 unknown or stale/)
+  assert.match(out,/J02 Second journey\. Implemented: unknown; Verified: absent; Released: unknown/)
+  assert.equal((out.match(/data-journey=/g)||[]).length,2)
+  assert.match(out,/Milestone exit gates are not inferred from journey counts/)
+})
+
+test('roadmap exposes stale and unavailable sources without a success display',()=>{
+  const m=connected();m.snapshot.records=[record()]
+  m.snapshot.sources.evidence.observedAt='2026-10-05T12:00:00Z'
+  m.snapshot.sources.releases.status='unavailable'
+  const out=svg(m)
+  assert.match(out,/Verified: 0 confirmed · 1 unknown or stale/)
+  assert.match(out,/data-state="stale"/)
+  assert.match(out,/evidence: stale/)
+  assert.match(out,/Status source unavailable/)
+  assert.match(out,/Released: unknown/)
+})
+
+test('roadmap expands for growing catalogs and preserves every journey',()=>{
+  const m=clone(), before=Number(svg(m).match(/height="(\d+)"/)[1])
+  m.milestones.milestones[1].title='An unusually long phase title that wraps without hiding the rest'
+  m.catalog.journeys=Array.from({length:90},(_,i)=>({id:'J'+String(i+1).padStart(2,'0'),milestone:'M1',title:'A long journey description with important recovery behavior',required:true,spec:'fixture'}))
+  const out=svg(m)
+  assert.ok(Number(out.match(/height="(\d+)"/)[1])>before)
+  assert.equal((out.match(/data-journey=/g)||[]).length,90)
+  assert.ok(!/width="-/.test(out))
+  assert.match(out,/data-journey="J90"/)
 })
 test('release notes select included fragments and omit withdrawals',()=>{
   const m=clone()
