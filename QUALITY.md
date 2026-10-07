@@ -33,10 +33,10 @@ Before M6 acceptance, set maximum tolerated data loss and restoration time, then
 
 ## Review
 
-Assign an engineering lead, quality reviewer, and operations owner before their acceptance gates. The implementer cannot unilaterally accept a high-risk journey. Frikk accepts product scope; technical reviewers accept technical evidence. CI supports those decisions.
+Agents perform engineering, verification, and operations roles under [AUTONOMY.md](AUTONOMY.md). No human acceptance, staffing assignment, or sign-off is required. An explicit agent verification pass evaluates current evidence against the criteria; high-risk journeys require adversarial, concurrency, and recovery checks appropriate to the change. Record the actual evaluator and results, and progress automatically when the gate passes. A failed or missing check requires repair or investigation, not a human override.
 
 ## Release gate
 
 All required journeys need current verification for the candidate, documented compatibility, and no open blocking access, data-loss, merge, or recovery defects. Installation and replacement-host restore must pass. Publish immutable artifacts and exact release identity.
 
-Run `npm run release:check` for the report-level gate. It intentionally fails with the initial unconfigured evidence. It is not a substitute for artifact inspection, review sign-off, or the actual release workflow.
+Run `npm run release:check` for the report-level gate. It intentionally fails with the initial unconfigured evidence. It is not a substitute for artifact inspection, recorded agent verification, or the actual release workflow. Acceptance is a passing evidence evaluation, not a human signature.

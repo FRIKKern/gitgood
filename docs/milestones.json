@@ -6,7 +6,7 @@
       "title": "Scope and ownership",
       "dependsOn": [],
       "work": "Confirm private-team scope, ownership, identity boundary, and open experiments.",
-      "exit": "Accepted bounded product baseline; named decision roles; J01/J02 scenarios and data ownership."
+      "exit": "Recorded bounded execution baseline; delegated agent authority; J01/J02 scenarios and data ownership."
     },
     {
       "id": "M1",
@@ -69,7 +69,7 @@
         "M6"
       ],
       "work": "Complete bounded pilot and reconcile all accepted scope, artifact identity, runbooks, and evidence.",
-      "exit": "Every required journey has current release-candidate evidence; no blocking correctness gap; owners accept their gates."
+      "exit": "Every required journey has current release-candidate evidence; no blocking correctness gap; agent evaluations pass all evidence gates without human sign-off."
     }
   ]
 }
