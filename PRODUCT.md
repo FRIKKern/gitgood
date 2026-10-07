@@ -12,7 +12,7 @@ Gitgood is a native private-team forge that makes the relationship between inten
 - Reuse Barkpark only through verified contracts.
 - Make Barkpark Cloud the managed deployment path while preserving independent installation operation.
 
-## Proposed first release
+## First-release execution baseline
 
 Serve our own small development team, then selected private teams. Support private repositories, team membership, scoped credentials, HTTPS and SSH clone/push, supported repository import, browsing, same-repository pull requests, line discussions, protected merge, trusted external checks, connected tasks/specifications, evidence, basic releases/assets, and permission-aware activity.
 
@@ -32,6 +32,6 @@ A pilot team completes its agreed daily workflow without hidden manual database 
 
 ## Scope control
 
-Frikk is the product decision owner. Record each scope change, rationale, affected journeys, displaced work, and estimate impact through a PR. Deferred requirements are not counted as passed. Product scope is a proposed baseline until confirmed; the native architecture direction is accepted.
+Frikk has delegated product and technical progression to agents under [AUTONOMY.md](AUTONOMY.md). Use this bounded scope as the execution baseline without waiting for human confirmation. Agents record each scope change, rationale, affected journeys, displaced work, and estimate impact through a PR, and resolve decisions with evidence. Deferred requirements are not counted as passed. Explicit user direction remains authoritative.
 
 Do not promise offline editing, lossless migration from every forge, or zero-downtime upgrades without evidence.

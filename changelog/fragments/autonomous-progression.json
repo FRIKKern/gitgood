@@ -1,0 +1,9 @@
+{
+  "id": "autonomous-progression",
+  "category": "Changed",
+  "summary": "Delegated project progression to agents and replaced human acceptance gates with recorded evidence-based verification across decisions, milestones, merges, and releases.",
+  "impact": "planning",
+  "references": ["AUTONOMY.md", "QUALITY.md"],
+  "journeys": [],
+  "withdrawn": false
+}

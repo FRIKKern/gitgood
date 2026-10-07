@@ -2,7 +2,7 @@
 
 ## Immediate sequence
 
-1. Remote owner and private visibility are recorded in D01. Resolve the project license and first-release scope; private repository work can proceed.
+1. Follow [autonomous progression](../AUTONOMY.md). Owner/private visibility and delegated agent authority are recorded in D01. Use PRODUCT.md as the execution baseline; resolve remaining decisions with evidence while private development proceeds.
 2. Resolve identity/data ownership and write the first permission scenarios.
 3. Scaffold app/API and isolated Postgres with pinned runtimes.
 4. Establish the real request boundary, local setup, CI, and evidence contracts.
@@ -18,8 +18,8 @@ No task below is automatically complete because its planning document or script 
 
 | ID | Deliverable | Depends on | Acceptance |
 |---|---|---|---|
-| S01 | Repository governance | D01 | Owner/private visibility recorded; license and scope remain open before public publication or release baseline acceptance |
-| S02 | Product and journey baseline | S01 | Owners accept scope, invariants, J01/J02 |
+| S01 | Repository governance | D01 | Owner/private visibility and autonomous authority recorded; unresolved licensing does not block private development |
+| S02 | Product and journey baseline | S01 | Agent evaluation records scope consistency, invariants, and J01/J02 criteria; no human sign-off |
 | S03 | Development skeleton | Local planning may start before S01 | Runtime pins, isolated worktree convention, ignore/lock rules |
 | S04 | API/Postgres | S03 | Clean migration, version identity, backend checks |
 | S05 | Web/server boundary | S03 | Production build and secret isolation |
@@ -38,7 +38,7 @@ No task below is automatically complete because its planning document or script 
 
 ## Roles
 
-Frikk owns product decisions. Assign engineering delivery, independent quality review, and Cloud operations owners before accepting their gates. Do not imply staffing or approval that has not been provided.
+Agents take engineering delivery, verification, and Cloud operations responsibilities as work becomes ready. Record the acting agent and evidence for each gate. Missing human staffing is not a blocker; progress follows AUTONOMY.md and QUALITY.md. User updates provide oversight without creating an approval queue.
 
 ## Reporting
 
@@ -46,4 +46,4 @@ At meaningful changes and milestone boundaries, report what is implemented, what
 
 ## Completion
 
-Use milestone and journey definitions, not task counts. A release needs current evidence, compatible artifacts, operational procedures, and pilot acceptance.
+Use milestone and journey definitions, not task counts. A release needs current evidence, compatible artifacts, operational procedures, and verified pilot workflows. Agents evaluate these criteria and continue without human sign-off.

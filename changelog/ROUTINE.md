@@ -12,7 +12,7 @@ Produce a short development digest only when meaningful changes exist. Separate 
 
 ## Release
 
-Select fragments from the actual included revisions, including backports and cherry-picks. Use changelog/releases.json as the publication manifest. A named release editor reviews claims, migration requirements, compatibility, and rollback limitations before publication.
+Select fragments from the actual included revisions, including backports and cherry-picks. Use changelog/releases.json as the publication manifest. An agent acting as release editor verifies claims, migration requirements, compatibility, and rollback limitations before publication. Record that evaluation; no human editorial acceptance is required.
 
 The local generator derives CHANGELOG.md and README highlights from fragments and release manifests. It does not publish a release. Retain each fragment's version mapping; duplicate IDs or multiple assignments fail checks. Never label an unreleased claim shipped.
 
@@ -24,6 +24,6 @@ Withdraw reverted Unreleased entries. Consolidate related changes and keep trace
 
 ## Automation and acceptance
 
-Publish generated changes through the same protected PR route as roadmap updates. No automatic merge or external posting is configured here. Retry publication without duplication, preserve prior content on failure, and alert once per actionable failure.
+Publish generated changes through the same checked PR route as roadmap updates. Agents merge when current checks and verification pass, without a human approval step. An unattended merge service or external posting integration is not configured by this planning skeleton. Retry publication without duplication, preserve prior content on failure, and alert once per actionable failure.
 
 Before S17 closes, demonstrate a user-visible fragment, an internal-only exemption, withdrawal/revert, release-specific selection, migration notices, duplicate-safe reruns, README updates, and publication-failure recovery. Local generator tests cover only the reporting portion.

@@ -1,6 +1,6 @@
 # Evidence contract
 
-A manifest supports an identified criterion, not an entire product by implication. Required fields for future real manifests: journey/criterion IDs, spec revision, code commit, dependency versions, environment, fixture, reproduction command, outcome, producer, observation time, artifact references, and reviewer when required.
+A manifest supports an identified criterion, not an entire product by implication. Required fields for future real manifests: journey/criterion IDs, spec revision, code commit, dependency versions, environment, fixture, reproduction command, outcome, producer, observation time, artifact references, and agent verifier/evaluation when required. Acceptance fields mean evidence evaluation under AUTONOMY.md, not human approval.
 
 Keep binary artifacts outside Git and retain the manifest. Access to private code/evidence must remain restricted.
 

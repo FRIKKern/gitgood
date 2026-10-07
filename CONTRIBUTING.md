@@ -4,6 +4,8 @@
 
 Use a worktree per scoped change; keep the shared main checkout on main. Branches use `codex/` by default. One primary journey per implementation PR keeps acceptance reviewable. Follow docs/EXECUTION.md.
 
+Follow [AUTONOMY.md](AUTONOMY.md). Agent verification satisfies project review requirements; do not add human approval or acceptance requirements. After current checks and the relevant evidence pass, agents merge and take the next ready task. Product features that support repository review policies still enforce the configured users' rules.
+
 Live assignments and blockers belong in the Barkpark ledger once configured. The execution plan is dependency guidance, not a competing live checklist.
 
 A PR describes behavior, relevant journey/decision, verification, compatibility, and documentation impact. Keep intended behavior and implementation in agreement; investigate disagreements rather than automatically changing the spec.
@@ -27,9 +29,9 @@ Generated outputs must come from the checked-in canonical inputs. Never hand-edi
 | Weekly | Review dependencies, idle work, merged branches, worktrees, old decisions, and evidence retention. |
 | Milestone/release | Reconcile required journeys, actual artifacts, current evidence, runbooks, and release notes. |
 
-The maintenance workflow is opt-in through `GITGOOD_MAINTENANCE_ENABLED`. Leave it disabled until the ledger/evidence integrations and named maintainer are configured. Local CI cannot claim remote branch protection is enabled.
+The maintenance workflow is opt-in through `GITGOOD_MAINTENANCE_ENABLED`. Agents enable it once ledger/evidence integrations and a responsible agent execution path are configured and verified; no human enablement approval is needed. Local CI cannot claim remote branch protection is enabled.
 
-Define a maintainer and fallback in the ledger. Failed maintenance creates one deduplicated actionable record; repeated unchanged failures should not create spam. That integration is setup task S16, not implemented by this planning skeleton.
+Record the maintenance agent and retry/fallback execution path in the ledger. Failed maintenance creates one deduplicated actionable record; repeated unchanged failures should not create spam. That integration is setup task S16, not implemented by this planning skeleton.
 
 ## Safe hygiene
 
