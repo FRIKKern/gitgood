@@ -1,62 +1,352 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" role="img" aria-labelledby="title desc">
-<title id="title">Gitgood delivery roadmap</title>
-<desc id="desc">Eight milestones from scope to a complete native forge. Implementation, verification and release are separate. A question mark means unavailable or stale input, not zero progress.</desc>
-<style>:root{color-scheme:light dark} .bg{fill:#f5f7fa}.card{fill:#fff;stroke:#ced8e4}.text{fill:#162739}.muted{fill:#52677a}.accent{fill:#136e68}.line{stroke:#ced8e4} text{font-family:Arial,Helvetica,sans-serif} @media(prefers-color-scheme:dark){.bg{fill:#121c27}.card{fill:#1b2938;stroke:#405365}.text{fill:#eef5fb}.muted{fill:#bccbd7}.accent{fill:#82d6c8}.line{stroke:#405365}}</style>
-<rect class="bg" width="1120" height="720" rx="20"/>
-<text class="text" x="36" y="54" font-size="30" font-weight="700">GITGOOD</text>
-<text class="muted" x="36" y="86" font-size="16">Native forge · Barkpark integration · Managed Cloud lifecycle</text>
-<text class="accent" x="36" y="121" font-size="14" font-weight="700">PLANNING BASELINE · Product completion requires connected evidence</text>
-<rect class="card" x="36" y="151" width="250" height="177" rx="12"/>
-<text class="accent" x="54" y="179" font-size="13" font-weight="700">M0</text>
-<text class="text" x="54" y="208" font-size="17" font-weight="700">Scope and ownership</text>
-<text class="muted" x="54" y="264" font-size="13">Milestone exit evidence required</text>
-<text class="text" x="54" y="296" font-size="12">Acceptance: unverified</text>
-<rect class="card" x="302" y="151" width="250" height="177" rx="12"/>
-<text class="accent" x="320" y="179" font-size="13" font-weight="700">M1</text>
-<text class="text" x="320" y="208" font-size="17" font-weight="700">Repository ready</text>
-<text class="muted" x="320" y="264" font-size="13">Milestone exit evidence required</text>
-<text class="text" x="320" y="296" font-size="12">Acceptance: unverified</text>
-<rect class="card" x="568" y="151" width="250" height="177" rx="12"/>
-<text class="accent" x="586" y="179" font-size="13" font-weight="700">M2</text>
-<text class="text" x="586" y="208" font-size="17" font-weight="700">Private repository</text>
-<text class="text" x="586" y="230" font-size="17" font-weight="700">slice</text>
-<text class="muted" x="586" y="259" font-size="13">3 journeys assigned here</text>
-<text class="text" x="586" y="284" font-size="12">Implemented ? · Verified ?</text>
-<text class="text" x="586" y="305" font-size="12">Released ?</text>
-<rect class="card" x="834" y="151" width="250" height="177" rx="12"/>
-<text class="accent" x="852" y="179" font-size="13" font-weight="700">M3</text>
-<text class="text" x="852" y="208" font-size="17" font-weight="700">Review and merge</text>
-<text class="text" x="852" y="230" font-size="17" font-weight="700">foundation</text>
-<text class="muted" x="852" y="259" font-size="13">4 journeys assigned here</text>
-<text class="text" x="852" y="284" font-size="12">Implemented ? · Verified ?</text>
-<text class="text" x="852" y="305" font-size="12">Released ?</text>
-<rect class="card" x="36" y="345" width="250" height="177" rx="12"/>
-<text class="accent" x="54" y="373" font-size="13" font-weight="700">M4</text>
-<text class="text" x="54" y="402" font-size="17" font-weight="700">Usable private forge</text>
-<text class="muted" x="54" y="453" font-size="13">4 journeys assigned here</text>
-<text class="text" x="54" y="478" font-size="12">Implemented ? · Verified ?</text>
-<text class="text" x="54" y="499" font-size="12">Released ?</text>
-<rect class="card" x="302" y="345" width="250" height="177" rx="12"/>
-<text class="accent" x="320" y="373" font-size="13" font-weight="700">M5</text>
-<text class="text" x="320" y="402" font-size="17" font-weight="700">Connected workspace</text>
-<text class="muted" x="320" y="453" font-size="13">2 journeys assigned here</text>
-<text class="text" x="320" y="478" font-size="12">Implemented ? · Verified ?</text>
-<text class="text" x="320" y="499" font-size="12">Released ?</text>
-<rect class="card" x="568" y="345" width="250" height="177" rx="12"/>
-<text class="accent" x="586" y="373" font-size="13" font-weight="700">M6</text>
-<text class="text" x="586" y="402" font-size="17" font-weight="700">Managed lifecycle</text>
-<text class="muted" x="586" y="453" font-size="13">4 journeys assigned here</text>
-<text class="text" x="586" y="478" font-size="12">Implemented ? · Verified ?</text>
-<text class="text" x="586" y="499" font-size="12">Released ?</text>
-<rect class="card" x="834" y="345" width="250" height="177" rx="12"/>
-<text class="accent" x="852" y="373" font-size="13" font-weight="700">M7</text>
-<text class="text" x="852" y="402" font-size="17" font-weight="700">First complete release</text>
-<text class="muted" x="852" y="458" font-size="13">Milestone exit evidence required</text>
-<text class="text" x="852" y="490" font-size="12">Acceptance: unverified</text>
-<line class="line" x1="36" y1="558" x2="1084" y2="558"/>
-<text class="text" x="36" y="588" font-size="15">17 scoped journeys · ? = unknown or stale · task closure does not prove verification</text>
-<text class="muted" x="36" y="617" font-size="13">Snapshot: No connected implementation evidence</text>
-<text class="muted" x="36" y="643" font-size="13">Sources: ledger: unconfigured · evidence: unconfigured · releases: unconfigured</text>
-<text class="muted" x="36" y="670" font-size="12">Freshness limit: 24 hours. This static image does not refresh itself.</text>
-<text class="muted" x="36" y="694" font-size="12">Baseline: planning-2026-10-07 · Open ROADMAP.md for exit criteria and limitations.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1984" viewBox="0 0 1200 1984" role="img" aria-labelledby="title desc">
+<title id="title">Gitgood — from private repository to complete forge</title>
+<desc id="desc">8 milestones and 17 scoped journeys. Implemented: 0 confirmed · 17 unknown or stale. Verified: 0 confirmed · 17 unknown or stale. Released: 0 confirmed · 17 unknown or stale. Each journey shows implementation, verification, and release separately. Milestone exit gates are not inferred from journey counts. Unknown is not zero. Source freshness is evaluated at the recorded snapshot time.</desc>
+<style>
+    :root{color-scheme:light dark}
+    text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#202c2a}
+    .bg{fill:#f6f5f0}.card{fill:#fff;stroke:#d9dfd8}.panel{fill:#eaf0e9}.rule{stroke:#d9dfd8;fill:none}
+    .muted{fill:#63706a}.good{fill:#247253}.active{fill:#176cad}.warning{fill:#91620b}.failed{fill:#b1393c}
+    .badge{fill:#e5eee7}.accent{fill:#245c47}.track{fill:#e3e8e1}.unknown{fill:url(#unknown-pattern)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.label{font-weight:600;letter-spacing:1.6px}
+    .strong{font-weight:650}.symbol{font-weight:700}.pattern-line{stroke:#b7c2b8;stroke-width:1}.branch{stroke:#245c47;fill:none}
+    @media(prefers-color-scheme:dark){
+      text{fill:#e9eee8}.bg{fill:#141c19}.card{fill:#1d2722;stroke:#39473e}.panel{fill:#24352b}.rule{stroke:#39473e}
+      .muted{fill:#b0bdb3}.good{fill:#8bd2a9}.active{fill:#8cbdeb}.warning{fill:#e7be70}.failed{fill:#ffaaaa}
+      .badge{fill:#2d4033}.accent{fill:#a8dfb7}.track{fill:#35443a}.pattern-line{stroke:#5c7364}.branch{stroke:#a8dfb7}
+    }
+  </style>
+<defs><pattern id="unknown-pattern" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M-2 2L2-2M0 8L8 0M6 10L10 6" class="pattern-line"/></pattern></defs>
+<rect x="0" y="0" width="1200" height="1984" rx="24" class="bg"/>
+<rect x="36" y="32" width="52" height="52" rx="15" class="badge"/>
+<g class="branch" stroke-width="2.5"><path d="M53 50v16m18-15v3c0 8-18 3-18 12"/><circle cx="53" cy="46" r="4"/><circle cx="53" cy="70" r="4"/><circle cx="71" cy="47" r="4"/></g>
+<text x="102" y="70" font-size="38" class="strong" >Gitgood</text>
+<text x="1164" y="49" font-size="13" class="muted label" text-anchor="end">DELIVERY MAP</text>
+<text x="1164" y="79" font-size="18" class="strong" text-anchor="end">8 milestones / 17 journeys</text>
+<text x="36" y="120" font-size="23" class="strong" >A native forge, from first push to a recoverable release.</text>
+<text x="36" y="151" font-size="16" class="muted" >Elixir + Postgres   /   Barkpark workspace   /   Cloud lifecycle</text>
+<g data-metric="implementation"><title>Implemented: 0 confirmed · 17 unknown or stale</title>
+<rect x="36" y="179" width="364" height="111" rx="14" class="panel"/>
+<text x="54" y="206" font-size="15" class="strong" >Implemented</text>
+<text x="382" y="211" font-size="26" class="muted strong" text-anchor="end">?</text>
+<text x="54" y="235" font-size="14" class="muted" >Status source not connected</text>
+<rect data-state="unknown" x="54.00" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J01: unknown</title></rect>
+<rect data-state="unknown" x="73.53" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J02: unknown</title></rect>
+<rect data-state="unknown" x="93.06" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J03: unknown</title></rect>
+<rect data-state="unknown" x="112.59" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J04: unknown</title></rect>
+<rect data-state="unknown" x="132.12" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J05: unknown</title></rect>
+<rect data-state="unknown" x="151.65" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J06: unknown</title></rect>
+<rect data-state="unknown" x="171.18" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J07: unknown</title></rect>
+<rect data-state="unknown" x="190.71" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J08: unknown</title></rect>
+<rect data-state="unknown" x="210.24" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J09: unknown</title></rect>
+<rect data-state="unknown" x="229.76" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J10: unknown</title></rect>
+<rect data-state="unknown" x="249.29" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J11: unknown</title></rect>
+<rect data-state="unknown" x="268.82" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J12: unknown</title></rect>
+<rect data-state="unknown" x="288.35" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J13: unknown</title></rect>
+<rect data-state="unknown" x="307.88" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J14: unknown</title></rect>
+<rect data-state="unknown" x="327.41" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J15: unknown</title></rect>
+<rect data-state="unknown" x="346.94" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J16: unknown</title></rect>
+<rect data-state="unknown" x="366.47" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J17: unknown</title></rect>
+</g>
+<g data-metric="verification"><title>Verified: 0 confirmed · 17 unknown or stale</title>
+<rect x="418" y="179" width="364" height="111" rx="14" class="panel"/>
+<text x="436" y="206" font-size="15" class="strong" >Verified</text>
+<text x="764" y="211" font-size="26" class="muted strong" text-anchor="end">?</text>
+<text x="436" y="235" font-size="14" class="muted" >Status source not connected</text>
+<rect data-state="unknown" x="436.00" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J01: unknown</title></rect>
+<rect data-state="unknown" x="455.53" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J02: unknown</title></rect>
+<rect data-state="unknown" x="475.06" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J03: unknown</title></rect>
+<rect data-state="unknown" x="494.59" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J04: unknown</title></rect>
+<rect data-state="unknown" x="514.12" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J05: unknown</title></rect>
+<rect data-state="unknown" x="533.65" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J06: unknown</title></rect>
+<rect data-state="unknown" x="553.18" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J07: unknown</title></rect>
+<rect data-state="unknown" x="572.71" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J08: unknown</title></rect>
+<rect data-state="unknown" x="592.24" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J09: unknown</title></rect>
+<rect data-state="unknown" x="611.76" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J10: unknown</title></rect>
+<rect data-state="unknown" x="631.29" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J11: unknown</title></rect>
+<rect data-state="unknown" x="650.82" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J12: unknown</title></rect>
+<rect data-state="unknown" x="670.35" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J13: unknown</title></rect>
+<rect data-state="unknown" x="689.88" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J14: unknown</title></rect>
+<rect data-state="unknown" x="709.41" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J15: unknown</title></rect>
+<rect data-state="unknown" x="728.94" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J16: unknown</title></rect>
+<rect data-state="unknown" x="748.47" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J17: unknown</title></rect>
+</g>
+<g data-metric="release"><title>Released: 0 confirmed · 17 unknown or stale</title>
+<rect x="800" y="179" width="364" height="111" rx="14" class="panel"/>
+<text x="818" y="206" font-size="15" class="strong" >Released</text>
+<text x="1146" y="211" font-size="26" class="muted strong" text-anchor="end">?</text>
+<text x="818" y="235" font-size="14" class="muted" >Status source not connected</text>
+<rect data-state="unknown" x="818.00" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J01: unknown</title></rect>
+<rect data-state="unknown" x="837.53" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J02: unknown</title></rect>
+<rect data-state="unknown" x="857.06" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J03: unknown</title></rect>
+<rect data-state="unknown" x="876.59" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J04: unknown</title></rect>
+<rect data-state="unknown" x="896.12" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J05: unknown</title></rect>
+<rect data-state="unknown" x="915.65" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J06: unknown</title></rect>
+<rect data-state="unknown" x="935.18" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J07: unknown</title></rect>
+<rect data-state="unknown" x="954.71" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J08: unknown</title></rect>
+<rect data-state="unknown" x="974.24" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J09: unknown</title></rect>
+<rect data-state="unknown" x="993.76" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J10: unknown</title></rect>
+<rect data-state="unknown" x="1013.29" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J11: unknown</title></rect>
+<rect data-state="unknown" x="1032.82" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J12: unknown</title></rect>
+<rect data-state="unknown" x="1052.35" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J13: unknown</title></rect>
+<rect data-state="unknown" x="1071.88" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J14: unknown</title></rect>
+<rect data-state="unknown" x="1091.41" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J15: unknown</title></rect>
+<rect data-state="unknown" x="1110.94" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J16: unknown</title></rect>
+<rect data-state="unknown" x="1130.47" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J17: unknown</title></rect>
+</g>
+<text x="36" y="319" font-size="13" class="muted label" >THE PATH TO A COMPLETE FORGE</text>
+<text x="1164" y="319" font-size="14" class="muted" text-anchor="end">Sequence is the plan · evidence is the status</text>
+<g data-phase="M0"><title>M0 Scope and ownership. Exit gate: Recorded bounded execution baseline; delegated agent,authority; J01/J02 scenarios and data ownership.</title>
+<rect x="36" y="338" width="555" height="306" rx="16" class="card"/>
+<rect x="56" y="357" width="42" height="27" rx="7" class="badge"/>
+<text x="77" y="376" font-size="14" class="accent mono strong" text-anchor="middle">M0</text>
+<text x="571" y="376" font-size="12" class="muted label" text-anchor="end">FOUNDATION</text>
+<text x="56" y="416" font-size="23" class="strong" >Scope and ownership</text>
+<path d="M56 437h515" class="rule"/>
+<text x="56" y="457" font-size="11" class="muted label" >MILESTONE GATE</text>
+<text x="56" y="487" font-size="16" class="" >Confirm private-team scope, ownership, identity boundary,</text>
+<text x="56" y="510" font-size="16" class="" >and open experiments.</text>
+<path d="M56 553h515" class="rule"/>
+<text x="56" y="573" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="56" y="595" font-size="14" class="muted" >Recorded bounded execution baseline; delegated agent</text>
+<text x="56" y="615" font-size="14" class="muted" >authority; J01/J02 scenarios and data ownership.</text>
+</g>
+<g data-phase="M1"><title>M1 Repository ready. Exit gate: Fresh checkout runs; browser reaches API; secrets stay,server-side; isolated migrations and tests pass.</title>
+<rect x="609" y="338" width="555" height="306" rx="16" class="card"/>
+<rect x="629" y="357" width="42" height="27" rx="7" class="badge"/>
+<text x="650" y="376" font-size="14" class="accent mono strong" text-anchor="middle">M1</text>
+<text x="1144" y="376" font-size="12" class="muted label" text-anchor="end">AFTER M0</text>
+<text x="629" y="416" font-size="23" class="strong" >Repository ready</text>
+<path d="M629 437h515" class="rule"/>
+<text x="629" y="457" font-size="11" class="muted label" >MILESTONE GATE</text>
+<text x="629" y="487" font-size="16" class="" >Scaffold app/API, isolated Postgres, runtimes, real</text>
+<text x="629" y="510" font-size="16" class="" >request contract, local setup, CI.</text>
+<path d="M629 553h515" class="rule"/>
+<text x="629" y="573" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="629" y="595" font-size="14" class="muted" >Fresh checkout runs; browser reaches API; secrets stay</text>
+<text x="629" y="615" font-size="14" class="muted" >server-side; isolated migrations and tests pass.</text>
+</g>
+<g data-phase="M2"><title>M2 Private repository slice. Exit gate: Authorized create/clone/push/browse; unauthorized,reads/writes denied; timeouts and cleanup verified.</title>
+<rect x="36" y="662" width="555" height="364" rx="16" class="card"/>
+<rect x="56" y="681" width="42" height="27" rx="7" class="badge"/>
+<text x="77" y="700" font-size="14" class="accent mono strong" text-anchor="middle">M2</text>
+<text x="571" y="700" font-size="12" class="muted label" text-anchor="end">AFTER M1</text>
+<text x="56" y="740" font-size="23" class="strong" >Private repository slice</text>
+<path d="M56 761h515" class="rule"/>
+<text x="56" y="781" font-size="11" class="muted label" >3 JOURNEYS</text>
+<text x="493" y="781" font-size="12" class="muted mono" text-anchor="middle">I</text>
+<text x="527" y="781" font-size="12" class="muted mono" text-anchor="middle">V</text>
+<text x="561" y="781" font-size="12" class="muted mono" text-anchor="middle">R</text>
+<g data-journey="J01"><title>J01 Create a private repository. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="811" font-size="13" class="muted mono" >J01</text>
+<text x="101" y="811" font-size="16" class="" >Create a private repository</text>
+<text x="493" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J02"><title>J02 Clone and push over HTTPS. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="845" font-size="13" class="muted mono" >J02</text>
+<text x="101" y="845" font-size="16" class="" >Clone and push over HTTPS</text>
+<text x="493" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J04"><title>J04 Browse code and commit history. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="879" font-size="13" class="muted mono" >J04</text>
+<text x="101" y="879" font-size="16" class="" >Browse code and commit history</text>
+<text x="493" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<path d="M56 935h515" class="rule"/>
+<text x="56" y="955" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="56" y="977" font-size="14" class="muted" >Authorized create/clone/push/browse; unauthorized</text>
+<text x="56" y="997" font-size="14" class="muted" >reads/writes denied; timeouts and cleanup verified.</text>
+</g>
+<g data-phase="M3"><title>M3 Review and merge foundation. Exit gate: Concurrent and stale-state behavior proven; exact result,reconciles after service failure.</title>
+<rect x="609" y="662" width="555" height="364" rx="16" class="card"/>
+<rect x="629" y="681" width="42" height="27" rx="7" class="badge"/>
+<text x="650" y="700" font-size="14" class="accent mono strong" text-anchor="middle">M3</text>
+<text x="1144" y="700" font-size="12" class="muted label" text-anchor="end">AFTER M2</text>
+<text x="629" y="740" font-size="23" class="strong" >Review and merge foundation</text>
+<path d="M629 761h515" class="rule"/>
+<text x="629" y="781" font-size="11" class="muted label" >4 JOURNEYS</text>
+<text x="1066" y="781" font-size="12" class="muted mono" text-anchor="middle">I</text>
+<text x="1100" y="781" font-size="12" class="muted mono" text-anchor="middle">V</text>
+<text x="1134" y="781" font-size="12" class="muted mono" text-anchor="middle">R</text>
+<g data-journey="J06"><title>J06 Review and update a pull request. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="629" y="811" font-size="13" class="muted mono" >J06</text>
+<text x="674" y="811" font-size="16" class="" >Review and update a pull request</text>
+<text x="1066" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1134" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J07"><title>J07 Receive external check results. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="629" y="845" font-size="13" class="muted mono" >J07</text>
+<text x="674" y="845" font-size="16" class="" >Receive external check results</text>
+<text x="1066" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1134" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J08"><title>J08 Merge under current policy. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="629" y="879" font-size="13" class="muted mono" >J08</text>
+<text x="674" y="879" font-size="16" class="" >Merge under current policy</text>
+<text x="1066" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1134" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J09"><title>J09 Recover an interrupted merge. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="629" y="913" font-size="13" class="muted mono" >J09</text>
+<text x="674" y="913" font-size="16" class="" >Recover an interrupted merge</text>
+<text x="1066" y="913" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="913" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1134" y="913" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<path d="M629 935h515" class="rule"/>
+<text x="629" y="955" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="629" y="977" font-size="14" class="muted" >Concurrent and stale-state behavior proven; exact result</text>
+<text x="629" y="997" font-size="14" class="muted" >reconciles after service failure.</text>
+</g>
+<g data-phase="M4"><title>M4 Usable private forge. Exit gate: Pilot daily workflow works; compatibility limitations and,measured performance targets are documented.</title>
+<rect x="36" y="1044" width="555" height="364" rx="16" class="card"/>
+<rect x="56" y="1063" width="42" height="27" rx="7" class="badge"/>
+<text x="77" y="1082" font-size="14" class="accent mono strong" text-anchor="middle">M4</text>
+<text x="571" y="1082" font-size="12" class="muted label" text-anchor="end">AFTER M3</text>
+<text x="56" y="1122" font-size="23" class="strong" >Usable private forge</text>
+<path d="M56 1143h515" class="rule"/>
+<text x="56" y="1163" font-size="11" class="muted label" >4 JOURNEYS</text>
+<text x="493" y="1163" font-size="12" class="muted mono" text-anchor="middle">I</text>
+<text x="527" y="1163" font-size="12" class="muted mono" text-anchor="middle">V</text>
+<text x="561" y="1163" font-size="12" class="muted mono" text-anchor="middle">R</text>
+<g data-journey="J03"><title>J03 Use and revoke SSH credentials. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1193" font-size="13" class="muted mono" >J03</text>
+<text x="101" y="1193" font-size="16" class="" >Use and revoke SSH credentials</text>
+<text x="493" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J05"><title>J05 Import a supported repository. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1227" font-size="13" class="muted mono" >J05</text>
+<text x="101" y="1227" font-size="16" class="" >Import a supported repository</text>
+<text x="493" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J12"><title>J12 Publish a basic release. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1261" font-size="13" class="muted mono" >J12</text>
+<text x="101" y="1261" font-size="16" class="" >Publish a basic release</text>
+<text x="493" y="1261" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1261" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1261" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J13"><title>J13 Search and follow activity. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1295" font-size="13" class="muted mono" >J13</text>
+<text x="101" y="1295" font-size="16" class="" >Search and follow activity</text>
+<text x="493" y="1295" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1295" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1295" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<path d="M56 1317h515" class="rule"/>
+<text x="56" y="1337" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="56" y="1359" font-size="14" class="muted" >Pilot daily workflow works; compatibility limitations and</text>
+<text x="56" y="1379" font-size="14" class="muted" >measured performance targets are documented.</text>
+</g>
+<g data-phase="M5"><title>M5 Connected workspace. Exit gate: Links preserve both owners&apos; permissions; current/stale,verification is clear; scoped agent APIs follow ordinary,rules.</title>
+<rect x="609" y="1044" width="555" height="364" rx="16" class="card"/>
+<rect x="629" y="1063" width="42" height="27" rx="7" class="badge"/>
+<text x="650" y="1082" font-size="14" class="accent mono strong" text-anchor="middle">M5</text>
+<text x="1144" y="1082" font-size="12" class="muted label" text-anchor="end">AFTER M4</text>
+<text x="629" y="1122" font-size="23" class="strong" >Connected workspace</text>
+<path d="M629 1143h515" class="rule"/>
+<text x="629" y="1163" font-size="11" class="muted label" >2 JOURNEYS</text>
+<text x="1066" y="1163" font-size="12" class="muted mono" text-anchor="middle">I</text>
+<text x="1100" y="1163" font-size="12" class="muted mono" text-anchor="middle">V</text>
+<text x="1134" y="1163" font-size="12" class="muted mono" text-anchor="middle">R</text>
+<g data-journey="J10"><title>J10 Connect tasks and specifications. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="629" y="1193" font-size="13" class="muted mono" >J10</text>
+<text x="674" y="1193" font-size="16" class="" >Connect tasks and specifications</text>
+<text x="1066" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1134" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J11"><title>J11 Attach and reassess evidence. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="629" y="1227" font-size="13" class="muted mono" >J11</text>
+<text x="674" y="1227" font-size="16" class="" >Attach and reassess evidence</text>
+<text x="1066" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1134" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<path d="M629 1297h515" class="rule"/>
+<text x="629" y="1317" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="629" y="1339" font-size="14" class="muted" >Links preserve both owners&apos; permissions; current/stale</text>
+<text x="629" y="1359" font-size="14" class="muted" >verification is clear; scoped agent APIs follow ordinary</text>
+<text x="629" y="1379" font-size="14" class="muted" >rules.</text>
+</g>
+<g data-phase="M6"><title>M6 Managed lifecycle. Exit gate: Clean install, unhealthy-release rejection, real,replacement-host restore, supported export and removal.</title>
+<rect x="36" y="1426" width="555" height="364" rx="16" class="card"/>
+<rect x="56" y="1445" width="42" height="27" rx="7" class="badge"/>
+<text x="77" y="1464" font-size="14" class="accent mono strong" text-anchor="middle">M6</text>
+<text x="571" y="1464" font-size="12" class="muted label" text-anchor="end">AFTER M5</text>
+<text x="56" y="1504" font-size="23" class="strong" >Managed lifecycle</text>
+<path d="M56 1525h515" class="rule"/>
+<text x="56" y="1545" font-size="11" class="muted label" >4 JOURNEYS</text>
+<text x="493" y="1545" font-size="12" class="muted mono" text-anchor="middle">I</text>
+<text x="527" y="1545" font-size="12" class="muted mono" text-anchor="middle">V</text>
+<text x="561" y="1545" font-size="12" class="muted mono" text-anchor="middle">R</text>
+<g data-journey="J14"><title>J14 Install through Barkpark Cloud. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1575" font-size="13" class="muted mono" >J14</text>
+<text x="101" y="1575" font-size="16" class="" >Install through Barkpark Cloud</text>
+<text x="493" y="1575" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1575" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1575" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J15"><title>J15 Upgrade and reject unhealthy releases. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1609" font-size="13" class="muted mono" >J15</text>
+<text x="101" y="1609" font-size="16" class="" >Upgrade and reject unhealthy releases</text>
+<text x="493" y="1609" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1609" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1609" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J16"><title>J16 Restore onto a replacement host. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1643" font-size="13" class="muted mono" >J16</text>
+<text x="101" y="1643" font-size="16" class="" >Restore onto a replacement host</text>
+<text x="493" y="1643" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1643" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1643" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<g data-journey="J17"><title>J17 Export archive and remove. Implemented: unknown; Verified: unknown; Released: unknown</title>
+<text x="56" y="1677" font-size="13" class="muted mono" >J17</text>
+<text x="101" y="1677" font-size="16" class="" >Export archive and remove</text>
+<text x="493" y="1677" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1677" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="561" y="1677" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+</g>
+<path d="M56 1699h515" class="rule"/>
+<text x="56" y="1719" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="56" y="1741" font-size="14" class="muted" >Clean install, unhealthy-release rejection, real</text>
+<text x="56" y="1761" font-size="14" class="muted" >replacement-host restore, supported export and removal.</text>
+</g>
+<g data-phase="M7"><title>M7 First complete release. Exit gate: Every required journey has current release-candidate,evidence; no blocking correctness gap; agent evaluations,pass all evidence gates without human sign-off.</title>
+<rect x="609" y="1426" width="555" height="364" rx="16" class="card"/>
+<rect x="629" y="1445" width="42" height="27" rx="7" class="badge"/>
+<text x="650" y="1464" font-size="14" class="accent mono strong" text-anchor="middle">M7</text>
+<text x="1144" y="1464" font-size="12" class="muted label" text-anchor="end">AFTER M6</text>
+<text x="629" y="1504" font-size="23" class="strong" >First complete release</text>
+<path d="M629 1525h515" class="rule"/>
+<text x="629" y="1545" font-size="11" class="muted label" >MILESTONE GATE</text>
+<text x="629" y="1575" font-size="16" class="" >Complete bounded pilot and reconcile all accepted scope,</text>
+<text x="629" y="1598" font-size="16" class="" >artifact identity, runbooks, and evidence.</text>
+<path d="M629 1679h515" class="rule"/>
+<text x="629" y="1699" font-size="11" class="muted label" >EXIT EVIDENCE</text>
+<text x="629" y="1721" font-size="14" class="muted" >Every required journey has current release-candidate</text>
+<text x="629" y="1741" font-size="14" class="muted" >evidence; no blocking correctness gap; agent evaluations</text>
+<text x="629" y="1761" font-size="14" class="muted" >pass all evidence gates without human sign-off.</text>
+</g>
+<path d="M36 1820h1128" class="rule"/>
+<text x="36" y="1849" font-size="14" class="strong" >I · Implemented    /    V · Verified    /    R · Released</text>
+<text x="1164" y="1849" font-size="14" class="muted" text-anchor="end">✓ pass    ◐ active    ○ pending    × failed    ! inconclusive    ~ stale    ? unknown</text>
+<text x="36" y="1878" font-size="14" class="muted" >Journey status is not milestone completion. J04 continues through M4.</text>
+<text x="36" y="1906" font-size="11" class="muted label" >SOURCES</text>
+<text x="126" y="1906" font-size="14" class="muted" >ledger: unconfigured   /   evidence: unconfigured   /   releases: unconfigured</text>
+<text x="36" y="1933" font-size="14" class="muted" >No connected status snapshot · product progress is unknown</text>
+<text x="36" y="1960" font-size="13" class="muted" >Generated from canonical records · static snapshot · full criteria in docs/ROADMAP.md</text>
 </svg>
