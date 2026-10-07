@@ -1,10 +1,10 @@
-[![Gitgood delivery map: eight milestones, 17 journeys, and separate implementation, verification, and release evidence](docs/images/roadmap.svg)](docs/ROADMAP.md)
+[![Gitgood milestone Gantt: delivery order, where capabilities appear, and proposed overlapping research; columns are stages, not dates](docs/images/roadmap.svg)](docs/ROADMAP.md)
 
 # Gitgood
 
 A native forge connecting requirements, tasks, code review, evidence, and releases.
 
-[View full-size roadmap](docs/images/roadmap.svg) · [Milestone exit criteria](docs/ROADMAP.md) · [Journey specifications](JOURNEYS.md)
+[Full-size Gantt](docs/images/roadmap.svg) · [Journey evidence map](docs/images/journey-evidence.svg) · [Milestone exit criteria](docs/ROADMAP.md) · [Journey specifications](JOURNEYS.md)
 
 **Planning repository.** Native Gitgood is the agreed direction. This checkout contains the product plan and runnable reporting checks; it does not host repositories or deploy an application yet. Product progress is unverified until real sources are connected.
 
@@ -13,7 +13,7 @@ A native forge connecting requirements, tasks, code review, evidence, and releas
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — planning foundation.** Delegated project progression to agents and replaced human acceptance gates with recorded evidence-based verification across decisions, milestones, merges, and releases. Renamed the project from Gitpark to Gitgood, including the private GitHub repository, documentation, package metadata, roadmap SVG, and maintenance variable. Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Private GitHub repository FRIKKern/gitgood established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner. Redesigned the README roadmap with journey-level status, milestone dependencies and exit criteria, separate progress summaries, and light/dark palettes. No Gitgood application release has been published.
+**Unreleased — planning foundation.** Delegated project progression to agents and replaced human acceptance gates with recorded evidence-based verification across decisions, milestones, merges, and releases. Converted the top README roadmap to a milestone Gantt showing delivery surfaces and proposed research overlap; retained the detailed journey evidence map as a separate generated view. Renamed the project from Gitpark to Gitgood, including the private GitHub repository, documentation, package metadata, roadmap SVG, and maintenance variable. Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Private GitHub repository FRIKKern/gitgood established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner. Redesigned the README roadmap with journey-level status, milestone dependencies and exit criteria, separate progress summaries, and light/dark palettes. No Gitgood application release has been published.
 <!-- whats-new:end -->
 
 ## Start here

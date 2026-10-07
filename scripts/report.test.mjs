@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {validate, classify, releaseProblems} from './model.mjs'
-import {svg, changelog} from './render.mjs'
+import {journeySvg as svg, svg as gantt, changelog} from './render.mjs'
 const now=new Date('2026-10-07T12:00:00Z')
 const clone=()=>({
   catalog:{schemaVersion:1,journeys:[{id:'J01',milestone:'M1',title:'Fixture journey',required:true,spec:'docs/journeys/J01.md'}]},
@@ -128,6 +128,33 @@ test('release notes select included fragments and omit withdrawals',()=>{
   assert.match(out.body,/Back up before migration/)
   assert.match(out.highlights,/0.1.0/)
   assert.equal(out.body,changelog(m).body)
+})
+
+test('Gantt spans use milestone IDs and stay distinct from completion',()=>{
+  const m=clone()
+  m.milestones.supportTracks=[{id:'R1',title:'Early experiment',surface:'Disposable fixtures',start:'M0',end:'M1',kind:'research',note:'Proposed overlap'}]
+  assert.deepEqual(validate(m,now),[])
+  const out=gantt(m)
+  assert.equal((out.match(/data-phase=/g)||[]).length,2)
+  assert.match(out,/data-track="R1"/)
+  assert.match(out,/Equal columns ≠ equal durations/)
+  assert.match(out,/Bars show the plan, not verified completion/)
+  assert.match(out,/Implemented: 0 confirmed · 1 unknown or stale/)
+  assert.equal(out,gantt(m))
+  m.milestones.supportTracks[0].end='M99'
+  assert.ok(validate(m,now).some(e=>e.includes('support track span')))
+  m.milestones.supportTracks[0].start='M1';m.milestones.supportTracks[0].end='M0'
+  assert.ok(validate(m,now).some(e=>e.includes('support track span')))
+})
+
+test('Gantt rejects dependency order drift and escapes every displayed label',()=>{
+  const m=clone();m.milestones.milestones.reverse()
+  assert.ok(validate(m,now).some(e=>e.includes('order must follow dependencies')))
+  m.milestones.milestones.reverse()
+  m.milestones.milestones[0].surface='<script>bad()</script>'
+  const out=gantt(m)
+  assert.ok(!out.includes('<script>'))
+  assert.match(out,/&lt;script&gt;bad\(\)&lt;\/script&gt;/)
 })
 test('double-assigned or withdrawn release entries are rejected',()=>{
   const m=clone(),release={version:'0.1.0',date:'2026-10-07',commit:'a'.repeat(40),fragments:['planning-foundation']}

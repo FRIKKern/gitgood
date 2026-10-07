@@ -4,6 +4,7 @@
     {
       "id": "M0",
       "title": "Scope and ownership",
+      "surface": "GitHub · specifications and decisions",
       "dependsOn": [],
       "work": "Confirm private-team scope, ownership, identity boundary, and open experiments.",
       "exit": "Recorded bounded execution baseline; delegated agent authority; J01/J02 scenarios and data ownership."
@@ -11,6 +12,7 @@
     {
       "id": "M1",
       "title": "Repository ready",
+      "surface": "Local browser · Elixir API · Postgres",
       "dependsOn": [
         "M0"
       ],
@@ -20,6 +22,8 @@
     {
       "id": "M2",
       "title": "Private repository slice",
+      "surface": "Gitgood browser · terminal Git client",
+      "delivery": "First usable repository",
       "dependsOn": [
         "M1"
       ],
@@ -29,6 +33,7 @@
     {
       "id": "M3",
       "title": "Review and merge foundation",
+      "surface": "Gitgood pull requests · checks · audit",
       "dependsOn": [
         "M2"
       ],
@@ -38,6 +43,8 @@
     {
       "id": "M4",
       "title": "Usable private forge",
+      "surface": "Gitgood pilot installation",
+      "delivery": "Usable private-team forge",
       "dependsOn": [
         "M3"
       ],
@@ -47,6 +54,7 @@
     {
       "id": "M5",
       "title": "Connected workspace",
+      "surface": "Gitgood + supported Barkpark APIs",
       "dependsOn": [
         "M4"
       ],
@@ -56,6 +64,7 @@
     {
       "id": "M6",
       "title": "Managed lifecycle",
+      "surface": "Barkpark Cloud · deployed Gitgood host",
       "dependsOn": [
         "M5"
       ],
@@ -65,11 +74,42 @@
     {
       "id": "M7",
       "title": "First complete release",
+      "surface": "Private release artifacts · Cloud · pilot",
+      "delivery": "Complete managed release",
       "dependsOn": [
         "M6"
       ],
       "work": "Complete bounded pilot and reconcile all accepted scope, artifact identity, runbooks, and evidence.",
       "exit": "Every required journey has current release-candidate evidence; no blocking correctness gap; agent evaluations pass all evidence gates without human sign-off."
+    }
+  ],
+  "supportTracks": [
+    {
+      "id": "R1",
+      "title": "Barkpark contract research",
+      "surface": "Isolated API fixtures · decision D03",
+      "start": "M1",
+      "end": "M2",
+      "kind": "research",
+      "note": "Proposed early research; verify supported APIs and permissions before adoption at M5. Overlap requires available execution capacity."
+    },
+    {
+      "id": "R2",
+      "title": "Packaging + restore research",
+      "surface": "Disposable hosts · Cloud contracts",
+      "start": "M2",
+      "end": "M3",
+      "kind": "research",
+      "note": "Proposed early experiments for D05/D06/D07; managed lifecycle acceptance still belongs to M6. Overlap requires available execution capacity."
+    },
+    {
+      "id": "Q",
+      "title": "Quality + repo maintenance",
+      "surface": "CI · PRs · evidence · README · changelog",
+      "start": "M0",
+      "end": "M7",
+      "kind": "continuous",
+      "note": "Checks and upkeep at every stage. Live evidence collection and unattended scheduling remain implementation work."
     }
   ]
 }
