@@ -2,7 +2,7 @@
 
 This is a design contract, not a deployable package.
 
-Gitpark owns its web/API release packaging, migrations, version/readiness endpoints, functional probes, and app-specific data requirements. Cloud owns generic validation, provisioning, inventory, routing, constrained lifecycle execution, and reporting.
+Gitgood owns its web/API release packaging, migrations, version/readiness endpoints, functional probes, and app-specific data requirements. Cloud owns generic validation, provisioning, inventory, routing, constrained lifecycle execution, and reporting.
 
 The proposed descriptor must declare immutable artifact digests, target CPU/runtime, service/private-network dependencies, database and volume bindings, secret references, HTTP/SSH routes, owner bootstrap, migrations, health gates, backup/restore, and upgrade compatibility.
 

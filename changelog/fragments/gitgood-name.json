@@ -1,0 +1,9 @@
+{
+  "id": "gitgood-name",
+  "category": "Changed",
+  "summary": "Renamed the project from Gitpark to Gitgood, including the private GitHub repository, documentation, package metadata, roadmap SVG, and maintenance variable.",
+  "impact": "planning",
+  "references": ["docs/decisions/D01.md"],
+  "journeys": [],
+  "withdrawn": false
+}

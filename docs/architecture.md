@@ -8,10 +8,10 @@ The initial shape is one modular Elixir backend plus a React/TanStack web applic
 |---|---|
 | Browser | Interaction state, drafts, navigation, rendering |
 | TanStack server | Browser sessions and backend request composition |
-| Gitpark API | Forge authorization, reviews, policies, checks, operation records, APIs/events |
+| Gitgood API | Forge authorization, reviews, policies, checks, operation records, APIs/events |
 | Git boundary | Validated command arguments, transport hooks, timeouts, resource limits, expected-ref checks |
 | Git repositories | Code objects and refs |
-| Gitpark Postgres | Forge metadata, durable jobs, audit/operation records, relationship mappings |
+| Gitgood Postgres | Forge metadata, durable jobs, audit/operation records, relationship mappings |
 | Barkpark | Adopted document/task/media responsibility through verified contracts |
 | Artifact storage | Assets and evidence with explicit access rules |
 | Cloud | Installation administration, desired releases, lifecycle orchestration |

@@ -1,6 +1,6 @@
 # Tracking and report contract
 
-Barkpark will be the execution ledger. Its Gitpark goal ID is unconfigured. Do not reuse Barkpark Studio's goal or create a second live status list in these documents.
+Barkpark will be the execution ledger. Its Gitgood goal ID is unconfigured. Do not reuse Barkpark Studio's goal or create a second live status list in these documents.
 
 The milestone and journey catalogs are normative planning structure. evidence/status.json is a validated observation snapshot for derived views, not an editable replacement ledger. Source adapters are future S09/S16 work.
 

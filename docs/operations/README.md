@@ -1,6 +1,6 @@
 # Operational acceptance
 
-Do not host authoritative project history exclusively on Gitpark before recovery and export are proven. Retain independent release artifacts and bootstrap instructions.
+Do not host authoritative project history exclusively on Gitgood before recovery and export are proven. Retain independent release artifacts and bootstrap instructions.
 
 ## Installation
 

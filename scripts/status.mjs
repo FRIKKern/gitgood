@@ -2,7 +2,7 @@ import {load, validate, freshness, classify, releaseProblems} from './model.mjs'
 const m=load(), now=new Date(), errors=validate(m,now)
 if(errors.length){console.error(errors.join('\n'));process.exitCode=1}
 else {
-  console.log('Gitpark reporting baseline: '+m.snapshot.baseline)
+  console.log('Gitgood reporting baseline: '+m.snapshot.baseline)
   console.log('Candidate commit: '+(m.snapshot.headCommit??'not implemented'))
   for(const name of ['ledger','evidence','releases'])console.log(name+': '+freshness(m.snapshot,name,now))
   for(const j of m.catalog.journeys) {

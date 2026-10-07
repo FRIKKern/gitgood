@@ -11,11 +11,11 @@ export function svg(m) {
   const snapshot = m.snapshot.evaluatedAt ?? 'No connected implementation evidence'
   const lines = [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" role="img" aria-labelledby="title desc">',
-    '<title id="title">Gitpark delivery roadmap</title>',
+    '<title id="title">Gitgood delivery roadmap</title>',
     '<desc id="desc">Eight milestones from scope to a complete native forge. Implementation, verification and release are separate. A question mark means unavailable or stale input, not zero progress.</desc>',
     '<style>:root{color-scheme:light dark} .bg{fill:#f5f7fa}.card{fill:#fff;stroke:#ced8e4}.text{fill:#162739}.muted{fill:#52677a}.accent{fill:#136e68}.line{stroke:#ced8e4} text{font-family:Arial,Helvetica,sans-serif} @media(prefers-color-scheme:dark){.bg{fill:#121c27}.card{fill:#1b2938;stroke:#405365}.text{fill:#eef5fb}.muted{fill:#bccbd7}.accent{fill:#82d6c8}.line{stroke:#405365}}</style>',
     '<rect class="bg" width="1120" height="720" rx="20"/>',
-    '<text class="text" x="36" y="54" font-size="30" font-weight="700">GITPARK</text>',
+    '<text class="text" x="36" y="54" font-size="30" font-weight="700">GITGOOD</text>',
     '<text class="muted" x="36" y="86" font-size="16">Native forge · Barkpark integration · Managed Cloud lifecycle</text>',
     '<text class="accent" x="36" y="121" font-size="14" font-weight="700">PLANNING BASELINE · Product completion requires connected evidence</text>'
   ]
@@ -62,6 +62,6 @@ export function changelog(m) {
   const latest=releases[0]
   const highlights = latest
     ? "## What's new\n\n**"+latest.version+" — "+latest.date+".** "+latest.fragments.map(id=>m.fragments.find(f=>f.id===id)?.summary).filter(Boolean).slice(0,3).join(' ')+' See [release history](CHANGELOG.md).'
-    : "## What's new\n\n**Unreleased — planning foundation.** "+(pending.filter(f=>f.impact==='planning').map(f=>f.summary).join(' ')||'Development work has not been released.')+' No Gitpark application release has been published.'
+    : "## What's new\n\n**Unreleased — planning foundation.** "+(pending.filter(f=>f.impact==='planning').map(f=>f.summary).join(' ')||'Development work has not been released.')+' No Gitgood application release has been published.'
   return {body,highlights}
 }

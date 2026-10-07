@@ -1,6 +1,6 @@
 # Security reporting
 
-This is a planning-only checkout; Gitpark has no deployed product here.
+This is a planning-only checkout; Gitgood has no deployed product here.
 
 Before publishing the repository, configure a private vulnerability-reporting channel and document the support/security owner. Do not invent an email address or rely on a public issue for confidential reports.
 

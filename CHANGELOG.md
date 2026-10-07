@@ -4,5 +4,6 @@ Generated from reviewed fragments and changelog/releases.json. This file does no
 
 ## Unreleased
 
+- **Changed:** Renamed the project from Gitpark to Gitgood, including the private GitHub repository, documentation, package metadata, roadmap SVG, and maintenance variable. Sources: [docs/decisions/D01.md](docs/decisions/D01.md)
 - **Added:** Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Sources: [PRODUCT.md](PRODUCT.md), [JOURNEYS.md](JOURNEYS.md), [docs/EXECUTION.md](docs/EXECUTION.md)
-- **Added:** Private GitHub repository FRIKKern/gitpark established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner. Sources: [docs/decisions/D01.md](docs/decisions/D01.md)
+- **Added:** Private GitHub repository FRIKKern/gitgood established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner. Sources: [docs/decisions/D01.md](docs/decisions/D01.md)

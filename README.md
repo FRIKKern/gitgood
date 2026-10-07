@@ -1,15 +1,15 @@
-# Gitpark
+# Gitgood
 
 A native forge connecting requirements, tasks, code review, evidence, and releases.
 
-[![Gitpark roadmap with separate implementation, verification, and release states](docs/images/roadmap.svg)](docs/ROADMAP.md)
+[![Gitgood roadmap with separate implementation, verification, and release states](docs/images/roadmap.svg)](docs/ROADMAP.md)
 
-**Planning repository.** Native Gitpark is the agreed direction. This checkout contains the product plan and runnable reporting checks; it does not host repositories or deploy an application yet. Product progress is unverified until real sources are connected.
+**Planning repository.** Native Gitgood is the agreed direction. This checkout contains the product plan and runnable reporting checks; it does not host repositories or deploy an application yet. Product progress is unverified until real sources are connected.
 
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — planning foundation.** Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Private GitHub repository FRIKKern/gitpark established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner. No Gitpark application release has been published.
+**Unreleased — planning foundation.** Renamed the project from Gitpark to Gitgood, including the private GitHub repository, documentation, package metadata, roadmap SVG, and maintenance variable. Product scope, 17 journey specifications, delivery milestones, repository routines, and a generated roadmap are available. Private GitHub repository FRIKKern/gitgood established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner. No Gitgood application release has been published.
 <!-- whats-new:end -->
 
 ## Start here
@@ -37,7 +37,7 @@ Requires Node 22.13.1 or a compatible Node 22 runtime. No npm dependencies are n
 | Milestone definitions | [Milestone catalog](docs/milestones.json); [rendered roadmap](docs/ROADMAP.md) |
 | Quality and evidence | [QUALITY.md](QUALITY.md), [evidence contract](evidence/README.md) |
 | Architecture and decisions | [Architecture](docs/architecture.md), [decision index](docs/decisions/README.md) |
-| Assignments and blockers | Future Gitpark goal in the Barkpark ledger; [tracking contract](docs/TRACKING.md) |
+| Assignments and blockers | Future Gitgood goal in the Barkpark ledger; [tracking contract](docs/TRACKING.md) |
 | Setup sequence | [Execution plan](docs/EXECUTION.md) |
 | Repository care | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Release history and routine | [CHANGELOG.md](CHANGELOG.md), [changelog routine](changelog/ROUTINE.md) |
@@ -52,4 +52,4 @@ Requires Node 22.13.1 or a compatible Node 22 runtime. No npm dependencies are n
 
 The upstream design discussion is preserved in the [initial reference Page](https://chatgpt.com/space/page_fd72d3f936c88191b2f83ed1217f7f82); access to that Page is separate. These repository files are the normative implementation baseline.
 
-The upstream repository is [FRIKKern/gitpark](https://github.com/FRIKKern/gitpark), created as private on 7 October 2026. Planning checks run on pushes to `main` and pull requests. The scheduled freshness job remains disabled until its sources and alerts are configured. License, identity bootstrap, and release staffing remain open in [decisions](docs/decisions/README.md).
+The upstream repository is [FRIKKern/gitgood](https://github.com/FRIKKern/gitgood), created as private on 7 October 2026. Planning checks run on pushes to `main` and pull requests. The scheduled freshness job remains disabled until its sources and alerts are configured. License, identity bootstrap, and release staffing remain open in [decisions](docs/decisions/README.md).

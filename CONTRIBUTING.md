@@ -1,4 +1,4 @@
-# Contributing and maintaining Gitpark
+# Contributing and maintaining Gitgood
 
 ## Work
 
@@ -27,7 +27,7 @@ Generated outputs must come from the checked-in canonical inputs. Never hand-edi
 | Weekly | Review dependencies, idle work, merged branches, worktrees, old decisions, and evidence retention. |
 | Milestone/release | Reconcile required journeys, actual artifacts, current evidence, runbooks, and release notes. |
 
-The maintenance workflow is opt-in through `GITPARK_MAINTENANCE_ENABLED`. Leave it disabled until the ledger/evidence integrations and named maintainer are configured. Local CI cannot claim remote branch protection is enabled.
+The maintenance workflow is opt-in through `GITGOOD_MAINTENANCE_ENABLED`. Leave it disabled until the ledger/evidence integrations and named maintainer are configured. Local CI cannot claim remote branch protection is enabled.
 
 Define a maintainer and fallback in the ledger. Failed maintenance creates one deduplicated actionable record; repeated unchanged failures should not create spam. That integration is setup task S16, not implemented by this planning skeleton.
 

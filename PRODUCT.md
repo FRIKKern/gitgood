@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Gitpark is a native private-team forge that makes the relationship between intended behavior, implementation, review, verification, and release understandable. Normal small changes should remain easy; a formal specification is not mandatory for every edit.
+Gitgood is a native private-team forge that makes the relationship between intended behavior, implementation, review, verification, and release understandable. Normal small changes should remain easy; a formal specification is not mandatory for every edit.
 
 ## Settled direction
 

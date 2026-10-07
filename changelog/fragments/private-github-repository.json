@@ -1,7 +1,7 @@
 {
   "id": "private-github-repository",
   "category": "Added",
-  "summary": "Private GitHub repository FRIKKern/gitpark established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner.",
+  "summary": "Private GitHub repository FRIKKern/gitgood established with planning verification on pushes and pull requests, current pinned GitHub Actions, and an explicit Ubuntu 24.04 runner.",
   "impact": "planning",
   "references": ["docs/decisions/D01.md"],
   "journeys": [],
