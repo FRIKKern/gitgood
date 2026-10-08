@@ -1,0 +1,9 @@
+{
+  "id": "offline-recovery",
+  "category": "Added",
+  "summary": "Started coordinated offline recovery with production installation exclusion and stopped-process checks; encrypted backup and replacement-host acceptance remain under implementation.",
+  "impact": "product",
+  "references": ["docs/implementation/offline-backup.md"],
+  "journeys": ["J16"],
+  "withdrawn": false
+}

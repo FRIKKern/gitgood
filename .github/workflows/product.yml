@@ -79,6 +79,8 @@ jobs:
           GITGOOD_DISCOVERY_MODE=check mix run --no-start verification/discovery_upgrade.exs
       - run: npm ci && npm run check
         working-directory: apps/web
+      - name: Verify authenticated recovery bundle and schema boundaries
+        run: node --test apps/forge/test/operations/*.test.mjs
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - name: Install pinned direct-edge verification runtime

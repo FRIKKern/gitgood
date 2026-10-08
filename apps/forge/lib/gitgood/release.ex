@@ -1,11 +1,20 @@
 defmodule Gitgood.Release do
   @app :gitgood
+  def backup, do: Gitgood.OfflineRecovery.run(:backup)
+  def restore, do: Gitgood.OfflineRecovery.run(:restore)
+
   def migrate do
     Application.load(@app)
 
-    for repo <- Application.fetch_env!(@app, :ecto_repos) do
-      {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
+    migration = fn ->
+      for repo <- Application.fetch_env!(@app, :ecto_repos) do
+        {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
+      end
     end
+
+    if Gitgood.InstallationLease.enabled?(),
+      do: Gitgood.InstallationLease.with_offline(:migrate, fn _ -> migration.() end),
+      else: migration.()
   end
 
   def bootstrap do

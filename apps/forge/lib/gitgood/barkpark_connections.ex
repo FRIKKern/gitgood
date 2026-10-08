@@ -1,4 +1,16 @@
 defmodule Gitgood.BarkparkConnections do
+  def recoverable_secret?(row) do
+    case Gitgood.ConnectionSecrets.open(row.token_cipher, [
+           row.user_id,
+           row.id,
+           row.generation,
+           row.origin
+         ]) do
+      {:ok, value} when is_binary(value) -> true
+      _ -> false
+    end
+  end
+
   @moduledoc "Private per-account scoped source connections; external I/O never holds a database lock."
   import Ecto.Query
 

@@ -1,4 +1,11 @@
 defmodule Gitgood.SourceReturns do
+  def recoverable_request?(op) do
+    case Gitgood.ConnectionSecrets.open(op.payload_cipher, payload_binding(op)) do
+      {:ok, value} when is_binary(value) -> :crypto.hash(:sha256, value) == op.payload_digest
+      _ -> false
+    end
+  end
+
   @moduledoc "Durable, generation-bound Paper return-pointer responsibility."
   import Ecto.Query
 

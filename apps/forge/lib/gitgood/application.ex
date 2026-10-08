@@ -48,7 +48,12 @@ defmodule Gitgood.Application do
             ]
         end
 
-    opts = [strategy: :one_for_one, name: Gitgood.Supervisor]
+    children =
+      if Gitgood.InstallationLease.enabled?(),
+        do: List.insert_at(children, 2, Gitgood.InstallationLease),
+        else: children
+
+    opts = [strategy: :rest_for_one, name: Gitgood.Supervisor]
     Supervisor.start_link(children, opts)
   end
 

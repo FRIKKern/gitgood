@@ -9,6 +9,7 @@ import {request as httpsRequest} from 'node:https'
 import {createHmac} from 'node:crypto'
 import {createServer as netServer} from 'node:net'
 import assert from 'node:assert/strict'
+import {verifyOfflineRecovery} from './verify-offline-recovery.mjs'
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 const sourceWeb=join(repository,'apps/web')
 const sourceForge=join(repository,'apps/forge')
@@ -53,7 +54,16 @@ async function wait(child,name,allowed=[0]) {
 }
 async function run(file,args,env,cwd,name) {await wait(launch(file,args,env,cwd,name),name)}
 async function stop(child) {
-  if(!child || child.exitCode!==null || child.signalCode!==null)return
+  if(!child)return
+  if(child.runtimeCgroup){
+    await writeFile(join(child.runtimeCgroup,'cgroup.kill'),'1')
+    const deadline=Date.now()+5000
+    while(!(await readFile(join(child.runtimeCgroup,'cgroup.events'),'utf8')).includes('populated 0')){
+      assert(Date.now()<deadline,'Owned runtime cgroup did not become empty')
+      await new Promise(resolve=>setTimeout(resolve,25))
+    }
+  }
+  if(child.exitCode!==null || child.signalCode!==null)return
   const ended=new Promise(resolve=>child.once('exit',resolve))
   if(windows) {
     await new Promise(resolve=>{const killer=spawn('taskkill',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});killer.once('exit',resolve);killer.once('error',resolve)})
@@ -125,7 +135,13 @@ try {
     await run(release,['eval','Gitgood.Release.bootstrap()'],{...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'},installedForge,'bootstrap')
   }
   const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl,GITGOOD_PROXY_KEY:proxyKey}
-  const startBackend=()=>launch(release,['start'],{...env,PHX_SERVER:'true'},installedForge,'forge')
+  const startBackend=(configuration={...env,PHX_SERVER:'true'})=>{
+    const group=process.env.GITGOOD_VERIFY_CGROUP
+    const child=group?launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'priv/operations/runtime_cgroup.py'),group,release,'start'],configuration,installedForge,'forge'):
+      launch(release,['start'],configuration,installedForge,'forge')
+    if(group)child.runtimeCgroup=group
+    return child
+  }
   const startWeb=()=>launch(process.execPath,[join(installedWeb,'node_modules/srvx/bin/srvx.mjs'),'--prod','-s','dist/client','server.mjs'],webEnv,installedWeb,'web')
   backend=startBackend();web=startWeb()
   const forgeReady=await ready(forgeUrl),webReady=await ready(webUrl)
@@ -381,12 +397,22 @@ try {
   await stop(web);web=null
   await writeFile(identityFile,original)
   web=startWeb();await ready(webUrl)
+  let offlineRecovery
+  if(process.env.GITGOOD_VERIFY_RECOVERY==='true'){
+    assert(!windows&&process.env.GITGOOD_VERIFY_CGROUP,'Offline operational proof requires the dedicated Linux cgroup')
+    offlineRecovery=await verifyOfflineRecovery({root,env,webEnv,release,installedForge,installedWeb,run,launch,wait,stop,ready,
+      stopNative:async()=>{await stop(web);web=null;await stop(backend);backend=null},
+      startRestored:async(forgeEnvironment,webEnvironment)=>{backend=startBackend(forgeEnvironment);web=launch(process.execPath,
+        [join(installedWeb,'node_modules/srvx/bin/srvx.mjs'),'--prod','-s','dist/client','server.mjs'],webEnvironment,installedWeb,'restored-web')},
+      authorization,outsiderAuth,forgeUrl,webUrl,sourceControl,sourceLinks,gitRepo,gitEnv,sshEnv,main,sshBefore,releaseAssetPath,released,
+      certificate,tlsKey:key,evidence:join(sourceWeb,'test-results-production')})
+  }
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
     runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,importOperation:imported.operation_id,
     release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
     discovery:{record:discovery.record,membership_events:discovery.membership_events},
     nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
-    clientAddress:clientAddressProof,
+    clientAddress:clientAddressProof,offlineRecovery,
     sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors,return_operation:sourceLinks.return_operation,return_destination:sourceLinks.return_destination},
     checks:['authenticated edge/socket login buckets, twenty-attempt boundary, spoofed fields and direct bypass refusal','source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
