@@ -40,12 +40,47 @@ export async function verifyOfflineRecovery(options){
   }
   assert.equal(unknown?.state,'unknown');assert.equal(unknown.source_transaction,null)
   const statsBefore=await (await fetch(sourceControl+'/journal/stats')).json()
+  assert(Number.isSafeInteger(gitRepo.id)&&gitRepo.id>0)
+  const sourceDatabase=new URL(env.DATABASE_URL)
+  const pgEnv={...process.env,PGHOST:sourceDatabase.hostname,PGPORT:sourceDatabase.port,PGUSER:decodeURIComponent(sourceDatabase.username),
+    PGPASSWORD:decodeURIComponent(sourceDatabase.password),PGDATABASE:sourceDatabase.pathname.slice(1)}
+  await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--tuples-only','--no-align','--command',
+    'SELECT storage_key::text FROM repositories WHERE id='+gitRepo.id],pgEnv,root,'interrupted-storage-key')
+  const storageKey=(await readFile(join(root,'logs/interrupted-storage-key.log'),'utf8')).trim()
+  assert(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(storageKey))
   await stopNative()
+  const group=process.env.GITGOOD_VERIFY_CGROUP,prepared=join(root,'git-ref-prepared'),holder=join(root,'hold-git-ref.mjs')
+  const interruptedRef='refs/heads/recovery-interrupted',bare=join(env.GITGOOD_STORAGE,storageKey+'.git')
+  assert(/^[a-f0-9]{40}$/.test(main.sha))
+  const lock=join(bare,interruptedRef+'.lock')
+  await writeFile(holder,`import {spawn} from 'node:child_process';import {writeFile} from 'node:fs/promises';
+const child=spawn(process.env.GITGOOD_GIT,['--git-dir',process.argv[2],'update-ref','--stdin'],{stdio:['pipe','pipe','pipe']});
+child.stderr.resume();let output='',marked=false;
+child.stdout.on('data',async bytes=>{output+=bytes.toString();if(!marked&&output.includes('prepare: ok')){marked=true;await writeFile(process.argv[4],'prepared')}});
+child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv[3]+'\\nprepare\\n');
+`,{flag:'wx',mode:0o600})
+  let held,interruptedLock
+  try{
+    held=launch(process.env.GITGOOD_PYTHON,['-I',join(options.sourceForge,'priv/operations/runtime_cgroup.py'),group,
+      process.execPath,holder,bare,main.sha,prepared],{PATH:process.env.PATH,GITGOOD_GIT:process.env.GITGOOD_GIT??'git',
+        GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',HOME:'/nonexistent'},root,'held-ref-transaction')
+    held.runtimeCgroup=group
+    const deadline=Date.now()+10000
+    while(true){try{await lstat(prepared);break}catch{}assert(Date.now()<deadline);await new Promise(resolve=>setTimeout(resolve,25))}
+    interruptedLock=await readFile(lock)
+    await wait(launch(release,['eval','Gitgood.Release.backup()'],backupEnv,installedForge,'backup-held-writer-refusal'),'backup-held-writer-refusal',[1])
+    assert((await readFile(lock)).equals(interruptedLock));await assert.rejects(lstat(bundle))
+  }finally{if(held)await stop(held)}
+  assert((await readFile(lock)).equals(interruptedLock),'Kernel termination must leave the real unpublished Git lock for recovery')
   const pausedAt=performance.now()
   await run(release,['eval','Gitgood.Release.backup()'],backupEnv,installedForge,'backup')
   const backupLog=await readFile(join(root,'logs/backup.log'),'utf8')
   const backupReceipt=JSON.parse(backupLog.trim().split('\n').find(line=>line.startsWith('{')))
   assert.equal(backupReceipt.status,'complete')
+  const recoveredLock=backupReceipt.interrupted_git_locks.find(value=>value.storage_key===storageKey&&value.path===interruptedRef+'.lock')
+  assert(recoveredLock&&recoveredLock.sha256===createHash('sha256').update(interruptedLock).digest('hex'))
+  assert((await readFile(join(env.GITGOOD_STORAGE,recoveredLock.quarantine))).equals(interruptedLock))
+  await assert.rejects(lstat(lock))
   assert.equal(createHash('sha256').update(await readFile(bundle)).digest('hex'),backupReceipt.ciphertext_sha256)
   const installation=join(root,'recovered');await mkdir(installation,{mode:0o700})
   const database='gitgood_restored_'+randomBytes(4).toString('hex')
@@ -59,6 +94,7 @@ export async function verifyOfflineRecovery(options){
   for(const key of ['SECRET_KEY_BASE','GITGOOD_PROXY_KEY','GITGOOD_CONNECTION_KEY','GITGOOD_PUBLIC_URL','GITGOOD_WEB_ORIGIN'])
     assert(recovered.forge[key]===env[key],'Recovered custody/origin must equal the actual original installation')
   assert((await readFile(join(installation,'ssh/ssh_host_ed25519_key'))).equals(await readFile(join(env.GITGOOD_SSH_HOST_KEY_DIRECTORY,'ssh_host_ed25519_key'))),'Recovered SSH private identity must match')
+  assert((await readFile(join(installation,'git',recoveredLock.quarantine))).equals(interruptedLock),'Interrupted lock bytes must survive in private recovery custody')
   await startRestored({...process.env,...recovered.forge,PHX_SERVER:'true'},{...process.env,...recovered.web})
   await ready(forgeUrl);await ready(webUrl)
   const repos=await (await fetch(forgeUrl+'/api/repos',{headers:{authorization}})).json()
@@ -99,15 +135,16 @@ export async function verifyOfflineRecovery(options){
   await writeFile(join(clone,'recovery-proof.txt'),'A new authorized write after offline restoration.\n')
   await run(process.env.GITGOOD_GIT??'git',['add','--','recovery-proof.txt'],gitEnv,clone,'restored-add')
   await run(process.env.GITGOOD_GIT??'git',['-c','user.name=Recovery fixture','-c','user.email=recovery@example.invalid','commit','-m','Recovery functional proof'],gitEnv,clone,'restored-commit')
-  await run(process.env.GITGOOD_GIT??'git',['push','origin','HEAD:refs/heads/recovery-proof'],gitEnv,clone,'restored-push')
+  await run(process.env.GITGOOD_GIT??'git',['push','origin','HEAD:'+interruptedRef],gitEnv,clone,'restored-push')
   const branches=await (await fetch(forgeUrl+'/api/repos/'+gitRepo.team+'/'+gitRepo.name+'/branches',{headers:{authorization}})).json()
-  assert(branches.branches.some(branch=>branch.name==='recovery-proof'))
+  assert(branches.branches.some(branch=>branch.name==='recovery-interrupted'))
   const recoveryMs=performance.now()-pausedAt
   assert(recoveryMs<targetRtoMs)
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
     backup:{...backupReceipt},restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','exact database rows/sequences/schema fingerprint',
+      'real prepared Git transaction excluded while alive; killed lock quarantined byte-for-byte without publishing its ref',
       'restored session, proxy and source key custody','SSH host identity retained','unknown sealed request retained and observed without another write',
       'private collaboration and asset access retained','outsider denied','authorized HTTPS and SSH refs, clone and new push with rebound hooks'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}

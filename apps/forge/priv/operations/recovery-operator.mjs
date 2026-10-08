@@ -10,6 +10,7 @@ import {packRecovery,unpackRecovery,RecoveryError} from './recovery-bundle.mjs'
 import {privateFile,readConfiguration,validateConfiguration,forgeKeys} from './recovery-configuration.mjs'
 import {assertLease,assertDatabaseTools,fingerprintDatabase,dumpDatabase,restoreDatabase,query} from './recovery-database.mjs'
 import {inspectRepositories,rebindRepositories} from './recovery-git.mjs'
+import {quarantineInterruptedLocks} from './recovery-locks.mjs'
 
 const check=(condition,code='recovery_configuration_invalid')=>{if(!condition)throw new RecoveryError(code)}
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b)
@@ -64,13 +65,19 @@ async function backup(context,options,key){
     }
     const recovery_point=new Date().toISOString()
     const rows=JSON.parse(await query("SELECT coalesce(json_agg(json_build_object('storage_key',storage_key::text,'status',status) ORDER BY storage_key),'[]'::json) FROM repositories"))
+    // Validate owned stores first. Only complete runtime exclusion permits lock quarantine.
+    await inspectRepositories(context.root,rows,{allowInterruptedLocks:true})
+    const interrupted_git_locks=await quarantineInterruptedLocks(context.root,rows,async()=>{
+      await assertLease(context)
+      await assertRuntimeStopped(context)
+    })
     const repositories=await inspectRepositories(context.root,rows)
     const database=await fingerprintDatabase()
-    const descriptor={protocol:1,installation:config.installation,database,repositories}
+    const descriptor={protocol:1,installation:config.installation,database,repositories,interrupted_git_locks}
     await writeFile(join(configRoot,'recovery.json'),JSON.stringify(descriptor)+'\n',{flag:'wx',mode:0o600})
     const dump=join(scratch,'database.dump');await dumpDatabase(dump)
     check(equal(database,await fingerprintDatabase()),'snapshot_changed')
-    return await packRecovery({destination:options.destination,key,metadata:{candidate:context.identity.candidate,postgres:context.postgres,
+    const packed=await packRecovery({destination:options.destination,key,metadata:{candidate:context.identity.candidate,postgres:context.postgres,
       migrations:context.migrations,recovery_point},roots:{git:context.root,ssh:resolve(options.ssh),configuration:configRoot,'database.dump':dump},
       beforePublish:async()=>{
         await assertLease(context)
@@ -78,6 +85,7 @@ async function backup(context,options,key){
         check(equal(repositories,await inspectRepositories(context.root,rows)),'snapshot_changed')
         check(equal(database,await fingerprintDatabase()),'snapshot_changed')
       }})
+    return {...packed,interrupted_git_locks}
   }finally{await rm(scratch,{recursive:true,force:true})}
 }
 async function copyExact(source,target){

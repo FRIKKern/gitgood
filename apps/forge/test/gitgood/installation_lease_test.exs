@@ -9,6 +9,19 @@ defmodule Gitgood.InstallationLeaseTest do
     assert start(root, :migrate) == {:error, :installation_restore_incomplete}
   end
 
+  if match?({:unix, _}, :os.type()) do
+    test "a dangling incomplete-gate symlink cannot bypass installation exclusion", %{root: root} do
+      File.ln_s!(
+        Path.join(root, "missing-target"),
+        Path.join(root, ".gitgood-restore-incomplete-v1.json")
+      )
+
+      assert start(root) == {:error, :installation_restore_incomplete}
+      assert start(root, :backup) == {:error, :installation_restore_incomplete}
+      assert start(root, :migrate) == {:error, :installation_restore_incomplete}
+    end
+  end
+
   setup do
     Process.flag(:trap_exit, true)
     root = Path.join(System.tmp_dir!(), "gitgood-lease-" <> Ecto.UUID.generate())

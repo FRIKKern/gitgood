@@ -412,7 +412,7 @@ try {
   let offlineRecovery
   if(process.env.GITGOOD_VERIFY_RECOVERY==='true'){
     assert(!windows&&process.env.GITGOOD_VERIFY_CGROUP,'Offline operational proof requires the dedicated Linux cgroup')
-    offlineRecovery=await verifyOfflineRecovery({root,env,webEnv,release,installedForge,installedWeb,run,launch,wait,stop,ready,
+    offlineRecovery=await verifyOfflineRecovery({root,env,webEnv,release,installedForge,installedWeb,sourceForge,run,launch,wait,stop,ready,
       stopNative:async()=>{await stop(web);web=null;await stop(backend);backend=null},
       startRestored:async(forgeEnvironment,webEnvironment)=>{backend=startBackend(forgeEnvironment);web=launch(process.execPath,
         [join(installedWeb,'node_modules/srvx/bin/srvx.mjs'),'--prod','-s','dist/client','server.mjs'],webEnvironment,installedWeb,'restored-web')},

@@ -3,6 +3,7 @@ import {readFile,writeFile,lstat,readdir} from 'node:fs/promises'
 import {join,resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {RecoveryError} from './recovery-bundle.mjs'
+import {interruptedLocks} from './recovery-locks.mjs'
 
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 const allowed=new Set(['core.repositoryformatversion','core.filemode','core.bare','core.hookspath',
@@ -36,7 +37,7 @@ async function config(path){
     values['receive.denynonfastforwards']==='true'&&values['receive.denydeletes']==='true'&&
     values['receive.maxinputsize']==='33554432'&&values['http.getanyfile']==='false'&&values['http.maxrequestbuffer']==='33554432')
 }
-export async function inspectRepositories(root,rows){
+export async function inspectRepositories(root,rows,{allowInterruptedLocks=false}={}){
   check(Array.isArray(rows)&&rows.length<=10000)
   const names=await readdir(root),result=[]
   for(const row of rows){
@@ -45,6 +46,7 @@ export async function inspectRepositories(root,rows){
     if(!names.includes(name)){check(row.status!=='ready');result.push({...row,refs:null});continue}
     check((await lstat(path)).isDirectory())
     if(row.status!=='ready'){result.push({...row,refs:null});continue}
+    if(!allowInterruptedLocks)check((await interruptedLocks(path)).length===0)
     // Native repositories never depend on objects outside their owned storage tree.
     try{await lstat(join(path,'objects/info/alternates'));throw new RecoveryError('git_inventory_invalid')}catch(error){if(error.code!=='ENOENT')throw error}
     await config(path)

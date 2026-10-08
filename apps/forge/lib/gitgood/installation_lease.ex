@@ -138,7 +138,8 @@ defmodule Gitgood.InstallationLease do
     maintenance = Path.join(root, @maintenance_marker)
 
     cond do
-      mode != :restore and File.exists?(Path.join(root, ".gitgood-restore-incomplete-v1.json")) ->
+      mode != :restore and
+          File.lstat(Path.join(root, ".gitgood-restore-incomplete-v1.json")) != {:error, :enoent} ->
         {:error, :installation_restore_incomplete}
 
       mode == :backup and not File.exists?(runtime) ->

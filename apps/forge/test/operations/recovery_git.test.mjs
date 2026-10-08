@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises'
+import {mkdtemp,mkdir,writeFile,readFile,rm,lstat,symlink,link} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {execFile} from 'node:child_process'
+import {execFile,spawn} from 'node:child_process'
 import {promisify} from 'node:util'
 import {inspectRepositories,rebindRepositories} from '../../priv/operations/recovery-git.mjs'
 import {RecoveryError} from '../../priv/operations/recovery-bundle.mjs'
+import {quarantineInterruptedLocks} from '../../priv/operations/recovery-locks.mjs'
 const command=promisify(execFile),storage_key='d5e74fd0-1bcb-49d9-bf37-e3a0b69325c2'
 async function fixture(t){
   const root=await mkdtemp(join(tmpdir(),'gitgood-recovery-git-')),path=join(root,storage_key+'.git')
@@ -47,4 +48,47 @@ test('real fsck refuses a corrupt referenced object',async t=>{
   await mkdir(join(f.path,'objects/aa'))
   await writeFile(join(f.path,'objects/aa','a'.repeat(38)),'not-a-git-object')
   await assert.rejects(inspectRepositories(f.root,f.rows),RecoveryError)
+})
+
+test('killed prepared Git transaction is quarantined only after exclusion, without publishing its ref',
+  {skip:process.platform!=='linux'},async t=>{
+  const f=await fixture(t)
+  const tree=(await f.git(['--git-dir',f.path,'hash-object','-t','tree','-w','/dev/null'])).stdout.trim()
+  const commit=(await f.git(['--git-dir',f.path,'-c','user.name=Interrupted fixture','-c','user.email=fixture@example.invalid',
+    'commit-tree',tree,'-m','Interrupted transaction fixture'])).stdout.trim()
+  await f.git(['--git-dir',f.path,'update-ref','refs/heads/main',commit])
+  const child=spawn(process.env.GITGOOD_GIT??'git',['--git-dir',f.path,'update-ref','--stdin'],{stdio:['pipe','pipe','pipe']})
+  t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL')})
+  let output='';child.stdout.on('data',bytes=>output+=bytes.toString());child.stderr.resume()
+  const closed=new Promise(resolve=>child.once('close',resolve))
+  child.stdin.write('start\ncreate refs/heads/interrupted '+commit+'\nprepare\n')
+  const deadline=Date.now()+5000
+  while(!output.includes('prepare: ok')){assert(Date.now()<deadline);await new Promise(resolve=>setTimeout(resolve,10))}
+  const lock=join(f.path,'refs/heads/interrupted.lock'),before=await readFile(lock),inode=(await lstat(lock)).ino
+  child.kill('SIGKILL');await closed
+  await assert.rejects(inspectRepositories(f.root,f.rows),RecoveryError)
+  await assert.rejects(f.git(['--git-dir',f.path,'update-ref','refs/heads/interrupted',commit]))
+  await assert.rejects(quarantineInterruptedLocks(f.root,f.rows,async()=>{throw new Error('writer remains')}))
+  assert((await readFile(lock)).equals(before))
+  const records=await quarantineInterruptedLocks(f.root,f.rows,async()=>assert(child.signalCode==='SIGKILL'))
+  assert(records.length===1&&records[0].path==='refs/heads/interrupted.lock')
+  const saved=join(f.root,records[0].quarantine)
+  assert((await readFile(saved)).equals(before));assert.equal((await lstat(saved)).ino,inode)
+  await assert.rejects(lstat(lock))
+  assert((await inspectRepositories(f.root,f.rows))[0].refs==='refs/heads/main '+commit)
+  await assert.rejects(f.git(['--git-dir',f.path,'show-ref','--verify','refs/heads/interrupted']))
+  await f.git(['--git-dir',f.path,'update-ref','refs/heads/interrupted',commit])
+  assert((await inspectRepositories(f.root,f.rows))[0].refs.includes('refs/heads/interrupted '+commit))
+})
+
+test('lock symlinks and hardlinks refuse without changing their targets', {skip:process.platform!=='linux'},async t=>{
+  const f=await fixture(t),external=join(f.root,'external'),lock=join(f.path,'refs/heads/hostile.lock')
+  await writeFile(external,'private external content')
+  await mkdir(join(f.path,'refs/heads'),{recursive:true})
+  await symlink(external,lock)
+  await assert.rejects(quarantineInterruptedLocks(f.root,f.rows,async()=>{}),RecoveryError)
+  assert.equal(await readFile(external,'utf8'),'private external content')
+  await rm(lock);await link(external,lock)
+  await assert.rejects(quarantineInterruptedLocks(f.root,f.rows,async()=>{}),RecoveryError)
+  assert((await lstat(lock)).isFile());assert.equal(await readFile(external,'utf8'),'private external content')
 })
