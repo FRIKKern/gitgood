@@ -24,6 +24,13 @@ defmodule GitgoodWeb.Router do
     get "/repos", RepositoryController, :index
     post "/repos", RepositoryController, :create
     get "/repos/:team/:name", RepositoryController, :show
+    post "/repos/:team/:name/credentials", CredentialController, :create
+    delete "/credentials/:id", CredentialController, :delete
+  end
+
+  scope "/", GitgoodWeb do
+    match :*, "/git/:team/:name/*path", GitController, :handle
+    post "/internal/pushes/:id", PushHookController, :create
   end
 
   defp no_cache(conn, _), do: Plug.Conn.put_resp_header(conn, "cache-control", "no-store")

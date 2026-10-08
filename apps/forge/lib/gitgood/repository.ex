@@ -8,6 +8,7 @@ defmodule Gitgood.Repository do
     field :name, :string
     field :storage_key, Ecto.UUID
     field :status, :string, default: "creating"
+    field :storage_version, :integer, default: 1
     field :creation_key, :string
     timestamps(type: :utc_datetime)
   end

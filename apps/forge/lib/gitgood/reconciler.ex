@@ -5,7 +5,11 @@ defmodule Gitgood.Reconciler do
   def handle_continue(:reconcile, state), do: handle_info(:reconcile, state)
 
   def handle_info(:reconcile, state) do
-    if Application.get_env(:gitgood, :reconcile, true), do: Gitgood.Repositories.reconcile()
+    if Application.get_env(:gitgood, :reconcile, true) do
+      Gitgood.Repositories.reconcile()
+      Gitgood.Pushes.reconcile()
+    end
+
     Process.send_after(self(), :reconcile, 30_000)
     {:noreply, state}
   end

@@ -61,19 +61,25 @@ defmodule Gitgood.Repositories do
     Repo.transaction(fn ->
       current = Repo.one!(from r in Repository, where: r.id == ^repository.id, lock: "FOR UPDATE")
 
-      if current.status == "ready" do
+      if current.status == "ready" and current.storage_version >= 2 do
         current
       else
         case Git.init(current) do
-          :ok -> current |> Ecto.Changeset.change(status: "ready") |> Repo.update!()
-          {:error, error} -> Repo.rollback(error)
+          :ok ->
+            current
+            |> Ecto.Changeset.change(status: "ready", storage_version: 2)
+            |> Repo.update!()
+
+          {:error, error} ->
+            Repo.rollback(error)
         end
       end
     end)
   end
 
   def reconcile do
-    Repo.all(from r in Repository, where: r.status == "creating") |> Enum.map(&finish/1)
+    Repo.all(from r in Repository, where: r.status == "creating" or r.storage_version < 2)
+    |> Enum.map(&finish/1)
   end
 
   def public(repository) do

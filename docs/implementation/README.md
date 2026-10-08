@@ -1,19 +1,23 @@
 # Implementation evidence and reproduction
 
-The first native slice is in apps/forge and apps/web. Start with their setup instructions.
-This is a reproducible development foundation, not a released product.
+The native implementation is in apps/forge and apps/web. Start with their setup instructions.
+It remains a development product with no configured public deployment or Barkpark evidence ledger.
 
-The backend verification suite uses a real isolated Postgres database and standard Git.
-It exercises repository ownership, durable initialization, response retry, duplicate/invalid names,
-outsider denial, role denial, session expiry/revocation, membership removal, CSRF and storage failure/reconciliation.
-The browser suite uses development fixtures and a real server pair to create/reload a private repository,
-deny outsiders and cookie writes without CSRF, and revoke a session through sign-out.
+Run mix precommit in apps/forge, npm run check in apps/web and npx playwright test in apps/web with the forge running.
+The workflow repeats these against disposable Postgres on Linux. Artifacts are private and contain synthetic fixtures.
+On Windows set GITGOOD_BROWSER_CHANNEL=msedge and executable paths for GITGOOD_GIT, GITGOOD_PYTHON and GITGOOD_OPENSSL.
 
-Run `mix precommit` in apps/forge, `npm run check` in apps/web and `npx playwright test` in apps/web with the development forge running.
-The CI workflow repeats these on Linux with disposable Postgres. Browser screenshots and JSON results are private test artifacts.
-Do not use synthetic fixtures on an exposed installation.
+The backend suite covers ownership, durable initialization, retries, invalid/duplicate names, outsider/role denial,
+session expiry/revocation, membership removal, CSRF, storage failure, and upgrade of existing managed stores.
+Its subprocess tests verify binary stdin/EOF, secret stripping, deadline/caller cancellation of descendants,
+concurrency admission, output bounds and child memory limits.
 
-These checks support parts of J01. No completed milestone or verified whole journey is claimed by merging this slice.
-D02 standalone identity is recorded; its Cloud/Barkpark actor-boundary work remains open.
-D04 transport and D05 general Git/DB operations follow in the current run.
-The configured Barkpark status source remains unconfigured; evidence/status.json must not be hand-edited to imply it exists.
+Browser tests cover private creation/reload/sign-out and real Git HTTPS clone, commit, push and fetch.
+They check reader/outsider denial, username binding, invalid TLS trust, protected main, interrupted upload/retry,
+oversized body rejection, credential revocation and strict fsck.
+Credentials are injected through process environment, never Git arguments or trace artifacts.
+
+These checks support parts of J01, J02 and J09. Whole journeys and milestones require their complete criteria;
+merging a slice does not satisfy those criteria. D04 is implemented by the native transport decision;
+D05 still requires protected merge/restart experiments.
+The status source remains unconfigured. evidence/status.json must not be hand-edited to imply otherwise.

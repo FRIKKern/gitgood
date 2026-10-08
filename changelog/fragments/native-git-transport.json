@@ -1,0 +1,15 @@
+{
+  "id": "native-git-transport",
+  "category": "Added",
+  "summary": "Added scoped and revocable Git credentials, authenticated native smart HTTP clone/push/fetch, protected main enforcement, durable push records and bounded subprocess supervision.",
+  "impact": "product",
+  "references": [
+    "docs/decisions/0003-native-http-transport.md",
+    "apps/forge/README.md"
+  ],
+  "journeys": [
+    "J02",
+    "J09"
+  ],
+  "withdrawn": false
+}

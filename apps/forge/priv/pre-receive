@@ -1,0 +1,4 @@
+#!/bin/sh
+# Installed by Gitgood. No user-supplied server hook is executed.
+set -eu
+exec "$GITGOOD_PYTHON" -I "$GITGOOD_HOOK_SCRIPT"
