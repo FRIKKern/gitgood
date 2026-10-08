@@ -8,7 +8,7 @@ import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {packRecovery,unpackRecovery,RecoveryError} from './recovery-bundle.mjs'
 import {privateFile,readConfiguration,validateConfiguration,forgeKeys} from './recovery-configuration.mjs'
-import {assertLease,assertDatabaseTools,fingerprintDatabase,dumpDatabase,restoreDatabase,query} from './recovery-database.mjs'
+import {assertLease,assertDatabaseTools,assertDatabaseProfile,fingerprintDatabase,dumpDatabase,restoreDatabase,query} from './recovery-database.mjs'
 import {inspectRepositories,rebindRepositories} from './recovery-git.mjs'
 import {quarantineInterruptedLocks} from './recovery-locks.mjs'
 
@@ -117,6 +117,9 @@ async function restore(context,options,key){
     const configuration=join(verified,'configuration'),config=await readConfiguration(configuration)
     const descriptor=JSON.parse((await privateFile(join(configuration,'recovery.json'))).toString('utf8'))
     check(descriptor.protocol===1&&descriptor.installation===config.installation&&descriptor.database&&Array.isArray(descriptor.repositories),'bundle_invalid')
+    // Database import cannot change encoding, locale provider or text semantics.
+    // Refuse before creating an interrupted-restore gate or installing any store.
+    await assertDatabaseProfile(descriptor.database.profile)
     const repositories=await inspectRepositories(join(verified,'git'),descriptor.repositories.map(({storage_key,status})=>({storage_key,status})))
     check(equal(repositories,descriptor.repositories),'bundle_invalid')
     const binding={protocol:1,ciphertext_sha256:unpacked.ciphertext_sha256,candidate:context.identity.candidate,

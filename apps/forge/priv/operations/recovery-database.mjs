@@ -38,6 +38,23 @@ export async function assertDatabaseTools(version){
   }
   if(await query('SHOW server_version')!==version)throw new RecoveryError('database_version_incompatible')
 }
+export async function databaseProfile(){
+  const profile=JSON.parse(await query(`SELECT json_build_object(
+    'encoding',pg_encoding_to_char(encoding),'provider',datlocprovider,
+    'collate',datcollate,'ctype',datctype,'locale',datlocale,
+    'collation_version',datcollversion,
+    'actual_collation_version',pg_database_collation_actual_version(oid))
+    FROM pg_database WHERE datname=current_database()`))
+  // This operational profile requires native PostgreSQL in the same OS. libc also governs
+  // case conversion when a C collation has no catalog version to compare.
+  profile.libc=await command('/usr/bin/getconf',['GNU_LIBC_VERSION'])
+  if(!/^glibc [0-9]+\.[0-9]+$/.test(profile.libc)||profile.collation_version!==profile.actual_collation_version)
+    throw new RecoveryError('database_locale_incompatible')
+  return profile
+}
+export async function assertDatabaseProfile(expected){
+  if(JSON.stringify(await databaseProfile())!==JSON.stringify(expected))throw new RecoveryError('database_locale_incompatible')
+}
 export async function assertLease(context){
   if(!Number.isInteger(context.backend_pid)||context.backend_pid<=0)throw new RecoveryError('installation_not_quiescent')
   const sql='SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype=\'advisory\' AND pid='+context.backend_pid+
@@ -66,7 +83,7 @@ export async function fingerprintDatabase(){
     'cycle',cycle,'cache',cache_size,'last',last_value) ORDER BY sequencename),'[]'::json)
     FROM pg_sequences WHERE schemaname='public'`)
   const schema_sha256=await command(executables.dump,['--schema-only','--no-owner','--no-privileges','--no-comments'],{hash:true,normalizeSchema:true})
-  return {schema_sha256,tables:rows,sequences:JSON.parse(sequences)}
+  return {profile:await databaseProfile(),schema_sha256,tables:rows,sequences:JSON.parse(sequences)}
 }
 export const dumpDatabase=file=>command(executables.dump,['--format=custom','--no-owner','--no-privileges','--file',file],{deadline:600000})
 export const restoreDatabase=file=>command(executables.restore,['--single-transaction','--exit-on-error','--no-owner','--no-privileges','--dbname',process.env.PGDATABASE,file],{deadline:600000})

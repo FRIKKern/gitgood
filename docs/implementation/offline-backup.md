@@ -2,7 +2,7 @@
 
 Status: implementation in progress; no supported backup or J16 acceptance is claimed yet.
 
-The first recovery profile targets one Ubuntu 24.04 x86-64 installation with PostgreSQL 18, persistent native Git storage and one supervised forge runtime. The Windows copied-production experiment remains separate from this Linux operational profile. The backup must preserve the same candidate/schema and public origin on a replacement host; broader compatibility requires additional experiments.
+The first recovery profile targets one Ubuntu 24.04 x86-64 installation with PostgreSQL 18.4, persistent native Git storage and one supervised forge runtime. The tested database uses UTF8, the libc locale provider and C.UTF-8. The Windows copied-production experiment remains separate from this Linux operational profile. The backup must preserve the same candidate/schema, database text semantics and public origin on a replacement host; broader compatibility requires additional experiments.
 
 ## Exclusion and recovery point
 
@@ -37,6 +37,8 @@ For restore create an owned empty database and private installation parent. Set 
 Start the matching artifacts with the recovered private configuration only after the final command reports complete. That receipt establishes operator completion; J16 still requires the functional replacement-host exercise below. Private configuration, plaintext staging, decryption key and encrypted backup remain recovery materials, excluded from ordinary verification archives.
 
 ## Acceptance still required
+
+Recovery also binds the source database encoding, locale provider, collation, character type, provider locale, recorded/actual collation versions and local GNU libc version. A real PostgreSQL experiment produced identical rows and schema fingerprints with C.UTF-8 and C databases while lowercasing the same character differently. Restore now requires matching properties before creating its incomplete gate, importing the database or installing stores. A missing profile and a stale recorded collation version refuse. Exact original-candidate recovery remains required; prior experimental bundles are not upgraded implicitly. This check is compatible-profile refusal, not a locale conversion facility.
 
 The file-bundle primitive uses a versioned AES-256-GCM envelope with a fresh 12-byte nonce and a separate 32-byte key. Its canonical encrypted inventory limits entries to 100,000, manifest bytes to 16 MiB and total file bytes to 16 GiB; these are format refusal bounds, not measured workload capacity. Full tag authentication and all declared file digests precede extraction. Private staging is published without replacing an existing destination; failed final quiescence leaves no published backup. This primitive alone does not dump a database or establish a complete recovery point.
 

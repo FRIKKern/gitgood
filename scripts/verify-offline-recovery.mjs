@@ -82,6 +82,19 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   assert((await readFile(join(env.GITGOOD_STORAGE,recoveredLock.quarantine))).equals(interruptedLock))
   await assert.rejects(lstat(lock))
   assert.equal(createHash('sha256').update(await readFile(bundle)).digest('hex'),backupReceipt.ciphertext_sha256)
+  const wrongLocaleDatabase='gitgood_wrong_locale_'+randomBytes(4).toString('hex')
+  const wrongLocaleInstallation=join(root,'wrong-locale');await mkdir(wrongLocaleInstallation,{mode:0o700})
+  await run(process.env.GITGOOD_CREATEDB??'createdb',['--template=template0','--encoding=UTF8','--locale=C',
+    '--locale-provider=libc',wrongLocaleDatabase],process.env,root,'wrong-locale-database-create')
+  const wrongLocaleUrl=new URL(env.DATABASE_URL);wrongLocaleUrl.pathname='/'+wrongLocaleDatabase
+  const wrongLocaleEnv={...env,DATABASE_URL:wrongLocaleUrl.toString(),GITGOOD_STORAGE:join(wrongLocaleInstallation,'git'),
+    GITGOOD_RECOVERY_KEY_FILE:keyFile,GITGOOD_RECOVERY_BUNDLE:bundle,GITGOOD_RECOVERY_INSTALLATION:wrongLocaleInstallation}
+  await wait(launch(release,['eval','Gitgood.Release.restore()'],wrongLocaleEnv,installedForge,'wrong-locale-refusal'),'wrong-locale-refusal',[1])
+  for(const path of ['configuration','ssh','git/.gitgood-restore-incomplete-v1.json'])
+    await assert.rejects(lstat(join(wrongLocaleInstallation,path)))
+  await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--tuples-only','--no-align','--command',
+    "SELECT count(*) FROM pg_tables WHERE schemaname='public'"],{...pgEnv,PGDATABASE:wrongLocaleDatabase},root,'wrong-locale-table-count')
+  assert.equal((await readFile(join(root,'logs/wrong-locale-table-count.log'),'utf8')).trim(),'0')
   const installation=join(root,'recovered');await mkdir(installation,{mode:0o700})
   const database='gitgood_restored_'+randomBytes(4).toString('hex')
   await run(process.env.GITGOOD_CREATEDB??'createdb',['-h',process.env.PGHOST??'127.0.0.1','-p',process.env.PGPORT??'55432','-U',process.env.PGUSER??'gitgood',database],process.env,root,'restore-database-create')
@@ -143,7 +156,8 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
     backup:{...backupReceipt},restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
-    checks:['running installation refuses backup','kernel cgroup empty before snapshot','exact database rows/sequences/schema fingerprint',
+    checks:['running installation refuses backup','kernel cgroup empty before snapshot','exact database rows/sequences/schema and locale fingerprint',
+      'real different-locale target refused before gate, database import or store installation',
       'real prepared Git transaction excluded while alive; killed lock quarantined byte-for-byte without publishing its ref',
       'restored session, proxy and source key custody','SSH host identity retained','unknown sealed request retained and observed without another write',
       'private collaboration and asset access retained','outsider denied','authorized HTTPS and SSH refs, clone and new push with rebound hooks'],
