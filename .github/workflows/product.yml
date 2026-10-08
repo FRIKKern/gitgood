@@ -81,24 +81,13 @@ jobs:
         working-directory: apps/web
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
-      - name: Start disposable forge
-        working-directory: apps/forge
+      - name: Install pinned direct-edge verification runtime
         run: |
-          mkdir -p .gitgood/ssh-host
-          ssh-keygen -q -t ed25519 -N '' -f .gitgood/ssh-host/ssh_host_ed25519_key
-          export GITGOOD_SSH_PORT=47842
-          export GITGOOD_SSH_HOST_KEY_DIRECTORY="$PWD/.gitgood/ssh-host"
-          mix ecto.create
-          mix ecto.migrate
-          mix run priv/repo/seeds.exs
-          mix phx.server > /tmp/gitgood-forge.log 2>&1 &
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:47841/health/ready; then exit 0; fi
-            sleep 1
-          done
-          exit 1
-      - run: npx playwright test
-        working-directory: apps/web
+          mkdir -p .gitgood/caddy-2.11.7
+          curl -fsSL --retry 2 https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_amd64.tar.gz -o .gitgood/caddy-2.11.7/package.tar.gz
+          echo 'a7a433a1b133efc3c8d10eb0b99d52a24b5ef5c322dc77f5282182b1c0402139ab83f3a99f0c52409df77d20123fb0b523edad8a66d8f5e49136197bf61ef0e7  .gitgood/caddy-2.11.7/package.tar.gz' | sha512sum --check
+          tar -xzf .gitgood/caddy-2.11.7/package.tar.gz -C .gitgood/caddy-2.11.7 caddy
+          echo "GITGOOD_CADDY=$PWD/.gitgood/caddy-2.11.7/caddy" >> "$GITHUB_ENV"
       - name: Build clean production artifacts
         run: |
           npm run build --prefix apps/web

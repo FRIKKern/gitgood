@@ -1,0 +1,13 @@
+{
+  "id": "client-address",
+  "category": "Fixed",
+  "summary": "Replaced the shared production proxy login bucket with authenticated edge/socket client addresses, preserving per-address limits and rejecting forged forwarding assertions.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/client-address.md"
+  ],
+  "journeys": [
+    "J01"
+  ],
+  "withdrawn": false
+}

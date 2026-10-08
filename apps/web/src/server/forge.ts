@@ -17,7 +17,7 @@ export async function proxy(request: Request): Promise<Response> {
   if (declared && /^\d+$/.test(declared) && Number(declared) > limit)
     return Response.json({error: 'api_body_limit'}, {status: 413})
   const headers = new Headers()
-  for (const name of ['cookie', 'authorization', 'content-type', 'x-gitgood-csrf', 'x-gitgood-access-context', 'idempotency-key', 'origin']) {
+  for (const name of ['cookie', 'authorization', 'content-type', 'x-gitgood-csrf', 'x-gitgood-access-context', 'idempotency-key', 'origin', 'x-gitgood-client-address', 'x-gitgood-client-time', 'x-gitgood-client-signature']) {
     const value = request.headers.get(name)
     if (value) headers.set(name, value)
   }

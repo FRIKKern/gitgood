@@ -5,8 +5,9 @@ import {tmpdir} from 'node:os'
 import {dirname,join,resolve,sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {randomBytes,createHash} from 'node:crypto'
-import {createServer} from 'node:https'
-import {request as httpRequest} from 'node:http'
+import {request as httpsRequest} from 'node:https'
+import {createHmac} from 'node:crypto'
+import {createServer as netServer} from 'node:net'
 import assert from 'node:assert/strict'
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 const sourceWeb=join(repository,'apps/web')
@@ -24,6 +25,10 @@ const webUrl='http://127.0.0.1:'+webPort
 const database='gitgood_production_'+randomBytes(4).toString('hex')
 const storage=join(root,'storage')
 const sshPort=Number(process.env.GITGOOD_VERIFY_SSH_PORT??47852)
+const proxyKey=randomBytes(32).toString('base64')
+const observedProbePeers=new Set()
+const caddyExecutable=process.env.GITGOOD_CADDY
+assert(caddyExecutable,'Copied production verification requires the actual Caddy binary')
 const sshHost=join(root,'ssh-host')
 const ssh=process.env.GITGOOD_SSH??(windows?'C:/Windows/System32/OpenSSH/ssh.exe':'ssh')
 const keygen=process.env.GITGOOD_SSH_KEYGEN??(windows?'C:/Windows/System32/OpenSSH/ssh-keygen.exe':'ssh-keygen')
@@ -31,7 +36,7 @@ const identity=JSON.parse(await readFile(join(sourceWeb,'dist/build-identity.jso
 assert.equal(identity.dirty,false,'Production verification requires a clean stamped candidate')
 const logs=join(root,'logs')
 await mkdir(logs)
-let backend,web,proxy,sourceFixture
+let backend,web,caddy,sourceFixture
 const log=(name)=>createWriteStream(join(logs,name+'.log'),{flags:'a'})
 function launch(file,args,env,cwd,name,stdin='ignore') {
   // Only fixed release commands use cmd on Windows. Credentials are exclusively in environment.
@@ -68,22 +73,33 @@ function inside(path) {const absolute=resolve(path);assert(absolute.startsWith(r
 try {
   await cp(process.env.GITGOOD_RELEASE_PATH??join(sourceForge,'_build/prod/rel/gitgood'),installedForge,{recursive:true})
   await mkdir(installedWeb)
-  for(const name of ['dist','server.mjs','package.json','package-lock.json'])await cp(join(sourceWeb,name),join(installedWeb,name),{recursive:true})
+  for(const name of ['dist','server.mjs','client-address.mjs','package.json','package-lock.json'])await cp(join(sourceWeb,name),join(installedWeb,name),{recursive:true})
   const npm=process.env.npm_execpath??join(dirname(process.execPath),'node_modules/npm/bin/npm-cli.js')
   await run(process.execPath,[npm,'ci','--omit=dev','--ignore-scripts'],process.env,installedWeb,'web-install')
   const certificate=join(root,'fixture-certificate.pem'),key=join(root,'fixture-key.pem')
   await run(process.env.GITGOOD_OPENSSL??'openssl',['req','-x509','-newkey','rsa:2048','-sha256','-nodes','-keyout',key,'-out',certificate,'-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost,IP:127.0.0.1'],process.env,root,'fixture-tls')
   await mkdir(sshHost)
   await run(keygen,['-q','-t','ed25519','-N','','-f',join(sshHost,'ssh_host_ed25519_key')],process.env,root,'fixture-ssh-host')
-  proxy=createServer({key:await readFile(key),cert:await readFile(certificate)},(request,response)=>{
-    if(request.url?.startsWith('/internal/')){response.writeHead(404);response.end();return}
-    const target=request.url?.startsWith('/git/')?forgeUrl:webUrl
-    const upstream=httpRequest(new URL(request.url,target),{method:request.method,headers:{...request.headers,host:new URL(target).host,'x-forwarded-proto':'https'},agent:false},result=>{response.writeHead(result.statusCode,result.headers);result.pipe(response)})
-    upstream.on('error',()=>{if(!response.headersSent)response.writeHead(503);response.end()})
-    request.pipe(upstream)
-  })
-  await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve))
-  const publicUrl='https://localhost:'+proxy.address().port
+  const reservation=netServer()
+  await new Promise(resolve=>reservation.listen(0,'127.0.0.1',resolve))
+  const publicPort=reservation.address().port
+  await new Promise(resolve=>reservation.close(resolve))
+  const publicUrl='https://localhost:'+publicPort
+  const quotePath=path=>'"'+path.replaceAll('\\','/')+'"'
+  const accessLog=join(logs,'caddy-access.log')
+  const edgeTemplate=(await readFile(join(repository,'docs/deployment/Caddyfile.example'),'utf8')).replaceAll('\r\n','\n')
+  const edgeSource=edgeTemplate.replace('gitgood.example.invalid',publicUrl)
+    .replaceAll('127.0.0.1:47841','127.0.0.1:'+forgePort).replaceAll('127.0.0.1:47840','127.0.0.1:'+webPort)
+    .replace(publicUrl+' {',publicUrl+' {\n  bind 127.0.0.1\n  tls '+quotePath(certificate)+' '+quotePath(key)+
+      '\n  log {\n    output file '+quotePath(accessLog)+' {\n      mode 0600\n    }\n    format filter {\n      wrap json\n      fields {\n        request>headers delete\n        resp_headers delete\n      }\n    }\n  }')
+  const edgeConfig=join(root,'Caddyfile')
+  await writeFile(edgeConfig,'{\n  admin off\n  auto_https off\n  persist_config off\n}\n'+edgeSource)
+  const edgeEnv={...process.env,GITGOOD_PROXY_KEY:proxyKey,XDG_DATA_HOME:join(root,'caddy-data'),XDG_CONFIG_HOME:join(root,'caddy-config'),APPDATA:join(root,'caddy-appdata')}
+  await run(caddyExecutable,['version'],edgeEnv,root,'caddy-version')
+  await run(caddyExecutable,['validate','--config',edgeConfig,'--adapter','caddyfile'],edgeEnv,root,'caddy-validate')
+  const caddyVersion=(await readFile(join(logs,'caddy-version.log'),'utf8')).trim()
+  assert(caddyVersion.startsWith('v2.11.7 '),'The verified direct-edge runtime is Caddy 2.11.7')
+  caddy=launch(caddyExecutable,['run','--config',edgeConfig,'--adapter','caddyfile'],edgeEnv,root,'caddy')
   const sourceCa=join(root,'source-ca.pem')
   sourceFixture=launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'verification/barkpark_http_fixture.py'),
     process.env.GITGOOD_OPENSSL??'openssl',sourceCa],process.env,root,'source-wire','pipe')
@@ -100,7 +116,7 @@ try {
   const sourceOrigin='https://127.0.0.1:'+sourcePorts[1]
   const sourceControl='http://127.0.0.1:'+sourcePorts[0]
   const env={...process.env,NODE_ENV:'production',DATABASE_URL:'postgresql://'+encodeURIComponent(process.env.PGUSER??'gitgood')+(process.env.PGPASSWORD?':'+encodeURIComponent(process.env.PGPASSWORD):'')+'@'+(process.env.PGHOST??'127.0.0.1')+':'+(process.env.PGPORT??'55432')+'/'+database,
-    GITGOOD_BARKPARK_ORIGIN:sourceOrigin,GITGOOD_BARKPARK_CA:sourceCa,GITGOOD_CONNECTION_KEY:randomBytes(32).toString('base64'),
+    GITGOOD_PROXY_KEY:proxyKey,GITGOOD_BARKPARK_ORIGIN:sourceOrigin,GITGOOD_BARKPARK_CA:sourceCa,GITGOOD_CONNECTION_KEY:randomBytes(32).toString('base64'),
     SECRET_KEY_BASE:randomBytes(64).toString('base64'),PHX_HOST:'localhost',GITGOOD_PUBLIC_URL:publicUrl,GITGOOD_WEB_ORIGIN:publicUrl,GITGOOD_STORAGE:storage,PORT:String(forgePort),PHX_SERVER:'false',
     GITGOOD_SSH_PORT:String(sshPort),GITGOOD_SSH_HOST_KEY_DIRECTORY:sshHost,GITGOOD_SSH_PUBLIC_HOST:'localhost',GITGOOD_SSH_PUBLIC_PORT:String(sshPort)}
   await run(process.env.GITGOOD_CREATEDB??'createdb',['-h',process.env.PGHOST??'127.0.0.1','-p',process.env.PGPORT??'55432','-U',process.env.PGUSER??'gitgood',database],process.env,root,'database-create')
@@ -108,17 +124,78 @@ try {
   for(const [username,team,role] of [['owner','team','owner'],['reviewer','team','writer'],['reader','team','reader'],['outsider','elsewhere','owner']]) {
     await run(release,['eval','Gitgood.Release.bootstrap()'],{...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'},installedForge,'bootstrap')
   }
-  const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl}
+  const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl,GITGOOD_PROXY_KEY:proxyKey}
   const startBackend=()=>launch(release,['start'],{...env,PHX_SERVER:'true'},installedForge,'forge')
   const startWeb=()=>launch(process.execPath,[join(installedWeb,'node_modules/srvx/bin/srvx.mjs'),'--prod','-s','dist/client','server.mjs'],webEnv,installedWeb,'web')
   backend=startBackend();web=startWeb()
   const forgeReady=await ready(forgeUrl),webReady=await ready(webUrl)
   assert.equal(forgeReady.candidate,identity.candidate);assert.equal(webReady.candidate,identity.candidate)
   const html=await fetch(webUrl);assert.equal(html.status,200);assert((await html.text()).includes('gitgood'))
-  const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true',GITGOOD_TEST_CA:certificate,GITGOOD_TEST_SOURCE_CONTROL:sourceControl}
+  // Real TLS socket addresses select independent login buckets; caller headers are adversarial.
+  // Start clear of a fixed-minute boundary; no limiter reset, fake clock or raised allowance.
+  const remaining=60-(Math.floor(Date.now()/1000)%60)
+  if(remaining<20)await new Promise(resolve=>setTimeout(resolve,(remaining+1)*1000))
+  const limitWindow=Math.floor(Date.now()/60000)
+  const tlsLogin=(localAddress,index,password='invalid-synthetic-password')=>new Promise((resolve,reject)=>{
+    const body=JSON.stringify({username:'owner',password})
+    const request=httpsRequest({hostname:'127.0.0.1',servername:'localhost',port:publicPort,
+      path:'/api/session?address_probe='+index,method:'POST',localAddress,ca:fixtureIssuer,rejectUnauthorized:true,
+      headers:{'content-type':'application/json','content-length':Buffer.byteLength(body),
+        'x-forwarded-for':'198.51.100.'+(index%200+1),forwarded:'for=203.0.113.'+(index%200+1),
+        'x-gitgood-edge-key':'forged-edge-secret','x-gitgood-edge-client':'198.51.100.'+(index%200+1),
+        'x-gitgood-client-address':'203.0.113.'+(index%200+1),'x-gitgood-client-time':String(Math.floor(Date.now()/1000)),
+        'x-gitgood-client-signature':'0'.repeat(64)},agent:false},response=>{
+      const chunks=[];response.on('data',chunk=>chunks.push(chunk))
+      response.on('end',()=>resolve({status:response.statusCode,body:JSON.parse(Buffer.concat(chunks).toString('utf8'))}))
+    })
+    request.on('error',reject);request.setTimeout(12000,()=>request.destroy(new Error('TLS login probe deadline')))
+    request.end(body)
+  })
+  // Load the disposable issuer explicitly; never disable TLS verification for these client sockets.
+  const fixtureIssuer=await readFile(certificate)
+  const limitedStatuses=[]
+  for(let attempt=1;attempt<=21;attempt++){
+    const result=await tlsLogin('127.0.0.2',attempt)
+    assert.equal(result.status,attempt<=20?401:429)
+    limitedStatuses.push(result.status)
+  }
+  assert.equal(Math.floor(Date.now()/60000),limitWindow,'The rate proof must stay in one actual fixed window')
+  assert.equal((await tlsLogin('127.0.0.2',22,'synthetic-password')).status,429,'Changing caller forwarding fields cannot escape a socket address bucket')
+  const independent=await tlsLogin('127.0.0.3',23,'synthetic-password')
+  assert.equal(independent.status,200);assert.equal(independent.body.user.username,'owner')
+  const edgeLogDeadline=Date.now()+5000
+  do {
+    const records=(await readFile(accessLog,'utf8')).trim().split('\n').filter(Boolean).map(line=>JSON.parse(line))
+    for(const record of records){
+      assert(!record.request?.headers&&!record.resp_headers,'Edge evidence must omit all credential-bearing headers')
+      if(record.request?.uri?.startsWith('/api/session?address_probe='))observedProbePeers.add(record.request.remote_ip)
+    }
+    if(observedProbePeers.size===2)break
+    await new Promise(resolve=>setTimeout(resolve,50))
+  }while(Date.now()<edgeLogDeadline)
+  assert.deepEqual([...observedProbePeers].sort(),['127.0.0.2','127.0.0.3'])
+  assert(!(await readFile(join(logs,'caddy.log'),'utf8')).includes(proxyKey),'Caddy runtime log must not contain the edge secret')
+  const directLogin={method:'POST',headers:{'content-type':'application/json','x-forwarded-for':'198.51.100.22',
+    'x-gitgood-edge-key':'forged-edge-secret','x-gitgood-edge-client':'198.51.100.22',
+    'x-gitgood-client-address':'198.51.100.22','x-gitgood-client-time':String(Math.floor(Date.now()/1000)),
+    'x-gitgood-client-signature':'0'.repeat(64)},body:JSON.stringify({username:'owner',password:'synthetic-password'})}
+  for(const origin of [forgeUrl,webUrl]){
+    const refused=await fetch(origin+'/api/session',directLogin)
+    assert.equal(refused.status,403);assert.deepEqual(await refused.json(),{error:'client_address_unverified'})
+  }
+  const clientAddressProof={edge:'actual Caddy using the committed direct-edge example',caddy_version:caddyVersion,template_sha256:createHash('sha256').update(edgeTemplate).digest('hex'),window:limitWindow,actual_tls_peers:[...observedProbePeers].sort(),
+    limited_statuses:limitedStatuses,changed_forwarding_cannot_escape:true,independent_actor:independent.body.user,
+    direct_forge_and_web_refused:true,normal_tls_issuer_and_hostname_verification:true}
+  const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true',GITGOOD_TEST_CA:certificate,NODE_EXTRA_CA_CERTS:certificate,GITGOOD_TEST_SOURCE_CONTROL:sourceControl}
   await run(process.execPath,[join(sourceWeb,'node_modules/@playwright/test/cli.js'),'test'],testEnv,sourceWeb,'browser')
+  const signedLogin=()=>{
+    const stamp=String(Math.floor(Date.now()/1000)),address='127.0.0.1'
+    const frame=['gitgood-login-origin-v1',address,stamp,'POST','/api/session'].join('\n')
+    return {'x-gitgood-client-address':address,'x-gitgood-client-time':stamp,
+      'x-gitgood-client-signature':createHmac('sha256',Buffer.from(proxyKey,'base64')).update(frame).digest('hex')}
+  }
   const login=async()=>{
-    const response=await fetch(forgeUrl+'/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'owner',password:'synthetic-password'})})
+    const response=await fetch(forgeUrl+'/api/session',{method:'POST',headers:{'content-type':'application/json',...signedLogin()},body:JSON.stringify({username:'owner',password:'synthetic-password'})})
     assert.equal(response.status,200)
     return 'Bearer '+/gitgood_session=([^;]+)/.exec(response.headers.getSetCookie()[0])[1]
   }
@@ -144,7 +221,7 @@ try {
   const memberAudit=await (await fetch(forgeUrl+'/api/teams/team/members',{headers:{authorization}})).json()
   assert(!memberAudit.members.some(member=>member.username==='outsider'),'Removed access must remain removed after restart')
   for(const id of discovery.membership_events)assert(memberAudit.events.some(event=>event.id===id),'Audited access change must persist')
-  const outsiderLogin=await fetch(forgeUrl+'/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'outsider',password:'synthetic-password'})})
+  const outsiderLogin=await fetch(forgeUrl+'/api/session',{method:'POST',headers:{'content-type':'application/json',...signedLogin()},body:JSON.stringify({username:'outsider',password:'synthetic-password'})})
   assert.equal(outsiderLogin.status,200)
   const outsiderAuth='Bearer '+/gitgood_session=([^;]+)/.exec(outsiderLogin.headers.getSetCookie()[0])[1]
   const deniedSearch=await (await fetch(forgeUrl+'/api/search?q='+discovery.repository,{headers:{authorization:outsiderAuth}})).json()
@@ -284,19 +361,19 @@ try {
     release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
     discovery:{record:discovery.record,membership_events:discovery.membership_events},
     nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
+    clientAddress:clientAddressProof,
     sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors,return_operation:sourceLinks.return_operation,return_destination:sourceLinks.return_destination},
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    checks:['authenticated edge/socket login buckets, twenty-attempt boundary, spoofed fields and direct bypass refusal','source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})
   await writeFile(join(sourceWeb,'test-results-production/production-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   console.log('PASS production artifacts, full workflow, persistence and readiness rejection: '+identity.candidate)
 }finally {
-  await stop(web);await stop(backend)
+  await stop(web);await stop(backend);await stop(caddy)
   if(sourceFixture && sourceFixture.exitCode===null){
     sourceFixture.stdin?.end('quit\n')
     await Promise.race([new Promise(resolve=>sourceFixture.once('exit',resolve)),new Promise(resolve=>setTimeout(resolve,3000))])
     await stop(sourceFixture)
   }
-  if(proxy){proxy.closeAllConnections();await new Promise(resolve=>proxy.close(resolve))}
 }

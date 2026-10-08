@@ -1,8 +1,8 @@
 import {expect} from '@playwright/test'
-const upstream = process.env.GITGOOD_TEST_API_URL ?? 'http://127.0.0.1:47841'
+const upstream = process.env.GITGOOD_TEST_WEB_URL ?? process.env.GITGOOD_TEST_API_URL ?? 'http://127.0.0.1:47841'
 type Actor = 'owner' | 'reviewer' | 'reader' | 'outsider'
 type Headers = {authorization: string; 'content-type': string}
-// One API session per synthetic actor in this worker. Browser sign-in still
+// One session through the public edge per synthetic actor in production. Browser sign-in still
 // executes through the actual UI. Tokens live only in this test process.
 const sessions = new Map<Actor, Promise<Headers>>()
 export function fixtureSession(actor: Actor): Promise<Headers> {

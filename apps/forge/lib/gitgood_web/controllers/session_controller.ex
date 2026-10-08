@@ -4,11 +4,16 @@ defmodule GitgoodWeb.SessionController do
   alias GitgoodWeb.Auth
 
   def create(conn, params) do
+    address = GitgoodWeb.ClientAddress.login(conn)
+
     cond do
       not Auth.valid_origin?(conn) ->
         Auth.reject(conn, 403, "origin_denied")
 
-      not Gitgood.LoginLimiter.allow?(conn.remote_ip) ->
+      match?({:error, _}, address) ->
+        Auth.reject(conn, 403, "client_address_unverified")
+
+      not allow_login?(address) ->
         Auth.reject(conn, 429, "try_again_later")
 
       true ->
@@ -47,6 +52,8 @@ defmodule GitgoodWeb.SessionController do
     _ in [DBConnection.ConnectionError, Postgrex.Error] ->
       Auth.reject(conn, 503, "access_unavailable")
   end
+
+  defp allow_login?({:ok, address}), do: Gitgood.LoginLimiter.allow?(address)
 
   def show(conn, _) do
     user = conn.assigns.user
