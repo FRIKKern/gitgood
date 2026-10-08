@@ -25,7 +25,7 @@ jobs:
       PGPASSWORD: synthetic-db-password
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124
         with:
           otp-version: '29.1.1'
           elixir-version: '1.20.4'
@@ -34,6 +34,24 @@ jobs:
           node-version-file: .node-version
       - run: mix deps.get --check-locked && mix precommit && mix format --check-formatted
         working-directory: apps/forge
+      - name: Verify real database recovery and VM crashes
+        working-directory: apps/forge
+        env:
+          PGDATABASE: gitgood_recovery
+          GITGOOD_STORAGE: .gitgood/recovery
+        run: |
+          mix ecto.create
+          mix ecto.migrate
+          mix run verification/merge_recovery.exs
+          for point in before_ref after_ref before_outcome; do
+            set +e
+            GITGOOD_FAILURE_POINT="$point" mix run verification/vm_crash.exs
+            result=$?
+            set -e
+            test "$result" -eq 70
+            GITGOOD_FAILURE_POINT=reconcile mix run verification/vm_crash.exs
+            cp .gitgood/verification/vm-crash.json ".gitgood/verification/vm-crash-$point.json"
+          done
       - run: npm ci && npm run check
         working-directory: apps/web
       - run: npx playwright install --with-deps chromium
@@ -50,12 +68,15 @@ jobs:
             sleep 1
           done
           exit 1
-      - run: node scripts/verification-manifest.mjs
       - run: npx playwright test
         working-directory: apps/web
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - run: node scripts/verification-manifest.mjs
+        if: always()
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
-          name: native-foundation-browser-${{ github.sha }}
-          path: apps/web/test-results/
+          name: native-forge-verification-${{ github.sha }}
+          path: |
+            apps/web/test-results/
+            apps/forge/.gitgood/verification/
           retention-days: 7

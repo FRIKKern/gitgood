@@ -1,0 +1,17 @@
+{
+  "id": "protected-collaboration",
+  "category": "Added",
+  "summary": "Added same-repository pull requests, exact-line comments and reviews, scoped check providers, current branch policy and atomic protected fast-forward merges with durable recovery markers.",
+  "impact": "product",
+  "references": [
+    "docs/decisions/0004-review-check-merge-semantics.md",
+    "docs/implementation/collaboration.md"
+  ],
+  "journeys": [
+    "J06",
+    "J07",
+    "J08",
+    "J09"
+  ],
+  "withdrawn": false
+}

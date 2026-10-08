@@ -1,15 +1,20 @@
-import {createFileRoute} from '@tanstack/react-router'
+import {createFileRoute, Outlet, useRouterState} from '@tanstack/react-router'
 import {useEffect, useState} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {api, type Repository, type Session} from '../../../lib/api'
+import {PullRequests, PolicySettings} from '../../../lib/collaboration'
 type Branch = {name: string; sha: string}
 type Entry = {name: string; kind: string; sha: string; unsupported_encoding: boolean}
 type Commit = {sha: string; author: string; date: string; subject: string}
 type Snapshot = {sha: string; path: string; kind: string; entries?: Entry[]; history?: Commit[]; content?: string; size?: number; limit?: number}
 export const Route = createFileRoute('/repos/$team/$name')({
   validateSearch: (search: Record<string, unknown>) => ({sha: typeof search.sha === 'string' ? search.sha : '', path: typeof search.path === 'string' ? search.path : '', view: search.view === 'diff' ? 'diff' as const : 'code' as const}),
-  component: RepositoryPage,
+  component: RepositoryLayout,
 })
+function RepositoryLayout() {
+  const pathname = useRouterState({select: state => state.location.pathname})
+  return pathname.includes('/pulls/') ? <Outlet /> : <RepositoryPage />
+}
 function RepositoryPage() {
   const {team, name} = Route.useParams()
   const search = Route.useSearch()
@@ -60,6 +65,7 @@ function RepositoryPage() {
           snapshot.data.kind === 'text' ? <pre className="source">{snapshot.data.content}</pre> : <p>{snapshot.data.kind === 'binary' ? 'Binary file. A text preview is unavailable.' : snapshot.data.kind === 'large_file' ? 'File exceeds the 256 KiB preview limit.' : 'Submodule reference. Its content is in a separate repository.'} {snapshot.data.size !== undefined && `${snapshot.data.size} bytes.`}</p>}
         </> : <p>Loading commit…</p>}
       </section>}
+      <PullRequests base={base} session={session.data} branches={branches.data?.branches ?? []}/><PolicySettings base={base} session={session.data}/>
     </> : repository.error ? <p role="alert">This repository is unavailable to your identity. <button onClick={() => void repository.refetch()}>Retry repository</button> <a href="/">Return to your repositories</a></p> : <p>Loading repository…</p>}
   </main></div>
 }

@@ -11,6 +11,9 @@ defmodule Gitgood.GitOperation do
     field :expires_at, :utc_datetime
     field :updates, {:array, :map}, default: []
     field :outcome, :map, default: %{}
+    field :request_key, :string
+    field :request_digest, :binary
+    field :metadata, :map, default: %{}
     timestamps(type: :utc_datetime)
   end
 end

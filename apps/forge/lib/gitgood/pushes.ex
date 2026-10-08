@@ -58,6 +58,7 @@ defmodule Gitgood.Pushes do
                do: Repo.rollback(:authorization_changed)
 
         reconcile_repository(repository, nil)
+        Gitgood.Merges.reconcile_repository(repository)
 
         if Repo.exists?(
              from o in GitOperation,
@@ -146,7 +147,7 @@ defmodule Gitgood.Pushes do
     ids =
       Repo.all(
         from o in GitOperation,
-          where: o.state in ["started", "validated", "uncertain"],
+          where: o.kind == "push" and o.state in ["started", "validated", "uncertain"],
           distinct: o.repository_id,
           select: o.repository_id
       )
@@ -159,11 +160,12 @@ defmodule Gitgood.Pushes do
     end
   end
 
-  defp reconcile_repository(repository, excluded) do
+  def reconcile_repository(repository, excluded) do
     query =
       from o in GitOperation,
         where:
-          o.repository_id == ^repository.id and o.state in ["started", "validated", "uncertain"]
+          o.repository_id == ^repository.id and o.kind == "push" and
+            o.state in ["started", "validated", "uncertain"]
 
     query = if excluded, do: from(o in query, where: o.id != ^excluded), else: query
     Enum.each(Repo.all(query), &reconcile_operation(repository, &1))
