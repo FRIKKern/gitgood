@@ -160,4 +160,48 @@ defmodule Gitgood.FoundationTest do
     assert byte_size(ctx.credential.digest) == 32
     assert Accounts.resolve(ctx.token, "git") == nil
   end
+
+  test "legacy storage cannot serve Git until its hook is installed, and upgrade preserves refs",
+       ctx do
+    {:ok, repository} = Repositories.create(ctx.owner, "team", "legacy", "legacy-create")
+    {tree, 0} = Git.run(["--git-dir", Git.path(repository), "mktree"], input: "")
+
+    {commit, 0} =
+      Git.run(
+        [
+          "-c",
+          "user.name=Fixture",
+          "-c",
+          "user.email=fixture@example.invalid",
+          "--git-dir",
+          Git.path(repository),
+          "commit-tree",
+          String.trim(tree)
+        ], input: "Legacy fixture\n")
+
+    assert {_, 0} =
+             Git.run([
+               "--git-dir",
+               Git.path(repository),
+               "update-ref",
+               "refs/heads/main",
+               String.trim(commit)
+             ])
+
+    File.rm!(Path.join([Git.path(repository), "hooks", "pre-receive"]))
+    legacy = repository |> Ecto.Changeset.change(storage_version: 1) |> Repo.update!()
+    {token, _} = Accounts.issue(ctx.owner, "git", repository.id)
+
+    conn =
+      build_conn()
+      |> put_req_header("authorization", "Basic " <> Base.encode64("owner:" <> token))
+      |> get("/git/team/legacy.git/info/refs?service=git-upload-pack")
+
+    assert conn.status == 404
+    assert {:ok, current} = Repositories.finish(legacy)
+    assert current.storage_version == 2
+    assert File.exists?(Path.join([Git.path(repository), "hooks", "pre-receive"]))
+    assert {:ok, value} = Git.ref(current, "refs/heads/main")
+    assert value == String.trim(commit)
+  end
 end

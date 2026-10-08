@@ -12,7 +12,9 @@ config :gitgood,
     ),
   web_origin: System.get_env("GITGOOD_WEB_ORIGIN", "http://localhost:47840"),
   public_url: System.get_env("GITGOOD_PUBLIC_URL", "http://localhost:47841"),
-  git_executable: System.get_env("GITGOOD_GIT", "git")
+  git_executable: System.get_env("GITGOOD_GIT", "git"),
+  python_executable: System.get_env("GITGOOD_PYTHON", "python3"),
+  internal_url: "http://127.0.0.1:" <> System.get_env("PORT", "47841")
 
 config :gitgood, GitgoodWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "47841"))]
