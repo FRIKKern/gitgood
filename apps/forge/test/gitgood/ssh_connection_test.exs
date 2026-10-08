@@ -80,7 +80,7 @@ defmodule Gitgood.SSHConnectionTest do
                5000
              )
 
-    assert_receive {:ssh_cm, ^connection, {:data, ^channel, 0, "0000"}}, 5000
+    assert advertisement(connection, channel) |> String.ends_with?("0000")
     assert :ok = :ssh_connection.send(connection, channel, "0000", 5000)
     assert :ok = :ssh_connection.send_eof(connection, channel)
     assert_receive {:ssh_cm, ^connection, {:exit_status, ^channel, 0}}, 5000
@@ -116,5 +116,20 @@ defmodule Gitgood.SSHConnectionTest do
         Jason.encode!([executable | args]) <> "))"
 
     System.cmd(python, ["-c", code], stderr_to_stdout: true)
+  end
+
+  defp advertisement(connection, channel, buffer \\ "") do
+    receive do
+      {:ssh_cm, ^connection, {:data, ^channel, 0, data}} ->
+        buffer = buffer <> data
+        assert byte_size(buffer) <= 65536
+        # Native versions advertise either an empty flush or a capabilities
+        # pseudo-ref for an unborn repository; SSH packets may also split it.
+        if String.ends_with?(buffer, "0000"),
+          do: buffer,
+          else: advertisement(connection, channel, buffer)
+    after
+      5000 -> flunk("Native Git advertisement was not delivered")
+    end
   end
 end
