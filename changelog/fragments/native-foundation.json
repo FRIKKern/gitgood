@@ -1,0 +1,15 @@
+{
+  "id": "native-foundation",
+  "category": "Added",
+  "summary": "Added a runnable Phoenix/Postgres private repository foundation and TanStack web interface with local identities, revocable sessions, backend membership checks, durable idempotent creation and recovery tests.",
+  "impact": "product",
+  "references": [
+    "apps/forge/README.md",
+    "apps/web/README.md",
+    "docs/decisions/0002-local-identity.md"
+  ],
+  "journeys": [
+    "J01"
+  ],
+  "withdrawn": false
+}

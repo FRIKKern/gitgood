@@ -5,7 +5,7 @@ Accepted direction: [Native forge](0001-native-forge.md) and [autonomous progres
 | ID | Decision | Gate |
 |---|---|---|
 | D01 | [Repository governance and first release](D01.md) | Owner/private visibility and agent authority resolved; licensing does not block private development. |
-| D02 | [Identity and bootstrap](D02.md) | Before J01 acceptance or authenticated Barkpark writes. |
+| D02 | [Identity and bootstrap](D02.md), [standalone identity](0002-local-identity.md) | Local boundary implemented; Cloud/Barkpark experiment remains open. |
 | D03 | [Barkpark reuse](D03.md) | Before adopting each capability. |
 | D04 | [Native Git transport](D04.md) | Before real repository hosting. |
 | D05 | [Git and database recovery](D05.md) | Before protected merge acceptance. |

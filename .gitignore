@@ -10,3 +10,7 @@ work/
 coverage/
 test-results/
 *.log
+.output/
+dist/
+.tanstack/
+.gitgood/

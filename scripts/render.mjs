@@ -20,6 +20,6 @@ export function changelog(m) {
   const latest=releases[0]
   const highlights = latest
     ? "## What's new\n\n**"+latest.version+" — "+latest.date+".** "+latest.fragments.map(id=>m.fragments.find(f=>f.id===id)?.summary).filter(Boolean).slice(0,3).join(' ')+' See [release history](CHANGELOG.md).'
-    : "## What's new\n\n**Unreleased — planning foundation.** "+(pending.filter(f=>f.impact==='planning').map(f=>f.summary).join(' ')||'Development work has not been released.')+' No Gitgood application release has been published.'
+    : "## What's new\n\n**Unreleased — development.** "+(pending.map(f=>f.summary).join(' ')||'Development work has not been released.')+' No Gitgood application release has been published.'
   return {body,highlights}
 }
