@@ -52,6 +52,15 @@ jobs:
             GITGOOD_FAILURE_POINT=reconcile mix run verification/vm_crash.exs
             cp .gitgood/verification/vm-crash.json ".gitgood/verification/vm-crash-$point.json"
           done
+          for point in before_validation before_ref after_ref before_outcome; do
+            set +e
+            GITGOOD_FAILURE_POINT="$point" mix run verification/import_vm_crash.exs
+            result=$?
+            set -e
+            test "$result" -eq 70
+            GITGOOD_FAILURE_POINT=reconcile mix run verification/import_vm_crash.exs
+            cp .gitgood/verification/import-vm-crash.json ".gitgood/verification/import-vm-crash-$point.json"
+          done
       - run: npm ci && npm run check
         working-directory: apps/web
       - run: npx playwright install --with-deps chromium

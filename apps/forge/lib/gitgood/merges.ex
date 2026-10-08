@@ -38,6 +38,7 @@ defmodule Gitgood.Merges do
       digest = Lease.digest([pull.id, params])
       Gitgood.Pushes.reconcile_repository(repository, nil)
       reconcile_repository(repository)
+      Gitgood.Imports.reconcile_repository(repository)
 
       if Repo.exists?(
            from o in GitOperation,

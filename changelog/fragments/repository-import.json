@@ -1,0 +1,14 @@
+{
+  "id": "repository-import",
+  "category": "Added",
+  "summary": "Added creator-owned full Git bundle import with bounded streaming intake, durable replay/provenance, atomic branches and tags, recovery markers and browser/native-client verification.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/import.md",
+    "docs/decisions/0006-offline-bundle-import.md"
+  ],
+  "journeys": [
+    "J05"
+  ],
+  "withdrawn": false
+}

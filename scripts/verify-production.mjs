@@ -99,7 +99,7 @@ try {
   const forgeReady=await ready(forgeUrl),webReady=await ready(webUrl)
   assert.equal(forgeReady.candidate,identity.candidate);assert.equal(webReady.candidate,identity.candidate)
   const html=await fetch(webUrl);assert.equal(html.status,200);assert((await html.text()).includes('gitgood'))
-  const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true'}
+  const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true',GITGOOD_TEST_CA:certificate}
   await run(process.execPath,[join(sourceWeb,'node_modules/@playwright/test/cli.js'),'test'],testEnv,sourceWeb,'browser')
   const login=async()=>{
     const response=await fetch(forgeUrl+'/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'owner',password:'synthetic-password'})})
@@ -119,6 +119,20 @@ try {
   await ready(forgeUrl);await ready(webUrl)
   const after=await (await fetch(forgeUrl+'/api/repos',{headers:{authorization}})).json()
   assert.deepEqual(after.repositories.map(r=>r.id),before.repositories.map(r=>r.id),'Repositories and session must survive restart')
+  const imported=JSON.parse(await readFile(join(sourceWeb,'test-results-production/import-receipt.json'),'utf8'))
+  const importRepo=after.repositories.find(r=>r.id===imported.repository_id)
+  assert(importRepo,'Imported repository must persist after restart')
+  const importBase=forgeUrl+'/api/repos/'+importRepo.team+'/'+importRepo.name
+  const importState=await (await fetch(importBase+'/operations/'+imported.operation_id,{headers:{authorization}})).json()
+  assert.equal(importState.operation.state,'applied')
+  assert.equal(importState.operation.metadata.source_sha256,imported.source_sha256)
+  assert.deepEqual(importState.operation.updates,imported.updates,'Import provenance and exact expected refs must persist')
+  const importKeys=await (await fetch(importBase+'/credentials',{method:'POST',headers:{authorization}})).json()
+  const importEnv={...process.env,GIT_TERMINAL_PROMPT:'0',GIT_SSL_CAINFO:certificate,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:windows?'NUL':'/dev/null',GIT_CONFIG_COUNT:'2',GIT_CONFIG_KEY_0:'credential.helper',GIT_CONFIG_VALUE_0:'',GIT_CONFIG_KEY_1:'http.extraHeader',GIT_CONFIG_VALUE_1:'Authorization: Basic '+Buffer.from('owner:'+importKeys.token).toString('base64')}
+  delete importEnv.GIT_SSL_NO_VERIFY
+  await run(process.env.GITGOOD_GIT??'git',['ls-remote',importRepo.clone_url,'refs/heads/*','refs/tags/*'],importEnv,root,'persisted-import-read')
+  const importRefs=await readFile(join(logs,'persisted-import-read.log'),'utf8')
+  for(const update of imported.updates)assert(importRefs.split(/\r?\n/).includes(update.new+'\t'+update.ref),'Exact imported ref must persist')
   const gitRepo=after.repositories.find(r=>r.name.startsWith('git-'))
   assert(gitRepo)
   const branches=await (await fetch(forgeUrl+'/api/repos/'+gitRepo.team+'/'+gitRepo.name+'/branches',{headers:{authorization}})).json()
@@ -151,8 +165,8 @@ try {
   await writeFile(identityFile,original)
   web=startWeb();await ready(webUrl)
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
-    runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH end-to-end flows','session/database/Git persistence after process restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,importOperation:imported.operation_id,
+    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})

@@ -43,6 +43,10 @@ revoked in the web interface; the same permissions, protected-main policy and du
 See [SSH configuration and verification](../../docs/implementation/ssh.md). OpenSSH ssh-keygen is needed
 for disposable test keys, not as the production SSH daemon.
 
+Creator-owned full Git bundle import initializes an empty repository with atomic branches/tags and
+durable source/outcome responsibility. See [supported import and recovery](../../docs/implementation/import.md)
+for source bounds, explicit limitations, replay, staging retention and whole-VM verification.
+
 Run mix precommit against isolated gitgood_test. The suite includes real Git storage, authorization, retry,
 reconciliation, process timeout, cancellation, concurrency, memory and output limits.
 The web suite additionally exercises trusted HTTPS clone/push/fetch, interrupted upload/retry, revocation,

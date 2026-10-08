@@ -16,6 +16,7 @@ defmodule Gitgood.Application do
       {Task.Supervisor, name: Gitgood.DurableWrites},
       {DynamicSupervisor, name: Gitgood.PushWorkers, strategy: :one_for_one, max_children: 4},
       {DynamicSupervisor, name: Gitgood.MergeWorkers, strategy: :one_for_one, max_children: 4},
+      {DynamicSupervisor, name: Gitgood.ImportWorkers, strategy: :one_for_one, max_children: 2},
       Gitgood.TransportSlots,
       Gitgood.LoginLimiter,
       Gitgood.SSHIdentities,

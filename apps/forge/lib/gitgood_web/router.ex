@@ -39,6 +39,9 @@ defmodule GitgoodWeb.Router do
     post "/repos/:team/:name/pulls/:id/reviews", PullController, :review
     post "/repos/:team/:name/pulls/:id/merge", PullController, :merge
     get "/repos/:team/:name/operations", PullController, :operations
+    post "/repos/:team/:name/imports", ImportController, :create
+    put "/repos/:team/:name/imports/:id/source", ImportController, :source
+    delete "/repos/:team/:name/imports/:id", ImportController, :cancel
     get "/repos/:team/:name/operations/:id", PullController, :operation
     get "/repos/:team/:name/policy", CheckController, :show
     put "/repos/:team/:name/policy", CheckController, :policy

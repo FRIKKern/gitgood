@@ -7,6 +7,7 @@ defmodule Gitgood.Reconciler do
   def handle_info(:reconcile, state) do
     if Application.get_env(:gitgood, :reconcile, true) do
       Gitgood.Repositories.reconcile()
+      Gitgood.Imports.reconcile()
       Gitgood.Pushes.reconcile()
       Gitgood.Merges.reconcile()
     end

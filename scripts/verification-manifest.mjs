@@ -5,7 +5,7 @@ const read = (exe, args) => {
   const result = spawnSync(exe, args, {encoding:'utf8',timeout:15000})
   return result.status === 0 ? result.stdout.trim() : 'unavailable'
 }
-const journeys = ['J01','J02','J03','J04','J06','J07','J08','J09']
+const journeys = ['J01','J02','J03','J04','J05','J06','J07','J08','J09']
 const manifest = {
   candidate: read(process.env.GITGOOD_GIT ?? 'git', ['rev-parse','HEAD']),
   trackedWorktreeClean: read(process.env.GITGOOD_GIT ?? 'git', ['status','--porcelain','--untracked-files=no']) === '',

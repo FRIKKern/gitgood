@@ -154,6 +154,11 @@ defmodule GitgoodWeb.PullController do
               ),
             else: query
 
+        query =
+          if params["kind"] in ["push", "merge", "import"],
+            do: from(o in query, where: o.kind == ^params["kind"]),
+            else: query
+
         operations = Repo.all(query)
 
         json(conn, %{operations: Enum.map(operations, &Merges.public/1)})

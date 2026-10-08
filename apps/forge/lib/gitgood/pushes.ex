@@ -59,6 +59,7 @@ defmodule Gitgood.Pushes do
 
         reconcile_repository(repository, nil)
         Gitgood.Merges.reconcile_repository(repository)
+        Gitgood.Imports.reconcile_repository(repository)
 
         if Repo.exists?(
              from o in GitOperation,
