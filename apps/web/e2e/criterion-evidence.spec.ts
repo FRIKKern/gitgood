@@ -69,7 +69,7 @@ test('criterion evidence binds real Git and source revisions, retains history an
   await panel.getByRole('combobox', {name: 'Producer outcome', exact: true}).selectOption('passed')
   await panel.getByLabel('Producer label', {exact: true}).fill('synthetic-browser-verifier')
   await panel.getByLabel('Reproduction commands · one per line', {exact: true}).fill('synthetic verifier --restore')
-  await panel.getByLabel('Environment as a JSON object', {exact: true}).fill('{"runtime":"copied native release","fixture":"synthetic HTTPS source"}')
+  await panel.getByRole('textbox', {name: 'Environment as a JSON object', exact: true}).fill('{"runtime":"copied native release","fixture":"synthetic HTTPS source"}')
   const artifact = Buffer.from('Reproducible browser evidence fixture\n')
   await panel.getByLabel('UTF-8 artifact · up to 64 KiB', {exact: true}).setInputFiles({name: 'browser-proof.txt', mimeType: 'text/plain', buffer: artifact})
   const requests: {key: string; body: any}[] = []
@@ -83,6 +83,9 @@ test('criterion evidence binds real Git and source revisions, retains history an
   })
   await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
   await expect(panel.getByRole('status')).toContainText('could not be confirmed')
+  const originalObservation = requests[0].body.manifest.observed_at
+  await page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname === new URL(endpoint).pathname)
+  await expect(panel.getByLabel('Observation time in UTC', {exact: true})).toHaveValue(originalObservation)
   await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
   await expect(panel.getByRole('status')).toContainText('Request recorded')
   expect(requests).toHaveLength(2)
