@@ -27,7 +27,7 @@ defmodule GitgoodWeb.PullController do
             audit = if pull.state == "merged", do: Pulls.applied_operation(repository, pull)
 
             events =
-              Enum.map(Pulls.events(pull), fn event ->
+              Enum.map(Pulls.events(pull, params["review"]), fn event ->
                 value = Pulls.event_public(event)
                 actor = Repo.get!(Gitgood.User, event.actor_id)
 

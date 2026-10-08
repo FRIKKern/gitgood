@@ -119,6 +119,20 @@ try {
   await ready(forgeUrl);await ready(webUrl)
   const after=await (await fetch(forgeUrl+'/api/repos',{headers:{authorization}})).json()
   assert.deepEqual(after.repositories.map(r=>r.id),before.repositories.map(r=>r.id),'Repositories and session must survive restart')
+  const discovery=JSON.parse(await readFile(join(sourceWeb,'test-results-production/activity-receipt.json'),'utf8'))
+  const persistedActivity=await (await fetch(forgeUrl+'/api/repos/team/'+discovery.repository+'/activity',{headers:{authorization}})).json()
+  const retainedActivity=persistedActivity.records.find(record=>record.url===discovery.record.url)
+  assert(retainedActivity,'Permitted native activity link must persist after restart')
+  assert.equal(retainedActivity.id,discovery.record.id)
+  assert.equal(retainedActivity.occurred_at,discovery.record.occurred_at)
+  const memberAudit=await (await fetch(forgeUrl+'/api/teams/team/members',{headers:{authorization}})).json()
+  assert(!memberAudit.members.some(member=>member.username==='outsider'),'Removed access must remain removed after restart')
+  for(const id of discovery.membership_events)assert(memberAudit.events.some(event=>event.id===id),'Audited access change must persist')
+  const outsiderLogin=await fetch(forgeUrl+'/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'outsider',password:'synthetic-password'})})
+  assert.equal(outsiderLogin.status,200)
+  const outsiderAuth='Bearer '+/gitgood_session=([^;]+)/.exec(outsiderLogin.headers.getSetCookie()[0])[1]
+  const deniedSearch=await (await fetch(forgeUrl+'/api/search?q='+discovery.repository,{headers:{authorization:outsiderAuth}})).json()
+  assert.deepEqual(deniedSearch.records,[],'Restart must not restore revoked search access')
   const imported=JSON.parse(await readFile(join(sourceWeb,'test-results-production/import-receipt.json'),'utf8'))
   const importRepo=after.repositories.find(r=>r.id===imported.repository_id)
   assert(importRepo,'Imported repository must persist after restart')
@@ -193,7 +207,8 @@ try {
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
     runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,importOperation:imported.operation_id,
     release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    discovery:{record:discovery.record,membership_events:discovery.membership_events},
+    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})

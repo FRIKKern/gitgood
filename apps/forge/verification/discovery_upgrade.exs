@@ -6,6 +6,7 @@ unless Mix.env() == :dev and
        do: raise("Use an isolated discovery upgrade database")
 
 alias Gitgood.{Accounts, Git, Lease, Pulls, Releases, Repo}
+Logger.configure(level: :warning)
 mode = System.fetch_env!("GITGOOD_DISCOVERY_MODE")
 file = ".gitgood/verification/discovery-upgrade.json"
 migration_path = Application.app_dir(:gitgood, "priv/repo/migrations")
@@ -135,7 +136,7 @@ if mode == "prepare" do
 
   refused =
     try do
-      Ecto.Migrator.run(Repo, migration_path, :down, step: 1)
+      Ecto.Migrator.run(Repo, migration_path, :down, to: 20_261_008_114_348)
       false
     rescue
       error in Postgrex.Error ->
@@ -144,6 +145,38 @@ if mode == "prepare" do
     end
 
   unless refused, do: raise("Downgrade discarded published identities")
+  Ecto.Migrator.run(Repo, migration_path, :up, all: true)
+  {:ok, member} = Accounts.create_user(name <> "-member", "synthetic-password")
+
+  {:ok, granted} =
+    Gitgood.Teams.change(
+      actor,
+      credential,
+      name,
+      %{"username" => member.username, "expected_role" => "absent", "role" => "reader"},
+      "upgrade-member-add"
+    )
+
+  {:ok, removed} =
+    Gitgood.Teams.change(
+      actor,
+      credential,
+      name,
+      %{"username" => member.username, "expected_role" => "reader", "role" => "absent"},
+      "upgrade-member-remove"
+    )
+
+  audit_refused =
+    try do
+      Ecto.Migrator.run(Repo, migration_path, :down, step: 1)
+      false
+    rescue
+      error in Postgrex.Error ->
+        error.postgres.code == :raise_exception and
+          String.contains?(error.postgres.message, "Membership audit records must be preserved")
+    end
+
+  unless audit_refused, do: raise("Downgrade discarded membership audit")
 
   fixture = %{
     repository_id: repository.id,
@@ -157,7 +190,10 @@ if mode == "prepare" do
     target: target,
     release_params: release_params,
     public_ids: identities,
-    downgrade_refused: refused
+    downgrade_refused: refused,
+    membership_event_ids: [granted.id, removed.id],
+    membership_target_id: member.id,
+    membership_downgrade_refused: audit_refused
   }
 
   File.mkdir_p!(Path.dirname(file))
@@ -170,6 +206,14 @@ else
   repository = Repo.get!(Gitgood.Repository, fixture["repository_id"])
   actor = Repo.get!(Gitgood.User, fixture["actor_id"])
   credential = Repo.get!(Gitgood.Credential, fixture["credential_id"])
+  {:ok, membership_history} = Gitgood.Teams.members(actor, credential, repository.team)
+
+  unless Enum.all?(fixture["membership_event_ids"], fn id ->
+           Enum.any?(membership_history.events, &(&1.id == id))
+         end) and
+           is_nil(Accounts.role(fixture["membership_target_id"], repository.team)),
+         do: raise("Restart lost membership audit or restored removed access")
+
   pull = Repo.get!(Gitgood.PullRequest, fixture["pull_id"])
   review = Repo.get!(Gitgood.ReviewEvent, fixture["review_id"])
   event = Repo.get!(Gitgood.ReleaseEvent, fixture["event_id"])

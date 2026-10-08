@@ -2,6 +2,7 @@ import {createFileRoute} from '@tanstack/react-router'
 import {useEffect, useRef, useState, type FormEvent} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {api, ApiError, type Session} from '../../../../../lib/api'
+import {useSession} from '../../../../../lib/access-boundary'
 type Event = {id: string; actor: string; kind: string; body: string; source_sha: string; target_sha: string; path: string | null; line: number | null; side: string | null; excerpt: string | null; outdated: boolean}
 type Pull = {id: string; title: string; body: string; state: string; author_id: number; source_ref: string; target_ref: string; source_sha: string; target_sha: string; policy: {version: number; approvals: number; required_checks: {provider_id: number; name: string}[]}; events: Event[]; checks: {id: number; provider: string; name: string; sha: string; attempt: number; sequence: number; status: string}[]}
 type Operation = {id: string; state: string; outcome: {merge_sha?: string}}
@@ -13,11 +14,18 @@ function PullPage() {
   const [error,setError] = useState('')
   const [busy,setBusy] = useState(false)
   const [operation,setOperation] = useState<Operation | null>(null)
+  const [selectedReview,setSelectedReview] = useState('')
   const mergeRequest = useRef<{body:string;key:string} | null>(null)
   const reviewRequest = useRef<{body:string;key:string} | null>(null)
   useEffect(()=>setReady(true),[])
-  const session = useQuery({queryKey:['session'],queryFn:()=>api<Session>('/session'),enabled:ready})
-  const pull = useQuery({queryKey:['pull',base,id],queryFn:()=>api<Pull>(base+'/pulls/'+id),enabled:ready,retry:false})
+  useEffect(() => {
+    const follow = () => setSelectedReview(/^#review-([0-9a-f-]{36})$/.exec(window.location.hash)?.[1] ?? '')
+    follow(); window.addEventListener('hashchange', follow)
+    return () => window.removeEventListener('hashchange', follow)
+  }, [id])
+  const session = useSession()
+  const pull = useQuery({queryKey:['pull',base,id,selectedReview],queryFn:()=>api<Pull>(base+'/pulls/'+id+(selectedReview?'?review='+selectedReview:'')),enabled:ready && !!session.data,retry:false})
+  useEffect(() => {if (selectedReview && !pull.error) document.getElementById('review-' + selectedReview)?.scrollIntoView()}, [selectedReview, pull.data, pull.error])
   const diff = useQuery({queryKey:['pull-diff',base,id,pull.data?.source_sha,pull.data?.target_sha],queryFn:()=>api<{text:string}>(base+'/pulls/'+id+'/diff'),enabled:!!pull.data,retry:false})
   const writer = session.data?.teams.some(t=>t.team===team && t.role!=='reader')
   async function review(kind:string) {
@@ -41,12 +49,14 @@ function PullPage() {
     catch(e){setError(e instanceof Error?e.message:'Operations unavailable')}
   }
   return <div className="shell"><header><a className="brand" href="/">gitgood<span className="dot">●</span></a><a href={base}>Repository</a></header><main>
-    {pull.data ? <><p className="eyebrow">Pull request · {pull.data.state}</p><h1>{pull.data.title}</h1><p className="intro">{pull.data.source_ref.replace('refs/heads/','')} → main · fast-forward</p><p>{pull.data.body}</p>
+    {pull.data && !pull.error ? <><p className="eyebrow">Pull request · {pull.data.state}</p><h1>{pull.data.title}</h1><p className="intro">{pull.data.source_ref.replace('refs/heads/','')} → main · fast-forward</p><p>{pull.data.body}</p>
       <p>Source {pull.data.source_sha.slice(0,12)} · target {pull.data.target_sha.slice(0,12)} · policy {pull.data.policy.version}</p>
       <button className="subtle" onClick={()=>void pull.refetch()}>Refresh pull request</button>
       {error && <p role="alert" className="error">{error.replaceAll('_',' ')}</p>}
-      <section className="code-panel"><h2>Changes</h2>{diff.data ? <pre className="source">{diff.data.text || 'No changes'}</pre> : diff.error ? <p role="alert">{diff.error.message.replaceAll('_',' ')} <button onClick={()=>void diff.refetch()}>Retry changes</button></p> : <p>Loading changes…</p>}</section>
+      <section className="code-panel"><h2>Changes</h2>{diff.error ? <p role="alert">{diff.error.message.replaceAll('_',' ')} <button onClick={()=>void diff.refetch()}>Retry changes</button></p> : diff.data ? <pre className="source">{diff.data.text || 'No changes'}</pre> : <p>Loading changes…</p>}</section>
       <section className="collaboration-panel"><h2>Conversation and reviews</h2>
+        <p>Most recent 500 entries; an older entry selected by its link is included.</p>
+        {selectedReview && !pull.data.events.some(event => event.id === selectedReview) && <p role="alert">The selected review is unavailable in this pull request.</p>}
         {pull.data.events.map(event=><article className="review-event" id={'review-'+event.id} key={event.id}><strong>{event.actor} · {event.kind.replaceAll('_',' ')}</strong>{event.outdated && <span className="badge">Outdated revision</span>}
           <p>{event.body}</p>{event.path && <><small>{event.path} · {event.side} line {event.line} · commit {event.source_sha.slice(0,12)}</small><pre>{event.excerpt}</pre></>}
         </article>)}

@@ -2,6 +2,7 @@
 Accepted for the standalone forge boundary, 8 October 2026. Cloud and Barkpark attribution remain D02 experiments.
 
 Gitgood owns local actors and team membership. Installation operators provision actors through a local bootstrap command.
+Team owners manage those existing accounts' roles through the native membership UI/API. Changes serialize per team, protect the last owner, require the expected current role and retain an actor-attributed idempotent audit record. Browser access checks invalidate changed permissions. Account provisioning remains an installation operation; membership controls do not add public signup or invitation delivery.
 There is no public signup or shared writer identity. Session credentials are opaque random values; Postgres stores only their SHA-256 digests, expiry and revocation.
 Password verification uses PBKDF2-HMAC-SHA256 with individual random salts and 600,000 iterations through OTP crypto, avoiding a platform-specific native build dependency for this first portable experiment.
 Argon2id and algorithm migration remain a production-hardening decision; this choice makes no FIPS compliance claim.

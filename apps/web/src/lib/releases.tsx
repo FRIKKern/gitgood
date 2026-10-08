@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {useQuery, useQueryClient} from '@tanstack/react-query'
-import {api, type Session} from './api'
+import {api, ApiError, privateRequest, type Session} from './api'
 
 type Asset = {id: string; name: string; sha256: string; size: number; state: string}
 type Release = {id: string; tag: string; tag_object: string; commit_sha: string; base_sha: string | null; title: string; notes: string; notes_digest: string; state: string; version: number; published_at: string | null; withdrawn_at: string | null; changes: {commits: {sha: string; subject: string}[]}; assets: Asset[]}
@@ -75,6 +75,20 @@ export function Releases({base, session}: {base: string; session?: Session}) {
     catch (e) {setError(e instanceof Error ? e.message.replaceAll('_', ' ') : 'Cancellation unavailable')}
     finally {setBusy(false); await refresh()}
   }
+  async function download(asset: Asset) {
+    if (!release) return
+    setError('')
+    try {
+      const blob = await privateRequest(base + '/releases/' + release.id + '/assets/' + asset.id + '/download', {}, async response => {
+        if (!response.ok) throw new ApiError(response.status, 'Asset unavailable')
+        const body = await response.blob()
+        if (body.size !== asset.size || await fingerprint(await body.arrayBuffer()) !== asset.sha256) throw new Error('Asset checksum mismatch')
+        return body
+      })
+      const url = URL.createObjectURL(blob), anchor = document.createElement('a')
+      anchor.href = url; anchor.download = asset.name; anchor.click(); URL.revokeObjectURL(url)
+    } catch (e) {setError(e instanceof Error ? e.message.replaceAll('_', ' ') : 'Asset unavailable')}
+  }
   if (!session) return null
   return <section className="panel releases-panel" aria-label="Releases">
     <h2>Releases</h2><p>Published releases identify an existing Git tag, its commit and checksummed assets. A draft is work in progress.</p>
@@ -104,7 +118,7 @@ export function Releases({base, session}: {base: string; session?: Session}) {
         <li key={commit.sha}><a href={base + '?' + new URLSearchParams({sha: commit.sha})}>{commit.subject}</a><code>{commit.sha}</code></li>)}</ol></details>
       <h4>Assets</h4>{release.assets.length === 0 && <p>No assets attached.</p>}
       {release.assets.map(asset => <div className="release-asset" key={asset.id}>
-        <p>{release.state === 'published' && asset.state === 'ready' ? <a href={'/api' + base + '/releases/' + release.id + '/assets/' + asset.id + '/download'} download={asset.name}>{asset.name}</a> : <span>{asset.name}</span>} · {asset.state} · {asset.size} bytes</p>
+        <p>{release.state === 'published' && asset.state === 'ready' ? <a href={'/api' + base + '/releases/' + release.id + '/assets/' + asset.id + '/download'} download={asset.name} onClick={event => {event.preventDefault(); void download(asset)}}>{asset.name}</a> : <span>{asset.name}</span>} · {asset.state} · {asset.size} bytes</p>
         <code>SHA-256 {asset.sha256}</code>
         {writer && release.state === 'draft' && asset.state === 'waiting' && <button disabled={busy} onClick={() => void cancel(asset)}>Cancel waiting asset</button>}
       </div>)}

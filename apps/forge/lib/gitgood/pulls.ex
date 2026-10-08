@@ -103,14 +103,26 @@ defmodule Gitgood.Pulls do
     end)
   end
 
-  def events(pull),
-    do:
+  def events(pull, selected \\ nil) do
+    recent =
       Repo.all(
         from e in ReviewEvent,
           where: e.pull_request_id == ^pull.id,
-          order_by: [asc: e.id],
+          order_by: [desc: e.id],
           limit: 500
       )
+
+    selected =
+      with {:ok, uuid} <- Ecto.UUID.cast(selected) do
+        Repo.get_by(ReviewEvent, pull_request_id: pull.id, public_id: uuid)
+      else
+        _ -> nil
+      end
+
+    if(selected, do: [selected | recent], else: recent)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.id)
+  end
 
   def submit(repository, pull, user, credential, params, key) do
     Lease.actor(repository, user, credential, ["owner", "writer"], fn repository ->

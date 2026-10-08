@@ -1,13 +1,14 @@
 {
   "id": "private-discovery",
   "category": "Changed",
-  "summary": "Introduced persisted opaque collaboration links and current-session read leases as the foundation for private activity and search.",
+  "summary": "Added permission-filtered native search and activity, opaque collaboration links, shared browser access invalidation and audited owner controls for team membership.",
   "impact": "product",
   "references": [
     "docs/implementation/activity.md",
     "docs/decisions/0008-private-discovery.md"
   ],
   "journeys": [
+    "J01",
     "J06",
     "J08",
     "J12",

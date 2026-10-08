@@ -17,7 +17,7 @@ export async function proxy(request: Request): Promise<Response> {
   if (declared && /^\d+$/.test(declared) && Number(declared) > limit)
     return Response.json({error: 'api_body_limit'}, {status: 413})
   const headers = new Headers()
-  for (const name of ['cookie', 'authorization', 'content-type', 'x-gitgood-csrf', 'idempotency-key', 'origin']) {
+  for (const name of ['cookie', 'authorization', 'content-type', 'x-gitgood-csrf', 'x-gitgood-access-context', 'idempotency-key', 'origin']) {
     const value = request.headers.get(name)
     if (value) headers.set(name, value)
   }
@@ -81,6 +81,8 @@ export async function proxy(request: Request): Promise<Response> {
     }
     const result = await fetch(target, options)
     const responseHeaders = new Headers({'content-type': 'application/json', 'cache-control': 'no-store'})
+    const accessContext = result.headers.get('x-gitgood-access-context')
+    if (accessContext) responseHeaders.set('x-gitgood-access-context', accessContext)
     if (assetDownload && result.ok) {
       responseHeaders.set('content-type', 'application/octet-stream')
       responseHeaders.set('x-content-type-options', 'nosniff')

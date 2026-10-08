@@ -5,6 +5,8 @@ import {api, type Repository, type Session} from '../../../lib/api'
 import {PullRequests, PolicySettings} from '../../../lib/collaboration'
 import {RepositoryImport} from '../../../lib/repository-import'
 import {Releases} from '../../../lib/releases'
+import {useSession} from '../../../lib/access-boundary'
+import {Discovery} from '../../../lib/discovery'
 type Branch = {name: string; sha: string}
 type Entry = {name: string; kind: string; sha: string; unsupported_encoding: boolean}
 type Commit = {sha: string; author: string; date: string; subject: string}
@@ -15,7 +17,7 @@ export const Route = createFileRoute('/repos/$team/$name')({
 })
 function RepositoryLayout() {
   const pathname = useRouterState({select: state => state.location.pathname})
-  return pathname.includes('/pulls/') ? <Outlet /> : <RepositoryPage />
+  return pathname.includes('/pulls/') || pathname.includes('/operations/') ? <Outlet /> : <RepositoryPage />
 }
 function RepositoryPage() {
   const {team, name} = Route.useParams()
@@ -26,7 +28,7 @@ function RepositoryPage() {
   const [credentialError, setCredentialError] = useState('')
   useEffect(() => {setReady(true); setCredential(null)}, [team, name])
   const base = '/repos/' + encodeURIComponent(team) + '/' + encodeURIComponent(name)
-  const session = useQuery({queryKey: ['session'], queryFn: () => api<Session>('/session'), enabled: ready})
+  const session = useSession()
   const repository = useQuery({queryKey: ['repository', team, name], queryFn: () => api<Repository>(base), enabled: ready})
   const branches = useQuery({queryKey: ['branches', team, name], queryFn: () => api<{branches: Branch[]}>(base + '/branches'), enabled: !!repository.data})
   useEffect(() => {
@@ -49,7 +51,7 @@ function RepositoryPage() {
     catch (e) {setCredentialError(e instanceof Error ? e.message : 'Revocation failed')}
   }
   return <div className="shell"><header><a className="brand" href="/">gitgood<span className="dot">●</span></a><a href="/">Your repositories</a></header><main>
-    {repository.data ? <><p className="eyebrow">Private repository</p><h1>{team} / {name}</h1>
+    {repository.data && !repository.error ? <><p className="eyebrow">Private repository</p><h1>{team} / {name}</h1>
       <section className="repository-tools"><label>Clone URL<input value={repository.data.clone_url} readOnly onFocus={e => e.target.select()} /></label>
         {session.data && <div>{credential ? <><label>Git token · shown once<input aria-label="Git token" type="password" value={credential.token} readOnly onFocus={e => e.target.select()} /></label><p>Use your username and this token in Git's credential prompt. It expires after 30 days.</p><button onClick={() => void revoke()}>Revoke this token</button></> : <button onClick={() => void issue()}>Create Git token</button>}</div>}
         {credentialError && <p role="alert">{credentialError}</p>}
@@ -70,6 +72,7 @@ function RepositoryPage() {
       <RepositoryImport base={base} repository={repository.data} session={session.data} empty={branches.data?.branches.length === 0}/>
       <Releases base={base} session={session.data}/>
       <PullRequests base={base} session={session.data} branches={branches.data?.branches ?? []}/><PolicySettings base={base} session={session.data}/>
+      {session.data && <Discovery base={base}/>}
     </> : repository.error ? <p role="alert">This repository is unavailable to your identity. <button onClick={() => void repository.refetch()}>Retry repository</button> <a href="/">Return to your repositories</a></p> : <p>Loading repository…</p>}
   </main></div>
 }

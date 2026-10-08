@@ -1,7 +1,7 @@
 defmodule Gitgood.Access do
   @moduledoc "Current session access snapshot; public identity is a keyed opaque digest."
   import Ecto.Query
-  alias Gitgood.{Accounts, Credential, Membership, Repo, User}
+  alias Gitgood.{Accounts, Credential, Membership, Repo, Repository, User}
 
   def load(user, credential), do: with_session(user, credential, & &1)
 
@@ -18,13 +18,23 @@ defmodule Gitgood.Access do
 
       actor = Repo.get(User, user.id) || Repo.rollback(:authorization_changed)
 
-      memberships =
-        Repo.all(
-          from m in Membership,
-            where: m.user_id == ^actor.id,
-            order_by: [asc: m.id],
-            lock: "FOR SHARE"
-        )
+      query =
+        from m in Membership,
+          where: m.user_id == ^actor.id,
+          order_by: [asc: m.id],
+          lock: "FOR SHARE"
+
+      query =
+        if current.repository_id do
+          repository =
+            Repo.get(Repository, current.repository_id) || Repo.rollback(:authorization_changed)
+
+          from m in query, where: m.team == ^repository.team
+        else
+          query
+        end
+
+      memberships = Repo.all(query)
 
       claims = [
         actor.id,

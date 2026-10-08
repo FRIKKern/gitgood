@@ -14,26 +14,38 @@ defmodule GitgoodWeb.SessionController do
       true ->
         case Accounts.authenticate(params["username"], params["password"]) do
           {:ok, user} ->
-            {token, _} = Accounts.issue(user, "session")
+            {token, credential} = Accounts.issue(user, "session")
 
-            conn
-            |> put_resp_cookie("gitgood_session", token,
-              http_only: true,
-              same_site: "Strict",
-              secure:
-                String.starts_with?(Application.fetch_env!(:gitgood, :web_origin), "https://"),
-              max_age: 86400
-            )
-            |> json(%{
-              user: %{id: user.id, username: user.username},
-              csrf: Auth.csrf(token),
-              teams: Accounts.teams(user.id)
-            })
+            case Gitgood.Access.load(user, credential) do
+              {:ok, access} ->
+                conn
+                |> put_resp_header("x-gitgood-access-context", access.context)
+                |> put_resp_cookie("gitgood_session", token,
+                  http_only: true,
+                  same_site: "Strict",
+                  secure:
+                    String.starts_with?(Application.fetch_env!(:gitgood, :web_origin), "https://"),
+                  max_age: 86400
+                )
+                |> json(%{
+                  user: %{id: user.id, username: user.username},
+                  csrf: Auth.csrf(token),
+                  teams: access.teams,
+                  access_context: access.context
+                })
+
+              {:error, _} ->
+                Accounts.revoke(credential)
+                Auth.reject(conn, 503, "access_unavailable")
+            end
 
           _ ->
             Auth.reject(conn, 401, "invalid_credentials")
         end
     end
+  rescue
+    _ in [DBConnection.ConnectionError, Postgrex.Error] ->
+      Auth.reject(conn, 503, "access_unavailable")
   end
 
   def show(conn, _) do
@@ -42,7 +54,8 @@ defmodule GitgoodWeb.SessionController do
     json(conn, %{
       user: %{id: user.id, username: user.username},
       csrf: Auth.csrf(conn.assigns.session_token),
-      teams: Accounts.teams(user.id)
+      teams: conn.assigns.access_snapshot.teams,
+      access_context: conn.assigns.access_snapshot.context
     })
   end
 

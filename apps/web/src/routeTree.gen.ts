@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as ReposTeamNameRouteImport } from './routes/repos/$team/$name'
+import { Route as ReposTeamNameOperationsIdRouteImport } from './routes/repos/$team/$name/operations/$id'
 import { Route as ReposTeamNamePullsIdRouteImport } from './routes/repos/$team/$name/pulls/$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,12 @@ const ReposTeamNameRoute = ReposTeamNameRouteImport.update({
   path: '/repos/$team/$name',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReposTeamNameOperationsIdRoute =
+  ReposTeamNameOperationsIdRouteImport.update({
+    id: '/operations/$id',
+    path: '/operations/$id',
+    getParentRoute: () => ReposTeamNameRoute,
+  } as any)
 const ReposTeamNamePullsIdRoute = ReposTeamNamePullsIdRouteImport.update({
   id: '/pulls/$id',
   path: '/pulls/$id',
@@ -39,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/$': typeof ApiSplatRoute
   '/repos/$team/$name': typeof ReposTeamNameRouteWithChildren
+  '/repos/$team/$name/operations/$id': typeof ReposTeamNameOperationsIdRoute
   '/repos/$team/$name/pulls/$id': typeof ReposTeamNamePullsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/$': typeof ApiSplatRoute
   '/repos/$team/$name': typeof ReposTeamNameRouteWithChildren
+  '/repos/$team/$name/operations/$id': typeof ReposTeamNameOperationsIdRoute
   '/repos/$team/$name/pulls/$id': typeof ReposTeamNamePullsIdRoute
 }
 export interface FileRoutesById {
@@ -52,19 +61,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/$': typeof ApiSplatRoute
   '/repos/$team/$name': typeof ReposTeamNameRouteWithChildren
+  '/repos/$team/$name/operations/$id': typeof ReposTeamNameOperationsIdRoute
   '/repos/$team/$name/pulls/$id': typeof ReposTeamNamePullsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/api/$' | '/repos/$team/$name' | '/repos/$team/$name/pulls/$id'
+    | '/'
+    | '/api/$'
+    | '/repos/$team/$name'
+    | '/repos/$team/$name/operations/$id'
+    | '/repos/$team/$name/pulls/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/$' | '/repos/$team/$name' | '/repos/$team/$name/pulls/$id'
+  to:
+    | '/'
+    | '/api/$'
+    | '/repos/$team/$name'
+    | '/repos/$team/$name/operations/$id'
+    | '/repos/$team/$name/pulls/$id'
   id:
     | '__root__'
     | '/'
     | '/api/$'
     | '/repos/$team/$name'
+    | '/repos/$team/$name/operations/$id'
     | '/repos/$team/$name/pulls/$id'
   fileRoutesById: FileRoutesById
 }
@@ -97,6 +117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReposTeamNameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/repos/$team/$name/operations/$id': {
+      id: '/repos/$team/$name/operations/$id'
+      path: '/operations/$id'
+      fullPath: '/repos/$team/$name/operations/$id'
+      preLoaderRoute: typeof ReposTeamNameOperationsIdRouteImport
+      parentRoute: typeof ReposTeamNameRoute
+    }
     '/repos/$team/$name/pulls/$id': {
       id: '/repos/$team/$name/pulls/$id'
       path: '/pulls/$id'
@@ -108,10 +135,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface ReposTeamNameRouteChildren {
+  ReposTeamNameOperationsIdRoute: typeof ReposTeamNameOperationsIdRoute
   ReposTeamNamePullsIdRoute: typeof ReposTeamNamePullsIdRoute
 }
 
 const ReposTeamNameRouteChildren: ReposTeamNameRouteChildren = {
+  ReposTeamNameOperationsIdRoute: ReposTeamNameOperationsIdRoute,
   ReposTeamNamePullsIdRoute: ReposTeamNamePullsIdRoute,
 }
 

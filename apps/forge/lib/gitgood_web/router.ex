@@ -24,10 +24,15 @@ defmodule GitgoodWeb.Router do
     get "/session", SessionController, :show
     delete "/session", SessionController, :delete
     get "/repos", RepositoryController, :index
+    get "/search", DiscoveryController, :search
+    get "/activity", DiscoveryController, :activity
+    get "/teams/:team/members", TeamController, :index
+    post "/teams/:team/members", TeamController, :change
     get "/ssh-keys", SSHKeyController, :index
     post "/ssh-keys", SSHKeyController, :create
     post "/repos", RepositoryController, :create
     get "/repos/:team/:name", RepositoryController, :show
+    get "/repos/:team/:name/activity", DiscoveryController, :repository_activity
     get "/repos/:team/:name/branches", BrowseController, :branches
     get "/repos/:team/:name/tags", ReleaseController, :tags
     get "/repos/:team/:name/releases", ReleaseController, :index

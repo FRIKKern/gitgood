@@ -86,7 +86,7 @@ export function RepositoryImport({base, repository, session, empty}: {
     {allowed && pending?.state === 'started' && pending.metadata.phase === 'waiting_source' && <button disabled={busy} onClick={() => void cancel()}>Cancel waiting import</button>}
     {error && <p role="alert">{error} <button disabled={busy || !file} onClick={() => void submit()}>Retry import</button></p>}
     {operations.error && <p role="alert">Import activity unavailable. <button onClick={() => void operations.refetch()}>Retry import activity</button></p>}
-    {operations.data?.slice(0, 10).map(operation => <article className="import-operation" key={operation.id}>
+    {!operations.error && operations.data?.slice(0, 10).map(operation => <article className="import-operation" key={operation.id}>
       <h3>{operation.metadata.source_name}</h3>
       <p role="status">Import {operation.state === 'started' ? operation.metadata.phase.replaceAll('_', ' ') : operation.state}</p>
       <p>{operation.state === 'applied' ? operation.updates.length + ' branches and tags imported.' :

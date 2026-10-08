@@ -70,6 +70,13 @@ jobs:
             GITGOOD_FAILURE_POINT=reconcile mix run verification/release_vm_crash.exs
             cp .gitgood/verification/release-vm-crash.json ".gitgood/verification/release-vm-crash-$point.json"
           done
+      - name: Verify populated discovery upgrade and fresh VM
+        working-directory: apps/forge
+        run: |
+          export PGDATABASE="gitgood_activity_upgrade_$(openssl rand -hex 4)"
+          export GITGOOD_STORAGE="$PWD/.gitgood/discovery-upgrade"
+          GITGOOD_DISCOVERY_MODE=prepare mix run --no-start verification/discovery_upgrade.exs
+          GITGOOD_DISCOVERY_MODE=check mix run --no-start verification/discovery_upgrade.exs
       - run: npm ci && npm run check
         working-directory: apps/web
       - run: npx playwright install --with-deps chromium

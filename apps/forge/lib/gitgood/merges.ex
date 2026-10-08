@@ -315,6 +315,7 @@ defmodule Gitgood.Merges do
         :updates,
         :metadata,
         :outcome,
-        :inserted_at
+        :inserted_at,
+        :updated_at
       ])
 end
