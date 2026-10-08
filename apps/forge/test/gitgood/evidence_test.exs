@@ -155,6 +155,27 @@ defmodule Gitgood.EvidenceTest do
     })
   end
 
+  test "past fractional observation times are retained exactly while future times are refused",
+       c do
+    observation = DateTime.utc_now() |> DateTime.to_iso8601()
+    params = put_in(c.params, ["manifest", "observed_at"], observation)
+    assert {:ok, receipt} = attach(c, "fractional-observation", params)
+    assert {:ok, recorded} = view(c)
+    assert hd(recorded["records"])["id"] == receipt["id"]
+    assert hd(recorded["records"])["manifest"]["observed_at"] == observation
+
+    future = DateTime.utc_now() |> DateTime.add(10, :second) |> DateTime.to_iso8601()
+
+    assert {:error, :invalid_evidence} =
+             attach(
+               c,
+               "future-fractional-observation",
+               put_in(params, ["manifest", "observed_at"], future)
+             )
+
+    assert Repo.aggregate(CriterionEvidence, :count) == 1
+  end
+
   test "actual criteria remain absent despite upstream met and evidence claims; immutable result and artifact retries",
        c do
     assert {:ok, empty} = view(c)

@@ -460,7 +460,7 @@ defmodule Gitgood.Evidence do
       Enum.all?(environment, fn {key, value} -> text?(key, 128) && text?(value, 512) end) &&
       text?(producer, 128) && is_binary(observed) && byte_size(observed) <= 64 &&
       case DateTime.from_iso8601(observed) do
-        {:ok, time, 0} -> DateTime.compare(time, Accounts.now()) != :gt
+        {:ok, time, 0} -> DateTime.compare(time, DateTime.utc_now()) != :gt
         _ -> false
       end
   end
