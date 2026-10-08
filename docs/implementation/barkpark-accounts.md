@@ -20,6 +20,10 @@ Durable actor-scoped request events retain an HMAC of the complete request and t
 
 The encryption key is installation recovery material. Losing or replacing it makes old ciphertext unreadable and changes request HMACs; online key migration and a multi-key keyring are outside this slice. Do not claim rotation compatibility or successful coordinated recovery until the lifecycle implementation establishes it.
 
+## Migration and restart
+
+The migration refuses downgrade while either a connection or original request event remains. Exclusive table locks serialize the refusal with concurrent writers. Empty tables may be rolled back. The isolated verification/barkpark_accounts_upgrade.exs fixture creates a legacy account/session before upgrade, exercises empty rollback/re-upgrade, refuses populated and history-only rollback, then checks the same ciphertext, ownership, connection generation and request identity from a fresh VM using the same privately supplied installation key. Synthetic migration records are explicitly identified as fixtures; they do not pretend to be live source verification or coordinated backup/restore.
+
 ## Consumers and privacy
 
 Internal source reads decrypt only the requesting account's credential, check selected origin and generation, then revalidate the current native session and connection generation after I/O. A response arriving after disconnect is discarded. Source denials/unavailability retain their original typed status for an owning link context to interpret. Generic source metadata is not a forge authorization grant; native repository access must be established independently before constructing a link read.

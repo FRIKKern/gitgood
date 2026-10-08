@@ -41,6 +41,10 @@ Run release migrations before service startup:
 `bin/gitgood eval 'Gitgood.Release.migrate()'`.
 Bootstrap a local actor once with `GITGOOD_BOOTSTRAP_USERNAME`, `GITGOOD_BOOTSTRAP_TEAM`, `GITGOOD_BOOTSTRAP_ROLE` and `GITGOOD_BOOTSTRAP_PASSWORD`, then `bin/gitgood eval 'Gitgood.Release.bootstrap()'`; remove bootstrap variables afterward. Bootstrap user/membership creation is transactional. There is no production signup or managed identity provider yet.
 
+The packaged forge runs without automatic distributed Erlang registration; see [single-host releases](../decisions/0010-single-host-releases.md). Use the OS supervisor for stop/restart and release eval for offline maintenance. Remote/rpc commands are outside this profile.
+
+For Barkpark account connections, select GITGOOD_BARKPARK_ORIGIN and provision GITGOOD_CONNECTION_KEY as a separate secret. Preserve the key with coordinated recovery materials; a database copy alone cannot recover encrypted source credentials. See [account connection bounds](../implementation/barkpark-accounts.md).
+
 Start forge with `bin/gitgood start` and web with `npm start`. On Windows use `bin/gitgood.bat`. Use a supervisor that owns the complete process tree and persists logs privately. A production TLS proxy routes `/git/*` directly to the forge, everything else to the web, and denies `/internal/*`. See the Caddy example; validate the deployed proxy separately, including request/time limits and no public backend bypass.
 
 The example uses mutually exclusive path handles so the internal-path denial precedes the fallback, and an exact 33554432-byte body limit (32 MiB). Its response-header timeout allows the bounded upload and Git processing intervals. Syntax/routing guidance comes from [Caddy handle/order](https://caddyserver.com/docs/caddyfile/directives/handle), [body limits](https://caddyserver.com/docs/caddyfile/directives/request_body) and [reverse proxy transport](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy); this source review is separate from deployed proxy verification.

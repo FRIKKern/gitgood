@@ -1,0 +1,17 @@
+{
+  "id": "single-host-release-isolation",
+  "category": "Fixed",
+  "summary": "Disabled automatic distributed Erlang registration for single-host releases after a real concurrent Windows/Linux node collision; added populated/history-only Barkpark migration refusal and a fresh-VM encrypted-account retention fixture.",
+  "impact": "operator",
+  "references": [
+    "docs/decisions/0010-single-host-releases.md",
+    "docs/deployment/production.md",
+    "docs/implementation/barkpark-accounts.md"
+  ],
+  "journeys": [
+    "J10",
+    "J14",
+    "J15"
+  ],
+  "withdrawn": false
+}

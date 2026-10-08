@@ -1,7 +1,7 @@
 defmodule Gitgood.Repo.Migrations.CreateBarkparkConnections do
   use Ecto.Migration
 
-  def change do
+  def up do
     create table(:barkpark_connections, primary_key: false) do
       add :id, :uuid, primary_key: true
       add :user_id, references(:users, on_delete: :restrict), null: false
@@ -33,5 +33,20 @@ defmodule Gitgood.Repo.Migrations.CreateBarkparkConnections do
     end
 
     create unique_index(:barkpark_connection_events, [:user_id, :request_key])
+  end
+
+  def down do
+    execute """
+    DO $ BEGIN
+      LOCK TABLE barkpark_connections, barkpark_connection_events IN ACCESS EXCLUSIVE MODE;
+      IF EXISTS (SELECT 1 FROM barkpark_connections) OR
+         EXISTS (SELECT 1 FROM barkpark_connection_events) THEN
+        RAISE EXCEPTION 'Barkpark connections or request history exist; restore a compatible artifact instead of dropping them';
+      END IF;
+    END $;
+    """
+
+    drop table(:barkpark_connection_events)
+    drop table(:barkpark_connections)
   end
 end
