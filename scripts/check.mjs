@@ -5,7 +5,7 @@ import {generated} from './generate.mjs'
 const m=load(), errors=validate(m)
 function walk(dir) {
   return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{
-    if(['.git','node_modules','work'].includes(e.name))return []
+    if(['.git','node_modules','work','deps','_build','.output','dist','.tanstack'].includes(e.name))return []
     const p=path.join(dir,e.name)
     return e.isDirectory()?walk(p):[p]
   })
