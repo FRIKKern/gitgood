@@ -1,0 +1,136 @@
+import {useEffect, useRef, useState, type FormEvent} from 'react'
+import {useQuery} from '@tanstack/react-query'
+import {api, privateRequest, ApiError, type Session} from './api'
+import {accessStore} from './access-state'
+
+type Criterion = {index: number; text: string; sha256: string; state: string; evidence_id: string | null}
+type Record = {id: string; criterion_index: number; criterion_sha256: string; source_revision: string;
+  source_sha: string; target_sha: string; outcome: string; state: string; actor_id: number; recorded_at: string;
+  manifest: {commands: string[]; environment: {[key: string]: string}; producer: string; observed_at: string};
+  artifact: {name: string; size: number; sha256: string; available: boolean};
+  events: {kind: string; reason: string; actor_id: number; recorded_at: string}[]}
+type View = {source: {id: string; generation: string; connection_generation?: string; source_state: string; revision?: string};
+  source_sha?: string; target_sha?: string; criteria: Criterion[]; records: Record[]; observed_at?: string; profile?: string}
+const states: {[key: string]: string} = {passed: 'Passed · producer result', failed: 'Failed', inconclusive: 'Inconclusive',
+  absent: 'Absent · no evidence', stale: 'Stale · reassessment needed', unavailable: 'Unavailable · artifact withdrawn'}
+const digest = async (bytes: ArrayBuffer) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), value => value.toString(16).padStart(2, '0')).join('')
+
+export function CriterionEvidence({endpoint, link, generation, session, writer}: {
+  endpoint: string; link: {id: string; generation: string}; generation: string; session: Session; writer: boolean
+}) {
+  const path = endpoint + '/' + link.id + '/evidence'
+  const mounted = useRef(true)
+  useEffect(() => {mounted.current = true; return () => {mounted.current = false}}, [])
+  const query = useQuery({queryKey: ['criterion-evidence', session.user.id, path, link.generation, generation],
+    queryFn: ({signal}) => api<View>(path + '?connection_generation=' + encodeURIComponent(generation), {signal}),
+    refetchInterval: 5000, refetchIntervalInBackground: false, retry: false})
+  const view = !query.isError && query.data?.source.generation === link.generation &&
+    query.data.source.connection_generation === generation && query.data.source.source_state === 'available' ? query.data : undefined
+  const [busy, setBusy] = useState(false), [message, setMessage] = useState('')
+  const intent = useRef<{path: string; body: string; key: string} | null>(null)
+
+  async function mutate(destination: string, body: string) {
+    const store = accessStore(), ticket = store?.ticket()
+    const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
+    if (!active() || busy) return false
+    if (intent.current?.body !== body || intent.current.path !== destination)
+      intent.current = {path: destination, body, key: crypto.randomUUID()}
+    setBusy(true); setMessage('')
+    try {
+      await api(destination, {method: 'POST', body,
+        headers: {'x-gitgood-csrf': session.csrf, 'idempotency-key': intent.current.key}})
+      if (active()) {intent.current = null; setMessage('Request recorded. Current evidence is shown below.'); await query.refetch()}
+      return active()
+    } catch {
+      if (active()) setMessage('The request could not be confirmed. Refresh current evidence before retrying.')
+      return false
+    } finally {if (active()) setBusy(false)}
+  }
+
+  async function attach(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    if (!view?.source.revision || !view.source_sha || !view.target_sha || busy) return
+    const store = accessStore(), ticket = store?.ticket()
+    const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
+    const fields = new FormData(form), index = Number(fields.get('criterion'))
+    const criterion = view.criteria.find(value => value.index === index), file = fields.get('artifact')
+    if (!criterion || !(file instanceof File)) return
+    try {
+      if (file.size < 1 || file.size > 65536) throw new Error('Use a UTF-8 text artifact between 1 byte and 64 KiB.')
+      const bytes = await file.arrayBuffer()
+      const content = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(bytes)
+      const sha256 = await digest(bytes)
+      if (!active()) return
+      const environment = JSON.parse(String(fields.get('environment')))
+      const body = JSON.stringify({connection_generation: generation, link_generation: link.generation,
+        source_revision: view.source.revision, source_sha: view.source_sha, target_sha: view.target_sha,
+        criterion_index: criterion.index, criterion_sha256: criterion.sha256, outcome: fields.get('outcome'),
+        manifest: {commands: String(fields.get('commands')).split(/\r?\n/).map(value => value.trim()).filter(Boolean),
+          environment, producer: fields.get('producer'), observed_at: fields.get('observed_at')},
+        artifact: {name: file.name, content, sha256}})
+      if (await mutate(path, body)) form.reset()
+    } catch (error) {if (active()) setMessage(error instanceof Error ? error.message : 'Artifact could not be prepared.')}
+  }
+
+  async function download(record: Record) {
+    const store = accessStore(), ticket = store?.ticket()
+    const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
+    if (!active()) return
+    try {
+      const blob = await privateRequest(path + '/' + record.id + '/download?connection_generation=' + encodeURIComponent(generation), {}, async response => {
+        if (!response.ok) {await response.body?.cancel(); throw new ApiError(response.status, 'Artifact unavailable for current access.')}
+        if (response.headers.get('x-gitgood-sha256') !== record.artifact.sha256) {await response.body?.cancel(); throw new Error('Artifact identity changed.')}
+        const bytes = await response.arrayBuffer()
+        if (bytes.byteLength !== record.artifact.size || await digest(bytes) !== record.artifact.sha256) throw new Error('Artifact checksum did not match.')
+        return new Blob([bytes], {type: 'application/octet-stream'})
+      })
+      if (!active()) return
+      const url = URL.createObjectURL(blob), anchor = document.createElement('a')
+      try {anchor.href = url; anchor.download = record.artifact.name; anchor.click()}
+      finally {URL.revokeObjectURL(url)}
+    } catch {if (active()) setMessage('Artifact could not be downloaded with current permissions and identity. Refresh its status.')}
+  }
+
+  return <section aria-label="Criterion evidence" className="collaboration-panel evidence-panel">
+    <h3>Criterion evidence</h3>
+    <p>Producer results are bound to this task revision and both Git commits. They do not change protected merge policy.</p>
+    {message && <p role="status">{message}</p>}
+    {query.isError ? <p role="alert">Evidence could not be confirmed. <button onClick={() => void query.refetch()}>Refresh evidence</button></p> :
+      query.isPending ? <p role="status">Loading evidence…</p> : !view ?
+      <p>{query.data?.profile === 'unsupported_criteria' ? 'This source record has unsupported task criteria; evidence cannot be assessed.' : 'Source-bound evidence is hidden while your task access is unavailable. Native history is retained.'}</p> : <>
+        <p>Task revision {view.source.revision} · observed {view.observed_at}</p>
+        {!view.criteria.length && <p>This source record has no supported task acceptance criteria. Retained evidence history remains below.</p>}
+        <ul>{view.criteria.map(criterion => <li key={criterion.index}><strong>{states[criterion.state] ?? criterion.state}</strong> — {criterion.text}</li>)}</ul>
+        <details><summary>Evidence history ({view.records.length})</summary>
+          {view.records.length === 0 ? <p>No attached results.</p> : view.records.map(record => <article key={record.id} className="review-event" aria-label="Evidence record">
+            <h4>Criterion {record.criterion_index + 1} · {states[record.state] ?? record.state}</h4>
+            <p>Original outcome: {record.outcome} · attached by native actor {record.actor_id} at {record.recorded_at}</p>
+            <p>Producer: {record.manifest.producer} · observed {record.manifest.observed_at}</p>
+            <p>Requirement revision {record.source_revision}</p>
+            <p>Source {record.source_sha} · target {record.target_sha}</p>
+            <pre>{record.manifest.commands.join('\n')}</pre><pre>{JSON.stringify(record.manifest.environment, null, 2)}</pre>
+            <p>{record.artifact.name} · {record.artifact.size} bytes · SHA256 {record.artifact.sha256}</p>
+            {record.artifact.available && <button type="button" onClick={() => void download(record)}>Download protected artifact</button>}
+            {record.events.map((event, index) => <p key={index}>{event.kind}: {event.reason} · actor {event.actor_id} · {event.recorded_at}</p>)}
+            {writer && record.artifact.available && <form onSubmit={event => {
+              event.preventDefault()
+              void mutate(path + '/' + record.id + '/unavailable', JSON.stringify({reason: new FormData(event.currentTarget).get('reason')}))
+            }}><label>Reason artifact is unavailable<input name="reason" required maxLength={1000}/></label>
+              <button disabled={busy}>Mark artifact unavailable</button></form>}
+          </article>)}
+        </details>
+        {writer && view.criteria.length > 0 && <details><summary>Attach evidence or reassess a result</summary><form onSubmit={event => void attach(event)}>
+          <label>Criterion<select name="criterion" required>{view.criteria.map(criterion => <option key={criterion.index} value={criterion.index}>{criterion.index + 1}. {criterion.text}</option>)}</select></label>
+          <label>Producer outcome<select name="outcome" defaultValue="inconclusive"><option value="passed">Passed</option><option value="failed">Failed</option><option value="inconclusive">Inconclusive</option></select></label>
+          <label>Producer label<input name="producer" required maxLength={128}/></label>
+          <label>Observation time in UTC<input name="observed_at" required maxLength={64} defaultValue={new Date().toISOString()}/></label>
+          <label>Reproduction commands · one per line<textarea name="commands" required maxLength={16384}/></label>
+          <label>Environment as a JSON object<textarea name="environment" required maxLength={10240} defaultValue={'{"runtime":"","fixture":""}'}/></label>
+          <label>UTF-8 artifact · up to 64 KiB<input name="artifact" type="file" required accept="text/plain,application/json,.txt,.json,.log"/></label>
+          <p>Include the runtime versions, actors, relevant configuration and reproducible observations in the artifact.</p>
+          <button disabled={busy}>{busy ? 'Recording evidence…' : 'Attach immutable result'}</button>
+        </form></details>}
+      </>}
+  </section>
+}

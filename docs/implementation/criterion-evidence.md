@@ -1,0 +1,19 @@
+# Criterion evidence
+
+## Implementation contract
+
+The first native evidence profile attaches an immutable result to one acceptance criterion of a linked Barkpark **task**, its exact source document revision, and the current pull request's source and target Git commits. Barkpark remains the requirement owner. Paper links remain supported context; automatic extraction of criteria from arbitrary Paper prose is outside this profile.
+
+Read requirement criteria through the current viewer's connection. Only the task's bounded `acceptance_criteria[].criterion` text is eligible; task closure, `met` flags and upstream evidence strings cannot establish a native result. Preserve a criterion digest and index in each native record. Any source document revision change, criterion change, source-link generation change or source/target commit change makes prior results stale. No automatic applicability transfer is provided.
+
+Evidence is a producer's declared passed, failed or inconclusive result with bounded commands, environment, producer label and observation time. The authenticated attaching actor and receipt time are assigned by Gitgood. An attached result is not an independent verification pass, trusted external check or merge-policy approval.
+
+Keep the artifact in native Postgres custody as immutable UTF-8 text, at most 64 KiB, with its name, exact byte size and SHA256. The digest supplied by the producer must match the received bytes. Larger or binary evidence and external artifact-provider fetching require separate profiles. This bound is a refusal rule rather than measured platform capacity.
+
+Native repository permission and current source permission are both required to read artifact/provenance. Never borrow the creator's source credential or return a stored requirement snapshot after source denial. An unavailable source hides source-bound evidence without deleting native history. Download is an attachment, never executable HTML. Marking an artifact unavailable adds a retained event and prevents its result from satisfying current evidence; reassessment creates another record. Refresh only observes state and cannot rewrite history.
+
+Within one criterion, the newest attached record governs the displayed result. A failed, inconclusive, stale or unavailable newer record cannot fall back to an older pass. An untested criterion is absent. Idempotent retries preserve the original receipt and cannot create another record or edit its provenance.
+
+## Acceptance still pending
+
+Implementation, database constraints, API permission/race checks, source and code revision fixtures, durable retry, unavailable-artifact handling, browser distinction of states and copied production verification must all be demonstrated before claiming J11 complete. These paragraphs define the intended behavior; they are not evidence that it works.

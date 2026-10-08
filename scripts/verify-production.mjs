@@ -353,6 +353,33 @@ try {
   assert.equal(ownedPointers.length,1)
   assert.equal(ownedPointers[0].content[0].href,publicUrl+'/changes/'+sourceLinks.pull_id)
   assert.equal(journalStats.documents['drafts.private-spec'].blocks[0].id,'source-intent')
+  const criterionEvidence=JSON.parse(await readFile(join(sourceWeb,'test-results-production/criterion-evidence-receipt.json'),'utf8'))
+  const evidenceRepo=after.repositories.find(r=>r.id===criterionEvidence.repository_id)
+  assert(evidenceRepo,'Native criterion evidence repository must persist')
+  const evidencePath='/api/repos/'+evidenceRepo.team+'/'+evidenceRepo.name+'/pulls/'+criterionEvidence.pull_id+'/links/'+criterionEvidence.link.id+'/evidence'
+  const evidenceQuery='?connection_generation='+sourceLinks.owner_connection_generation
+  for(const origin of [forgeUrl,webUrl]){
+    const observed=await fetch(origin+evidencePath+evidenceQuery,{headers:{authorization}})
+    assert.equal(observed.status,200)
+    const view=await observed.json()
+    assert.equal(view.records.length,4,'All original/reassessment results must persist')
+    assert.equal(view.criteria[0].state,'unavailable','Restart cannot substitute an older pass for a withdrawn latest artifact')
+    assert.equal(view.criteria[1].state,'absent','Task met flags cannot create native evidence')
+    const original=view.records.find(record=>record.id===criterionEvidence.first_evidence.id)
+    for(const field of ['source_sha','target_sha','source_revision','criterion_sha256','outcome','manifest','artifact','actor_id','recorded_at'])
+      assert.deepEqual(original[field],criterionEvidence.first_evidence[field],'Immutable evidence provenance must persist: '+field)
+    assert.equal(original.state,'stale')
+    const replay=await fetch(origin+evidencePath,{method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':criterionEvidence.original_request.key},body:JSON.stringify(criterionEvidence.original_request.body)})
+    assert.equal(replay.status,200)
+    assert.deepEqual(await replay.json(),{id:original.id,recorded:true})
+    const artifact=await fetch(origin+evidencePath+'/'+original.id+'/download'+evidenceQuery,{headers:{authorization}})
+    assert.equal(artifact.status,200)
+    assert.equal(artifact.headers.get('x-content-type-options'),'nosniff')
+    assert.equal(artifact.headers.get('x-gitgood-sha256'),criterionEvidence.artifact_sha256)
+    assert.equal(createHash('sha256').update(Buffer.from(await artifact.arrayBuffer())).digest('hex'),criterionEvidence.artifact_sha256)
+    assert.equal((await fetch(origin+evidencePath+'/'+criterionEvidence.reassessed+'/download'+evidenceQuery,{headers:{authorization}})).status,409)
+    assert.equal((await fetch(origin+evidencePath+evidenceQuery,{headers:{authorization:outsiderAuth}})).status,404)
+  }
   const released=JSON.parse(await readFile(join(sourceWeb,'test-results-production/release-receipt.json'),'utf8'))
   const releaseRepo=after.repositories.find(r=>r.name===released.repository)
   assert(releaseRepo,'Release repository must persist after restart')
@@ -425,8 +452,9 @@ try {
     discovery:{record:discovery.record,membership_events:discovery.membership_events},
     nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
     clientAddress:clientAddressProof,offlineRecovery,
+    criterionEvidence:{repository:criterionEvidence.repository_id,pull:criterionEvidence.pull_id,link:criterionEvidence.link.id,original:criterionEvidence.first_evidence.id,reassessed:criterionEvidence.reassessed,artifact_sha256:criterionEvidence.artifact_sha256},
     sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors,return_operation:sourceLinks.return_operation,return_destination:sourceLinks.return_destination},
-    checks:['authenticated edge/socket login buckets, twenty-attempt boundary, spoofed fields and direct bypass refusal','source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    checks:['authenticated edge/socket login buckets, twenty-attempt boundary, spoofed fields and direct bypass refusal','source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','immutable criterion evidence, reassessment history, exact retry and checksum-protected artifact downloads persist after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})

@@ -184,6 +184,7 @@ defmodule Gitgood.SourceLinks do
           "title" => text(document["title"], 200),
           "summary" => text(document["purpose"] || document["description"], 2000),
           "revision" => document["_rev"],
+          "criteria" => criteria(document),
           "source_actor" => connection["source_identity"],
           "locator" => link.locator,
           "studio_url" => studio(link.locator),
@@ -359,6 +360,29 @@ defmodule Gitgood.SourceLinks do
   defp state(_), do: "unavailable"
   defp text(value, limit) when is_binary(value), do: String.slice(value, 0, limit)
   defp text(_, _), do: ""
+
+  defp criteria(%{"_type" => "task", "acceptance_criteria" => items}) when is_list(items) do
+    if length(items) <= 100 &&
+         Enum.all?(items, fn
+           %{"criterion" => text} when is_binary(text) ->
+             byte_size(text) in 1..2000 && String.trim(text) != ""
+
+           _ ->
+             false
+         end) do
+      Enum.with_index(items, fn item, index ->
+        %{
+          "index" => index,
+          "text" => item["criterion"],
+          "sha256" => Base.encode16(:crypto.hash(:sha256, item["criterion"]), case: :lower)
+        }
+      end)
+    else
+      nil
+    end
+  end
+
+  defp criteria(_), do: nil
 
   defp uuid(value) do
     case Ecto.UUID.cast(value) do

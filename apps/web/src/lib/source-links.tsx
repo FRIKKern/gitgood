@@ -3,6 +3,7 @@ import {useQuery} from '@tanstack/react-query'
 import {api, type Session} from './api'
 import {accessStore} from './access-state'
 import {SourceReturnPointers} from './source-return-pointers'
+import {CriterionEvidence} from './criterion-evidence'
 
 type Link = {id: string; generation: string; state: 'active' | 'removed'}
 type Connection = {state: 'connected' | 'disconnected' | 'unconfigured'; generation: string}
@@ -112,5 +113,7 @@ function SourceLink({link, endpoint, connection, actor, session, writer, busy, r
     <SourceReturnPointers endpoint={endpoint} link={link} connectionGeneration={generation}
       sourcePaperAvailable={!!current && current.locator?.type === 'paper'} writer={writer}
       session={session} disabled={busy} />
+    {current?.locator?.type === 'task' && generation && <CriterionEvidence endpoint={endpoint}
+      link={link} generation={generation} session={session} writer={writer} />}
   </article>
 }

@@ -43,6 +43,10 @@ def journal_document(identity, kind="paper"):
                 "purpose": "Source owns this intention.", "description": "Source owns this specification.",
                 "blocks": [{"id": "source-intent", "type": "paragraph",
                     "content": [{"type": "text", "value": "Unselected source content"}]}]}
+            if kind == "task":
+                journal_documents[identity]["acceptance_criteria"] = [
+                    {"criterion": "Fixture-A: Restore the private repository.", "met": True, "evidence": "Upstream claim must not become a native pass"},
+                    {"criterion": "Fixture-B: Deny unauthorized artifact reads.", "met": False, "evidence": ""}]
         journal_snapshots.setdefault(identity, copy.deepcopy(journal_documents[identity]))
         return copy.deepcopy(journal_snapshots[identity] if stale_reads else journal_documents[identity])
 
@@ -165,6 +169,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         global document_status, hold_mutations, lost_reply, prewrite_lost, stale_reads, outage_after_write
+        if self.path == "/control/evidence-change":
+            value = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            if self.headers.get("Authorization") != "Bearer synthetic-fixture-control" or set(value) != {"revision", "criterion"} or any(not isinstance(item, bool) for item in value.values()):
+                self.send(403, b"{}")
+            else:
+                with journal_lock:
+                    for doc in journal_documents.values():
+                        if doc.get("acceptance_criteria"):
+                            if value["revision"]:
+                                doc["_rev"] = uuid.uuid4().hex
+                            if value["criterion"]:
+                                doc["acceptance_criteria"][0]["criterion"] = "Fixture-A: A changed requirement."
+                self.send(200, b'{"fixture":true}')
+            return
         if self.path == "/control/journal-state":
             value = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             allowed = {"lost_reply", "prewrite_lost", "stale_reads", "outage_after_write"}
@@ -304,6 +322,12 @@ def main():
                             doc["blocks"].append({"id":"owner-edit","type":"paragraph","content":[{"type":"text","value":"Owner changed this."}]})
                             doc["_rev"] = uuid.uuid4().hex
                     announce("JOURNAL_OWNER_EDIT")
+                elif command == "evidence-criterion-change":
+                    with journal_lock:
+                        for doc in journal_documents.values():
+                            if doc.get("acceptance_criteria"):
+                                doc["acceptance_criteria"][0]["criterion"] = "Fixture-A: A changed requirement."
+                    announce("EVIDENCE_CRITERION_CHANGE")
                 if command == "release":
                     hold_mutations = False
 
