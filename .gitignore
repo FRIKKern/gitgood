@@ -16,3 +16,4 @@ dist/
 .gitgood/
 build-identity.json
 test-results-production/
+__pycache__/

@@ -40,7 +40,11 @@ async function claim(context){
     current.candidate===context.identity.candidate&&equal(current.owners,[context.owner_pid]),'installation_not_quiescent')
   await assertLease(context)
   // A surviving operator child also prevents takeover after the owning BEAM loses its database connection.
-  await atomic(marker,{...current,owners:[context.owner_pid,process.pid]})
+  check(current.owner_births&&Object.keys(current.owner_births).join(',')===String(context.owner_pid),'installation_not_quiescent')
+  const identity=await promisify(execFile)(process.env.GITGOOD_PYTHON??'python3',
+    ['-I',fileURLToPath(new URL('./process_birth.py',import.meta.url)),String(process.pid)],{timeout:5000,maxBuffer:1024,windowsHide:true})
+  const born=identity.stdout.trim();check(/^[1-9][0-9]{0,19}$/.test(born),'installation_not_quiescent')
+  await atomic(marker,{...current,owners:[context.owner_pid,process.pid],owner_births:{...current.owner_births,[process.pid]:born}})
   await assertDatabaseTools(context.postgres)
   if(context.mode==='backup')await assertRuntimeStopped(context)
 }

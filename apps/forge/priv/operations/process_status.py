@@ -8,28 +8,14 @@ import sys
 from pathlib import Path
 
 
-def alive(pid):
-    if os.name == "nt":
-        api = ctypes.WinDLL("kernel32", use_last_error=True)
-        api.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
-        api.OpenProcess.restype = ctypes.c_void_p
-        api.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
-        api.WaitForSingleObject.restype = ctypes.c_ulong
-        api.CloseHandle.argtypes = [ctypes.c_void_p]
-        handle = api.OpenProcess(0x00100000, 0, pid)
-        if not handle:
-            return ctypes.get_last_error() != 87
-        try:
-            return api.WaitForSingleObject(handle, 0) != 0
-        finally:
-            api.CloseHandle(handle)
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from process_birth import birth
+
+
+def alive(pid, expected=None):
+    actual = birth(pid)
+    return actual is not None and (expected is None or actual == expected)
 
 
 def empty_cgroup(data):
@@ -57,7 +43,14 @@ def status(path, require_cgroup=False):
         return "invalid"
     if any(type(pid) is not int or not 1 <= pid <= 2147483647 for pid in owners):
         return "invalid"
-    if any(alive(pid) for pid in owners):
+    identities = data.get("owner_births")
+    if identities is not None:
+        if not isinstance(identities, dict) or set(identities) != {str(pid) for pid in owners}:
+            return "invalid"
+        if any(not isinstance(value, str) or not value.isdecimal() or value.startswith("0") or len(value) > 20
+               for value in identities.values()):
+            return "invalid"
+    if any(alive(pid, identities.get(str(pid)) if identities is not None else None) for pid in owners):
         return "busy"
     if require_cgroup and not empty_cgroup(data):
         return "invalid"

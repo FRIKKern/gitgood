@@ -195,6 +195,7 @@ defmodule Gitgood.InstallationLease do
       protocol: 1,
       host: to_string(host),
       owners: [String.to_integer(System.pid())],
+      owner_births: %{System.pid() => owner_birth!()},
       mode: to_string(mode),
       candidate: Gitgood.Build.identity()["candidate"],
       created_at: DateTime.utc_now() |> DateTime.to_iso8601()
@@ -214,6 +215,18 @@ defmodule Gitgood.InstallationLease do
         File.rm(temporary)
         {:error, :installation_marker_invalid}
     end
+  end
+
+  defp owner_birth! do
+    python = Application.fetch_env!(:gitgood, :python_executable)
+    script = Application.app_dir(:gitgood, "priv/operations/process_birth.py")
+    {value, 0} = System.cmd(python, ["-I", script, System.pid()], stderr_to_stdout: true)
+    value = String.trim(value)
+
+    if not Regex.match?(~r/\A[1-9][0-9]{0,19}\z/, value),
+      do: raise("Process identity unavailable")
+
+    value
   end
 
   defp runtime_cgroup do

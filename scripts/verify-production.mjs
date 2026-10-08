@@ -4,6 +4,8 @@ import {createWriteStream} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname,join,resolve,sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {execFile} from 'node:child_process'
+import {promisify} from 'node:util'
 import {randomBytes,createHash} from 'node:crypto'
 import {request as httpsRequest} from 'node:https'
 import {createHmac} from 'node:crypto'
@@ -69,6 +71,15 @@ async function stop(child) {
     await new Promise(resolve=>{const killer=spawn('taskkill',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});killer.once('exit',resolve);killer.once('error',resolve)})
   }else{try{process.kill(-child.pid,'SIGTERM')}catch{}}
   await Promise.race([ended,new Promise(resolve=>setTimeout(resolve,5000))])
+  if(windows&&child.installationRoot){
+    const marker=join(child.installationRoot,'.gitgood-runtime-v1.json'),deadline=Date.now()+15000
+    while(true){
+      try{
+        await promisify(execFile)(process.env.GITGOOD_PYTHON,['-I',join(sourceForge,'priv/operations/process_status.py'),marker],{timeout:5000,maxBuffer:1024,windowsHide:true})
+        break
+      }catch{assert(Date.now()<deadline,'Previous native process instance did not finish stopping');await new Promise(resolve=>setTimeout(resolve,50))}
+    }
+  }
 }
 async function ready(url,expected=true) {
   const deadline=Date.now()+45000
@@ -140,6 +151,7 @@ try {
     const child=group?launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'priv/operations/runtime_cgroup.py'),group,release,'start'],configuration,installedForge,'forge'):
       launch(release,['start'],configuration,installedForge,'forge')
     if(group)child.runtimeCgroup=group
+    child.installationRoot=configuration.GITGOOD_STORAGE
     return child
   }
   const startWeb=()=>launch(process.execPath,[join(installedWeb,'node_modules/srvx/bin/srvx.mjs'),'--prod','-s','dist/client','server.mjs'],webEnv,installedWeb,'web')
