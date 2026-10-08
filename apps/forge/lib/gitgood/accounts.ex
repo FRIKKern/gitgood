@@ -71,6 +71,11 @@ defmodule Gitgood.Accounts do
         from m in Membership, where: m.user_id == ^user_id and m.team == ^team, select: m.role
       )
 
+  def repository_credential?(credential, repository) do
+    (credential.kind in ["session", "ssh"] and is_nil(credential.repository_id)) or
+      credential.repository_id == repository.id
+  end
+
   def teams(user_id),
     do:
       Repo.all(

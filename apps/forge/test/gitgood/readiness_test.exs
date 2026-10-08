@@ -25,4 +25,18 @@ defmodule Gitgood.ReadinessTest do
     response = build_conn() |> get("/health/ready") |> json_response(503)
     assert response["checks"]["executables"] == false
   end
+
+  test "configured SSH without its supervised daemon rejects readiness" do
+    previous = Application.get_env(:gitgood, :ssh_port)
+    Application.put_env(:gitgood, :ssh_port, 2222)
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:gitgood, :ssh_port, previous),
+        else: Application.delete_env(:gitgood, :ssh_port)
+    end)
+
+    response = build_conn() |> get("/health/ready") |> json_response(503)
+    assert response["checks"]["ssh"] == false
+  end
 end

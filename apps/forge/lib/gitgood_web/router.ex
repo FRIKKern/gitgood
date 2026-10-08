@@ -24,6 +24,8 @@ defmodule GitgoodWeb.Router do
     get "/session", SessionController, :show
     delete "/session", SessionController, :delete
     get "/repos", RepositoryController, :index
+    get "/ssh-keys", SSHKeyController, :index
+    post "/ssh-keys", SSHKeyController, :create
     post "/repos", RepositoryController, :create
     get "/repos/:team/:name", RepositoryController, :show
     get "/repos/:team/:name/branches", BrowseController, :branches

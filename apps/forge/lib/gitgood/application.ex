@@ -18,6 +18,8 @@ defmodule Gitgood.Application do
       {DynamicSupervisor, name: Gitgood.MergeWorkers, strategy: :one_for_one, max_children: 4},
       Gitgood.TransportSlots,
       Gitgood.LoginLimiter,
+      Gitgood.SSHIdentities,
+      {Task.Supervisor, name: Gitgood.SSHJobs, max_children: 16},
       Gitgood.Reconciler,
       {Phoenix.PubSub, name: Gitgood.PubSub},
       # Start a worker by calling: Gitgood.Worker.start_link(arg)
@@ -28,6 +30,19 @@ defmodule Gitgood.Application do
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
+    children =
+      children ++
+        case Application.get_env(:gitgood, :ssh_port) do
+          nil ->
+            []
+
+          port ->
+            [
+              {Gitgood.SSHDaemon,
+               [port: port, directory: Application.fetch_env!(:gitgood, :ssh_host_key_directory)]}
+            ]
+        end
+
     opts = [strategy: :one_for_one, name: Gitgood.Supervisor]
     Supervisor.start_link(children, opts)
   end

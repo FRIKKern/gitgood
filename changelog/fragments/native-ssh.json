@@ -1,0 +1,14 @@
+{
+  "id": "native-ssh",
+  "category": "Added",
+  "summary": "Added PostgreSQL-owned Ed25519 account keys, browser registration/revocation, native OTP SSH Git transport, host fingerprints and clone URLs, with shared authorization/push recovery and real-client interruption checks.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/ssh.md",
+    "docs/decisions/0005-native-ssh.md"
+  ],
+  "journeys": [
+    "J03"
+  ],
+  "withdrawn": false
+}
