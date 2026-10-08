@@ -59,6 +59,10 @@ jobs:
       - name: Start disposable forge
         working-directory: apps/forge
         run: |
+          mkdir -p .gitgood/ssh-host
+          ssh-keygen -q -t ed25519 -N '' -f .gitgood/ssh-host/ssh_host_ed25519_key
+          export GITGOOD_SSH_PORT=47842
+          export GITGOOD_SSH_HOST_KEY_DIRECTORY="$PWD/.gitgood/ssh-host"
           mix ecto.create
           mix ecto.migrate
           mix run priv/repo/seeds.exs

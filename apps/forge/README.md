@@ -37,6 +37,12 @@ for body upload, 60 seconds for Git, four concurrent requests, and 64 proposed r
 tags, LFS and compressed RPC bodies are outside this slice.
 See [the transport decision](../../docs/decisions/0003-native-http-transport.md).
 
+Native SSH is opt-in through GITGOOD_SSH_PORT and a persistent GITGOOD_SSH_HOST_KEY_DIRECTORY.
+Set GITGOOD_SSH_PUBLIC_HOST/PORT to the verified TCP route. Ed25519 account keys are registered and
+revoked in the web interface; the same permissions, protected-main policy and durable push records apply.
+See [SSH configuration and verification](../../docs/implementation/ssh.md). OpenSSH ssh-keygen is needed
+for disposable test keys, not as the production SSH daemon.
+
 Run mix precommit against isolated gitgood_test. The suite includes real Git storage, authorization, retry,
 reconciliation, process timeout, cancellation, concurrency, memory and output limits.
 The web suite additionally exercises trusted HTTPS clone/push/fetch, interrupted upload/retry, revocation,

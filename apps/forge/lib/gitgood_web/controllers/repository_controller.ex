@@ -6,13 +6,17 @@ defmodule GitgoodWeb.RepositoryController do
   def index(conn, _),
     do:
       json(conn, %{
-        repositories: Enum.map(Repositories.list(conn.assigns.user), &Repositories.public/1)
+        repositories:
+          Enum.map(
+            Repositories.list(conn.assigns.user),
+            &Repositories.public(&1, conn.assigns.user)
+          )
       })
 
   def show(conn, %{"team" => team, "name" => name}) do
     case Repositories.get(conn.assigns.user, team, name) do
       nil -> Auth.reject(conn, 404, "repository_not_found")
-      repository -> json(conn, Repositories.public(repository))
+      repository -> json(conn, Repositories.public(repository, conn.assigns.user))
     end
   end
 
@@ -21,7 +25,7 @@ defmodule GitgoodWeb.RepositoryController do
 
     case Repositories.create(conn.assigns.user, params["team"], params["name"], key) do
       {:ok, repository} ->
-        conn |> put_status(201) |> json(Repositories.public(repository))
+        conn |> put_status(201) |> json(Repositories.public(repository, conn.assigns.user))
 
       {:error, %Ecto.Changeset{} = changeset} ->
         fields = Ecto.Changeset.traverse_errors(changeset, fn {message, _} -> message end)

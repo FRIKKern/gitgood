@@ -82,13 +82,14 @@ defmodule Gitgood.Repositories do
     |> Enum.map(&finish/1)
   end
 
-  def public(repository) do
+  def public(repository, user \\ nil) do
     %{
       id: repository.id,
       team: repository.team,
       name: repository.name,
       owner_id: repository.owner_id,
       status: repository.status,
+      ssh_clone_url: if(user, do: Gitgood.SSHDaemon.clone_url(repository, user)),
       url: "/repos/#{repository.team}/#{repository.name}",
       clone_url:
         Application.fetch_env!(:gitgood, :public_url) <>

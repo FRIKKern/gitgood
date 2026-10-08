@@ -50,8 +50,8 @@ defmodule Gitgood.Pushes do
               lock: "FOR UPDATE"
           )
 
-        unless credential.kind == "git" and credential.user_id == user.id and
-                 credential.repository_id == repository.id and
+        unless credential.kind in ["git", "ssh"] and credential.user_id == user.id and
+                 Accounts.repository_credential?(credential, repository) and
                  is_nil(credential.revoked_at) and
                  DateTime.compare(credential.expires_at, Accounts.now()) == :gt and
                  not is_nil(membership) and membership.role in ["owner", "writer"],

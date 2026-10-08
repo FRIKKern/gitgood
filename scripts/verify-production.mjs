@@ -23,6 +23,10 @@ const forgeUrl='http://127.0.0.1:'+forgePort
 const webUrl='http://127.0.0.1:'+webPort
 const database='gitgood_production_'+randomBytes(4).toString('hex')
 const storage=join(root,'storage')
+const sshPort=Number(process.env.GITGOOD_VERIFY_SSH_PORT??47852)
+const sshHost=join(root,'ssh-host')
+const ssh=process.env.GITGOOD_SSH??(windows?'C:/Windows/System32/OpenSSH/ssh.exe':'ssh')
+const keygen=process.env.GITGOOD_SSH_KEYGEN??(windows?'C:/Windows/System32/OpenSSH/ssh-keygen.exe':'ssh-keygen')
 const identity=JSON.parse(await readFile(join(sourceWeb,'dist/build-identity.json'),'utf8'))
 assert.equal(identity.dirty,false,'Production verification requires a clean stamped candidate')
 const logs=join(root,'logs')
@@ -69,6 +73,8 @@ try {
   await run(process.execPath,[npm,'ci','--omit=dev','--ignore-scripts'],process.env,installedWeb,'web-install')
   const certificate=join(root,'fixture-certificate.pem'),key=join(root,'fixture-key.pem')
   await run(process.env.GITGOOD_OPENSSL??'openssl',['req','-x509','-newkey','rsa:2048','-sha256','-nodes','-keyout',key,'-out',certificate,'-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost,IP:127.0.0.1'],process.env,root,'fixture-tls')
+  await mkdir(sshHost)
+  await run(keygen,['-q','-t','ed25519','-N','','-f',join(sshHost,'ssh_host_ed25519_key')],process.env,root,'fixture-ssh-host')
   proxy=createServer({key:await readFile(key),cert:await readFile(certificate)},(request,response)=>{
     if(request.url?.startsWith('/internal/')){response.writeHead(404);response.end();return}
     const target=request.url?.startsWith('/git/')?forgeUrl:webUrl
@@ -79,7 +85,8 @@ try {
   await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve))
   const publicUrl='https://localhost:'+proxy.address().port
   const env={...process.env,NODE_ENV:'production',DATABASE_URL:'postgresql://'+encodeURIComponent(process.env.PGUSER??'gitgood')+(process.env.PGPASSWORD?':'+encodeURIComponent(process.env.PGPASSWORD):'')+'@'+(process.env.PGHOST??'127.0.0.1')+':'+(process.env.PGPORT??'55432')+'/'+database,
-    SECRET_KEY_BASE:randomBytes(64).toString('base64'),PHX_HOST:'localhost',GITGOOD_PUBLIC_URL:publicUrl,GITGOOD_WEB_ORIGIN:publicUrl,GITGOOD_STORAGE:storage,PORT:String(forgePort),PHX_SERVER:'false'}
+    SECRET_KEY_BASE:randomBytes(64).toString('base64'),PHX_HOST:'localhost',GITGOOD_PUBLIC_URL:publicUrl,GITGOOD_WEB_ORIGIN:publicUrl,GITGOOD_STORAGE:storage,PORT:String(forgePort),PHX_SERVER:'false',
+    GITGOOD_SSH_PORT:String(sshPort),GITGOOD_SSH_HOST_KEY_DIRECTORY:sshHost,GITGOOD_SSH_PUBLIC_HOST:'localhost',GITGOOD_SSH_PUBLIC_PORT:String(sshPort)}
   await run(process.env.GITGOOD_CREATEDB??'createdb',['-h',process.env.PGHOST??'127.0.0.1','-p',process.env.PGPORT??'55432','-U',process.env.PGUSER??'gitgood',database],process.env,root,'database-create')
   await run(release,['eval','Gitgood.Release.migrate()'],env,installedForge,'migrate')
   for(const [username,team,role] of [['owner','team','owner'],['reviewer','team','writer'],['reader','team','reader'],['outsider','elsewhere','owner']]) {
@@ -102,6 +109,11 @@ try {
   const authorization=await login()
   const before=await (await fetch(forgeUrl+'/api/repos',{headers:{authorization}})).json()
   assert(before.repositories.length>=2)
+  const clientKey=join(root,'restart-client')
+  await run(keygen,['-q','-t','ed25519','-N','','-f',clientKey],process.env,root,'fixture-ssh-client')
+  const registered=await fetch(forgeUrl+'/api/ssh-keys',{method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':'production-restart-key'},body:JSON.stringify({label:'Restart proof',public_key:await readFile(clientKey+'.pub','utf8')})})
+  assert.equal(registered.status,201)
+  const sshBefore=await (await fetch(forgeUrl+'/api/ssh-keys',{headers:{authorization}})).json()
   await stop(web);web=null;await stop(backend);backend=null
   backend=startBackend();web=startWeb()
   await ready(forgeUrl);await ready(webUrl)
@@ -118,6 +130,15 @@ try {
   await run(process.env.GITGOOD_GIT??'git',['ls-remote',gitRepo.clone_url,'refs/heads/main'],gitEnv,root,'persisted-git-read')
   const persistedRef=await readFile(join(logs,'persisted-git-read.log'),'utf8')
   assert(persistedRef.split(/\r?\n/).includes(main.sha+'\trefs/heads/main'),'Returned clone URL must serve the persisted main SHA')
+  const sshAfter=await (await fetch(forgeUrl+'/api/ssh-keys',{headers:{authorization}})).json()
+  assert.deepEqual(sshAfter.transport,sshBefore.transport,'SSH host identity must persist across release restart')
+  const known=join(root,'known_hosts')
+  await writeFile(known,'[localhost]:'+sshPort+' '+sshAfter.transport.public_key+'\n')
+  const quote=value=>"'"+value.replaceAll("'","'\\''")+"'"
+  const sshEnv={...process.env,GIT_SSH_VARIANT:'ssh',GIT_SSH_COMMAND:[ssh,'-F',windows?'NUL':'/dev/null','-i',clientKey,'-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','UserKnownHostsFile='+known].map(quote).join(' ')}
+  await run(process.env.GITGOOD_GIT??'git',['ls-remote',gitRepo.ssh_clone_url,'refs/heads/main'],sshEnv,root,'persisted-ssh-read')
+  const sshRef=await readFile(join(logs,'persisted-ssh-read.log'),'utf8')
+  assert(sshRef.split(/\r?\n/).includes(main.sha+'\trefs/heads/main'),'Returned SSH clone URL must serve persisted main with a persisted account key')
   await rename(inside(storage),inside(join(root,'storage-unavailable')))
   try{await ready(forgeUrl,false);await ready(webUrl,false)}
   finally{await rename(inside(join(root,'storage-unavailable')),inside(storage))}
@@ -131,7 +152,7 @@ try {
   web=startWeb();await ready(webUrl)
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
     runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','two-browser real HTTPS end-to-end flow','session/database/Git persistence after process restart','returned HTTPS clone URL','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH end-to-end flows','session/database/Git persistence after process restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})

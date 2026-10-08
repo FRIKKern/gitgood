@@ -35,6 +35,8 @@ Provide configuration through the service environment or a secret manager, never
 
 Public URL and web origin must be the same intended HTTPS origin. The forge and web bind loopback. PostgreSQL and bare Git storage are persistent, mutually dependent stores; neither belongs inside replaceable release directories. Use a dedicated OS identity and database credentials. Do not expose PostgreSQL, forge loopback, internal hook endpoints or service environment.
 
+For SSH, provide GITGOOD_SSH_PORT, GITGOOD_SSH_HOST_KEY_DIRECTORY and the advertised GITGOOD_SSH_PUBLIC_HOST/PORT. Keep the persistent Ed25519 host key outside both release artifacts and Git repository storage. Route raw TCP separately to the loopback SSH listener. The copied-production harness generates isolated host/client fixtures, exercises native SSH and verifies their persistence after restart. See [SSH deployment bounds](../implementation/ssh.md); a real Cloud TCP route and replacement-host restoration still require their own evidence.
+
 Run release migrations before service startup:
 `bin/gitgood eval 'Gitgood.Release.migrate()'`.
 Bootstrap a local actor once with `GITGOOD_BOOTSTRAP_USERNAME`, `GITGOOD_BOOTSTRAP_TEAM`, `GITGOOD_BOOTSTRAP_ROLE` and `GITGOOD_BOOTSTRAP_PASSWORD`, then `bin/gitgood eval 'Gitgood.Release.bootstrap()'`; remove bootstrap variables afterward. Bootstrap user/membership creation is transactional. There is no production signup or managed identity provider yet.

@@ -23,7 +23,7 @@ defmodule Gitgood.Lease do
           )
 
         unless (credential.user_id == user.id and credential.kind == kind and
-                  (credential.kind == "session" or credential.repository_id == repository.id) and
+                  Accounts.repository_credential?(credential, repository) and
                   is_nil(credential.revoked_at) and
                   DateTime.compare(credential.expires_at, Accounts.now()) == :gt and
                   membership) && membership.role in roles,

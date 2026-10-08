@@ -6,6 +6,7 @@ defmodule Gitgood.Readiness do
       database: database?(),
       storage: storage?(),
       executables: executables?(),
+      ssh: is_nil(Application.get_env(:gitgood, :ssh_port)) or Gitgood.SSHDaemon.public().enabled,
       artifact: Application.get_env(:gitgood, :environment) != :prod or Build.valid?()
     }
 

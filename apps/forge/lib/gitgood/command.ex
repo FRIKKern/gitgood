@@ -35,7 +35,7 @@ defmodule Gitgood.Command do
     end
   end
 
-  defp environment(overrides) do
+  def environment(overrides) do
     allowed = ~w(PATH Path SystemRoot SYSTEMROOT WINDIR TEMP TMP TMPDIR LANG LC_ALL)
     base = System.get_env() |> Map.take(allowed)
 

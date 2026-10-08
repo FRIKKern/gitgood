@@ -1,5 +1,16 @@
 import Config
 
+if System.get_env("GITGOOD_SSH_PORT") do
+  config :gitgood,
+    ssh_port: String.to_integer(System.fetch_env!("GITGOOD_SSH_PORT")),
+    ssh_host_key_directory: System.fetch_env!("GITGOOD_SSH_HOST_KEY_DIRECTORY"),
+    ssh_public_host: System.get_env("GITGOOD_SSH_PUBLIC_HOST", "localhost"),
+    ssh_public_port:
+      String.to_integer(
+        System.get_env("GITGOOD_SSH_PUBLIC_PORT", System.fetch_env!("GITGOOD_SSH_PORT"))
+      )
+end
+
 config :gitgood,
   storage_root:
     System.get_env(

@@ -304,5 +304,16 @@ defmodule Gitgood.Merges do
   end
 
   def public(operation),
-    do: Map.take(operation, [:id, :actor_id, :kind, :state, :metadata, :outcome, :inserted_at])
+    do:
+      Map.take(operation, [
+        :id,
+        :actor_id,
+        :credential_id,
+        :kind,
+        :state,
+        :updates,
+        :metadata,
+        :outcome,
+        :inserted_at
+      ])
 end
