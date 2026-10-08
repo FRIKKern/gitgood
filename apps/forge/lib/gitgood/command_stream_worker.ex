@@ -17,7 +17,7 @@ defmodule Gitgood.CommandStreamWorker do
         :exit_status,
         :use_stdio,
         :hide,
-        {:args, ["-I", adapter]},
+        {:args, ["-I", "-B", adapter]},
         {:env, removed ++ keep}
       ])
 
