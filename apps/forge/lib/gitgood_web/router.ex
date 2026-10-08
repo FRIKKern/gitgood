@@ -24,6 +24,9 @@ defmodule GitgoodWeb.Router do
     get "/repos", RepositoryController, :index
     post "/repos", RepositoryController, :create
     get "/repos/:team/:name", RepositoryController, :show
+    get "/repos/:team/:name/branches", BrowseController, :branches
+    get "/repos/:team/:name/snapshot", BrowseController, :snapshot
+    get "/repos/:team/:name/diff", BrowseController, :diff
     post "/repos/:team/:name/credentials", CredentialController, :create
     delete "/credentials/:id", CredentialController, :delete
   end

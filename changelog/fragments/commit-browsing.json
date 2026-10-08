@@ -1,0 +1,13 @@
+{
+  "id": "commit-browsing",
+  "category": "Added",
+  "summary": "Added private commit browsing with stable URLs, branch selection, file tree, safe text previews, history and bounded diffs.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/browsing.md"
+  ],
+  "journeys": [
+    "J04"
+  ],
+  "withdrawn": false
+}

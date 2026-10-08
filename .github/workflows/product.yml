@@ -1,4 +1,4 @@
-name: Verify native foundation
+name: Verify native forge
 on:
   pull_request:
   push:
@@ -50,6 +50,7 @@ jobs:
             sleep 1
           done
           exit 1
+      - run: node scripts/verification-manifest.mjs
       - run: npx playwright test
         working-directory: apps/web
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
