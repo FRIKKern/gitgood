@@ -236,6 +236,8 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
       await page.getByRole('region',{name:'Repository activity and search',exact:true}).locator('a[href="/repos/team/'+name+'/operations/'+applied.id+'"]').click()
       await expect(page.getByRole('heading',{name:'Code operation',exact:true})).toBeVisible()
       await expect(page.getByRole('heading',{name:'merge · applied',exact:true})).toBeVisible()
+      await expect(page.getByText('refs/heads/main',{exact:true})).toBeVisible()
+      await expect(page.getByText(reviewed,{exact:true})).toHaveCount(2)
       await page.screenshot({path:testInfo.outputPath('native-activity-operation.png'),fullPage:true})
     } finally {await reviewContext.close()}
     const oversized = await fetch(upstream + '/git/team/' + name + '.git/git-receive-pack', {method:'POST', headers:{
