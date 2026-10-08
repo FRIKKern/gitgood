@@ -2,6 +2,8 @@
 
 ## Immediate sequence
 
+The [first 24-hour run plan](RUN-24H.md) time-boxes the environment, experiments, running foundation and private-repository slice. Its hours are allocations for an implementation run, not milestone delivery-date promises or completed tasks.
+
 1. Follow [autonomous progression](../AUTONOMY.md). Owner/private visibility and delegated agent authority are recorded in D01. Use PRODUCT.md as the execution baseline; resolve remaining decisions with evidence while private development proceeds.
 2. Resolve identity/data ownership and write the first permission scenarios.
 3. Scaffold app/API and isolated Postgres with pinned runtimes.
