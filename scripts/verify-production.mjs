@@ -140,13 +140,16 @@ try {
     const body=JSON.stringify({username:'owner',password})
     const request=httpsRequest({hostname:'127.0.0.1',servername:'localhost',port:publicPort,
       path:'/api/session?address_probe='+index,method:'POST',localAddress,ca:fixtureIssuer,rejectUnauthorized:true,
-      headers:{'content-type':'application/json','content-length':Buffer.byteLength(body),
+      headers:{host:new URL(publicUrl).host,'content-type':'application/json','content-length':Buffer.byteLength(body),
         'x-forwarded-for':'198.51.100.'+(index%200+1),forwarded:'for=203.0.113.'+(index%200+1),
         'x-gitgood-edge-key':'forged-edge-secret','x-gitgood-edge-client':'198.51.100.'+(index%200+1),
         'x-gitgood-client-address':'203.0.113.'+(index%200+1),'x-gitgood-client-time':String(Math.floor(Date.now()/1000)),
         'x-gitgood-client-signature':'0'.repeat(64)},agent:false},response=>{
       const chunks=[];response.on('data',chunk=>chunks.push(chunk))
-      response.on('end',()=>resolve({status:response.statusCode,body:JSON.parse(Buffer.concat(chunks).toString('utf8'))}))
+      response.on('end',()=>{
+        try{resolve({status:response.statusCode,body:JSON.parse(Buffer.concat(chunks).toString('utf8'))})}
+        catch{reject(new Error('TLS login probe returned non-JSON at HTTP '+response.statusCode))}
+      })
     })
     request.on('error',reject);request.setTimeout(12000,()=>request.destroy(new Error('TLS login probe deadline')))
     request.end(body)
