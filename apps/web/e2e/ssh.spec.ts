@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test'
+import {fixtureSession as session} from './fixture-session'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp,readFile,writeFile,mkdir} from 'node:fs/promises'
@@ -12,11 +13,6 @@ const windows=process.platform==='win32'
 const ssh=process.env.GITGOOD_SSH??(windows?'C:/Windows/System32/OpenSSH/ssh.exe':'ssh')
 const keygen=process.env.GITGOOD_SSH_KEYGEN??(windows?'C:/Windows/System32/OpenSSH/ssh-keygen.exe':'ssh-keygen')
 const quote=(s:string)=>"'"+s.replaceAll("'","'\\''")+"'"
-async function session(username:string) {
-  const response=await fetch(upstream+'/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password:'synthetic-password'})})
-  expect(response.status).toBe(200)
-  return {authorization:'Bearer '+/gitgood_session=([^;]+)/.exec(response.headers.getSetCookie()[0])![1],'content-type':'application/json'}
-}
 test('native SSH browser key registration, real clone/push/fetch, permissions, revocation and interruption',async({page},info)=>{
   test.setTimeout(180000)
   const root=await mkdtemp(join(tmpdir(),'gitgood-ssh-client-'))
@@ -85,7 +81,7 @@ test('native SSH browser key registration, real clone/push/fetch, permissions, r
   await expect(command(['push','origin','HEAD:main'])).rejects.toThrow()
   expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(initial)
   for(const actor of ['reader','outsider']) {
-    const headers=await session(actor)
+    const headers=await session(actor as 'reader' | 'outsider')
     const response=await fetch(upstream+'/api/ssh-keys',{method:'POST',headers:{...headers,'idempotency-key':'ssh-'+actor+'-'+Date.now()},body:JSON.stringify({label:actor,public_key:await readFile(keys[actor]+'.pub','utf8')})})
     expect(response.status).toBe(201)
   }

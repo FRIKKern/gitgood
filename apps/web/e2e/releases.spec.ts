@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test'
+import {fixtureSession as session} from './fixture-session'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp, writeFile, readFile, mkdir} from 'node:fs/promises'
@@ -8,11 +9,6 @@ import {createHash, randomBytes} from 'node:crypto'
 const execute = promisify(execFile)
 const upstream = process.env.GITGOOD_TEST_API_URL ?? 'http://127.0.0.1:47841'
 const git = process.env.GITGOOD_GIT ?? 'git'
-async function session(username: string) {
-  const result = await fetch(upstream + '/api/session', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({username, password: 'synthetic-password'})})
-  expect(result.status).toBe(200)
-  return {authorization: 'Bearer ' + /gitgood_session=([^;]+)/.exec(result.headers.getSetCookie()[0])![1], 'content-type': 'application/json'}
-}
 test('private tag release preserves identity and assets through lost replies, correction and withdrawal', async ({page, browser}, info) => {
   test.setTimeout(120_000)
   const root = await mkdtemp(join(tmpdir(), 'gitgood-release-')), source = join(root, 'source')

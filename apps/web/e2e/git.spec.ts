@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test'
+import {fixtureSession as session} from './fixture-session'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp, writeFile, readFile, rm, mkdir} from 'node:fs/promises'
@@ -10,12 +11,6 @@ import type {AddressInfo} from 'node:net'
 const execute = promisify(execFile)
 const upstream = process.env.GITGOOD_TEST_API_URL ?? 'http://127.0.0.1:47841'
 const git = process.env.GITGOOD_GIT ?? 'git'
-async function session(username: string) {
-  const result = await fetch(upstream + '/api/session', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({username, password: 'synthetic-password'})})
-  expect(result.status).toBe(200)
-  const token = /gitgood_session=([^;]+)/.exec(result.headers.getSetCookie()[0])![1]
-  return {authorization: 'Bearer ' + token, 'content-type': 'application/json'}
-}
 test('real Git over trusted HTTPS clones pushes fetches, protects main and denies read-only/outsider credentials', async ({page,browser}, testInfo) => {
   test.setTimeout(180_000)
   const prefix = join(tmpdir(), 'gitgood-client-')

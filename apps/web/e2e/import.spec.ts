@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test'
+import {fixtureSession as session} from './fixture-session'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp, readFile, writeFile, mkdir} from 'node:fs/promises'
@@ -9,13 +10,6 @@ import {request as httpRequest} from 'node:http'
 const run = promisify(execFile)
 const upstream = process.env.GITGOOD_TEST_API_URL ?? 'http://127.0.0.1:47841'
 const git = process.env.GITGOOD_GIT ?? 'git'
-async function session(username: string) {
-  const response = await fetch(upstream + '/api/session', {method: 'POST',
-    headers: {'content-type': 'application/json'}, body: JSON.stringify({username, password: 'synthetic-password'})})
-  expect(response.status).toBe(200)
-  return {authorization: 'Bearer ' + /gitgood_session=([^;]+)/.exec(response.headers.getSetCookie()[0])![1],
-    'content-type': 'application/json'}
-}
 
 test('browser full bundle import survives lost replies, preserves history and tags, and rejects unsafe intake', async ({page}, info) => {
   test.setTimeout(120_000)
