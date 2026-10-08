@@ -354,6 +354,21 @@ try {
   assert.equal(ownedPointers[0].content[0].href,publicUrl+'/changes/'+sourceLinks.pull_id)
   assert.equal(journalStats.documents['drafts.private-spec'].blocks[0].id,'source-intent')
   const criterionEvidence=JSON.parse(await readFile(join(sourceWeb,'test-results-production/criterion-evidence-receipt.json'),'utf8'))
+  const gitCompatibility=JSON.parse(await readFile(join(sourceWeb,'test-results-production/git-compatibility-receipt.json'),'utf8'))
+  const compatibilityRepo=after.repositories.find(r=>r.name===gitCompatibility.repositories.parent)
+  assert(compatibilityRepo,'Compatibility repository must persist')
+  const compatibilityPath='/api/repos/'+compatibilityRepo.team+'/'+compatibilityRepo.name
+  for(const origin of [forgeUrl,webUrl]){
+    const branches=await fetch(origin+compatibilityPath+'/branches',{headers:{authorization}})
+    assert.equal(branches.status,200)
+    assert((await branches.json()).branches.some(branch=>branch.name==='main'&&branch.sha===gitCompatibility.source_sha),'Exact signed commit must persist')
+    const tags=await fetch(origin+compatibilityPath+'/tags',{headers:{authorization}})
+    assert.equal(tags.status,200)
+    assert((await tags.json()).tags.some(tag=>tag.tag==='signed-v1'&&tag.object===gitCompatibility.tag_sha),'Exact signed tag object must persist')
+    const gitlink=await fetch(origin+compatibilityPath+'/snapshot?sha='+gitCompatibility.source_sha+'&path=vendor%2Fchild',{headers:{authorization}})
+    assert.equal(gitlink.status,200)
+    assert.equal((await gitlink.json()).object,gitCompatibility.child_sha,'Independent child gitlink must persist')
+  }
   const evidenceRepo=after.repositories.find(r=>r.id===criterionEvidence.repository_id)
   assert(evidenceRepo,'Native criterion evidence repository must persist')
   const evidencePath='/api/repos/'+evidenceRepo.team+'/'+evidenceRepo.name+'/pulls/'+criterionEvidence.pull_id+'/links/'+criterionEvidence.link.id+'/evidence'
@@ -453,10 +468,12 @@ try {
     nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
     clientAddress:clientAddressProof,offlineRecovery,
     criterionEvidence:{repository:criterionEvidence.repository_id,pull:criterionEvidence.pull_id,link:criterionEvidence.link.id,original:criterionEvidence.first_evidence.id,reassessed:criterionEvidence.reassessed,artifact_sha256:criterionEvidence.artifact_sha256},
+    gitCompatibility:{repository:compatibilityRepo.id,source_sha:gitCompatibility.source_sha,tag_sha:gitCompatibility.tag_sha,child_sha:gitCompatibility.child_sha},
     sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors,return_operation:sourceLinks.return_operation,return_destination:sourceLinks.return_destination},
     checks:['authenticated edge/socket login buckets, twenty-attempt boundary, spoofed fields and direct bypass refusal','source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','immutable criterion evidence, reassessment history, exact retry and checksum-protected artifact downloads persist after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
+  receipt.checks.push('Git compatibility signed commit/tag identity and independently authorized child gitlink persist after restart')
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})
   await writeFile(join(sourceWeb,'test-results-production/production-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   console.log('PASS production artifacts, full workflow, persistence and readiness rejection: '+identity.candidate)

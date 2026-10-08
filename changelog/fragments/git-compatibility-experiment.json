@@ -1,0 +1,9 @@
+{
+  "id": "git-compatibility-experiment",
+  "category": "Added",
+  "summary": "Added a real-client compatibility experiment for Git protocols, shallow ancestry, separate submodule credentials, signed object preservation and explicit LFS/partial-clone/SHA256 hosting limits; production verification includes exact ref/gitlink persistence.",
+  "impact": "product",
+  "references": ["docs/implementation/git-compatibility.md"],
+  "journeys": ["J02", "J03", "J04", "J05"],
+  "withdrawn": false
+}
