@@ -136,7 +136,9 @@ else
     owner,
     credential,
     %{"source_sha" => source, "target_sha" => target, "policy_version" => 1},
-    "vm-merge-create", fault: callback)
+    "vm-merge-create",
+    fault: callback
+  )
 
   raise("Failure point was not reached")
 end

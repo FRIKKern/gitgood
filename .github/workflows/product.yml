@@ -70,6 +70,15 @@ jobs:
           exit 1
       - run: npx playwright test
         working-directory: apps/web
+      - name: Build clean production artifacts
+        run: |
+          npm run build --prefix apps/web
+          node scripts/stamp-build.mjs
+          cd apps/forge
+          MIX_ENV=prod mix release
+      - name: Verify copied production installation
+        run: npm run verify:production
+        working-directory: apps/web
       - run: node scripts/verification-manifest.mjs
         if: always()
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
@@ -78,5 +87,6 @@ jobs:
           name: native-forge-verification-${{ github.sha }}
           path: |
             apps/web/test-results/
+            apps/web/test-results-production/
             apps/forge/.gitgood/verification/
           retention-days: 7

@@ -8,6 +8,7 @@
 import Config
 
 config :gitgood,
+  environment: config_env(),
   ecto_repos: [Gitgood.Repo],
   generators: [timestamp_type: :utc_datetime]
 
