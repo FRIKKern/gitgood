@@ -44,6 +44,7 @@ defmodule Gitgood.ReleaseEvent do
   use Ecto.Schema
 
   schema "release_events" do
+    field :public_id, Ecto.UUID, autogenerate: true
     belongs_to :release, Gitgood.ReleaseRecord, type: :binary_id
     belongs_to :actor, Gitgood.User
     belongs_to :credential, Gitgood.Credential

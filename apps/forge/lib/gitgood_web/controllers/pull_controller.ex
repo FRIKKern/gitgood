@@ -150,7 +150,15 @@ defmodule GitgoodWeb.PullController do
             do:
               from(o in query,
                 where:
-                  o.kind == "merge" and fragment("?->>'pull_request_id' = ?", o.metadata, ^id)
+                  o.kind == "merge" and
+                    fragment(
+                      "?->>'pull_request_id' = ?",
+                      o.metadata,
+                      ^case Pulls.get_public(repository, id) do
+                        nil -> "unmatched"
+                        pull -> Integer.to_string(pull.id)
+                      end
+                    )
               ),
             else: query
 
@@ -167,15 +175,9 @@ defmodule GitgoodWeb.PullController do
   defp with_pull(conn, params, action),
     do:
       with_repository(conn, params, fn repository ->
-        case Integer.parse(params["id"] || "") do
-          {id, ""} when id > 0 ->
-            case Pulls.get(repository, id) do
-              nil -> Auth.reject(conn, 404, "pull_request_not_found")
-              pull -> action.(repository, pull)
-            end
-
-          _ ->
-            Auth.reject(conn, 404, "pull_request_not_found")
+        case Pulls.get_public(repository, params["id"]) do
+          nil -> Auth.reject(conn, 404, "pull_request_not_found")
+          pull -> action.(repository, pull)
         end
       end)
 

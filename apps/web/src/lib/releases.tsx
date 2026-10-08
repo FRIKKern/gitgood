@@ -4,7 +4,7 @@ import {api, type Session} from './api'
 
 type Asset = {id: string; name: string; sha256: string; size: number; state: string}
 type Release = {id: string; tag: string; tag_object: string; commit_sha: string; base_sha: string | null; title: string; notes: string; notes_digest: string; state: string; version: number; published_at: string | null; withdrawn_at: string | null; changes: {commits: {sha: string; subject: string}[]}; assets: Asset[]}
-type Event = {id: number; kind: string; actor_id: number; reason: string; inserted_at: string; snapshot: Release}
+type Event = {id: string; kind: string; actor_id: number; reason: string; inserted_at: string; snapshot: Release}
 type ReleaseSummary = Pick<Release, 'id' | 'tag' | 'commit_sha' | 'title' | 'state' | 'published_at'>
 type Tag = {tag: string; object: string; commit_sha: string}
 type Pending = {path: string; body: Record<string, unknown>; key: string}

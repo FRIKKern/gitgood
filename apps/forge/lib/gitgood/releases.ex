@@ -540,7 +540,9 @@ defmodule Gitgood.Releases do
       |> Enum.map(&event_public/1)
 
   def event_public(event),
-    do: Map.take(event, [:id, :actor_id, :credential_id, :kind, :snapshot, :reason, :inserted_at])
+    do:
+      Map.take(event, [:actor_id, :credential_id, :kind, :snapshot, :reason, :inserted_at])
+      |> Map.put(:id, event.public_id)
 
   defp event!(release, user, credential, kind, reason, key \\ nil, digest \\ nil, extra \\ %{}) do
     Repo.insert!(%ReleaseEvent{

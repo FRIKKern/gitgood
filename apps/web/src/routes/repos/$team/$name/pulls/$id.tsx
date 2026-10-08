@@ -2,8 +2,8 @@ import {createFileRoute} from '@tanstack/react-router'
 import {useEffect, useRef, useState, type FormEvent} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {api, ApiError, type Session} from '../../../../../lib/api'
-type Event = {id: number; actor: string; kind: string; body: string; source_sha: string; target_sha: string; path: string | null; line: number | null; side: string | null; excerpt: string | null; outdated: boolean}
-type Pull = {id: number; title: string; body: string; state: string; author_id: number; source_ref: string; target_ref: string; source_sha: string; target_sha: string; policy: {version: number; approvals: number; required_checks: {provider_id: number; name: string}[]}; events: Event[]; checks: {id: number; provider: string; name: string; sha: string; attempt: number; sequence: number; status: string}[]}
+type Event = {id: string; actor: string; kind: string; body: string; source_sha: string; target_sha: string; path: string | null; line: number | null; side: string | null; excerpt: string | null; outdated: boolean}
+type Pull = {id: string; title: string; body: string; state: string; author_id: number; source_ref: string; target_ref: string; source_sha: string; target_sha: string; policy: {version: number; approvals: number; required_checks: {provider_id: number; name: string}[]}; events: Event[]; checks: {id: number; provider: string; name: string; sha: string; attempt: number; sequence: number; status: string}[]}
 type Operation = {id: string; state: string; outcome: {merge_sha?: string}}
 export const Route = createFileRoute('/repos/$team/$name/pulls/$id')({component: PullPage})
 function PullPage() {
@@ -41,13 +41,13 @@ function PullPage() {
     catch(e){setError(e instanceof Error?e.message:'Operations unavailable')}
   }
   return <div className="shell"><header><a className="brand" href="/">gitgood<span className="dot">●</span></a><a href={base}>Repository</a></header><main>
-    {pull.data ? <><p className="eyebrow">Pull request #{id} · {pull.data.state}</p><h1>{pull.data.title}</h1><p className="intro">{pull.data.source_ref.replace('refs/heads/','')} → main · fast-forward</p><p>{pull.data.body}</p>
+    {pull.data ? <><p className="eyebrow">Pull request · {pull.data.state}</p><h1>{pull.data.title}</h1><p className="intro">{pull.data.source_ref.replace('refs/heads/','')} → main · fast-forward</p><p>{pull.data.body}</p>
       <p>Source {pull.data.source_sha.slice(0,12)} · target {pull.data.target_sha.slice(0,12)} · policy {pull.data.policy.version}</p>
       <button className="subtle" onClick={()=>void pull.refetch()}>Refresh pull request</button>
       {error && <p role="alert" className="error">{error.replaceAll('_',' ')}</p>}
       <section className="code-panel"><h2>Changes</h2>{diff.data ? <pre className="source">{diff.data.text || 'No changes'}</pre> : diff.error ? <p role="alert">{diff.error.message.replaceAll('_',' ')} <button onClick={()=>void diff.refetch()}>Retry changes</button></p> : <p>Loading changes…</p>}</section>
       <section className="collaboration-panel"><h2>Conversation and reviews</h2>
-        {pull.data.events.map(event=><article className="review-event" key={event.id}><strong>{event.actor} · {event.kind.replaceAll('_',' ')}</strong>{event.outdated && <span className="badge">Outdated revision</span>}
+        {pull.data.events.map(event=><article className="review-event" id={'review-'+event.id} key={event.id}><strong>{event.actor} · {event.kind.replaceAll('_',' ')}</strong>{event.outdated && <span className="badge">Outdated revision</span>}
           <p>{event.body}</p>{event.path && <><small>{event.path} · {event.side} line {event.line} · commit {event.source_sha.slice(0,12)}</small><pre>{event.excerpt}</pre></>}
         </article>)}
         {writer && pull.data.state==='open' && <><CommentDraft key={session.data!.user.id+':'+pull.data.source_sha+':'+pull.data.target_sha} actor={session.data!.user.id} csrf={session.data!.csrf} base={base} pull={pull.data} onSaved={()=>pull.refetch()}/>

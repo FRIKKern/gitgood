@@ -134,6 +134,8 @@ defmodule Gitgood.ReleasesTest do
     assert id == release.id
     assert Repo.aggregate(ReleaseRecord, :count) == 1
     assert Repo.aggregate(ReleaseEvent, :count) == 1
+    {:ok, public_detail} = Releases.get(ctx.repository, ctx.owner, ctx.credential, release.id)
+    assert {:ok, _} = Ecto.UUID.cast(hd(public_detail.events).id)
 
     assert {:error, :idempotency_conflict} =
              Releases.create(

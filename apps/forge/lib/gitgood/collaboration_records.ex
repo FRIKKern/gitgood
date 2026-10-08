@@ -2,6 +2,7 @@ defmodule Gitgood.PullRequest do
   use Ecto.Schema
 
   schema "pull_requests" do
+    field :public_id, Ecto.UUID, autogenerate: true
     belongs_to :repository, Gitgood.Repository
     belongs_to :author, Gitgood.User
     field :title, :string
@@ -19,6 +20,7 @@ defmodule Gitgood.ReviewEvent do
   use Ecto.Schema
 
   schema "review_events" do
+    field :public_id, Ecto.UUID, autogenerate: true
     belongs_to :pull_request, Gitgood.PullRequest
     belongs_to :actor, Gitgood.User
     field :kind, :string

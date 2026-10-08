@@ -13,6 +13,21 @@ defmodule Gitgood.Pulls do
 
   def get(repository, id), do: Repo.get_by(PullRequest, id: id, repository_id: repository.id)
 
+  def get_public(repository, value) when is_binary(value) and byte_size(value) <= 36 do
+    case Ecto.UUID.cast(value) do
+      {:ok, uuid} ->
+        Repo.get_by(PullRequest, public_id: uuid, repository_id: repository.id)
+
+      _ ->
+        case Integer.parse(value) do
+          {id, ""} when id > 0 and id <= 9_223_372_036_854_775_807 -> get(repository, id)
+          _ -> nil
+        end
+    end
+  end
+
+  def get_public(_, _), do: nil
+
   def revisions(repository, %{state: "merged"} = pull) do
     operation = applied_operation(repository, pull)
 
@@ -218,7 +233,6 @@ defmodule Gitgood.Pulls do
   def public(pull),
     do:
       Map.take(pull, [
-        :id,
         :repository_id,
         :author_id,
         :title,
@@ -228,11 +242,11 @@ defmodule Gitgood.Pulls do
         :state,
         :inserted_at
       ])
+      |> Map.put(:id, pull.public_id)
 
   def event_public(event),
     do:
       Map.take(event, [
-        :id,
         :actor_id,
         :kind,
         :source_sha,
@@ -244,4 +258,5 @@ defmodule Gitgood.Pulls do
         :body,
         :inserted_at
       ])
+      |> Map.put(:id, event.public_id)
 end

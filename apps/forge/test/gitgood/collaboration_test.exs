@@ -71,6 +71,18 @@ defmodule Gitgood.CollaborationTest do
   test "pull/comment retries are stable, exact line context survives source changes and roles are enforced",
        ctx do
     pull = pull(ctx)
+    assert {:ok, public_id} = Ecto.UUID.cast(Pulls.public(pull).id)
+    assert Pulls.get_public(ctx.repository, public_id).id == pull.id
+    assert Pulls.get_public(ctx.repository, Integer.to_string(pull.id)).id == pull.id
+    assert is_nil(Pulls.get_public(%{id: ctx.repository.id + 1}, public_id))
+    assert is_nil(Pulls.get_public(ctx.repository, String.duplicate("9", 100)))
+    {token, _} = Accounts.issue(ctx.owner, "session")
+    base = "/api/repos/collab/project/pulls/"
+
+    for identity <- [public_id, Integer.to_string(pull.id)] do
+      conn = build_conn() |> put_req_header("authorization", "Bearer " <> token)
+      assert json_response(get(conn, base <> identity), 200)["id"] == public_id
+    end
 
     assert {:ok, %{id: id}} =
              Pulls.create(
@@ -104,6 +116,8 @@ defmodule Gitgood.CollaborationTest do
              )
 
     assert event.excerpt == "new"
+    assert {:ok, _} = Ecto.UUID.cast(Pulls.event_public(event).id)
+    refute Pulls.event_public(event).id == event.id
 
     assert {:ok, %{id: event_id}} =
              Pulls.submit(

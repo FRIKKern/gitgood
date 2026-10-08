@@ -226,7 +226,7 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     expect(revoked.status).toBe(200)
     await expect(command(['ls-remote',url], clientEnv('reader',readerCredential.token))).rejects.toThrow()
     await writeFile(testInfo.outputPath('git-receipt.json'), JSON.stringify({repository:repo.id, initial, feature,
-      mergedSource,pullRequest:Number(pullId),actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
+      mergedSource,pullRequest:pullId,actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
       releaseTag,checks:['empty clone','commit','push','fetch','immutable tag creation/replacement/deletion','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
     complete = true
   } finally {
