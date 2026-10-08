@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": null,
-  "specRevision": "planning-2026-10-07",
+  "headCommit": "8cd5ab50e342e753f62c287e00485739483402d3",
+  "specRevision": "sha256:dc7402370e1d4b91f00cb124e6acea2713625f430880514f2eefc19884190e5a",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
-      "status": "unconfigured",
-      "observedAt": null
+      "status": "ok",
+      "observedAt": "2026-10-08T22:15:17.418Z",
+      "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "unconfigured",
@@ -18,5 +19,126 @@
       "observedAt": null
     }
   },
-  "records": []
+  "records": [
+    {
+      "id": "J01",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J01.md"
+      }
+    },
+    {
+      "id": "J02",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J02.md"
+      }
+    },
+    {
+      "id": "J03",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J03.md"
+      }
+    },
+    {
+      "id": "J04",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J04.md"
+      }
+    },
+    {
+      "id": "J05",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J05.md"
+      }
+    },
+    {
+      "id": "J06",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J06.md"
+      }
+    },
+    {
+      "id": "J07",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J07.md"
+      }
+    },
+    {
+      "id": "J08",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J08.md"
+      }
+    },
+    {
+      "id": "J09",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J09.md"
+      }
+    },
+    {
+      "id": "J10",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J10.md"
+      }
+    },
+    {
+      "id": "J11",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J11.md"
+      }
+    },
+    {
+      "id": "J12",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J12.md"
+      }
+    },
+    {
+      "id": "J13",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J13.md"
+      }
+    },
+    {
+      "id": "J14",
+      "implementation": {
+        "state": "planned",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J14.md"
+      }
+    },
+    {
+      "id": "J15",
+      "implementation": {
+        "state": "planned",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J15.md"
+      }
+    },
+    {
+      "id": "J16",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J16.md"
+      }
+    },
+    {
+      "id": "J17",
+      "implementation": {
+        "state": "planned",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J17.md"
+      }
+    }
+  ],
+  "evaluatedAt": "2026-10-08T22:15:17.418Z"
 }

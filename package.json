@@ -8,8 +8,9 @@
   },
   "scripts": {
     "generate": "node scripts/generate.mjs",
-    "check": "node scripts/check.mjs && node --test scripts/report.test.mjs",
+    "check": "node scripts/check.mjs && node --test scripts/report.test.mjs scripts/ledger-source.test.mjs",
     "status": "node scripts/status.mjs",
+    "status:refresh": "node scripts/refresh-ledger.mjs",
     "release:check": "node scripts/status.mjs --release",
     "freshness": "node scripts/status.mjs --freshness"
   }

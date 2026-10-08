@@ -1,0 +1,9 @@
+{
+  "id": "live-delivery-ledger",
+  "category": "Added",
+  "summary": "Connected the private Gitgood delivery ledger to a scoped authenticated implementation-status collector with requirement binding, retained observation history and failed-read preservation; evidence/release ingestion and unattended publishing remain pending.",
+  "impact": "planning",
+  "references": ["docs/TRACKING.md"],
+  "journeys": ["J11"],
+  "withdrawn": false
+}

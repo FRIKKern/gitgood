@@ -56,9 +56,10 @@ export function svg(m) {
     const summary=unknown?`${passed} confirmed · ${unknown} unknown or stale`:`${passed} / ${states.length} journeys`
     out.push(`<g data-metric="${key}"><title>${esc(label+': '+summary)}</title>`)
     rect(x,170,w,77,'panel',12)
-    text(x+16,198,label,15,'strong')
+    text(x+16,198,key==='implementation'?'Fully implemented':label,15,'strong')
     text(x+w-16,200,unknown?'?':`${passed}/${states.length}`,22,unknown?'unknown strong':'good strong','text-anchor="end"')
-    text(x+16,229,freshness(m.snapshot,source,clock)==='unconfigured'?'Status source not connected':summary,14,'muted')
+    const detail=key==='implementation'&&!unknown?`${passed} complete · ${states.filter(s=>s[key]==='in_progress').length} in progress`:summary
+    text(x+16,229,freshness(m.snapshot,source,clock)==='unconfigured'?'Status source not connected':detail,14,'muted')
     out.push('</g>')
   })
   text(36,286,'WHAT YOU WILL SEE / WHERE',12,'muted label')

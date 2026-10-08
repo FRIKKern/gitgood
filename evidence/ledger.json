@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "baseUrl": "https://guerrilla.barkpark.cloud",
+  "workspace": "gitgood",
+  "workspaceId": "515e845b-2754-4963-93b7-e7486fb13646",
+  "project": "delivery",
+  "dataset": "production",
+  "goalId": "gitgood-first-release"
+}

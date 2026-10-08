@@ -1,13 +1,32 @@
 # Tracking and report contract
 
-Barkpark will be the execution ledger. Its Gitgood goal ID is unconfigured. Do not reuse Barkpark Studio's goal or create a second live status list in these documents.
+Barkpark owns the execution ledger in the private **Gitgood / Delivery / production** scope. Its goal is `gitgood-first-release`, with eight milestone containers `gitgood-m0` through `gitgood-m7` and journey tasks `gitgood-j01` through `gitgood-j17`. These are ordinary task documents with goal/phase/journey labels. The ledger was introduced after native implementation began; creation is not retroactive acceptance. It does not reuse Barkpark Studio's goal.
 
-The milestone and journey catalogs are normative planning structure. evidence/status.json is a validated observation snapshot for derived views, not an editable replacement ledger. Source adapters are future S09/S16 work.
+The milestone and journey catalogs remain normative planning structure. Each journey owns its acceptance criteria. [evidence/ledger.json](../evidence/ledger.json) identifies the authenticated source. [evidence/status.json](../evidence/status.json) is an observation snapshot for derived views, not an editable replacement ledger.
 
-The initial snapshot contains no connected sources and no implementation, verification, or release records. Render those states as unverified/unconfigured, not zero completed work confirmed by measurement.
+Each journey task's private `gitgood` provenance object records its journey ID, requirement-file SHA256 and explicitly declared implementation state/reference. `planned`, `in_progress` and `implemented` describe implementation. Task lifecycle, closure and criterion stamps cannot create verification or release. The initial population leaves all acceptance criteria unmet until evaluated. Existing development work remains in progress while its full journey is being verified.
 
-For live integration, map each task to journey IDs, each evidence manifest to criterion IDs and code/spec revisions, and each release to exact artifacts/commit. Closing a task only affects work state. Verification requires valid supporting manifests and acceptance criteria; release requires a published release record.
+## Refresh
 
-Fetch updates into a candidate snapshot, validate, then replace atomically. Preserve old observedAt and values after failed reads and record fetch health separately. A source timestamp over 24 hours old is stale. A future timestamp is invalid.
+Supply a finite, workspace-bound credential through `GITGOOD_LEDGER_TOKEN`, then run:
 
-The SVG is generated from catalogs and this snapshot. Branch protection, scheduling, ledger fetch, deduplicated alerts, and automated publishing need remote setup and are not implied by checked-in workflow definitions.
+```sh
+npm run status:refresh
+npm run generate
+npm run check
+npm run status
+```
+
+The collector makes read-only HTTPS requests, checks the actual token workspace and expiry, and refuses admin credentials. It reads published task documents through the explicit workspace/project/dataset route. Redirects, oversized bodies, duplicate rows, changed counts, missing journeys, changed requirement digests or criterion wording refuse reconciliation. Pagination is bounded to 1,000 documents; this is a refusal bound, not measured capacity. The read is an observation of the API, not a transactional Source export.
+
+The dedicated source identity is restricted to Gitgood and expires after seven days. Its protected local material is outside tracked source. Renew/revoke through Barkpark's supported token contract; do not silently substitute the CLI admin identity. The initial integration found that the installed CLI selected its saved admin identity despite an environment token setting, so the collector uses direct authenticated API reads.
+
+Validate a candidate snapshot before atomic replacement. Keep immutable previous/next snapshots and normalized source revision provenance under private `.gitgood/report-history/` directories. A failed fetch retains previous values and their original observation time, records the source as unavailable, and returns a nonzero result. It cannot refresh old evidence by updating a clock. A source observation older than 24 hours is stale; future timestamps are invalid.
+
+The snapshot's requirement revision is the SHA256 of the ordered journey-to-file-digest map. Verification must additionally name its actual code candidate, criteria, outcomes and protected artifacts. A code/spec change cannot inherit approval. Release requires an actual published record tied to immutable artifacts and the accepted candidate.
+
+## Current limits
+
+Live implementation collection is configured. Automated evidence and release ingestion remain unconfigured, so their views stay unknown. Current source task status is not a product release gate by itself. Full native J11 evidence attachment/access/reassessment remains separate work.
+
+The top README SVG and detailed journey map are generated from catalogs and this observed snapshot. They display observations at generation time; use `npm run status` for current age checks. Unattended collection, deduplicated alerts and automatic publishing are not yet established. The checked-in maintenance workflow remains disabled until those contracts and remote execution are verified. Required GitHub CI is currently unable to start because of account billing/spending restrictions; local results do not waive it.
