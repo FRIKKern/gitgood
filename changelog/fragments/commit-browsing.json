@@ -4,7 +4,8 @@
   "summary": "Added private commit browsing with stable URLs, branch selection, file tree, safe text previews, history and bounded diffs.",
   "impact": "product",
   "references": [
-    "docs/implementation/browsing.md"
+    "docs/implementation/browsing.md",
+    "https://github.com/FRIKKern/gitgood/pull/9"
   ],
   "journeys": [
     "J04"

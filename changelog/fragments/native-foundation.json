@@ -6,7 +6,8 @@
   "references": [
     "apps/forge/README.md",
     "apps/web/README.md",
-    "docs/decisions/0002-local-identity.md"
+    "docs/decisions/0002-local-identity.md",
+    "https://github.com/FRIKKern/gitgood/pull/7"
   ],
   "journeys": [
     "J01"

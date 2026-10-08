@@ -5,7 +5,8 @@
   "impact": "product",
   "references": [
     "docs/decisions/0003-native-http-transport.md",
-    "apps/forge/README.md"
+    "apps/forge/README.md",
+    "https://github.com/FRIKKern/gitgood/pull/8"
   ],
   "journeys": [
     "J02",

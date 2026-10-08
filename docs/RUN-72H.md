@@ -1,5 +1,7 @@
 # First 72-hour implementation run
 
+Execution record: [8 October native foundation run](RUN-72H-FINISH.md). The allocation below is preserved as the original plan; the finish record reports actual behavior, evidence and remaining product scope.
+
 Prepared 8 October 2026. Hour zero is the beginning of an implementation run. This proposal includes the first 24-hour plan; it is not an additional 72 hours afterward. No implementation result, active background runner, or scheduled execution is established by this document.
 
 ## Outcome
