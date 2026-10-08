@@ -12,6 +12,7 @@ if System.get_env("GITGOOD_SSH_PORT") do
 end
 
 config :gitgood,
+  barkpark_origin: System.get_env("GITGOOD_BARKPARK_ORIGIN"),
   storage_root:
     System.get_env(
       "GITGOOD_STORAGE",
@@ -34,6 +35,12 @@ config :gitgood, GitgoodWeb.Endpoint,
 if System.get_env("PHX_SERVER") == "true", do: config(:gitgood, GitgoodWeb.Endpoint, server: true)
 
 if config_env() == :prod do
+  case System.get_env("GITGOOD_BARKPARK_ORIGIN") do
+    nil -> :ok
+    "https://" <> _ -> :ok
+    _ -> raise("Production Barkpark origin must use HTTPS")
+  end
+
   config :gitgood, Gitgood.Repo,
     url: System.fetch_env!("DATABASE_URL"),
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))

@@ -13,6 +13,8 @@ defmodule Gitgood.Application do
       GitgoodWeb.Telemetry,
       Gitgood.Repo,
       {DynamicSupervisor, name: Gitgood.Commands, strategy: :one_for_one, max_children: 4},
+      {DynamicSupervisor,
+       name: Gitgood.BarkparkRequests, strategy: :one_for_one, max_children: 4},
       {Task.Supervisor, name: Gitgood.DurableWrites},
       {DynamicSupervisor, name: Gitgood.PushWorkers, strategy: :one_for_one, max_children: 4},
       {DynamicSupervisor, name: Gitgood.MergeWorkers, strategy: :one_for_one, max_children: 4},
