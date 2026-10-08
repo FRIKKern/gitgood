@@ -8,6 +8,7 @@ defmodule Gitgood.Reconciler do
     if Application.get_env(:gitgood, :reconcile, true) do
       Gitgood.Repositories.reconcile()
       Gitgood.Pushes.reconcile()
+      Gitgood.Merges.reconcile()
     end
 
     Process.send_after(self(), :reconcile, 30_000)

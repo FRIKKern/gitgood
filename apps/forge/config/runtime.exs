@@ -9,7 +9,8 @@ config :gitgood,
         :storage_root,
         Path.expand("../../../.gitgood/repos", __DIR__)
       )
-    ),
+    )
+    |> Path.expand(),
   web_origin: System.get_env("GITGOOD_WEB_ORIGIN", "http://localhost:47840"),
   public_url: System.get_env("GITGOOD_PUBLIC_URL", "http://localhost:47841"),
   git_executable: System.get_env("GITGOOD_GIT", "git"),
