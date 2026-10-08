@@ -37,13 +37,13 @@ defmodule Gitgood.Repo.Migrations.CreateBarkparkConnections do
 
   def down do
     execute """
-    DO $ BEGIN
+    DO $$ BEGIN
       LOCK TABLE barkpark_connections, barkpark_connection_events IN ACCESS EXCLUSIVE MODE;
       IF EXISTS (SELECT 1 FROM barkpark_connections) OR
          EXISTS (SELECT 1 FROM barkpark_connection_events) THEN
         RAISE EXCEPTION 'Barkpark connections or request history exist; restore a compatible artifact instead of dropping them';
       END IF;
-    END $;
+    END $$;
     """
 
     drop table(:barkpark_connection_events)
