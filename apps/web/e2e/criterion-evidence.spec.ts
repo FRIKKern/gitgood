@@ -66,7 +66,7 @@ test('criterion evidence binds real Git and source revisions, retains history an
   const panel = page.getByRole('region', {name: 'Criterion evidence', exact: true})
   await expect(panel.getByText('Absent · no evidence').first()).toBeVisible()
   await panel.getByText('Attach evidence or reassess a result', {exact: true}).click()
-  await panel.getByLabel('Producer outcome', {exact: true}).selectOption('passed')
+  await panel.getByRole('combobox', {name: 'Producer outcome', exact: true}).selectOption('passed')
   await panel.getByLabel('Producer label', {exact: true}).fill('synthetic-browser-verifier')
   await panel.getByLabel('Reproduction commands · one per line', {exact: true}).fill('synthetic verifier --restore')
   await panel.getByLabel('Environment as a JSON object', {exact: true}).fill('{"runtime":"copied native release","fixture":"synthetic HTTPS source"}')
