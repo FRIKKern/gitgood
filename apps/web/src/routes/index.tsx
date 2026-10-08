@@ -7,7 +7,9 @@ import {useSession} from '../lib/access-boundary'
 import {Discovery} from '../lib/discovery'
 import {TeamMembers} from '../lib/team-members'
 import {BarkparkAccount} from '../lib/barkpark-account'
-export const Route = createFileRoute('/')({component: Home})
+export const Route = createFileRoute('/')({component: Home, validateSearch: (search: Record<string, unknown>) => ({
+  change: typeof search.change === 'string' && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(search.change) ? search.change : undefined,
+})})
 function Home() {
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
@@ -16,6 +18,8 @@ function Home() {
   const creation = useRef<{key: string; body: string} | null>(null)
   useEffect(() => setReady(true), [])
   const session = useSession()
+  const {change} = Route.useSearch()
+  useEffect(() => {if (session.data && change) window.location.replace('/changes/' + change)}, [session.data, change])
   const repos = useQuery({queryKey: ['repos'], queryFn: () => api<{repositories: Repository[]}>('/repos'), enabled: !!session.data})
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('')

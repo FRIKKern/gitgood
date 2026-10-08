@@ -140,6 +140,60 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await expect(page.getByRole('heading',{name:'Review the private change'})).toBeVisible()
     const pullUrl = page.url()
     const pullId = /\/pulls\/([0-9a-f-]{36})/.exec(pullUrl)![1]
+    await page.goto('/changes/' + pullId)
+    await expect(page).toHaveURL(pullUrl)
+    await expect(page.getByRole('heading', {name: 'Review the private change', exact: true})).toBeVisible()
+    const aliasContext = await browser.newContext({baseURL: process.env.GITGOOD_TEST_WEB_URL ?? 'http://localhost:47840',
+      ignoreHTTPSErrors: process.env.GITGOOD_TEST_PRODUCTION === 'true'})
+    let releaseAlias: (() => void) | undefined
+    try {
+      const landing = await aliasContext.newPage()
+      await landing.goto('/changes/' + pullId)
+      await expect(landing.getByRole('link', {name: 'Sign in to Gitgood'})).toBeVisible()
+      expect(await landing.locator('main').innerText()).not.toContain(name)
+      expect(await landing.locator('main').innerText()).not.toContain('Review the private change')
+      await landing.getByRole('link', {name: 'Sign in to Gitgood'}).click()
+      await expect(landing).toHaveURL(new RegExp('change=' + pullId))
+      await landing.getByLabel('Username', {exact: true}).fill('owner')
+      await landing.getByLabel('Password', {exact: true}).fill('synthetic-password')
+      await landing.getByRole('button', {name: 'Sign in', exact: true}).click()
+      await expect(landing).toHaveURL(pullUrl)
+      await expect(landing.getByRole('heading', {name: 'Review the private change', exact: true})).toBeVisible()
+      const missing = await landing.request.get('/api/changes/' + crypto.randomUUID())
+      expect(missing.status()).toBe(404)
+      expect(await missing.json()).toEqual({error: 'change_not_found'})
+      let heldCount = 0, deliveredCount = 0
+      const held = new Promise<void>(resolve => {releaseAlias = resolve})
+      await landing.route('**/api/changes/' + pullId, async route => {
+        const response = await route.fetch()
+        if (response.status() === 200) {heldCount++; await held}
+        await route.fulfill({response}).catch(() => {})
+        if (response.status() === 200) deliveredCount++
+      })
+      await landing.goto('/changes/' + pullId)
+      await expect.poll(() => heldCount).toBeGreaterThan(0)
+      const switcher = await aliasContext.newPage()
+      await switcher.goto('/')
+      await expect(switcher.getByRole('heading', {name: 'Your repositories'})).toBeVisible()
+      await switcher.getByRole('button', {name: 'Sign out', exact: true}).click()
+      await expect(landing.getByRole('link', {name: 'Sign in to Gitgood'})).toBeVisible()
+      await switcher.getByLabel('Username', {exact: true}).fill('outsider')
+      await switcher.getByLabel('Password', {exact: true}).fill('synthetic-password')
+      await switcher.getByRole('button', {name: 'Sign in', exact: true}).click()
+      await expect(switcher.getByRole('heading', {name: 'Your repositories'})).toBeVisible()
+      await expect(landing.getByRole('alert')).toContainText('This change is unavailable for your account.')
+      const refused = await landing.request.get('/api/changes/' + pullId)
+      expect(refused.status()).toBe(404)
+      expect(await refused.json()).toEqual({error: 'change_not_found'})
+      releaseAlias!(); releaseAlias = undefined
+      await expect.poll(() => deliveredCount).toBe(heldCount)
+      await landing.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      expect(new URL(landing.url()).pathname).toBe('/changes/' + pullId)
+      expect(await landing.locator('main').innerText()).not.toContain(name)
+      expect(await landing.locator('main').innerText()).not.toContain('Review the private change')
+      await landing.screenshot({path: testInfo.outputPath('native-opaque-change-denied.png'), fullPage: true})
+      await switcher.close()
+    } finally {releaseAlias?.(); await aliasContext.close()}
     await page.getByRole('button',{name:'Merge under current policy'}).click()
     await expect(page.getByRole('alert')).toContainText('approval required')
     const providerResult = await fetch(upstream+'/api/repos/team/'+name+'/providers',{method:'POST',headers:owner,body:JSON.stringify({name:'fixture-ci'})})
@@ -250,7 +304,7 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await expect(command(['ls-remote',url], clientEnv('reader',readerCredential.token))).rejects.toThrow()
     await writeFile(testInfo.outputPath('git-receipt.json'), JSON.stringify({repository:repo.id, initial, feature,
       mergedSource,pullRequest:pullId,actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
-      releaseTag,checks:['empty clone','commit','push','fetch','immutable tag creation/replacement/deletion','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
+      releaseTag,native_change_landing:['opaque UUID','anonymous hides repository/title','sign-in return target','permitted native navigation','foreign equals missing','held response after account switch discarded'],checks:['empty clone','commit','push','fetch','immutable tag creation/replacement/deletion','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
     complete = true
   } finally {
     proxy.closeAllConnections()

@@ -26,6 +26,7 @@ defmodule GitgoodWeb.Router do
     get "/repos", RepositoryController, :index
     get "/search", DiscoveryController, :search
     get "/activity", DiscoveryController, :activity
+    get "/changes/:id", NativeChangeController, :show
     get "/teams/:team/members", TeamController, :index
     post "/teams/:team/members", TeamController, :change
     get "/connections/barkpark", BarkparkConnectionController, :show

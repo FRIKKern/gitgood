@@ -90,6 +90,10 @@ defmodule GitgoodWeb.Auth do
       conn.method == "GET" and conn.request_path in ["/api/repos", "/api/search", "/api/activity"] ->
         true
 
+      conn.method == "GET" and match?(["api", "changes", _], conn.path_info) ->
+        # NativeChanges applies the current credential's repository scope inside its read.
+        true
+
       is_binary(conn.path_params["team"]) and is_binary(conn.path_params["name"]) ->
         repository =
           Repo.get_by(Repository,
