@@ -8,7 +8,7 @@ import {createServer as httpsServer} from 'node:https'
 import {request as httpRequest} from 'node:http'
 import type {AddressInfo} from 'node:net'
 const execute = promisify(execFile)
-const upstream = 'http://127.0.0.1:47841'
+const upstream = process.env.GITGOOD_TEST_API_URL ?? 'http://127.0.0.1:47841'
 const git = process.env.GITGOOD_GIT ?? 'git'
 async function session(username: string) {
   const result = await fetch(upstream + '/api/session', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({username, password: 'synthetic-password'})})
@@ -126,6 +126,10 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await expect(page).toHaveURL(new RegExp(interrupted))
     await expect(page.getByRole('heading', {name:'Commit history'})).toBeVisible()
     await page.screenshot({path:testInfo.outputPath('repository-browser.png'),fullPage:true})
+    await page.getByText('Branch policy and check providers',{exact:true}).click()
+    await page.getByLabel('Required approvals',{exact:true}).fill('1')
+    await page.getByRole('button',{name:'Save branch policy',exact:true}).click()
+    await expect(page.getByText('Main requires 1 independent approval(s). Policy version 2.',{exact:true})).toBeVisible()
     await page.getByText('Open a pull request', {exact:true}).click()
     await page.getByLabel('Source branch').selectOption('feature')
     await page.getByLabel('Title', {exact:true}).fill('Review the private change')
@@ -138,13 +142,14 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     const providerResult = await fetch(upstream+'/api/repos/team/'+name+'/providers',{method:'POST',headers:owner,body:JSON.stringify({name:'fixture-ci'})})
     expect(providerResult.status).toBe(200)
     const provider = await providerResult.json()
-    const policyResult = await fetch(upstream+'/api/repos/team/'+name+'/policy',{method:'PUT',headers:owner,body:JSON.stringify({version:1,approvals:1,required_checks:[{provider_id:provider.id,name:'build'}]})})
+    const policyResult = await fetch(upstream+'/api/repos/team/'+name+'/policy',{method:'PUT',headers:owner,body:JSON.stringify({version:2,approvals:1,required_checks:[{provider_id:provider.id,name:'build'}]})})
     expect(policyResult.status).toBe(200)
     const providerHeaders = {authorization:'Bearer '+provider.token,'content-type':'application/json'}
     const check = async (sha:string, sequence:number, status:string) => fetch(upstream+'/api/checks/team/'+name,{method:'POST',headers:providerHeaders,body:JSON.stringify({sha,name:'build',attempt:1,sequence,status})})
     expect((await fetch(upstream+'/api/repos',{headers:providerHeaders})).status).toBe(401)
     expect((await check(interrupted,3,'success')).status).toBe(200)
-    const reviewContext = await browser.newContext({baseURL:'http://localhost:47840'})
+    let mergedSource = ''
+    const reviewContext = await browser.newContext({baseURL:process.env.GITGOOD_TEST_WEB_URL ?? 'http://localhost:47840',ignoreHTTPSErrors:process.env.GITGOOD_TEST_PRODUCTION === 'true'})
     try {
       const reviewPage = await reviewContext.newPage()
       await reviewPage.goto('/')
@@ -158,12 +163,18 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
       await reviewPage.getByLabel('Line',{exact:true}).fill('1')
       await reviewPage.getByRole('textbox',{name:'Comment',exact:true}).fill('Preserve this exact line context')
       await reviewPage.route('**/reviews',async route=>{await route.fetch();await route.abort('failed')})
-      await reviewPage.getByRole('button',{name:'Submit line comment'}).click()
+      await reviewPage.getByRole('textbox',{name:'Comment',exact:true}).focus()
+      await reviewPage.keyboard.press('Tab')
+      await expect(reviewPage.getByRole('button',{name:'Submit line comment'})).toBeFocused()
+      await reviewPage.keyboard.press('Enter')
       await expect(reviewPage.getByRole('alert')).toContainText('Your draft is preserved')
       await reviewPage.unroute('**/reviews')
       await reviewPage.reload()
       await expect(reviewPage.getByRole('textbox',{name:'Comment',exact:true})).toHaveValue('Preserve this exact line context',{timeout:10000})
-      await reviewPage.getByRole('button',{name:'Submit line comment'}).click()
+      await reviewPage.getByRole('textbox',{name:'Comment',exact:true}).focus()
+      await reviewPage.keyboard.press('Tab')
+      await expect(reviewPage.getByRole('button',{name:'Submit line comment'})).toBeFocused()
+      await reviewPage.keyboard.press('Enter')
       await expect(reviewPage.getByRole('textbox',{name:'Comment',exact:true})).toHaveValue('')
       await expect(reviewPage.getByText('Preserve this exact line context',{exact:true})).toHaveCount(1)
       await reviewPage.getByRole('button',{name:'Approve current revision'}).click()
@@ -172,6 +183,7 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
       await command(['add','--','.'])
       await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','commit','-m','Update reviewed source'])
       const reviewed = (await command(['rev-parse','HEAD'])).stdout.trim()
+      mergedSource = reviewed
       await command(['push','origin','HEAD:feature'])
       await page.getByRole('button',{name:'Refresh pull request'}).click()
       await expect(page.getByText('Outdated revision',{exact:true})).toHaveCount(2)
@@ -211,7 +223,7 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     expect(revoked.status).toBe(200)
     await expect(command(['ls-remote',url], clientEnv('reader',readerCredential.token))).rejects.toThrow()
     await writeFile(testInfo.outputPath('git-receipt.json'), JSON.stringify({repository:repo.id, initial, feature,
-      actors:['owner','reader','outsider'], transport:'HTTPS, explicit CA verification',
+      mergedSource,pullRequest:Number(pullId),actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
       checks:['empty clone','commit','push','fetch','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
     complete = true
   } finally {

@@ -14,6 +14,7 @@ defmodule GitgoodWeb.Router do
   scope "/", GitgoodWeb do
     pipe_through :api
     get "/health/ready", HealthController, :show
+    get "/health/live", HealthController, :live
     post "/api/session", SessionController, :create
     post "/api/checks/:team/:name", CheckController, :report
   end

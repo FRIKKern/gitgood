@@ -13,7 +13,7 @@ test('private creation survives reload, denied outsiders and missing csrf', asyn
   await expect(page.getByRole('heading', {name: 'team / ' + name})).toBeVisible()
   const denied = await page.request.post('/api/repos', {data: {team: 'team', name: 'csrf-denied'}, headers: {'idempotency-key': 'csrf-denied'}})
   expect(denied.status()).toBe(403)
-  const outsider = await browser.newContext({baseURL: 'http://localhost:47840'})
+  const outsider = await browser.newContext({baseURL: process.env.GITGOOD_TEST_WEB_URL ?? 'http://localhost:47840', ignoreHTTPSErrors: process.env.GITGOOD_TEST_PRODUCTION === 'true'})
   const login = await outsider.request.post('/api/session', {data: {username: 'outsider', password: 'synthetic-password'}})
   expect(login.status()).toBe(200)
   const list = await outsider.request.get('/api/repos')

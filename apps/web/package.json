@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "vite dev --host 127.0.0.1 --port 47840 --strictPort",
     "build": "vite build",
+    "start": "srvx --prod -s dist/client server.mjs",
+    "verify:production": "node ../../scripts/verify-production.mjs",
     "check": "vite build && tsc --noEmit"
   },
   "dependencies": {
@@ -12,7 +14,8 @@
     "@tanstack/react-router": "1.170.41",
     "@tanstack/react-start": "1.168.60",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "srvx": "1.0.5"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",

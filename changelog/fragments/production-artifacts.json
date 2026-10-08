@@ -1,0 +1,20 @@
+{
+  "id": "production-artifacts",
+  "category": "Added",
+  "summary": "Added copied production Elixir/TanStack artifacts, clean commit/spec build identity, migration/bootstrap entry points, dependency/storage readiness and an isolated full-workflow persistence experiment.",
+  "impact": "product",
+  "references": [
+    "docs/deployment/production.md",
+    "docs/decisions/D06.md"
+  ],
+  "journeys": [
+    "J01",
+    "J02",
+    "J04",
+    "J06",
+    "J07",
+    "J08",
+    "J09"
+  ],
+  "withdrawn": false
+}

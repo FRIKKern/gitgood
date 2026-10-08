@@ -1,0 +1,21 @@
+# Example only. Supply the real hostname and validate the deployed TLS/proxy configuration.
+gitgood.example.invalid {
+  @internal path /internal/*
+  respond @internal 404
+
+  @git path /git/*
+  handle @git {
+    request_body {
+      max_size 32MB
+    }
+    reverse_proxy 127.0.0.1:47841 {
+      transport http {
+        response_header_timeout 65s
+      }
+    }
+  }
+
+  handle {
+    reverse_proxy 127.0.0.1:47840
+  }
+}
