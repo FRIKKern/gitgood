@@ -1,5 +1,6 @@
 import {test, expect} from '@playwright/test'
 import {fixtureSession as session} from './fixture-session'
+import {appliedImport} from './fixture-operation'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp, writeFile, readFile, mkdir} from 'node:fs/promises'
@@ -37,13 +38,7 @@ test('criterion evidence binds real Git and source revisions, retains history an
   expect(intake.status).toBe(202)
   const operation = (await intake.json()).operation
   expect((await fetch(base + '/imports/' + operation.id + '/source', {method: 'PUT', headers: {...owner, 'content-type': 'application/octet-stream'}, body: bytes})).status).toBe(202)
-  await expect.poll(async () => {
-    const response = await fetch(base + '/operations/' + operation.id, {headers: owner, signal: AbortSignal.timeout(15_000)})
-    expect(response.status).toBe(200)
-    const current = (await response.json()).operation
-    expect(['failed', 'refused']).not.toContain(current.state)
-    return current.state
-  }, {timeout: 60_000}).toBe('applied')
+  await appliedImport(base, operation.id, owner)
   const pullResponse = await fetch(base + '/pulls', {method: 'POST', headers: {...owner, 'idempotency-key': name + '-pull'}, body: JSON.stringify({source: 'criterion-work', title: 'Verify criterion evidence'})})
   expect(pullResponse.status).toBe(200)
   const pull = await pullResponse.json(), links = base + '/pulls/' + pull.id + '/links'

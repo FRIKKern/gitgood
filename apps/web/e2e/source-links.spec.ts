@@ -1,5 +1,6 @@
 import {test, expect, type Page} from '@playwright/test'
 import {fixtureSession as session} from './fixture-session'
+import {appliedImport} from './fixture-operation'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp, writeFile, readFile, mkdir} from 'node:fs/promises'
@@ -50,7 +51,7 @@ test('native links use each viewer source actor, recover from outage and discard
   expect(intake.status).toBe(202)
   const operation = (await intake.json()).operation
   expect((await fetch(base + '/imports/' + operation.id + '/source', {method: 'PUT', headers: {...owner, 'content-type': 'application/octet-stream'}, body: bytes})).status).toBe(202)
-  await expect.poll(async () => (await (await fetch(base + '/operations/' + operation.id, {headers: owner})).json()).operation.state).toBe('applied')
+  await appliedImport(base, operation.id, owner)
   const pullResponse = await fetch(base + '/pulls', {method: 'POST', headers: {...owner, 'idempotency-key': 'linked-source-change'},
     body: JSON.stringify({source: 'linked-work', title: 'Implement the linked specification', body: 'Source stays authoritative.'})})
   expect(pullResponse.status).toBe(200)
