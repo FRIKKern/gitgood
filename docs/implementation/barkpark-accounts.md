@@ -1,6 +1,6 @@
 # Private Barkpark accounts
 
-This slice adds backend connection storage and authenticated account APIs. Native link UI, external write journals, reverse navigation and J10 journey acceptance remain pending. The implementation ledger stays unconfigured.
+This slice adds backend connection storage, authenticated account APIs and private account settings. Native change-link UI, external write journals, reverse navigation and J10 journey acceptance remain pending. The implementation ledger stays unconfigured.
 
 ## Connection contract
 
@@ -28,4 +28,12 @@ The migration refuses downgrade while either a connection or original request ev
 
 Internal source reads decrypt only the requesting account's credential, check selected origin and generation, then revalidate the current native session and connection generation after I/O. A response arriving after disconnect is discarded. Source denials/unavailability retain their original typed status for an owning link context to interpret. Generic source metadata is not a forge authorization grant; native repository access must be established independently before constructing a link read.
 
-The backend APIs alone do not satisfy complete browser connection flows. Cross-tab invalidation, source-title clearing, outage recovery, deletion semantics, source mutation reconciliation and actual Studio anchors still require implementation and current J10 evidence.
+## Account settings
+
+The signed-in home page provides connection enrollment, credential replacement and disconnect. It displays the saved service identity, verified scope, expiry and verification time separately from future live linked-record availability. It uses the native session, CSRF and idempotent request boundary; no account can choose an upstream host. Raw credential input is cleared before the request and is never copied into browser storage, intent refs or connection query data.
+
+Foreground polling reads current saved state. An errored read hides the prior metadata and form until refresh succeeds. Every mutation completion refetches current state: historical receipts must not reactivate disconnected display state. Component lifetime and native access-generation guards reject delayed messages and refetches after an account switch. Distinct component keys prevent account panels from colliding during React reconciliation.
+
+The browser fixture uses intercepted synthetic source-connection responses with actual native sign-in, shared cookies and cross-tab session polling. It checks enrollment, cleared DOM input, no plaintext browser storage, unavailable reads, generation conflicts, disconnect, historical success followed by current disconnected state, held-write completion after account switch, absence of an old-account refetch, single panel rendering and mobile width. It deliberately does not stand in for live source API verification, encrypted backend persistence or complete J10 acceptance. Those require separate current backend/source evidence.
+
+Native linked-record title clearing, outage/deletion semantics, source mutation reconciliation and actual Studio anchors still require implementation and current J10 evidence.

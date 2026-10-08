@@ -6,6 +6,7 @@ import {SSHAccess} from '../lib/ssh-access'
 import {useSession} from '../lib/access-boundary'
 import {Discovery} from '../lib/discovery'
 import {TeamMembers} from '../lib/team-members'
+import {BarkparkAccount} from '../lib/barkpark-account'
 export const Route = createFileRoute('/')({component: Home})
 function Home() {
   const [ready, setReady] = useState(false)
@@ -49,7 +50,8 @@ function Home() {
         <section className="panel"><h2>Create a repository</h2><form onSubmit={create}><label>Team<select name="team">{session.data.teams.filter(t => t.role !== 'reader').map(t => <option key={t.team}>{t.team}</option>)}</select></label><label>Repository name<input name="name" required pattern="[a-z][a-z0-9-]{1,63}" placeholder="my-project" /></label><button disabled={busy || !session.data.teams.some(t => t.role !== 'reader')}>{busy ? 'Creating…' : 'Create private repository'}</button></form></section>
         <Discovery />
         {session.data.teams.filter(team => team.role === 'owner').map(team => <TeamMembers key={team.team} team={team.team} session={session.data!}/>)}
-        <SSHAccess key={session.data.user.id} session={session.data} />
+        <SSHAccess key={'ssh-access:' + session.data.user.id} session={session.data} />
+        <BarkparkAccount key={'barkpark-account:' + session.data.user.id} session={session.data} />
       </> : signedOut ? <section className="panel login"><h2>Sign in to your installation</h2><form onSubmit={login}><label>Username<input name="username" autoComplete="username" required /></label><label>Password<input name="password" type="password" autoComplete="current-password" required /></label><button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button></form></section> : <p role="alert">The forge is unavailable. <button onClick={() => void session.refetch()}>Try again</button></p>}
     </main><footer>Gitgood · Native forge foundation</footer>
   </div>
