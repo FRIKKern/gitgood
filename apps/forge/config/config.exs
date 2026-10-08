@@ -7,6 +7,8 @@
 # General application configuration
 import Config
 
+config :phoenix, :filter_parameters, ["password", "token", "authorization", "connection_key"]
+
 config :gitgood,
   environment: config_env(),
   ecto_repos: [Gitgood.Repo],

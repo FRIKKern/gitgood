@@ -1,6 +1,6 @@
 # Barkpark connection boundary
 
-The first implementation is a bounded native-backend HTTP adapter and an exercised source contract. Per-account connection storage, linked-change UI, reverse-link publication and complete J10 acceptance remain pending. The live implementation ledger is still unconfigured.
+The first implementation is a bounded native-backend HTTP adapter and an exercised source contract. Backend per-account encrypted connection storage is described in [private accounts](barkpark-accounts.md). Linked-change UI, reverse-link publication and complete J10 acceptance remain pending. The live implementation ledger is still unconfigured.
 
 Gitgood.BarkparkHTTP reads only the installation-configured GITGOOD_BARKPARK_ORIGIN. It refuses origin credentials, non-root origin paths, queries/fragments and absolute/host-bearing request paths. Production configuration requires HTTPS. Peer and hostname checks use Python's normal TLS context; redirects and compressed responses are refused. No proxy environment or application secrets are inherited by the child process. The selected bearer travels through stdin rather than arguments or browser code.
 

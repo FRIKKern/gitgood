@@ -1,0 +1,14 @@
+{
+  "id": "barkpark-account-connections",
+  "category": "Added",
+  "summary": "Added private per-account Barkpark connection APIs with source-verified scoped service identities, separate-key authenticated credential encryption, generation-safe rotation/disconnect and durable request receipts; complete linked-workspace workflows remain pending.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/barkpark-accounts.md",
+    "docs/decisions/0009-supported-barkpark-links.md"
+  ],
+  "journeys": [
+    "J10"
+  ],
+  "withdrawn": false
+}

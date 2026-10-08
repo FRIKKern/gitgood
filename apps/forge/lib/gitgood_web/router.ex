@@ -28,6 +28,9 @@ defmodule GitgoodWeb.Router do
     get "/activity", DiscoveryController, :activity
     get "/teams/:team/members", TeamController, :index
     post "/teams/:team/members", TeamController, :change
+    get "/connections/barkpark", BarkparkConnectionController, :show
+    post "/connections/barkpark", BarkparkConnectionController, :connect
+    post "/connections/barkpark/disconnect", BarkparkConnectionController, :disconnect
     get "/ssh-keys", SSHKeyController, :index
     post "/ssh-keys", SSHKeyController, :create
     post "/repos", RepositoryController, :create

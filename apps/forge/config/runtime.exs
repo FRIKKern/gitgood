@@ -1,5 +1,19 @@
 import Config
 
+connection_key =
+  case System.get_env("GITGOOD_CONNECTION_KEY") do
+    nil ->
+      nil
+
+    encoded ->
+      case Base.decode64(encoded) do
+        {:ok, key} when byte_size(key) == 32 -> key
+        _ -> raise("GITGOOD_CONNECTION_KEY must be base64 encoding of 32 random bytes")
+      end
+  end
+
+config :gitgood, :connection_key, connection_key
+
 if System.get_env("GITGOOD_SSH_PORT") do
   config :gitgood,
     ssh_port: String.to_integer(System.fetch_env!("GITGOOD_SSH_PORT")),
@@ -35,6 +49,9 @@ config :gitgood, GitgoodWeb.Endpoint,
 if System.get_env("PHX_SERVER") == "true", do: config(:gitgood, GitgoodWeb.Endpoint, server: true)
 
 if config_env() == :prod do
+  if System.get_env("GITGOOD_BARKPARK_ORIGIN") && is_nil(connection_key),
+    do: raise("Production Barkpark connections require GITGOOD_CONNECTION_KEY")
+
   case System.get_env("GITGOOD_BARKPARK_ORIGIN") do
     nil -> :ok
     "https://" <> _ -> :ok

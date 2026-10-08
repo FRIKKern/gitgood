@@ -36,4 +36,4 @@ Give external I/O a separate bounded supervisor from Git command workers. An ext
 
 ## Remaining proof
 
-Actual per-account encrypted connections, independent native/external denial, deleted/missing records, safe reverse navigation, delayed-response invalidation, source outage/recovery and unknown-write reconciliation remain implementation and J10 verification work. Fixture provisioning alone does not configure the live Gitgood implementation ledger or verify a journey.
+Per-account encrypted backend connections are implemented separately with finite-expiry, single-workspace API service credentials and source-verified identity; see [their contract](../implementation/barkpark-accounts.md). Actual browser connections, independent native/external document denial, deleted/missing records, safe reverse navigation, delayed-response invalidation, source outage/recovery and unknown-write reconciliation remain implementation and J10 verification work. Fixture provisioning alone does not configure the live Gitgood implementation ledger or verify a journey.

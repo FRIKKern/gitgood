@@ -1,5 +1,6 @@
 """Private loopback wire fixture; never contacts a configured Barkpark source."""
 import http.server
+from datetime import datetime, timedelta, timezone
 import json
 import ssl
 import subprocess
@@ -45,7 +46,32 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         global redirect_reads
-        if self.path == "/blocked":
+        token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+        workspace = "fixture-workspace"
+        workspace_id = "dd274974-028d-4849-a457-b92b8c02bb99"
+        project_id = "506f8590-ddb5-4eac-945d-9e3f07b625bb"
+        if self.path == "/v1/tokens/current":
+            if token == "synthetic-held-credential":
+                announce("BLOCKED")
+                released.wait()
+            if token == "synthetic-unavailable-credential":
+                self.send(503, b'{"error":{"code":"unavailable"}}')
+                return
+            permissions = ["read", "admin"] if token == "synthetic-broad-credential" else ["read", "write"]
+            expiry = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
+            self.send(200, json.dumps({"token": {"id":"d6c87ac9-f908-4b7b-9d14-f1c0e359fb47", "kind":"api", "label":"Fixture service",
+              "permissions":permissions, "expires_at":expiry, "workspace":workspace, "workspace_id":workspace_id},
+              "memberships":[{"workspace_id":workspace_id,"workspace_slug":workspace,"role":"member"}]}).encode())
+        elif self.path.startswith("/v1/capabilities?"):
+            self.send(200, json.dumps({"auth_tier":"write","token":{"public_read":False},
+              "build":{"version":"fixture-1","commit":"fixture-source-commit","built_at":"2026-10-08T00:00:00Z"}}).encode())
+        elif self.path == "/api/workspaces/fixture-workspace/projects":
+            self.send(200, json.dumps({"workspace":{"id":workspace_id},
+              "projects":[{"id":project_id,"slug":"default"}]}).encode())
+        elif self.path == "/api/workspaces/fixture-workspace/projects/default/datasets":
+            self.send(200, json.dumps({"workspace":{"id":workspace_id}, "project":{"id":project_id,"slug":"default"},
+              "datasets":[{"id":"7f26cba1-258d-4434-9e0f-fc0496a4a098","slug":"production"}]}).encode())
+        elif self.path == "/blocked":
             announce("BLOCKED")
             released.wait()
             self.send(200, b'{"ok":true}')
