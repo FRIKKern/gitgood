@@ -1,7 +1,7 @@
 defmodule Gitgood.AccessTest do
   use GitgoodWeb.ConnCase, async: false
   import Ecto.Query
-  alias Gitgood.{Access, Accounts, Membership, Repo}
+  alias Gitgood.{Access, Accounts, Membership, Repo, Repository}
 
   test "opaque context follows the actual credential and current membership without exposing counts" do
     {:ok, actor} = Accounts.create_user("access-actor", "synthetic-password")
@@ -13,6 +13,21 @@ defmodule Gitgood.AccessTest do
     assert byte_size(snapshot.context) == 43
     assert snapshot.teams == [%{team: "access-team", role: "writer"}]
     assert {:ok, ^snapshot} = Access.load(actor, credential)
+
+    repository =
+      Repo.insert!(%Repository{
+        owner_id: actor.id,
+        team: "access-team",
+        name: "scoped",
+        storage_key: Ecto.UUID.generate(),
+        creation_key: "access-scope"
+      })
+
+    scoped = Repo.update!(Ecto.Changeset.change(credential, repository_id: repository.id))
+    assert {:ok, restricted} = Access.load(actor, scoped)
+    assert restricted.repository_scope == repository.id
+    refute restricted.context == snapshot.context
+    Repo.update!(Ecto.Changeset.change(scoped, repository_id: nil))
     assert {:error, :authorization_changed} = Access.load(actor, other)
     Repo.update!(Ecto.Changeset.change(membership, role: "reader"))
     assert {:ok, downgraded} = Access.load(actor, credential)

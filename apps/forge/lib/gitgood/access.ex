@@ -29,6 +29,7 @@ defmodule Gitgood.Access do
       claims = [
         actor.id,
         current.id,
+        current.repository_id,
         DateTime.to_iso8601(current.expires_at),
         Enum.map(memberships, &Map.take(&1, [:id, :team, :role, :inserted_at, :updated_at]))
       ]
@@ -41,6 +42,7 @@ defmodule Gitgood.Access do
 
       action.(%{
         context: context,
+        repository_scope: current.repository_id,
         user: %{id: actor.id, username: actor.username},
         teams: Enum.map(memberships, &Map.take(&1, [:team, :role]))
       })
