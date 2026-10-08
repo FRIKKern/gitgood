@@ -29,6 +29,7 @@ defmodule Gitgood.BarkparkHTTP do
                "-I",
                Application.app_dir(:gitgood, "priv/barkpark_http.py")
              ],
+             env: certificate_environment(),
              input: input,
              timeout: 5000,
              limit: @response_limit,
@@ -45,6 +46,16 @@ defmodule Gitgood.BarkparkHTTP do
     end
   rescue
     _ -> {:error, :barkpark_unavailable}
+  end
+
+  # Only explicit installation trust is passed to this worker. The normal TLS
+  # chain and hostname checks remain enabled; arbitrary inherited trust/proxies
+  # stay outside Command.environment's allowlist.
+  defp certificate_environment do
+    case Application.get_env(:gitgood, :barkpark_ca_file) do
+      nil -> []
+      file when is_binary(file) -> [{"SSL_CERT_FILE", file}]
+    end
   end
 
   defp origin(nil, _), do: {:error, :barkpark_unconfigured}

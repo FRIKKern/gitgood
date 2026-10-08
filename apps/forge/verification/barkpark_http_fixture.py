@@ -12,6 +12,8 @@ from pathlib import Path
 released = threading.Event()
 output_lock = threading.Lock()
 redirect_reads = 0
+hold_documents = False
+document_status = 200
 
 
 def announce(value):
@@ -58,8 +60,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send(503, b'{"error":{"code":"unavailable"}}')
                 return
             permissions = ["read", "admin"] if token == "synthetic-broad-credential" else ["read", "write"]
+            token_id = "d6c87ac9-f908-4b7b-9d14-f1c0e359fb47" if token != "synthetic-outsider-credential" else "f6e2925b-348e-4a84-83ae-387a5fd71d4b"
             expiry = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
-            self.send(200, json.dumps({"token": {"id":"d6c87ac9-f908-4b7b-9d14-f1c0e359fb47", "kind":"api", "label":"Fixture service",
+            self.send(200, json.dumps({"token": {"id":token_id, "kind":"api", "label":"Fixture service",
               "permissions":permissions, "expires_at":expiry, "workspace":workspace, "workspace_id":workspace_id},
               "memberships":[{"workspace_id":workspace_id,"workspace_slug":workspace,"role":"member"}]}).encode())
         elif self.path.startswith("/v1/capabilities?"):
@@ -71,6 +74,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/api/workspaces/fixture-workspace/projects/default/datasets":
             self.send(200, json.dumps({"workspace":{"id":workspace_id}, "project":{"id":project_id,"slug":"default"},
               "datasets":[{"id":"7f26cba1-258d-4434-9e0f-fc0496a4a098","slug":"production"}]}).encode())
+        elif self.path.startswith("/w/fixture-workspace/p/default/v1/data/doc/production/"):
+            document_id = self.path.split("?", 1)[0].rsplit("/", 1)[-1]
+            document_type = self.path.split("?", 1)[0].split("/")[-2]
+            if hold_documents:
+                announce("BLOCKED_DOCUMENT")
+                released.wait()
+            if document_status != 200:
+                self.send(document_status, b'{"error":{"code":"refused","private_title":"Must not leak"}}')
+            elif token == "synthetic-outsider-credential" or document_id == "denied-document":
+                self.send(403, b'{"error":{"code":"forbidden","private_title":"Must not leak"}}')
+            elif document_id == "missing-document":
+                self.send(404, b'{"error":{"code":"not_found","private_title":"Must not leak"}}')
+            elif document_id == "unavailable-document":
+                self.send(503, b'{"error":{"code":"unavailable","private_title":"Must not leak"}}')
+            elif document_id == "wrong-identity":
+                self.send(200, b'{"result":{"_id":"different-document","_type":"paper","_rev":"fixture-revision"}}')
+            else:
+                self.send(200, json.dumps({"result":{"_id":document_id,"_type":document_type,
+                    "_rev":"fixture-revision","title":"Private source specification",
+                    "purpose":"Source owns this intention.","description":"Source owns this specification.",
+                    "blocks":[{"private_content":"Unselected source content"}]}}).encode())
         elif self.path == "/blocked":
             announce("BLOCKED")
             released.wait()
@@ -113,6 +137,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send(200, json.dumps({"authorized": actual}).encode())
 
     def do_POST(self):
+        global document_status
+        if self.path == "/control/document-state":
+            value = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            if self.headers.get("Authorization") != "Bearer synthetic-fixture-control" or value.get("status") not in [200, 403, 404, 503]:
+                self.send(403, b"{}")
+            else:
+                document_status = value["status"]
+                self.send(200, b'{"fixture":true}')
+            return
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         actual = self.headers.get("Authorization") == "Bearer synthetic-fixture-credential"
         self.send(200, json.dumps({"authorized": actual, "payload": payload,
@@ -120,29 +153,59 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main():
+    global hold_documents, document_status
     with tempfile.TemporaryDirectory(prefix="gitgood-barkpark-wire-") as directory:
         cert, key = Path(directory)/"certificate.pem", Path(directory)/"key.pem"
         subprocess.run([sys.argv[1], "req", "-x509", "-newkey", "rsa:2048", "-nodes",
                         "-keyout", str(key), "-out", str(cert), "-days", "1",
                         "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"],
                        check=True, capture_output=True, timeout=15)
+        if len(sys.argv) > 2:
+            Path(sys.argv[2]).write_bytes(cert.read_bytes())
         http_server = FixtureServer(("127.0.0.1", 0), Handler)
         https_server = FixtureServer(("127.0.0.1", 0), Handler)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_cert_chain(cert, key)
         https_server.socket = context.wrap_socket(https_server.socket, server_side=True)
-        for server in (http_server, https_server):
+        servers = [http_server, https_server]
+        wrong_host = None
+        if len(sys.argv) > 2:
+            wrong_key, wrong_csr, wrong_cert = Path(directory)/"wrong.key", Path(directory)/"wrong.csr", Path(directory)/"wrong.pem"
+            extension = Path(directory)/"wrong.ext"
+            extension.write_text("basicConstraints=CA:FALSE\nsubjectAltName=DNS:wrong-host.example.invalid\n", encoding="utf-8")
+            subprocess.run([sys.argv[1], "req", "-new", "-newkey", "rsa:2048", "-nodes",
+                "-keyout", str(wrong_key), "-out", str(wrong_csr), "-subj", "/CN=wrong-host.example.invalid"],
+                check=True, capture_output=True, timeout=15)
+            subprocess.run([sys.argv[1], "x509", "-req", "-in", str(wrong_csr), "-CA", str(cert),
+                "-CAkey", str(key), "-CAcreateserial", "-out", str(wrong_cert), "-days", "1",
+                "-extfile", str(extension)], check=True, capture_output=True, timeout=15)
+            subprocess.run([sys.argv[1], "verify", "-CAfile", str(cert), str(wrong_cert)],
+                check=True, capture_output=True, timeout=15)
+            wrong_host = FixtureServer(("127.0.0.1", 0), Handler)
+            wrong_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            wrong_context.load_cert_chain(wrong_cert, wrong_key)
+            wrong_host.socket = wrong_context.wrap_socket(wrong_host.socket, server_side=True)
+            servers.append(wrong_host)
+        for server in servers:
             threading.Thread(target=server.serve_forever, daemon=True).start()
-        announce(f"READY {http_server.server_port} {https_server.server_port}")
+        announce(f"READY {http_server.server_port} {https_server.server_port}" +
+            (f" {wrong_host.server_port}" if wrong_host else ""))
         try:
             for line in sys.stdin:
+                if line.strip().startswith("doc-state "):
+                    document_status = int(line.strip().split()[1])
+                    announce("DOC_STATE " + str(document_status))
+                if line.strip() == "hold-docs":
+                    hold_documents = True
+                    announce("HOLDING_DOCS")
                 if line.strip() == "release":
+                    hold_documents = False
                     released.set()
                 if line.strip() == "quit":
                     break
         finally:
             released.set()
-            for server in (http_server, https_server):
+            for server in servers:
                 server.shutdown()
                 server.server_close()
 

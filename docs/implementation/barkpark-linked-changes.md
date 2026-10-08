@@ -33,3 +33,8 @@ The focused database/API fixtures cover permitted readers, malformed/unknown/for
 ## Private experiment hygiene
 
 Live fixture credentials must stay out of runner arguments, traces, full Studio HTML and ordinary artifacts. Browser automation can print action arguments in an exception even with tracing disabled. Catch and sanitize live-probe failures before they reach output; report only a bounded failure class or code. Revoke an exposed disposable credential immediately, verify refusal, and retain only the rotation identity/scope receipt. Synthetic browser-response fixtures contain no live source token.
+
+
+## Actual private reverse navigation
+
+The later Paper fixture on build 9b389bf7a / 0.2.27.240 points to a real opaque native change at candidate 55a66ad. Studio's rendered hover/link-preview Open action opened it, anonymous native context remained hidden, sign-in preserved its UUID and the permitted change heading appeared. A second Open action under a native outsider session returned generic refusal with no private title. The recorded source revision and build were freshly read before the browser experiment. Native display navigation adds normal sha/path/view query parameters; the probe checks the exact origin and change path. This evidence establishes the prototype's reverse direction and independent native refusal, while source-to-native journaled product linking remains pending.

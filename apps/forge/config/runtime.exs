@@ -27,6 +27,7 @@ end
 
 config :gitgood,
   barkpark_origin: System.get_env("GITGOOD_BARKPARK_ORIGIN"),
+  barkpark_ca_file: System.get_env("GITGOOD_BARKPARK_CA"),
   storage_root:
     System.get_env(
       "GITGOOD_STORAGE",

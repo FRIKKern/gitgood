@@ -3,6 +3,7 @@ import {useEffect, useRef, useState, type FormEvent} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {api, ApiError, type Session} from '../../../../../lib/api'
 import {useSession} from '../../../../../lib/access-boundary'
+import {SourceLinks} from '../../../../../lib/source-links'
 type Event = {id: string; actor: string; kind: string; body: string; source_sha: string; target_sha: string; path: string | null; line: number | null; side: string | null; excerpt: string | null; outdated: boolean}
 type Pull = {id: string; title: string; body: string; state: string; author_id: number; source_ref: string; target_ref: string; source_sha: string; target_sha: string; policy: {version: number; approvals: number; required_checks: {provider_id: number; name: string}[]}; events: Event[]; checks: {id: number; provider: string; name: string; sha: string; attempt: number; sequence: number; status: string}[]}
 type Operation = {id: string; state: string; outcome: {merge_sha?: string}}
@@ -63,6 +64,7 @@ function PullPage() {
         {writer && pull.data.state==='open' && <><CommentDraft key={session.data!.user.id+':'+pull.data.source_sha+':'+pull.data.target_sha} actor={session.data!.user.id} csrf={session.data!.csrf} base={base} pull={pull.data} onSaved={()=>pull.refetch()}/>
           <div className="merge-controls"><button disabled={busy || session.data!.user.id===pull.data.author_id} onClick={()=>void review('approve')}>Approve current revision</button><button disabled={busy} onClick={()=>void review('changes_requested')}>Request changes</button></div></>}
       </section>
+      {session.data && <SourceLinks key={session.data.user.id} base={base} pullId={id} session={session.data} writer={!!writer} />}
       <section className="collaboration-panel"><h2>Checks and merge</h2><p>Requires {pull.data.policy.approvals} independent approval(s) for this exact source and target.</p>
         <ul>{pull.data.policy.required_checks.map((item,index)=><li key={index}>Required: provider {item.provider_id} / {item.name}</li>)}</ul>
         <ul>{pull.data.checks.map(check=><li key={check.id}>{check.provider} / {check.name} · attempt {check.attempt} · {check.status}</li>)}</ul>

@@ -1,6 +1,6 @@
 # Private Barkpark accounts
 
-This slice adds backend connection storage, authenticated account APIs and private account settings. Native change-link UI, external write journals, reverse navigation and J10 journey acceptance remain pending. The implementation ledger stays unconfigured.
+This slice adds backend connection storage, authenticated account APIs and private account settings. Native link records and read UI are implemented in the following slice; see [their contract](barkpark-records.md). External write journals and complete J10 acceptance remain pending; the actual Paper reverse-navigation prototype is separate evidence. The implementation ledger stays unconfigured.
 
 ## Connection contract
 
@@ -36,4 +36,4 @@ Foreground polling reads current saved state. An errored read hides the prior me
 
 The browser fixture uses intercepted synthetic source-connection responses with actual native sign-in, shared cookies and cross-tab session polling. It checks enrollment, cleared DOM input, no plaintext browser storage, unavailable reads, generation conflicts, disconnect, historical success followed by current disconnected state, held-write completion after account switch, absence of an old-account refetch, single panel rendering and mobile width. It deliberately does not stand in for live source API verification, encrypted backend persistence or complete J10 acceptance. Those require separate current backend/source evidence.
 
-Native linked-record title clearing, outage/deletion semantics, source mutation reconciliation and actual Studio anchors still require implementation and current J10 evidence.
+The linked-record slice adds title clearing and bounded source outage/missing states. Actual source mutation reconciliation and complete current J10 evidence remain pending. Private prototype Studio reverse navigation is recorded separately in the supported-links decision.

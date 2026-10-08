@@ -33,14 +33,14 @@ if mode == "prepare" do
   name = "upgrade-source-" <> Base.encode16(:crypto.strong_rand_bytes(5), case: :lower)
   {:ok, user} = Accounts.create_user(name, "synthetic-password")
   {_, session} = Accounts.issue(user, "session")
-  Ecto.Migrator.run(Repo, path, :up, all: true)
+  Ecto.Migrator.run(Repo, path, :up, to: 20_261_008_151_339)
   Ecto.Migrator.run(Repo, path, :down, step: 1)
 
   unless Repo.query!("SELECT to_regclass('barkpark_connections')").rows == [[nil]] and
            Repo.get!(Gitgood.User, user.id).username == name,
          do: raise("Empty rollback lost legacy account or retained tables")
 
-  Ecto.Migrator.run(Repo, path, :up, all: true)
+  Ecto.Migrator.run(Repo, path, :up, to: 20_261_008_151_339)
   id = Ecto.UUID.generate()
   generation = Ecto.UUID.generate()
   origin = "https://migration-fixture.example.invalid"

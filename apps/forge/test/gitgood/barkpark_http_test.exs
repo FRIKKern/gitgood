@@ -4,6 +4,12 @@ defmodule Gitgood.BarkparkHTTPTest do
   @token "synthetic-fixture-credential"
 
   setup do
+    saved_ca = Application.get_env(:gitgood, :barkpark_ca_file)
+
+    certificate =
+      Path.join(System.tmp_dir!(), "gitgood-source-ca-" <> Ecto.UUID.generate() <> ".pem")
+
+    Application.delete_env(:gitgood, :barkpark_ca_file)
     saved_origin = Application.get_env(:gitgood, :barkpark_origin)
     saved_loopback = Application.get_env(:gitgood, :barkpark_allow_loopback_http)
     python = System.find_executable(Application.fetch_env!(:gitgood, :python_executable))
@@ -18,14 +24,21 @@ defmodule Gitgood.BarkparkHTTPTest do
         :hide,
         {:line, 1024},
         {:args,
-         ["-I", Path.expand("../../verification/barkpark_http_fixture.py", __DIR__), openssl]}
+         [
+           "-I",
+           Path.expand("../../verification/barkpark_http_fixture.py", __DIR__),
+           openssl,
+           certificate
+         ]}
       ])
 
-    {http, https} =
+    {http, https, wrong_host} =
       receive do
         {^fixture, {:data, {:eol, "READY " <> ports}}} ->
-          [http, https] = String.split(ports)
-          {"http://127.0.0.1:" <> http, "https://127.0.0.1:" <> https}
+          [http, https, wrong_host] = String.split(ports)
+
+          {"http://127.0.0.1:" <> http, "https://127.0.0.1:" <> https,
+           "https://127.0.0.1:" <> wrong_host}
       after
         20_000 -> flunk("Private HTTP fixture did not become ready")
       end
@@ -35,11 +48,19 @@ defmodule Gitgood.BarkparkHTTPTest do
 
     on_exit(fn ->
       if Port.info(fixture), do: Port.close(fixture)
+      File.rm(certificate)
+      restore(:barkpark_ca_file, saved_ca)
       restore(:barkpark_origin, saved_origin)
       restore(:barkpark_allow_loopback_http, saved_loopback)
     end)
 
-    %{fixture: fixture, http: http, https: https}
+    %{
+      fixture: fixture,
+      http: http,
+      https: https,
+      wrong_host: wrong_host,
+      certificate: certificate
+    }
   end
 
   test "authenticated requests retain source status, body and mutation key" do
@@ -78,6 +99,25 @@ defmodule Gitgood.BarkparkHTTPTest do
 
   test "a self-signed peer remains refused even when local plain HTTP is enabled", %{https: https} do
     Application.put_env(:gitgood, :barkpark_origin, https)
+    assert {:error, :barkpark_unavailable} = BarkparkHTTP.get("/ok", @token)
+  end
+
+  test "explicit installation CA trusts only its issuer and still enforces hostname", c do
+    Application.put_env(:gitgood, :barkpark_origin, c.https)
+    Application.put_env(:gitgood, :barkpark_allow_loopback_http, false)
+    assert {:error, :barkpark_unavailable} = BarkparkHTTP.get("/ok", @token)
+    Application.put_env(:gitgood, :barkpark_ca_file, c.certificate)
+    assert {:ok, %{status: 200, body: %{"authorized" => true}}} = BarkparkHTTP.get("/ok", @token)
+
+    Application.put_env(
+      :gitgood,
+      :barkpark_origin,
+      c.wrong_host
+    )
+
+    assert {:error, :barkpark_unavailable} = BarkparkHTTP.get("/ok", @token)
+    Application.put_env(:gitgood, :barkpark_origin, c.https)
+    Application.put_env(:gitgood, :barkpark_ca_file, c.certificate <> ".missing")
     assert {:error, :barkpark_unavailable} = BarkparkHTTP.get("/ok", @token)
   end
 

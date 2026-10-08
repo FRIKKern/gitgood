@@ -31,11 +31,11 @@ const identity=JSON.parse(await readFile(join(sourceWeb,'dist/build-identity.jso
 assert.equal(identity.dirty,false,'Production verification requires a clean stamped candidate')
 const logs=join(root,'logs')
 await mkdir(logs)
-let backend,web,proxy
+let backend,web,proxy,sourceFixture
 const log=(name)=>createWriteStream(join(logs,name+'.log'),{flags:'a'})
-function launch(file,args,env,cwd,name) {
+function launch(file,args,env,cwd,name,stdin='ignore') {
   // Only fixed release commands use cmd on Windows. Credentials are exclusively in environment.
-  const child=spawn(file,args,{cwd,env,windowsHide:true,shell:windows&&file.endsWith('.bat'),detached:!windows,stdio:['ignore','pipe','pipe']})
+  const child=spawn(file,args,{cwd,env,windowsHide:true,shell:windows&&file.endsWith('.bat'),detached:!windows,stdio:[stdin,'pipe','pipe']})
   const output=log(name);child.stdout?.pipe(output);child.stderr?.pipe(output)
   child.logged=new Promise((resolve,reject)=>{output.once('finish',resolve);output.once('error',reject)})
   child.once('close',()=>output.end())
@@ -84,7 +84,23 @@ try {
   })
   await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve))
   const publicUrl='https://localhost:'+proxy.address().port
+  const sourceCa=join(root,'source-ca.pem')
+  sourceFixture=launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'verification/barkpark_http_fixture.py'),
+    process.env.GITGOOD_OPENSSL??'openssl',sourceCa],process.env,root,'source-wire','pipe')
+  const sourcePorts=await new Promise((resolve,reject)=>{
+    let output=''
+    const deadline=setTimeout(()=>reject(new Error('Owned HTTPS source wire not ready')),20000)
+    sourceFixture.once('error',reject)
+    sourceFixture.stdout.on('data',chunk=>{
+      output+=chunk.toString()
+      const ready=/READY (\d+) (\d+) (\d+)/.exec(output)
+      if(ready){clearTimeout(deadline);resolve(ready.slice(1).map(Number))}
+    })
+  })
+  const sourceOrigin='https://127.0.0.1:'+sourcePorts[1]
+  const sourceControl='http://127.0.0.1:'+sourcePorts[0]
   const env={...process.env,NODE_ENV:'production',DATABASE_URL:'postgresql://'+encodeURIComponent(process.env.PGUSER??'gitgood')+(process.env.PGPASSWORD?':'+encodeURIComponent(process.env.PGPASSWORD):'')+'@'+(process.env.PGHOST??'127.0.0.1')+':'+(process.env.PGPORT??'55432')+'/'+database,
+    GITGOOD_BARKPARK_ORIGIN:sourceOrigin,GITGOOD_BARKPARK_CA:sourceCa,GITGOOD_CONNECTION_KEY:randomBytes(32).toString('base64'),
     SECRET_KEY_BASE:randomBytes(64).toString('base64'),PHX_HOST:'localhost',GITGOOD_PUBLIC_URL:publicUrl,GITGOOD_WEB_ORIGIN:publicUrl,GITGOOD_STORAGE:storage,PORT:String(forgePort),PHX_SERVER:'false',
     GITGOOD_SSH_PORT:String(sshPort),GITGOOD_SSH_HOST_KEY_DIRECTORY:sshHost,GITGOOD_SSH_PUBLIC_HOST:'localhost',GITGOOD_SSH_PUBLIC_PORT:String(sshPort)}
   await run(process.env.GITGOOD_CREATEDB??'createdb',['-h',process.env.PGHOST??'127.0.0.1','-p',process.env.PGPORT??'55432','-U',process.env.PGUSER??'gitgood',database],process.env,root,'database-create')
@@ -99,7 +115,7 @@ try {
   const forgeReady=await ready(forgeUrl),webReady=await ready(webUrl)
   assert.equal(forgeReady.candidate,identity.candidate);assert.equal(webReady.candidate,identity.candidate)
   const html=await fetch(webUrl);assert.equal(html.status,200);assert((await html.text()).includes('gitgood'))
-  const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true',GITGOOD_TEST_CA:certificate}
+  const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true',GITGOOD_TEST_CA:certificate,GITGOOD_TEST_SOURCE_CONTROL:sourceControl}
   await run(process.execPath,[join(sourceWeb,'node_modules/@playwright/test/cli.js'),'test'],testEnv,sourceWeb,'browser')
   const login=async()=>{
     const response=await fetch(forgeUrl+'/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'owner',password:'synthetic-password'})})
@@ -167,6 +183,29 @@ try {
     assert.equal(anonymousAlias.status,401)
     assert.deepEqual(await anonymousAlias.json(),{error:'sign_in_required'})
   }
+  const sourceLinks=JSON.parse(await readFile(join(sourceWeb,'test-results-production/source-link-receipt.json'),'utf8'))
+  const linkedRepo=after.repositories.find(r=>r.id===sourceLinks.repository_id)
+  assert(linkedRepo,'Native source-link repository must persist')
+  const linkBase=forgeUrl+'/api/repos/'+linkedRepo.team+'/'+linkedRepo.name+'/pulls/'+sourceLinks.pull_id+'/links'
+  const retainedLinks=await (await fetch(linkBase,{headers:{authorization}})).json()
+  assert.deepEqual(retainedLinks.links,[sourceLinks.link],'Native link identity and lifecycle generation must persist')
+  assert.deepEqual(Object.keys(retainedLinks.links[0]).sort(),['generation','id','state'],'Listings must not expose source locators or titles')
+  const retainedContext=await fetch(linkBase+'/'+sourceLinks.link.id+'?connection_generation='+sourceLinks.owner_connection_generation,{headers:{authorization}})
+  assert.equal(retainedContext.status,200)
+  const sourceContext=await retainedContext.json()
+  assert.equal(sourceContext.source_state,'available','Copied release must decrypt the retained viewer credential and read through verified HTTPS')
+  assert.equal(sourceContext.title,'Private source specification')
+  assert.equal(sourceContext.source_actor.token_id,sourceLinks.source_actors[0])
+  assert.equal(sourceContext.locator.document_id,'drafts.private-spec')
+  const replayAttach=await fetch(linkBase,{method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':sourceLinks.original_attach_request.key},body:JSON.stringify(sourceLinks.original_attach_request.body)})
+  assert.equal(replayAttach.status,200)
+  assert.deepEqual(await replayAttach.json(),sourceLinks.original_receipt,'Original attach receipt must survive even after removal and reactivation')
+  assert.deepEqual((await (await fetch(linkBase,{headers:{authorization}})).json()).links,[sourceLinks.link],'Historical receipt must not replace current native link generation')
+  for(const id of [sourceLinks.link.id,'00000000-0000-0000-0000-000000000001']){
+    const deniedLink=await fetch(linkBase+'/'+id,{headers:{authorization:outsiderAuth}})
+    assert.equal(deniedLink.status,404)
+    assert.deepEqual(await deniedLink.json(),{error:'source_link_not_found'})
+  }
   const released=JSON.parse(await readFile(join(sourceWeb,'test-results-production/release-receipt.json'),'utf8'))
   const releaseRepo=after.repositories.find(r=>r.name===released.repository)
   assert(releaseRepo,'Release repository must persist after restart')
@@ -228,7 +267,8 @@ try {
     release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
     discovery:{record:discovery.record,membership_events:discovery.membership_events},
     nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors},
+    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})
@@ -236,5 +276,10 @@ try {
   console.log('PASS production artifacts, full workflow, persistence and readiness rejection: '+identity.candidate)
 }finally {
   await stop(web);await stop(backend)
+  if(sourceFixture && sourceFixture.exitCode===null){
+    sourceFixture.stdin?.end('quit\n')
+    await Promise.race([new Promise(resolve=>sourceFixture.once('exit',resolve)),new Promise(resolve=>setTimeout(resolve,3000))])
+    await stop(sourceFixture)
+  }
   if(proxy){proxy.closeAllConnections();await new Promise(resolve=>proxy.close(resolve))}
 }

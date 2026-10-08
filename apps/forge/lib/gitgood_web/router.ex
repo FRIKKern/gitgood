@@ -54,6 +54,10 @@ defmodule GitgoodWeb.Router do
     post "/repos/:team/:name/pulls", PullController, :create
     get "/repos/:team/:name/pulls/:id", PullController, :show
     get "/repos/:team/:name/pulls/:id/diff", PullController, :diff
+    get "/repos/:team/:name/pulls/:id/links", SourceLinkController, :index
+    post "/repos/:team/:name/pulls/:id/links", SourceLinkController, :attach
+    get "/repos/:team/:name/pulls/:id/links/:link", SourceLinkController, :show
+    post "/repos/:team/:name/pulls/:id/links/:link/remove", SourceLinkController, :remove
     post "/repos/:team/:name/pulls/:id/reviews", PullController, :review
     post "/repos/:team/:name/pulls/:id/merge", PullController, :merge
     get "/repos/:team/:name/operations", PullController, :operations

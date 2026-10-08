@@ -1,0 +1,13 @@
+{
+  "id": "native-barkpark-source-records",
+  "category": "Added",
+  "summary": "Added durable native links to Barkpark tasks and Paper specifications, per-viewer source reads, private change-page context, and original operation receipts that survive removal and replay.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/barkpark-records.md"
+  ],
+  "journeys": [
+    "J10"
+  ],
+  "withdrawn": false
+}
