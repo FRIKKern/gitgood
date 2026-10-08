@@ -132,14 +132,11 @@ try {
   assert.equal(forgeReady.candidate,identity.candidate);assert.equal(webReady.candidate,identity.candidate)
   const html=await fetch(webUrl);assert.equal(html.status,200);assert((await html.text()).includes('gitgood'))
   // Real TLS socket addresses select independent login buckets; caller headers are adversarial.
-  // Start clear of a fixed-minute boundary; no limiter reset, fake clock or raised allowance.
-  const remaining=60-(Math.floor(Date.now()/1000)%60)
-  if(remaining<20)await new Promise(resolve=>setTimeout(resolve,(remaining+1)*1000))
-  const limitWindow=Math.floor(Date.now()/60000)
-  const tlsLogin=(localAddress,index,password='invalid-synthetic-password')=>new Promise((resolve,reject)=>{
+  // Observe the native monotonic window externally; no limiter reset, fake clock or raised allowance.
+  const tlsLogin=(localAddress,index,password='invalid-synthetic-password',query='address_probe')=>new Promise((resolve,reject)=>{
     const body=JSON.stringify({username:'owner',password})
     const request=httpsRequest({hostname:'127.0.0.1',servername:'localhost',port:publicPort,
-      path:'/api/session?address_probe='+index,method:'POST',localAddress,ca:fixtureIssuer,rejectUnauthorized:true,
+      path:'/api/session?'+query+'='+index,method:'POST',localAddress,ca:fixtureIssuer,rejectUnauthorized:true,
       headers:{host:new URL(publicUrl).host,'content-type':'application/json','content-length':Buffer.byteLength(body),
         'x-forwarded-for':'198.51.100.'+(index%200+1),forwarded:'for=203.0.113.'+(index%200+1),
         'x-gitgood-edge-key':'forged-edge-secret','x-gitgood-edge-client':'198.51.100.'+(index%200+1),
@@ -156,16 +153,40 @@ try {
   })
   // Load the disposable issuer explicitly; never disable TLS verification for these client sockets.
   const fixtureIssuer=await readFile(certificate)
+  const warmupStatuses=[],warmupStarted=performance.now()
+  let lastDeniedAt,lastDeniedWallTime
+  for(let attempt=1;attempt<=41;attempt++){
+    const started=performance.now(),wallTime=new Date().toISOString()
+    const result=await tlsLogin('127.0.0.4',attempt,'invalid-synthetic-password','rate_window_warmup')
+    assert([401,429].includes(result.status),'Window warmup must reach native authentication or rate refusal')
+    warmupStatuses.push(result.status)
+    assert(performance.now()-warmupStarted<55000,'Window warmup exceeded its bounded duration')
+    if(result.status===429){lastDeniedAt=started;lastDeniedWallTime=wallTime;break}
+  }
+  assert(lastDeniedAt!==undefined,'Window warmup must observe rate refusal')
+  const resetDeadline=performance.now()+70000,resetStatuses=[]
+  while(true){
+    assert(performance.now()<resetDeadline,'Native rate window did not reset within the bounded wait')
+    await new Promise(resolve=>setTimeout(resolve,1000))
+    const started=performance.now(),wallTime=new Date().toISOString()
+    const result=await tlsLogin('127.0.0.4',resetStatuses.length+1,'invalid-synthetic-password','rate_window_reset')
+    assert([401,429].includes(result.status),'Window reset probe must reach native authentication or rate refusal')
+    resetStatuses.push(result.status)
+    if(result.status===401)break
+    lastDeniedAt=started;lastDeniedWallTime=wallTime
+  }
+  const observedResetAt=new Date().toISOString(),probeStarted=performance.now()
   const limitedStatuses=[]
   for(let attempt=1;attempt<=21;attempt++){
     const result=await tlsLogin('127.0.0.2',attempt)
     assert.equal(result.status,attempt<=20?401:429)
     limitedStatuses.push(result.status)
   }
-  assert.equal(Math.floor(Date.now()/60000),limitWindow,'The rate proof must stay in one actual fixed window')
   assert.equal((await tlsLogin('127.0.0.2',22,'synthetic-password')).status,429,'Changing caller forwarding fields cannot escape a socket address bucket')
   const independent=await tlsLogin('127.0.0.3',23,'synthetic-password')
   assert.equal(independent.status,200);assert.equal(independent.body.user.username,'owner')
+  const elapsedSinceLastDenied=performance.now()-lastDeniedAt,probeDuration=performance.now()-probeStarted
+  assert(elapsedSinceLastDenied<58000,'The address proof must finish before another native fixed-window boundary')
   const edgeLogDeadline=Date.now()+5000
   do {
     const records=(await readFile(accessLog,'utf8')).trim().split('\n').filter(Boolean).map(line=>JSON.parse(line))
@@ -186,7 +207,8 @@ try {
     const refused=await fetch(origin+'/api/session',directLogin)
     assert.equal(refused.status,403);assert.deepEqual(await refused.json(),{error:'client_address_unverified'})
   }
-  const clientAddressProof={edge:'actual Caddy using the committed direct-edge example',caddy_version:caddyVersion,template_sha256:createHash('sha256').update(edgeTemplate).digest('hex'),window:limitWindow,actual_tls_peers:[...observedProbePeers].sort(),
+  const clientAddressProof={edge:'actual Caddy using the committed direct-edge example',caddy_version:caddyVersion,template_sha256:createHash('sha256').update(edgeTemplate).digest('hex'),
+    native_window:{warmup_peer:'127.0.0.4',warmup_statuses:warmupStatuses,reset_statuses:resetStatuses,last_denied_at:lastDeniedWallTime,observed_reset_at:observedResetAt,elapsed_since_last_denied_ms:elapsedSinceLastDenied,probe_duration_ms:probeDuration},actual_tls_peers:[...observedProbePeers].sort(),
     limited_statuses:limitedStatuses,changed_forwarding_cannot_escape:true,independent_actor:independent.body.user,
     direct_forge_and_web_refused:true,normal_tls_issuer_and_hostname_verification:true}
   const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true',GITGOOD_TEST_CA:certificate,NODE_EXTRA_CA_CERTS:certificate,GITGOOD_TEST_SOURCE_CONTROL:sourceControl}
