@@ -235,6 +235,13 @@ defmodule Gitgood.ReleasesTest do
 
     blob = git(ctx.repository, ["hash-object", "-w", "--stdin"], "Unreleased blob")
     git(ctx.repository, ["update-ref", "refs/tags/blob", blob])
+    tree = git(ctx.repository, ["rev-parse", ctx.second <> "^{tree}"])
+    git(ctx.repository, ["update-ref", "refs/tags/tree", tree])
+
+    assert {:ok, [%{tag: "v1", commit_sha: commit}]} =
+             Releases.tags(ctx.repository, ctx.owner, ctx.credential)
+
+    assert commit == ctx.second
 
     assert {:error, :tag_commit_unavailable} =
              Releases.create(
@@ -257,6 +264,36 @@ defmodule Gitgood.ReleasesTest do
              )
 
     assert Repo.aggregate(ReleaseRecord, :count) == 0
+  end
+
+  test "empty tags are distinct from broken storage and over-limit discovery", ctx do
+    git(ctx.repository, ["update-ref", "-d", "refs/tags/v1"])
+    assert {:ok, []} = Releases.tags(ctx.repository, ctx.owner, ctx.credential)
+
+    island = commit(ctx.repository, "Unavailable tag object", nil)
+    git(ctx.repository, ["update-ref", "refs/tags/broken", island])
+    # This path belongs to this test's disposable repository and a validated SHA.
+    object_path =
+      Path.join([
+        Git.path(ctx.repository),
+        "objects",
+        String.slice(island, 0, 2),
+        String.slice(island, 2, 38)
+      ])
+
+    object = File.read!(object_path)
+    File.rm!(object_path)
+    assert {:error, :tags_unavailable} = Releases.tags(ctx.repository, ctx.owner, ctx.credential)
+    File.write!(object_path, object)
+    git(ctx.repository, ["update-ref", "-d", "refs/tags/broken"])
+
+    refs =
+      Enum.map_join(1..257, "", fn index ->
+        "create refs/tags/bounded-#{index} #{ctx.second}\n"
+      end)
+
+    git(ctx.repository, ["update-ref", "--stdin"], refs)
+    assert {:error, :tag_limit} = Releases.tags(ctx.repository, ctx.owner, ctx.credential)
   end
 
   test "intake checks exact immutable bytes, pending assets cannot publish and retry remains singular",

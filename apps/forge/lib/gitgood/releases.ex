@@ -43,26 +43,73 @@ defmodule Gitgood.Releases do
     Lease.actor(repository, user, credential, ["owner", "writer", "reader"], fn repository ->
       case run(
              repository,
-             [
-               "for-each-ref",
-               "--format=%(objectname) %(objecttype) %(*objectname) %(*objecttype) %(refname)",
-               "refs/tags/"
-             ],
+             ["for-each-ref", "--count=257", "--format=%(objectname) %(refname)", "refs/tags/"],
              262_144
            ) do
         {:ok, output, 0} ->
-          values =
-            for line <- String.split(output, "\n", trim: true),
-                [object, kind, peeled, peeled_kind, ref] <- [String.split(line, " ", parts: 5)],
-                kind == "commit" or peeled_kind == "commit",
-                do: %{
+          lines = String.split(output, "\n", trim: true)
+
+          records =
+            for line <- lines,
+                [object, ref] <- [String.split(line, " ", parts: 2)],
+                do: {object, ref}
+
+          if length(records) > 256, do: Repo.rollback(:tag_limit)
+
+          unless length(records) == length(lines) and
+                   Enum.all?(records, fn {object, ref} ->
+                     sha?(object) and Gitgood.Ref.tag?(ref)
+                   end),
+                 do: Repo.rollback(:tags_unavailable)
+
+          input =
+            records
+            |> Enum.with_index()
+            |> Enum.map_join("", fn {{object, _ref}, index} ->
+              object <> "^{} " <> Integer.to_string(index) <> "\n"
+            end)
+
+          # Starred for-each-ref fields peel differently across Git versions.
+          # Resolve recursively in one bounded batch and retain input identities.
+          case Git.command(
+                 [
+                   "--git-dir",
+                   Git.path(repository),
+                   "cat-file",
+                   "--batch-check=%(objectname) %(objecttype) %(rest)"
+                 ],
+                 input: input,
+                 limit: 65_536
+               ) do
+            {:ok, peeled, 0} ->
+              peeled_lines = String.split(peeled, "\n", trim: true)
+
+              resolved =
+                for line <- peeled_lines,
+                    [sha, kind, index] <- [String.split(line, " ", parts: 3)],
+                    kind in ["commit", "tree", "blob"] and sha?(sha),
+                    {index, ""} <- [Integer.parse(index)],
+                    index >= 0 and index < length(records),
+                    do: {index, sha, kind}
+
+              unless length(peeled_lines) == length(records) and
+                       length(resolved) == length(records) and
+                       length(Enum.uniq_by(resolved, &elem(&1, 0))) == length(records),
+                     do: Repo.rollback(:tags_unavailable)
+
+              for {index, commit, "commit"} <- resolved do
+                {object, ref} = Enum.at(records, index)
+
+                %{
                   tag: String.replace_prefix(ref, "refs/tags/", ""),
                   object: object,
-                  commit_sha: if(kind == "commit", do: object, else: peeled)
+                  commit_sha: commit
                 }
+              end
 
-          if length(values) > 256, do: Repo.rollback(:tag_limit)
-          values
+            _ ->
+              Repo.rollback(:tags_unavailable)
+          end
 
         _ ->
           Repo.rollback(:tags_unavailable)
