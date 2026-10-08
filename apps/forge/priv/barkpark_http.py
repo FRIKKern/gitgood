@@ -57,7 +57,11 @@ def main():
         payload = request.get("payload")
         body = None
         if method == "POST":
-            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            raw_payload = request.get("payload_bytes")
+            if raw_payload is not None and not isinstance(raw_payload, str):
+                emit({"error": "invalid_request"})
+                return
+            body = raw_payload.encode("utf-8") if raw_payload is not None else json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
             if len(body) > RESPONSE_LIMIT:
                 emit({"error": "input_limit"})
                 return

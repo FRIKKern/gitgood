@@ -138,6 +138,28 @@ defmodule Gitgood.BarkparkConnections do
     end
   end
 
+  # Journal consumers record the actual write reply even after access changes.
+  # The raw credential never leaves this internal boundary; API replies must apply
+  # their own current native guard. Unlike a read, a known write cannot be undone
+  # by discarding its response after I/O.
+  def write_bytes(user, credential, generation, path, payload, key) do
+    with {:ok, row} <-
+           owned(user, credential, fn row ->
+             unless row && is_nil(row.disconnected_at) && row.generation == generation &&
+                      row.origin == Application.get_env(:gitgood, :barkpark_origin),
+                    do: Repo.rollback(:connection_changed)
+
+             row
+           end),
+         {:ok, token} <-
+           ConnectionSecrets.open(
+             row.token_cipher,
+             [user.id, row.id, row.generation, row.origin]
+           ) do
+      BarkparkHTTP.post_bytes(path, token, payload, key)
+    end
+  end
+
   defp prepare(user, credential, key, digest, expected) do
     owned(user, credential, fn row ->
       key = Lease.key!(key)

@@ -6,6 +6,9 @@ defmodule Gitgood.BarkparkHTTP do
   def get(path, token), do: request("GET", path, token, nil, nil)
   def post(path, token, payload, key), do: request("POST", path, token, payload, key)
 
+  def post_bytes(path, token, payload, key) when is_binary(payload),
+    do: request("POST_BYTES", path, token, payload, key)
+
   defp request(method, path, token, payload, key) do
     origin = Application.get_env(:gitgood, :barkpark_origin)
     loopback? = Application.get_env(:gitgood, :barkpark_allow_loopback_http, false)
@@ -16,9 +19,10 @@ defmodule Gitgood.BarkparkHTTP do
          {:ok, input} <-
            Jason.encode(%{
              url: origin <> path,
-             method: method,
+             method: if(method == "POST_BYTES", do: "POST", else: method),
              token: token,
-             payload: payload,
+             payload: if(method == "POST_BYTES", do: nil, else: payload),
+             payload_bytes: if(method == "POST_BYTES", do: payload, else: nil),
              idempotency_key: key,
              allow_loopback_http: loopback?
            }),

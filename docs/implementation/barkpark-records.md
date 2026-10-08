@@ -20,7 +20,7 @@ External I/O holds no native database lock. Recheck current native access, link 
 
 ## Next dependent work
 
-Add the separately journaled reverse-pointer operation before contacting Barkpark. Use a deterministic owned Paper block, source revision comparison, a stable source request key and actual source reconciliation after an unknown outcome. Neither native attachment nor a prototype Paper pointer substitutes for that journal.
+The dependent [return-pointer journal](barkpark-return-pointers.md) records source-write responsibility before contacting Barkpark. Use a deterministic owned Paper block, source revision comparison, a stable source request key and actual source reconciliation after an unknown outcome. Neither native attachment nor a prototype Paper pointer substitutes for that journal.
 
 ## Required evidence
 

@@ -1,0 +1,9 @@
+{
+  "id": "barkpark-return-pointer-journal",
+  "category": "Added",
+  "summary": "Added durable Paper return-link responsibility with encrypted immutable source requests, bounded attempts, visible pause/retry, actual write receipts and separately attributed source observation.",
+  "impact": "product",
+  "references": ["docs/implementation/barkpark-return-pointers.md"],
+  "journeys": ["J10"],
+  "withdrawn": false
+}

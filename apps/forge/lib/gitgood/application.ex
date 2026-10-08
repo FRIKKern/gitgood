@@ -23,6 +23,8 @@ defmodule Gitgood.Application do
       Gitgood.LoginLimiter,
       Gitgood.SSHIdentities,
       {Task.Supervisor, name: Gitgood.SSHJobs, max_children: 16},
+      {Task.Supervisor, name: Gitgood.SourceReturnJobs, max_children: 2},
+      Gitgood.SourceReturnWorker,
       Gitgood.Reconciler,
       {Phoenix.PubSub, name: Gitgood.PubSub},
       # Start a worker by calling: Gitgood.Worker.start_link(arg)

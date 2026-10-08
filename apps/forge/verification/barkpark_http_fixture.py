@@ -1,5 +1,9 @@
 """Private loopback wire fixture; never contacts a configured Barkpark source."""
 import http.server
+import hashlib
+import copy
+import uuid
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 import json
 import ssl
@@ -14,11 +18,33 @@ output_lock = threading.Lock()
 redirect_reads = 0
 hold_documents = False
 document_status = 200
+journal_lock = threading.Lock()
+journal_documents = {}
+journal_snapshots = {}
+stale_reads = False
+outage_after_write = False
+journal_receipts = {}
+journal_posts = []
+hold_mutations = False
+lost_reply = False
+prewrite_lost = False
 
 
 def announce(value):
     with output_lock:
         print(value, flush=True)
+
+
+def journal_document(identity, kind="paper"):
+    with journal_lock:
+        if identity not in journal_documents:
+            journal_documents[identity] = {"_id": identity, "_type": kind,
+                "_rev": "fixture-revision", "title": "Private source specification",
+                "purpose": "Source owns this intention.", "description": "Source owns this specification.",
+                "blocks": [{"id": "source-intent", "type": "paragraph",
+                    "content": [{"type": "text", "value": "Unselected source content"}]}]}
+        journal_snapshots.setdefault(identity, copy.deepcopy(journal_documents[identity]))
+        return copy.deepcopy(journal_snapshots[identity] if stale_reads else journal_documents[identity])
 
 
 class FixtureServer(http.server.ThreadingHTTPServer):
@@ -59,14 +85,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if token == "synthetic-unavailable-credential":
                 self.send(503, b'{"error":{"code":"unavailable"}}')
                 return
-            permissions = ["read", "admin"] if token == "synthetic-broad-credential" else ["read", "write"]
-            token_id = "d6c87ac9-f908-4b7b-9d14-f1c0e359fb47" if token != "synthetic-outsider-credential" else "f6e2925b-348e-4a84-83ae-387a5fd71d4b"
+            permissions = ["read", "admin"] if token == "synthetic-broad-credential" else (["read"] if token == "synthetic-read-credential" else ["read", "write"])
+            token_id = "82990b0a-ddf1-4747-aec9-10bb1df9608b" if token == "synthetic-second-credential" else ("d6c87ac9-f908-4b7b-9d14-f1c0e359fb47" if token != "synthetic-outsider-credential" else "f6e2925b-348e-4a84-83ae-387a5fd71d4b")
             expiry = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
             self.send(200, json.dumps({"token": {"id":token_id, "kind":"api", "label":"Fixture service",
               "permissions":permissions, "expires_at":expiry, "workspace":workspace, "workspace_id":workspace_id},
               "memberships":[{"workspace_id":workspace_id,"workspace_slug":workspace,"role":"member"}]}).encode())
         elif self.path.startswith("/v1/capabilities?"):
-            self.send(200, json.dumps({"auth_tier":"write","token":{"public_read":False},
+            self.send(200, json.dumps({"auth_tier":("read" if token == "synthetic-read-credential" else "write"),"token":{"public_read":False},
               "build":{"version":"fixture-1","commit":"fixture-source-commit","built_at":"2026-10-08T00:00:00Z"}}).encode())
         elif self.path == "/api/workspaces/fixture-workspace/projects":
             self.send(200, json.dumps({"workspace":{"id":workspace_id},
@@ -91,10 +117,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             elif document_id == "wrong-identity":
                 self.send(200, b'{"result":{"_id":"different-document","_type":"paper","_rev":"fixture-revision"}}')
             else:
-                self.send(200, json.dumps({"result":{"_id":document_id,"_type":document_type,
-                    "_rev":"fixture-revision","title":"Private source specification",
-                    "purpose":"Source owns this intention.","description":"Source owns this specification.",
-                    "blocks":[{"private_content":"Unselected source content"}]}}).encode())
+                self.send(200, json.dumps({"result": journal_document(document_id, document_type)}).encode())
+        elif self.path == "/journal/stats":
+            with journal_lock:
+                self.send(200, json.dumps({"posts": journal_posts, "receipts": list(journal_receipts.values()),
+                    "documents": journal_documents}).encode())
         elif self.path == "/blocked":
             announce("BLOCKED")
             released.wait()
@@ -137,7 +164,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send(200, json.dumps({"authorized": actual}).encode())
 
     def do_POST(self):
-        global document_status
+        global document_status, hold_mutations, lost_reply, prewrite_lost, stale_reads, outage_after_write
+        if self.path == "/control/journal-state":
+            value = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            allowed = {"lost_reply", "prewrite_lost", "stale_reads", "outage_after_write"}
+            if self.headers.get("Authorization") != "Bearer synthetic-fixture-control" or set(value) - allowed or any(not isinstance(v, bool) for v in value.values()):
+                self.send(403, b"{}")
+            else:
+                lost_reply = value.get("lost_reply", lost_reply)
+                prewrite_lost = value.get("prewrite_lost", prewrite_lost)
+                stale_reads = value.get("stale_reads", stale_reads)
+                outage_after_write = value.get("outage_after_write", outage_after_write)
+                self.send(200, b'{"fixture":true}')
+            return
         if self.path == "/control/document-state":
             value = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             if self.headers.get("Authorization") != "Bearer synthetic-fixture-control" or value.get("status") not in [200, 403, 404, 503]:
@@ -146,6 +185,53 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 document_status = value["status"]
                 self.send(200, b'{"fixture":true}')
             return
+        if self.path == "/w/fixture-workspace/p/default/v1/data/mutate/production":
+            raw = self.rfile.read(int(self.headers["Content-Length"]))
+            token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+            key = self.headers.get("Idempotency-Key")
+            digest = hashlib.sha256(raw).hexdigest()
+            if hold_mutations:
+                announce("BLOCKED_MUTATION")
+                released.wait()
+            with journal_lock:
+                journal_posts.append({"key": key, "sha256": digest})
+                if prewrite_lost:
+                    self.close_connection = True
+                    return
+                if token in ["synthetic-outsider-credential", "synthetic-read-credential"]:
+                    self.send(403, b'{"error":{"code":"forbidden","private_content":"Must not leak"}}')
+                    return
+                existing = journal_receipts.get(key)
+                if existing:
+                    if existing["sha256"] != digest:
+                        self.send(409, b'{"error":{"code":"idempotency_conflict"}}')
+                    else:
+                        self.send(200, json.dumps({"transactionId": existing["transactionId"]}).encode())
+                    return
+                try:
+                    payload = json.loads(raw)
+                    patch = payload["mutations"][0]["patch"]
+                    identity = patch["id"]
+                    current = journal_documents[identity]
+                    if patch["ifRevisionID"] != current["_rev"]:
+                        self.send(409, b'{"error":{"code":"revision_conflict"}}')
+                        return
+                    if patch["type"] != "paper" or list(patch["set"]) != ["blocks"]:
+                        self.send(422, b'{"error":{"code":"unsupported"}}')
+                        return
+                    current["blocks"] = patch["set"]["blocks"]
+                    current["_rev"] = uuid.uuid4().hex
+                    tx = str(uuid.uuid4())
+                    journal_receipts[key] = {"transactionId": tx, "sha256": digest}
+                    if lost_reply:
+                        if outage_after_write:
+                            document_status = 503
+                        self.close_connection = True
+                        return
+                    self.send(200, json.dumps({"transactionId": tx}).encode())
+                except (KeyError, ValueError, TypeError):
+                    self.send(422, b'{"error":{"code":"invalid"}}')
+            return
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         actual = self.headers.get("Authorization") == "Bearer synthetic-fixture-credential"
         self.send(200, json.dumps({"authorized": actual, "payload": payload,
@@ -153,7 +239,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main():
-    global hold_documents, document_status
+    global hold_documents, document_status, hold_mutations, lost_reply, prewrite_lost, stale_reads
     with tempfile.TemporaryDirectory(prefix="gitgood-barkpark-wire-") as directory:
         cert, key = Path(directory)/"certificate.pem", Path(directory)/"key.pem"
         subprocess.run([sys.argv[1], "req", "-x509", "-newkey", "rsa:2048", "-nodes",
@@ -198,7 +284,29 @@ def main():
                 if line.strip() == "hold-docs":
                     hold_documents = True
                     announce("HOLDING_DOCS")
-                if line.strip() == "release":
+                command = line.strip()
+                if command == "hold-mutations":
+                    released.clear()
+                    hold_mutations = True
+                    announce("HOLDING_MUTATIONS")
+                elif command.startswith("journal-lost "):
+                    lost_reply = command.split()[1] == "1"
+                    announce("JOURNAL_LOST")
+                elif command.startswith("journal-prewrite-lost "):
+                    prewrite_lost = command.split()[1] == "1"
+                    announce("JOURNAL_PREWRITE_LOST")
+                elif command.startswith("journal-stale "):
+                    stale_reads = command.split()[1] == "1"
+                    announce("JOURNAL_STALE")
+                elif command == "journal-owner-edit":
+                    with journal_lock:
+                        for doc in journal_documents.values():
+                            doc["blocks"].append({"id":"owner-edit","type":"paragraph","content":[{"type":"text","value":"Owner changed this."}]})
+                            doc["_rev"] = uuid.uuid4().hex
+                    announce("JOURNAL_OWNER_EDIT")
+                if command == "release":
+                    hold_mutations = False
+
                     hold_documents = False
                     released.set()
                 if line.strip() == "quit":

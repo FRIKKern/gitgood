@@ -206,6 +206,23 @@ try {
     assert.equal(deniedLink.status,404)
     assert.deepEqual(await deniedLink.json(),{error:'source_link_not_found'})
   }
+  const returnBase=linkBase+'/'+sourceLinks.link.id+'/return-pointers'
+  const retainedReturns=await fetch(returnBase,{headers:{authorization}})
+  assert.equal(retainedReturns.status,200)
+  const returnValues=(await retainedReturns.json()).operations
+  assert.equal(returnValues.length,1)
+  assert.equal(returnValues[0].id,sourceLinks.return_operation.id)
+  assert.equal(returnValues[0].state,'observed')
+  assert.equal(returnValues[0].source_transaction,null,'Observed source presence must not invent a transaction')
+  const replayReturn=await fetch(returnBase,{method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':sourceLinks.return_request.key},body:JSON.stringify(sourceLinks.return_request.body)})
+  assert.equal(replayReturn.status,200)
+  assert.equal((await replayReturn.json()).id,sourceLinks.return_operation.id)
+  const journalStats=await (await fetch(sourceControl+'/journal/stats')).json()
+  assert.equal(journalStats.posts.length,1,'Restart/replay must not issue another external mutation')
+  const ownedPointers=journalStats.documents['drafts.private-spec'].blocks.filter(b=>b.id==='gitgood-link-'+sourceLinks.link.id)
+  assert.equal(ownedPointers.length,1)
+  assert.equal(ownedPointers[0].content[0].href,publicUrl+'/changes/'+sourceLinks.pull_id)
+  assert.equal(journalStats.documents['drafts.private-spec'].blocks[0].id,'source-intent')
   const released=JSON.parse(await readFile(join(sourceWeb,'test-results-production/release-receipt.json'),'utf8'))
   const releaseRepo=after.repositories.find(r=>r.name===released.repository)
   assert(releaseRepo,'Release repository must persist after restart')
@@ -267,8 +284,8 @@ try {
     release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
     discovery:{record:discovery.record,membership_events:discovery.membership_events},
     nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
-    sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors},
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors,return_operation:sourceLinks.return_operation,return_destination:sourceLinks.return_destination},
+    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})

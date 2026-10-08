@@ -2,6 +2,7 @@ import {useEffect, useRef, useState, type FormEvent} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {api, type Session} from './api'
 import {accessStore} from './access-state'
+import {SourceReturnPointers} from './source-return-pointers'
 
 type Link = {id: string; generation: string; state: 'active' | 'removed'}
 type Connection = {state: 'connected' | 'disconnected' | 'unconfigured'; generation: string}
@@ -63,7 +64,7 @@ export function SourceLinks({base, pullId, session, writer}: {base: string; pull
       links.isPending ? <p role="status">Loading linked records…</p> :
       links.data?.links.length === 0 ? <p>No linked records.</p> :
       links.data?.links.map(link => <SourceLink key={link.id + ':' + link.generation + ':' + (current?.generation ?? 'unavailable')}
-        link={link} endpoint={endpoint} connection={current} actor={session.user.id} writer={writer} busy={busy}
+        link={link} endpoint={endpoint} connection={current} actor={session.user.id} session={session} writer={writer} busy={busy}
         remove={() => void mutate(endpoint + '/' + link.id + '/remove', JSON.stringify({generation: link.generation}))}
         refreshConnection={() => void connection.refetch()} />)}
     {connection.isError && <p role="alert">Connection state unavailable. <button onClick={() => void connection.refetch()}>Refresh connection state</button></p>}
@@ -79,8 +80,8 @@ export function SourceLinks({base, pullId, session, writer}: {base: string; pull
   </section>
 }
 
-function SourceLink({link, endpoint, connection, actor, writer, busy, remove, refreshConnection}: {
-  link: Link; endpoint: string; connection?: Connection; actor: number; writer: boolean; busy: boolean;
+function SourceLink({link, endpoint, connection, actor, session, writer, busy, remove, refreshConnection}: {
+  link: Link; endpoint: string; connection?: Connection; actor: number; session: Session; writer: boolean; busy: boolean;
   remove: () => void; refreshConnection: () => void
 }) {
   const [opened, setOpened] = useState(false)
@@ -108,5 +109,8 @@ function SourceLink({link, endpoint, connection, actor, writer, busy, remove, re
         </p> : <p role="status">Checking your source access…</p>)}
       {writer && <button className="subtle" disabled={busy} onClick={remove}>Remove linked record</button>}
     </>}
+    <SourceReturnPointers endpoint={endpoint} link={link} connectionGeneration={generation}
+      sourcePaperAvailable={!!current && current.locator?.type === 'paper'} writer={writer}
+      session={session} disabled={busy} />
   </article>
 }

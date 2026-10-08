@@ -20,7 +20,7 @@ async function signIn(page: Page, username: string) {
 }
 
 test('native links use each viewer source actor, recover from outage and discard old connection replies', async ({page}, info) => {
-  test.setTimeout(180_000)
+  test.setTimeout(210_000)
   if (!control) throw new Error('This journey requires the owned source HTTPS wire fixture')
   const root = await mkdtemp(join(tmpdir(), 'gitgood-linked-source-')), source = join(root, 'source')
   await mkdir(source)
@@ -99,6 +99,49 @@ test('native links use each viewer source actor, recover from outage and discard
       headers: {'content-type': 'application/json', authorization: 'Bearer synthetic-fixture-control'},
       body: JSON.stringify({status})})).status).toBe(200)
   }
+  const returnBase = endpoint + '/' + first.id + '/return-pointers'
+  const returnRequests: {key: string; body: Record<string, unknown>}[] = []
+  page.on('request', request => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/links/' + first.id + '/return-pointers'))
+      returnRequests.push({key: request.headers()['idempotency-key'], body: request.postDataJSON()})
+  })
+  const journalControl = async (body: Record<string, boolean>) => {
+    expect((await fetch(control + '/control/journal-state', {method: 'POST',
+      headers: {'content-type': 'application/json', authorization: 'Bearer synthetic-fixture-control'},
+      body: JSON.stringify(body)})).status).toBe(200)
+  }
+  await journalControl({lost_reply: true, outage_after_write: true})
+  await article.getByRole('button', {name: 'Add return link to Paper', exact: true}).click()
+  await expect(article.getByText('The write result is uncertain. Check the source before requesting another write.', {exact: true})).toBeVisible({timeout: 15000})
+  await expect(article.getByRole('alert')).toContainText('Barkpark context is unavailable', {timeout: 15000})
+  await expect(page.locator('.code-panel pre')).toContainText('Native implementation for a source-owned specification')
+  const unknown = (await (await fetch(returnBase, {headers: owner})).json()).operations[0]
+  expect(unknown.state).toBe('unknown')
+  expect(unknown.source_transaction).toBeNull()
+  expect(returnRequests).toHaveLength(1)
+  const returnReplay = await fetch(returnBase, {method: 'POST',
+    headers: {...owner, 'idempotency-key': returnRequests[0].key}, body: JSON.stringify(returnRequests[0].body)})
+  expect(returnReplay.status).toBe(200)
+  expect((await returnReplay.json()).id).toBe(unknown.id)
+  await page.screenshot({path: info.outputPath('source-return-unknown.png'), fullPage: true})
+  await journalControl({lost_reply: false, outage_after_write: false})
+  await sourceState(200)
+  await expect(article.getByText('The return link was observed in Barkpark. The original write receipt remains unknown.', {exact: true})).toBeVisible({timeout: 20000})
+  await expect(article.getByRole('heading', {name: 'Private source specification', exact: true})).toBeVisible({timeout: 15000})
+  const observedReturn = (await (await fetch(returnBase, {headers: owner})).json()).operations[0]
+  expect(observedReturn.id).toBe(unknown.id)
+  expect(observedReturn.state).toBe('observed')
+  expect(observedReturn.source_transaction).toBeNull()
+  const sourceStats = await (await fetch(control + '/journal/stats')).json()
+  expect(sourceStats.posts).toHaveLength(1)
+  expect(sourceStats.receipts).toHaveLength(1)
+  const ownedBlocks = sourceStats.documents['drafts.private-spec'].blocks.filter((block: {id: string}) => block.id === 'gitgood-link-' + first.id)
+  expect(ownedBlocks).toHaveLength(1)
+  expect(ownedBlocks[0].content[0].href).toBe(new URL(page.url()).origin + '/changes/' + pull.id)
+  expect(sourceStats.documents['drafts.private-spec'].blocks[0].id).toBe('source-intent')
+  expect(sourceStats.documents['drafts.private-spec'].purpose).toBe('Source owns this intention.')
+  await page.screenshot({path: info.outputPath('source-return-observed.png'), fullPage: true})
+
   await sourceState(503)
   await expect(article.getByRole('alert')).toContainText('Barkpark context is unavailable', {timeout: 15000})
   await expect(article.getByRole('heading', {name: 'Private source specification', exact: true})).toHaveCount(0)
@@ -145,6 +188,8 @@ test('native links use each viewer source actor, recover from outage and discard
   await expect(panel.getByRole('heading', {name: 'Private source specification', exact: true})).toHaveCount(0)
   await expect(panel.getByRole('link', {name: 'Open in Barkpark Studio', exact: true})).toHaveCount(0)
   await expect(panel.getByRole('button', {name: 'Remove linked record', exact: true})).toHaveCount(0)
+  await expect(panel.getByRole('button', {name: 'Add return link to Paper', exact: true})).toHaveCount(0)
+  await expect(page.locator('.code-panel pre')).toContainText('Native implementation for a source-owned specification')
   const readerRemove = await fetch(endpoint + '/' + first.id + '/remove', {method: 'POST',
     headers: {...reader, 'idempotency-key': name + '-reader-remove'}, body: JSON.stringify({generation: first.generation})})
   expect(readerRemove.status).toBe(403)
@@ -164,6 +209,10 @@ test('native links use each viewer source actor, recover from outage and discard
   await page.goto('/repos/team/' + name + '/pulls/' + pull.id)
   await panel.getByRole('button', {name: 'Remove linked record', exact: true}).click()
   await expect(panel.getByText('Linked record · removed', {exact: true})).toBeVisible()
+  await expect(panel.getByText('Removing this native link preserves any return link already written in Barkpark.', {exact: true})).toBeVisible()
+  expect((await (await fetch(returnBase, {headers: owner})).json()).operations[0].state).toBe('observed')
+  const retainedSource = await (await fetch(control + '/journal/stats')).json()
+  expect(retainedSource.documents['drafts.private-spec'].blocks.filter((block: {id: string}) => block.id === 'gitgood-link-' + first.id)).toHaveLength(1)
   const historical = await fetch(endpoint, {method: 'POST', headers: {...owner, 'idempotency-key': attachRequests[0].key},
     body: JSON.stringify(attachRequests[0].body)})
   expect(historical.status).toBe(200)
@@ -180,15 +229,22 @@ test('native links use each viewer source actor, recover from outage and discard
     link: currentLinks[0], original_receipt: first, original_attach_request: attachRequests[0],
     owner_connection_generation: ownerConnection.generation, reader_connection_generation: readerConnection.generation,
     source_actors: [ownerConnection.source_identity.token_id, readerConnection.source_identity.token_id],
+    return_operation: observedReturn, return_request: returnRequests[0],
+    return_destination: ownedBlocks[0].content[0].href,
     source_fixture: 'Owned synthetic HTTPS wire with explicit issuer trust; normal backend TLS verification',
     checks: ['real Git import and native change', 'actual encrypted source connections with distinct actors',
       'lost attach reply reuses key and creates one link', 'source context and Studio URL require viewer access',
       'source outage clears title and preserves native change', 'missing is distinguished without claiming deletion',
       'outage recovery retains one native link', 'held old connection reply discarded after disconnect',
       'source denied reader sees no title or locator', 'reader cannot remove, foreign equals absent',
-      'mobile width', 'removal then historical attach replay does not reactivate', 'fresh attach reactivates same identity'],
+      'mobile width', 'removal then historical attach replay does not reactivate', 'fresh attach reactivates same identity',
+      'queued return intent and unknown write outcome stay visible during source outage',
+      'historical return request reuses one operation',
+      'actual source pointer observation recovers without inventing a write receipt',
+      'owned pointer preserves source intent and uses opaque native frontend URL',
+      'reader denial and native removal preserve source responsibility'],
     limitations: ['Synthetic source wire; live deployed Barkpark navigation is a separate experiment.',
-      'No reverse-pointer operation journal or complete J10 acceptance.']}
+      'Synthetic durable return-pointer checks; complete live J10 acceptance remains separate.']}
   await writeFile(info.outputPath('source-link-receipt.json'), JSON.stringify(receipt, null, 2) + '\n')
   await writeFile(resolve(process.env.GITGOOD_TEST_PRODUCTION === 'true' ? 'test-results-production' : 'test-results', 'source-link-receipt.json'), JSON.stringify(receipt, null, 2) + '\n')
 })
