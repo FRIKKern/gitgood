@@ -1,5 +1,6 @@
 import {test, expect} from '@playwright/test'
 import {fixtureSession as session} from './fixture-session'
+import {appliedImport} from './fixture-operation'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp, writeFile, readFile, mkdir} from 'node:fs/promises'
@@ -40,7 +41,7 @@ test('private tag release preserves identity and assets through lost replies, co
   expect(intake.status).toBe(202)
   const operation = (await intake.json()).operation
   expect((await fetch(base + '/imports/' + operation.id + '/source', {method: 'PUT', headers: {...owner, 'content-type': 'application/octet-stream'}, body: bundled})).status).toBe(202)
-  await expect.poll(async () => (await (await fetch(base + '/operations/' + operation.id, {headers: owner})).json()).operation.state).toBe('applied')
+  await appliedImport(base, operation.id, owner)
   const invalid = await fetch(base + '/releases', {method: 'POST', headers: {...owner, 'idempotency-key': 'wrong-commit'}, body: JSON.stringify({tag: 'v1', commit_sha: main, title: 'Wrong release', notes: 'Must not become released'})})
   expect(invalid.status).toBe(409)
   for (const actor of [reader, outsider]) {
