@@ -4,7 +4,7 @@ This M4 experiment extends D04 with real client observations on the native forge
 
 | Behavior | Required observation |
 |---|---|
-| SHA-1 repositories | Exact commits, trees and tag objects survive HTTPS protocol versions 0, 1 and 2. |
+| SHA-1 repositories | Exact commits, trees and tag objects survive HTTPS requests for protocol versions 0, 1 and 2. Record negotiation: current v1 requests fall back to v0; v2 negotiates v2. |
 | Shallow clients | Depth-one clone, deepen and unshallow recover the expected ancestry over HTTPS; SSH clone/deepen preserves the same commits. |
 | Submodules | Preserve gitlink and `.gitmodules`; fetching the separate repository requires its own scoped credential. Native browsing identifies the gitlink without borrowing parent access. |
 | Signed commits/tags | Preserve exact signed objects. An independent client verifies against its explicit allowed-signers file. This does not assign native signer trust or a verified badge. |

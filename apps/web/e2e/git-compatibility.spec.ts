@@ -84,8 +84,10 @@ test('real native Git compatibility preserves ancestry, gitlinks and signed obje
     expect(hash((await command(['cat-file', 'tag', tag], checkout)).stdout)).toBe(hash(tagBytes))
     await command([...verify, 'verify-commit', head], checkout)
     await command([...verify, 'verify-tag', 'signed-v1'], checkout)
-    if (version === 2) expect(await readFile(trace, 'utf8')).toContain('version 2')
-    protocols.push({requested_version: version, commit_sha256: hash(commitBytes), tag_sha256: hash(tagBytes)})
+    const packetTrace = await readFile(trace, 'utf8')
+    const negotiated = packetTrace.includes('version 2') ? 2 : packetTrace.includes('version 1') ? 1 : 0
+    expect(negotiated).toBe(version === 2 ? 2 : 0)
+    protocols.push({requested_version: version, negotiated_version: negotiated, commit_sha256: hash(commitBytes), tag_sha256: hash(tagBytes)})
   }
   const shallow = join(root, 'shallow')
   await command(['clone', '--depth=1', '--single-branch', '--branch=main', parent.repository.clone_url, shallow])
@@ -104,7 +106,9 @@ test('real native Git compatibility preserves ancestry, gitlinks and signed obje
   const filtered = await command(['clone', '--filter=blob:none', '--no-checkout', parent.repository.clone_url, partial])
   expect(filtered.stderr).toContain('filtering not recognized by server')
   expect((await command(['rev-list', '--objects', '--missing=print', '--all'], partial)).stdout).not.toMatch(/^\?/m)
-  const lfs = await fetch(parent.repository.clone_url + '/info/lfs/objects/batch', {method: 'POST', headers: {...owner, 'content-type': 'application/json'}, body: JSON.stringify({operation: 'download', objects: [{oid: hash('external media is not hosted'), size: 1234}]})})
+  const lfs = await fetch(parent.repository.clone_url + '/info/lfs/objects/batch', {method: 'POST', headers: {
+    authorization: 'Basic ' + Buffer.from('owner:' + parent.token).toString('base64'), 'content-type': 'application/json'},
+    body: JSON.stringify({operation: 'download', objects: [{oid: hash('external media is not hosted'), size: 1234}]})})
   expect(lfs.status).toBe(404)
   const sha256 = join(root, 'sha256'); await mkdir(sha256)
   await command(['init', '--template=', '--object-format=sha256', '--initial-branch=main'], sha256)
@@ -127,7 +131,7 @@ test('real native Git compatibility preserves ancestry, gitlinks and signed obje
   expect((await command(['rev-parse', 'HEAD'], sshShallow, sshEnv)).stdout.trim()).toBe(head)
   const receipt = {repositories: {parent: prefix, child: prefix + '-child'}, source_sha: head, tag_sha: tag, child_sha: childSha,
     git_version: (await command(['--version'])).stdout.trim(), protocols, recorded_at: new Date().toISOString(),
-    checks: ['HTTPS protocol 0/1/2 exact objects', 'independent SSH-signature commit/tag verification', 'HTTPS shallow/deepen/unshallow ancestry',
+    checks: ['HTTPS requested protocol 0/1/2 exact objects; v1 falls back to v0', 'independent SSH-signature commit/tag verification', 'HTTPS shallow/deepen/unshallow ancestry',
       'gitlink and submodule source retained', 'parent credential cannot fetch separate child repository', 'independent child credential fetch succeeds',
       'native gitlink browse identifies child SHA', 'LFS pointer retained with batch hosting absent', 'partial clone explicitly falls back to full objects',
       'SHA256 push refused with existing SHA1 refs unchanged', 'strict known-host SSH shallow/deepen ancestry'],
