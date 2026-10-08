@@ -17,7 +17,7 @@ export async function verifyOfflineRecovery(options){
   await wait(launch(release,['eval','Gitgood.Release.backup()'],backupEnv,installedForge,'backup-running-refusal'),'backup-running-refusal',[1])
   await assert.rejects(lstat(bundle))
   // Preserve a real sealed request whose upstream write happened but whose reply was lost.
-  const base=forgeUrl+'/api/repos/'+sourceLinks.repository+'/pulls/'+sourceLinks.pull_id+'/links'
+  const base=forgeUrl+'/api/repos/team/'+sourceLinks.repository+'/pulls/'+sourceLinks.pull_id+'/links'
   const attached=await fetch(base,{method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':'recovery-pending-link'},
     body:JSON.stringify({type:'paper',document_id:'drafts.recovery-pending',connection_generation:sourceLinks.owner_connection_generation})})
   assert.equal(attached.status,200)
@@ -57,8 +57,8 @@ export async function verifyOfflineRecovery(options){
   await assert.rejects(lstat(join(installation,'git/.gitgood-restore-incomplete-v1.json')))
   const recovered=await readConfiguration(join(installation,'configuration'))
   for(const key of ['SECRET_KEY_BASE','GITGOOD_PROXY_KEY','GITGOOD_CONNECTION_KEY','GITGOOD_PUBLIC_URL','GITGOOD_WEB_ORIGIN'])
-    assert.equal(recovered.forge[key],env[key],'Recovered custody/origin must equal the actual original installation')
-  assert.deepEqual(await readFile(join(installation,'ssh/ssh_host_ed25519_key')),await readFile(join(env.GITGOOD_SSH_HOST_KEY_DIRECTORY,'ssh_host_ed25519_key')))
+    assert(recovered.forge[key]===env[key],'Recovered custody/origin must equal the actual original installation')
+  assert((await readFile(join(installation,'ssh/ssh_host_ed25519_key'))).equals(await readFile(join(env.GITGOOD_SSH_HOST_KEY_DIRECTORY,'ssh_host_ed25519_key'))),'Recovered SSH private identity must match')
   await startRestored({...process.env,...recovered.forge,PHX_SERVER:'true'},{...process.env,...recovered.web})
   await ready(forgeUrl);await ready(webUrl)
   const repos=await (await fetch(forgeUrl+'/api/repos',{headers:{authorization}})).json()
