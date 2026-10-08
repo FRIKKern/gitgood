@@ -4,7 +4,7 @@ import {createWriteStream} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname,join,resolve,sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {randomBytes} from 'node:crypto'
+import {randomBytes,createHash} from 'node:crypto'
 import {createServer} from 'node:https'
 import {request as httpRequest} from 'node:http'
 import assert from 'node:assert/strict'
@@ -134,6 +134,32 @@ try {
   const importRefs=await readFile(join(logs,'persisted-import-read.log'),'utf8')
   for(const update of imported.updates)assert(importRefs.split(/\r?\n/).includes(update.new+'\t'+update.ref),'Exact imported ref must persist')
   const gitRepo=after.repositories.find(r=>r.name.startsWith('git-'))
+  const released=JSON.parse(await readFile(join(sourceWeb,'test-results-production/release-receipt.json'),'utf8'))
+  const releaseRepo=after.repositories.find(r=>r.name===released.repository)
+  assert(releaseRepo,'Release repository must persist after restart')
+  const releaseBase=forgeUrl+'/api/repos/'+releaseRepo.team+'/'+releaseRepo.name+'/releases/'
+  const publishedRelease=await (await fetch(releaseBase+released.published.id,{headers:{authorization}})).json()
+  assert.equal(publishedRelease.release.state,'published')
+  assert.equal(publishedRelease.release.commit_sha,released.published.commit_sha)
+  assert.equal(publishedRelease.release.tag_object,released.published.tag_object)
+  assert.deepEqual(publishedRelease.release.changes.commits.map(c=>c.sha),[released.main_sha])
+  assert.equal(publishedRelease.events.filter(e=>e.kind==='publish').length,1)
+  const releaseAssetPath='/api/repos/'+releaseRepo.team+'/'+releaseRepo.name+'/releases/'+released.published.id+'/assets/'+released.published.asset.id+'/download'
+  for(const origin of [forgeUrl,webUrl]) {
+    const assetResponse=await fetch(origin+releaseAssetPath,{headers:{authorization}})
+    assert.equal(assetResponse.status,200)
+    assert.equal(assetResponse.headers.get('cache-control'),'no-store')
+    assert.equal(assetResponse.headers.get('x-content-type-options'),'nosniff')
+    const bytes=Buffer.from(await assetResponse.arrayBuffer())
+    assert.equal(bytes.length,released.published.asset.size)
+    assert.equal(createHash('sha256').update(bytes).digest('hex'),released.published.asset.sha256)
+  }
+  const withdrawnRelease=await (await fetch(releaseBase+released.release_id,{headers:{authorization}})).json()
+  assert.equal(withdrawnRelease.release.state,'withdrawn')
+  assert.equal(withdrawnRelease.release.commit_sha,released.commit_sha)
+  assert(withdrawnRelease.events.some(e=>e.kind==='correct'))
+  assert(withdrawnRelease.events.some(e=>e.kind==='withdraw'))
+  assert.equal((await fetch(releaseBase+released.release_id+'/assets/'+released.asset.id+'/download',{headers:{authorization}})).status,409)
   assert(gitRepo)
   const branches=await (await fetch(forgeUrl+'/api/repos/'+gitRepo.team+'/'+gitRepo.name+'/branches',{headers:{authorization}})).json()
   const main=branches.branches.find(b=>b.name==='main');assert(main)
@@ -166,7 +192,8 @@ try {
   web=startWeb();await ready(webUrl)
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
     runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,importOperation:imported.operation_id,
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
+    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})

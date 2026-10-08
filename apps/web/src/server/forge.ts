@@ -5,9 +5,14 @@ export async function proxy(request: Request): Promise<Response> {
   const target = new URL(incoming.pathname + incoming.search, base)
   if (target.origin !== base.origin || !target.pathname.startsWith('/api/'))
     return Response.json({error: 'invalid_api_path'}, {status: 400})
-  const upload = request.method === 'PUT' &&
+  const bundleUpload = request.method === 'PUT' &&
     /^\/api\/repos\/[a-z0-9-]+\/[a-z0-9-]+\/imports\/[0-9a-f-]{36}\/source$/.test(target.pathname)
-  const limit = upload ? 33_554_432 : 1_048_576
+  const assetUpload = request.method === 'PUT' &&
+    /^\/api\/repos\/[a-z0-9-]+\/[a-z0-9-]+\/releases\/[0-9a-f-]{36}\/assets\/[0-9a-f-]{36}\/source$/.test(target.pathname)
+  const assetDownload = request.method === 'GET' &&
+    /^\/api\/repos\/[a-z0-9-]+\/[a-z0-9-]+\/releases\/[0-9a-f-]{36}\/assets\/[0-9a-f-]{36}\/download$/.test(target.pathname)
+  const upload = bundleUpload || assetUpload
+  const limit = bundleUpload ? 33_554_432 : assetUpload ? 16_777_216 : 1_048_576
   const declared = request.headers.get('content-length')
   if (declared && /^\d+$/.test(declared) && Number(declared) > limit)
     return Response.json({error: 'api_body_limit'}, {status: 413})
@@ -17,6 +22,7 @@ export async function proxy(request: Request): Promise<Response> {
     if (value) headers.set(name, value)
   }
   headers.set('accept', 'application/json')
+  if (assetDownload) headers.set('accept-encoding', 'identity')
   const controller = new AbortController()
   const abort = () => controller.abort()
   request.signal.addEventListener('abort', abort, {once: true})
@@ -32,7 +38,7 @@ export async function proxy(request: Request): Promise<Response> {
       reader = request.body.getReader()
       let bytes = 0
       if (upload) {
-        // Preserve streaming backpressure; neither proxy nor forge buffers a complete bundle.
+        // Preserve streaming backpressure at the proxy; forge bounds asset buffering.
         body = new ReadableStream<Uint8Array>({
           async pull(stream) {
             try {
@@ -75,6 +81,16 @@ export async function proxy(request: Request): Promise<Response> {
     }
     const result = await fetch(target, options)
     const responseHeaders = new Headers({'content-type': 'application/json', 'cache-control': 'no-store'})
+    if (assetDownload && result.ok) {
+      responseHeaders.set('content-type', 'application/octet-stream')
+      responseHeaders.set('x-content-type-options', 'nosniff')
+      // Fetch may decompress an upstream response; its wire length is not the
+      // length of this stream. Let the response server frame the actual body.
+      for (const name of ['content-disposition', 'x-gitgood-sha256']) {
+        const value = result.headers.get(name)
+        if (value) responseHeaders.set(name, value)
+      }
+    }
     for (const cookie of result.headers.getSetCookie()) responseHeaders.append('set-cookie', cookie)
     return new Response(result.body, {status: result.status, headers: responseHeaders})
   } catch {

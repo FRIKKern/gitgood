@@ -15,6 +15,7 @@ receive provider checks and merge. It also exercises outsider/reader denial, tru
 lost comment response and stale approval/check refusal.
 
 See [browsing](browsing.md) and [collaboration/recovery](collaboration.md) for scope and reproduction.
+See [private releases](releases.md) for tag/commit identity, bounded private assets, retry/withdrawal history and interruption proof.
 These results support J01/J02/J04/J06–J09 development behavior. Whole journeys and milestones require all current criteria;
 a merged slice or manifest alone does not establish release acceptance.
 The live status source remains unconfigured; evidence/status.json must not be edited to imply otherwise.

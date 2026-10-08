@@ -4,6 +4,7 @@ import {useQuery} from '@tanstack/react-query'
 import {api, type Repository, type Session} from '../../../lib/api'
 import {PullRequests, PolicySettings} from '../../../lib/collaboration'
 import {RepositoryImport} from '../../../lib/repository-import'
+import {Releases} from '../../../lib/releases'
 type Branch = {name: string; sha: string}
 type Entry = {name: string; kind: string; sha: string; unsupported_encoding: boolean}
 type Commit = {sha: string; author: string; date: string; subject: string}
@@ -67,6 +68,7 @@ function RepositoryPage() {
         </> : <p>Loading commit…</p>}
       </section>}
       <RepositoryImport base={base} repository={repository.data} session={session.data} empty={branches.data?.branches.length === 0}/>
+      <Releases base={base} session={session.data}/>
       <PullRequests base={base} session={session.data} branches={branches.data?.branches ?? []}/><PolicySettings base={base} session={session.data}/>
     </> : repository.error ? <p role="alert">This repository is unavailable to your identity. <button onClick={() => void repository.refetch()}>Retry repository</button> <a href="/">Return to your repositories</a></p> : <p>Loading repository…</p>}
   </main></div>

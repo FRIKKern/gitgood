@@ -29,6 +29,15 @@ defmodule GitgoodWeb.Router do
     post "/repos", RepositoryController, :create
     get "/repos/:team/:name", RepositoryController, :show
     get "/repos/:team/:name/branches", BrowseController, :branches
+    get "/repos/:team/:name/tags", ReleaseController, :tags
+    get "/repos/:team/:name/releases", ReleaseController, :index
+    post "/repos/:team/:name/releases", ReleaseController, :create
+    get "/repos/:team/:name/releases/:id", ReleaseController, :show
+    post "/repos/:team/:name/releases/:id/actions", ReleaseController, :transition
+    post "/repos/:team/:name/releases/:id/assets", ReleaseController, :asset
+    put "/repos/:team/:name/releases/:id/assets/:asset/source", ReleaseController, :upload
+    delete "/repos/:team/:name/releases/:id/assets/:asset", ReleaseController, :cancel
+    get "/repos/:team/:name/releases/:id/assets/:asset/download", ReleaseController, :download
     get "/repos/:team/:name/snapshot", BrowseController, :snapshot
     get "/repos/:team/:name/diff", BrowseController, :diff
     post "/repos/:team/:name/credentials", CredentialController, :create

@@ -68,6 +68,9 @@ test('native SSH browser key registration, real clone/push/fetch, permissions, r
   await command(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','Native SSH initial'])
   const initial=(await command(['rev-parse','HEAD'])).stdout.trim()
   await command(['push','origin','HEAD:main'])
+  await command(['tag','ssh-v1',initial])
+  await command(['push','origin','refs/tags/ssh-v1'])
+  expect((await command(['ls-remote','origin','refs/tags/ssh-v1'])).stdout).toContain(initial)
   expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(initial)
   await command(['switch','-c','feature'])
   await writeFile(join(client,'README.md'),'# Feature over SSH\n')
@@ -75,6 +78,10 @@ test('native SSH browser key registration, real clone/push/fetch, permissions, r
   await command(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','SSH feature'])
   const feature=(await command(['rev-parse','HEAD'])).stdout.trim()
   await command(['push','origin','HEAD:feature'])
+  await command(['tag','-f','ssh-v1',feature])
+  await expect(command(['push','--force','origin','refs/tags/ssh-v1'])).rejects.toThrow()
+  await expect(command(['push','origin',':refs/tags/ssh-v1'])).rejects.toThrow()
+  expect((await command(['ls-remote','origin','refs/tags/ssh-v1'])).stdout).toContain(initial)
   await expect(command(['push','origin','HEAD:main'])).rejects.toThrow()
   expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(initial)
   for(const actor of ['reader','outsider']) {
@@ -114,7 +121,7 @@ test('native SSH browser key registration, real clone/push/fetch, permissions, r
   const actor=(await (await fetch(upstream+'/api/session',{headers:owner})).json()).user.id
   const operations=(await (await fetch(upstream+'/api/repos/team/'+name+'/operations',{headers:owner})).json()).operations
   const applied=operations.filter((o:{kind:string;state:string})=>o.kind==='push'&&o.state==='applied')
-  expect(applied).toHaveLength(3)
+  expect(applied).toHaveLength(4)
   for(const operation of applied) {expect(operation.actor_id).toBe(actor);expect(operation.credential_id).toBe(ownerKey.credential_id)}
   expect(operations.some((o:{kind:string;state:string})=>o.kind==='push'&&o.state==='failed')).toBe(true)
   const pullResponse=await fetch(upstream+'/api/repos/team/'+name+'/pulls',{method:'POST',headers:{...owner,'idempotency-key':'ssh-pull-'+Date.now()},body:JSON.stringify({source:'feature',title:'Merge the SSH feature'})})

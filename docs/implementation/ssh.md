@@ -39,7 +39,7 @@ Connections (including unauthenticated negotiation): 16. Channels per connection
 
 OTP channel sends apply flow control and a five-second send deadline. The receiver mailbox can buffer output up to the command output ceiling; this is a bounded buffer, not constant-memory streaming. These limits target the initial private pilot and are not a large-repository benchmark.
 
-No shell, PTY, SFTP, arbitrary command/environment, password authentication or TCP forwarding is granted. Command grammar accepts only canonical Git upload-pack/receive-pack repository paths. Current HTTPS restrictions also apply: protected main, no force rewrites, deletes, tags, LFS or repository-supplied executable hooks.
+No shell, PTY, SFTP, arbitrary command/environment, password authentication or TCP forwarding is granted. Command grammar accepts only canonical Git upload-pack/receive-pack repository paths. Current HTTPS restrictions also apply: protected main, no force rewrites/deletes, LFS or repository-supplied executable hooks. New immutable tags are supported for private releases; tag replacement/deletion is denied.
 
 ## Repeatable evidence
 

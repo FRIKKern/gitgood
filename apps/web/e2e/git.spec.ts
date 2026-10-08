@@ -70,6 +70,10 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','commit','-m','Initial private commit'])
     const initial = (await command(['rev-parse','HEAD'])).stdout.trim()
     await command(['push','origin','HEAD:main'])
+    await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','tag','-a','v0','-m','Immutable version',initial])
+    const releaseTag = (await command(['rev-parse','refs/tags/v0'])).stdout.trim()
+    await command(['push','origin','refs/tags/v0'])
+    expect((await command(['ls-remote','origin','refs/tags/v0'])).stdout).toContain(releaseTag)
     expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(initial)
     await command(['switch','-c','feature'])
     await writeFile(join(client,'README.md'), '# Changed private project\n')
@@ -77,6 +81,10 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','commit','-m','Feature commit'])
     const feature = (await command(['rev-parse','HEAD'])).stdout.trim()
     await command(['push','origin','HEAD:feature'])
+    await command(['tag','-f','v0',feature])
+    await expect(command(['push','--force','origin','refs/tags/v0'])).rejects.toThrow()
+    await expect(command(['push','origin',':refs/tags/v0'])).rejects.toThrow()
+    expect((await command(['ls-remote','origin','refs/tags/v0'])).stdout).toContain(releaseTag)
     await expect(command(['push','origin','HEAD:main'])).rejects.toThrow()
     expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(initial)
     await page.goto('/')
@@ -224,7 +232,7 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await expect(command(['ls-remote',url], clientEnv('reader',readerCredential.token))).rejects.toThrow()
     await writeFile(testInfo.outputPath('git-receipt.json'), JSON.stringify({repository:repo.id, initial, feature,
       mergedSource,pullRequest:Number(pullId),actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
-      checks:['empty clone','commit','push','fetch','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
+      releaseTag,checks:['empty clone','commit','push','fetch','immutable tag creation/replacement/deletion','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
     complete = true
   } finally {
     proxy.closeAllConnections()

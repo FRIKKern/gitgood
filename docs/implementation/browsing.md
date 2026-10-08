@@ -4,7 +4,8 @@ Branch selection resolves its current tip once; refreshing branches preserves th
 Files, history entries, breadcrumbs and commit diffs have shareable commit URLs.
 
 The backend checks team membership before any Git access. Requested commits must be reachable from a current
-branch; deleted/unreachable commits are refused. Git receives separate arguments, and filenames are resolved
+branch or commit tag; deleted/unreachable commits are refused. Tag-only release commits can be navigated without
+exposing internal recovery refs. Git receives separate arguments, and filenames are resolved
 through tree entries. Text renders in React pre elements. Symlinks are previewed as blob text, never followed.
 Binary files and submodules have explicit states. Preview/tree/diff output is bounded to 256 KiB, history to
 50 commits, and branch listings to 256 entries. Invalid filename encodings are displayed with an explicit

@@ -67,7 +67,8 @@ defmodule Gitgood.Browse do
                "--contains=" <> sha,
                "--count=1",
                "--format=%(refname)",
-               "refs/heads/"
+               "refs/heads/",
+               "refs/tags/"
              ],
              4096
            ) do

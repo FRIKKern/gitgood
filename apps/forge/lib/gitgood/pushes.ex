@@ -124,9 +124,13 @@ defmodule Gitgood.Pushes do
              sha?(old) and sha?(new) and Gitgood.Ref.branch?("refs/heads/" <> branch) and
                new != @zero
 
+           [old, new, "refs/tags/" <> tag] ->
+             old == @zero and sha?(new) and new != @zero and
+               Gitgood.Ref.tag?("refs/tags/" <> tag)
+
            _ ->
              false
-         end) do
+         end) and length(Enum.uniq_by(updates, &List.last/1)) == length(updates) do
       {:ok,
        Enum.map(updates, fn [old, new, ref] -> %{"old" => old, "new" => new, "ref" => ref} end)}
     else
