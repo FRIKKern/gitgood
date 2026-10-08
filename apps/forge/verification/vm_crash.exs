@@ -5,9 +5,24 @@ Application.put_env(:gitgood, :reconcile, false)
 alias Gitgood.{Accounts, Git, GitOperation, Merges, Pulls, Repo, Repositories}
 path = ".gitgood/verification/vm-crash.json"
 mode = System.fetch_env!("GITGOOD_FAILURE_POINT")
+source_root = Path.expand("../../..", __DIR__)
+{candidate, 0} = System.cmd(Git.executable(), ["-C", source_root, "rev-parse", "HEAD"])
+{status, 0} = System.cmd(Git.executable(), ["-C", source_root, "status", "--porcelain"])
+candidate = String.trim(candidate)
+
+requirement =
+  File.read!(Path.join(source_root, "docs/journeys/J08.md"))
+  |> then(&:crypto.hash(:sha256, &1))
+  |> Base.encode16(case: :lower)
+
+unless status == "", do: raise("Crash verification requires a clean source candidate")
 
 if mode == "reconcile" do
   fixture = path |> File.read!() |> Jason.decode!()
+
+  unless fixture["candidate"] == candidate and fixture["specification_sha256"] == requirement,
+    do: raise("Crash fixture belongs to a different source candidate or requirement")
+
   repository = Repo.get!(Gitgood.Repository, fixture["repository_id"])
   Merges.reconcile()
   operation = Repo.get!(GitOperation, fixture["operation_id"])
@@ -119,7 +134,9 @@ else
             source_sha: source,
             target_sha: target,
             actors: [owner.username, reviewer.username],
-            candidate: command.(["rev-parse", "HEAD"], ""),
+            candidate: candidate,
+            tracked_worktree_clean: true,
+            specification_sha256: requirement,
             crashed_at: DateTime.to_iso8601(Accounts.now())
           },
           pretty: true

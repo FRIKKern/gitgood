@@ -1,6 +1,6 @@
 # Private discovery implementation
 
-J13 now includes native permission-filtered search/activity and a shared browser access boundary. Integration, copied-production proof and current release acceptance remain pending.
+J13 now includes native permission-filtered search/activity and a shared browser access boundary. Private local proof exists on Windows and independent Linux; remote integration and full release acceptance remain pending.
 
 Native reads search permitted repositories, pull requests and releases. Activity reads their actual creation/review/release records and durable push/merge/import operations. The backend joins current membership before applying matching, pagination or snippets; scoped session credentials restrict all reads to their repository. Unknown input is refused, wildcard characters are literal and UTF-8 queries are bounded to 256 bytes. Each page contains at most 50 records, with no global count or sequence cursor. Authenticated encrypted cursors bind the current actor/credential/access context, filter and 15-minute expiry.
 
@@ -16,4 +16,8 @@ Revision-bound comment drafts survive reload only when the actual session verifi
 
 Owners can grant/change/remove existing installation accounts through the team membership UI/API. A serialized per-team database lock protects concurrent changes and the final owner. Expected roles prevent stale writes; idempotency keys converge on one retained audit UUID. Current owner authorization is required even for retries. A self-removing owner can receive a changed-access response after the committed change; the refreshed session and remaining owner's audit resolve that outcome. There is no public signup or invitation delivery.
 
-Targeted backend checks and the prior foundation browser flow passed during development. Current adversarial browser, full backend, populated upgrade/restart and copied-production proof are still required before claiming J13 accepted. Supported Barkpark records remain J10 work; this native view does not create another task/specification owner. Capacity targets remain M4 measurement work.
+Candidate bac8583 passed 77 backend checks on both Windows and independent Linux, a populated upgrade/fresh-VM check, six copied-production browser workflows and 14 restart/readiness checks on each platform. Linux additionally passed nine real-database recovery checks and nine deliberate VM interruptions. Private receipts retain the candidate and requirement identities; these results do not satisfy the missing remote CI integration gate or complete the release.
+
+Evidence review found that the merge VM crash fixture recorded its synthetic repository's HEAD as the candidate. The fixture now reads the clean Gitgood source checkout explicitly and refuses reconciliation against another candidate or J08 revision. Preserve the original receipts as a reporting defect, and rerun the corrected fixture before accepting crash provenance. Import receipts already identify the source checkout.
+
+Supported Barkpark records remain J10 work; this native view does not create another task/specification owner. Capacity targets remain M4 measurement work.

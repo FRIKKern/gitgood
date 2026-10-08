@@ -1,7 +1,7 @@
 {
   "id": "private-discovery",
   "category": "Changed",
-  "summary": "Added permission-filtered native search and activity, opaque collaboration links, shared browser access invalidation and audited owner controls for team membership.",
+  "summary": "Added permission-filtered native search and activity, opaque collaboration links, shared browser access invalidation and audited owner controls for team membership; corrected merge crash proof to bind the clean source candidate and requirement.",
   "impact": "product",
   "references": [
     "docs/implementation/activity.md",
