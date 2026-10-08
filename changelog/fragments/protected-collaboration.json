@@ -5,7 +5,8 @@
   "impact": "product",
   "references": [
     "docs/decisions/0004-review-check-merge-semantics.md",
-    "docs/implementation/collaboration.md"
+    "docs/implementation/collaboration.md",
+    "https://github.com/FRIKKern/gitgood/pull/10"
   ],
   "journeys": [
     "J06",

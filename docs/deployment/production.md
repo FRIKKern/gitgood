@@ -41,6 +41,8 @@ Bootstrap a local actor once with `GITGOOD_BOOTSTRAP_USERNAME`, `GITGOOD_BOOTSTR
 
 Start forge with `bin/gitgood start` and web with `npm start`. On Windows use `bin/gitgood.bat`. Use a supervisor that owns the complete process tree and persists logs privately. A production TLS proxy routes `/git/*` directly to the forge, everything else to the web, and denies `/internal/*`. See the Caddy example; validate the deployed proxy separately, including request/time limits and no public backend bypass.
 
+The example uses mutually exclusive path handles so the internal-path denial precedes the fallback, and an exact 33554432-byte body limit (32 MiB). Its response-header timeout allows the bounded upload and Git processing intervals. Syntax/routing guidance comes from [Caddy handle/order](https://caddyserver.com/docs/caddyfile/directives/handle), [body limits](https://caddyserver.com/docs/caddyfile/directives/request_body) and [reverse proxy transport](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy); this source review is separate from deployed proxy verification.
+
 ## Readiness and replacement
 
 `/health/live` reports process/build identity. Forge `/health/ready` checks database migrations, writable storage, required executables and clean build identity. Web readiness additionally requires a ready forge with exactly the same candidate. Readiness is a prerequisite for routing traffic, not a complete backup/restore or security proof.

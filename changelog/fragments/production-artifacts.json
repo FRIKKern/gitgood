@@ -5,7 +5,8 @@
   "impact": "product",
   "references": [
     "docs/deployment/production.md",
-    "docs/decisions/D06.md"
+    "docs/decisions/D06.md",
+    "https://github.com/FRIKKern/gitgood/pull/11"
   ],
   "journeys": [
     "J01",

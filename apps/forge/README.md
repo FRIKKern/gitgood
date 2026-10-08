@@ -20,10 +20,11 @@ Disposable login: owner / synthetic-password. reviewer is a writer; reader and o
 The seed refuses production. Bootstrap a real actor with GITGOOD_BOOTSTRAP_PASSWORD in the environment and
 `mix gitgood.bootstrap USER TEAM owner`. Passwords and tokens must never be arguments or saved in remote URLs.
 
-The API listens at http://localhost:47841; /health/ready checks the database.
+The API listens at http://localhost:47841; /health/ready checks migrations, writable storage and native executables. /health/live reports process/build identity separately.
 The web origin defaults to http://localhost:47840. Storage defaults to ignored .gitgood/repos.
 Production requires DATABASE_URL, SECRET_KEY_BASE, PHX_HOST, GITGOOD_PUBLIC_URL, GITGOOD_WEB_ORIGIN and GITGOOD_STORAGE.
 Public origins require HTTPS; the backend binds loopback behind a TLS proxy. No public deployment is configured.
+For compiled releases, transactional bootstrap and copied-artifact verification, see [production instructions](../../docs/deployment/production.md).
 
 Authenticated POST /api/repos/:team/:name/credentials issues a repository-scoped Git token once.
 DELETE /api/credentials/:id revokes an owned credential. Git uses HTTP Basic with the account username and this token.

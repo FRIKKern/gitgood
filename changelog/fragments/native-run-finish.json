@@ -1,0 +1,11 @@
+{
+  "id": "native-run-finish",
+  "category": "Added",
+  "summary": "Recorded the completed native foundation run with criterion-level observations, exact candidate/runtime evidence, clean-start instructions, integration references and remaining private-forge/Cloud milestones.",
+  "impact": "planning",
+  "references": [
+    "docs/RUN-72H-FINISH.md"
+  ],
+  "journeys": [],
+  "withdrawn": false
+}
