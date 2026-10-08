@@ -1,0 +1,9 @@
+{
+  "id": "72-hour-run-plan",
+  "category": "Added",
+  "summary": "Added a 72-hour implementation proposal covering the private repository slice, review/check/merge foundations, interruption recovery, and clean-target packaging, with evidence-based daily targets.",
+  "impact": "planning",
+  "references": ["docs/RUN-72H.md"],
+  "journeys": [],
+  "withdrawn": false
+}
