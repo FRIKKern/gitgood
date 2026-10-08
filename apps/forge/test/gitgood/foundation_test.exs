@@ -177,7 +177,9 @@ defmodule Gitgood.FoundationTest do
           Git.path(repository),
           "commit-tree",
           String.trim(tree)
-        ], input: "Legacy fixture\n")
+        ],
+        input: "Legacy fixture\n"
+      )
 
     assert {_, 0} =
              Git.run([
