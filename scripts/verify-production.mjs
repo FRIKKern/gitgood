@@ -147,7 +147,26 @@ try {
   await run(process.env.GITGOOD_GIT??'git',['ls-remote',importRepo.clone_url,'refs/heads/*','refs/tags/*'],importEnv,root,'persisted-import-read')
   const importRefs=await readFile(join(logs,'persisted-import-read.log'),'utf8')
   for(const update of imported.updates)assert(importRefs.split(/\r?\n/).includes(update.new+'\t'+update.ref),'Exact imported ref must persist')
-  const gitRepo=after.repositories.find(r=>r.name.startsWith('git-'))
+  const gitFlow=JSON.parse(await readFile(join(sourceWeb,'test-results-production/git-receipt.json'),'utf8'))
+  const gitRepo=after.repositories.find(r=>r.id===gitFlow.repository)
+  assert(gitRepo,'The browser change repository must persist')
+  const nativeChangeUrl='/repos/'+gitRepo.team+'/'+gitRepo.name+'/pulls/'+gitFlow.pullRequest
+  for(const origin of [forgeUrl,webUrl]) {
+    const allowedAlias=await fetch(origin+'/api/changes/'+gitFlow.pullRequest,{headers:{authorization}})
+    assert.equal(allowedAlias.status,200)
+    assert.equal(allowedAlias.headers.get('cache-control'),'no-store')
+    const resolvedAlias=await allowedAlias.json()
+    assert.equal(resolvedAlias.id,gitFlow.pullRequest)
+    assert.equal(resolvedAlias.url,nativeChangeUrl,'Opaque change destination must persist after restart')
+    for(const id of [gitFlow.pullRequest,'00000000-0000-0000-0000-000000000001']) {
+      const deniedAlias=await fetch(origin+'/api/changes/'+id,{headers:{authorization:outsiderAuth}})
+      assert.equal(deniedAlias.status,404)
+      assert.deepEqual(await deniedAlias.json(),{error:'change_not_found'},'Denied and missing aliases must reveal no private context')
+    }
+    const anonymousAlias=await fetch(origin+'/api/changes/'+gitFlow.pullRequest)
+    assert.equal(anonymousAlias.status,401)
+    assert.deepEqual(await anonymousAlias.json(),{error:'sign_in_required'})
+  }
   const released=JSON.parse(await readFile(join(sourceWeb,'test-results-production/release-receipt.json'),'utf8'))
   const releaseRepo=after.repositories.find(r=>r.name===released.repository)
   assert(releaseRepo,'Release repository must persist after restart')
@@ -208,7 +227,8 @@ try {
     runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,importOperation:imported.operation_id,
     release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
     discovery:{record:discovery.record,membership_events:discovery.membership_events},
-    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
+    nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
+    checks:['source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})

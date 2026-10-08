@@ -302,9 +302,11 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     const revoked = await fetch(upstream + '/api/credentials/' + readerCredential.id, {method:'DELETE',headers:reader})
     expect(revoked.status).toBe(200)
     await expect(command(['ls-remote',url], clientEnv('reader',readerCredential.token))).rejects.toThrow()
-    await writeFile(testInfo.outputPath('git-receipt.json'), JSON.stringify({repository:repo.id, initial, feature,
+    const gitReceipt = JSON.stringify({repository:repo.id, initial, feature,
       mergedSource,pullRequest:pullId,actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
-      releaseTag,native_change_landing:['opaque UUID','anonymous hides repository/title','sign-in return target','permitted native navigation','foreign equals missing','held response after account switch discarded'],checks:['empty clone','commit','push','fetch','immutable tag creation/replacement/deletion','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
+      releaseTag,native_change_landing:['opaque UUID','anonymous hides repository/title','sign-in return target','permitted native navigation','foreign equals missing','held response after account switch discarded'],checks:['empty clone','commit','push','fetch','immutable tag creation/replacement/deletion','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2) + '\n'
+    await writeFile(testInfo.outputPath('git-receipt.json'), gitReceipt)
+    await writeFile(resolve(process.env.GITGOOD_TEST_PRODUCTION === 'true' ? 'test-results-production' : 'test-results', 'git-receipt.json'), gitReceipt)
     complete = true
   } finally {
     proxy.closeAllConnections()
