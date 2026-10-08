@@ -112,7 +112,7 @@ if mode == "prepare" do
   row = Repo.get_by!(BarkparkConnection, user_id: user.id)
   cipher_hash = Base.encode16(:crypto.hash(:sha256, row.token_cipher), case: :lower)
   Ecto.Migrator.run(Repo, path, :up, to: 20_261_008_164_430)
-  Ecto.Migrator.run(Repo, path, :down, to: 20_261_008_151_339)
+  Ecto.Migrator.run(Repo, path, :down, to_exclusive: 20_261_008_151_339)
 
   unless Repo.query!("SELECT to_regclass('source_links')").rows == [[nil]] &&
            Repo.get!(PullRequest, pull.id).public_id == pull.public_id &&
@@ -215,7 +215,7 @@ if mode == "prepare" do
 
   refused = fn ->
     try do
-      Ecto.Migrator.run(Repo, path, :down, to: 20_261_008_151_339)
+      Ecto.Migrator.run(Repo, path, :down, to_exclusive: 20_261_008_151_339)
       false
     rescue
       error in Postgrex.Error ->
