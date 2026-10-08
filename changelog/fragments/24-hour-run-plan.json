@@ -1,0 +1,9 @@
+{
+  "id": "24-hour-run-plan",
+  "category": "Added",
+  "summary": "Added a time-boxed first implementation run targeting the running foundation and private create/clone/push/browse slice, with observed environment constraints, verification checkpoints, and recovery rules.",
+  "impact": "planning",
+  "references": ["docs/RUN-24H.md"],
+  "journeys": [],
+  "withdrawn": false
+}

@@ -4,6 +4,7 @@ Generated from reviewed fragments and changelog/releases.json. This file does no
 
 ## Unreleased
 
+- **Added:** Added a time-boxed first implementation run targeting the running foundation and private create/clone/push/browse slice, with observed environment constraints, verification checkpoints, and recovery rules. Sources: [docs/RUN-24H.md](docs/RUN-24H.md)
 - **Changed:** Delegated project progression to agents and replaced human acceptance gates with recorded evidence-based verification across decisions, milestones, merges, and releases. Sources: [AUTONOMY.md](AUTONOMY.md), [QUALITY.md](QUALITY.md)
 - **Changed:** Converted the top README roadmap to a milestone Gantt showing delivery surfaces and proposed research overlap; retained the detailed journey evidence map as a separate generated view. Sources: [docs/ROADMAP.md](docs/ROADMAP.md), [docs/images/journey-evidence.svg](docs/images/journey-evidence.svg)
 - **Changed:** Renamed the project from Gitpark to Gitgood, including the private GitHub repository, documentation, package metadata, roadmap SVG, and maintenance variable. Sources: [docs/decisions/D01.md](docs/decisions/D01.md)
