@@ -11,6 +11,9 @@ export async function proxy(request: Request): Promise<Response> {
     /^\/api\/repos\/[a-z0-9-]+\/[a-z0-9-]+\/releases\/[0-9a-f-]{36}\/assets\/[0-9a-f-]{36}\/source$/.test(target.pathname)
   const assetDownload = request.method === 'GET' &&
     /^\/api\/repos\/[a-z0-9-]+\/[a-z0-9-]+\/releases\/[0-9a-f-]{36}\/assets\/[0-9a-f-]{36}\/download$/.test(target.pathname)
+  const evidenceDownload = request.method === 'GET' &&
+    /^\/api\/repos\/[a-z0-9-]+\/[a-z0-9-]+\/pulls\/[0-9a-f-]{36}\/links\/[0-9a-f-]{36}\/evidence\/[0-9a-f-]{36}\/download$/.test(target.pathname)
+  const download = assetDownload || evidenceDownload
   const upload = bundleUpload || assetUpload
   const limit = bundleUpload ? 33_554_432 : assetUpload ? 16_777_216 : 1_048_576
   const declared = request.headers.get('content-length')
@@ -22,7 +25,7 @@ export async function proxy(request: Request): Promise<Response> {
     if (value) headers.set(name, value)
   }
   headers.set('accept', 'application/json')
-  if (assetDownload) headers.set('accept-encoding', 'identity')
+  if (download) headers.set('accept-encoding', 'identity')
   const controller = new AbortController()
   const abort = () => controller.abort()
   request.signal.addEventListener('abort', abort, {once: true})
@@ -83,7 +86,7 @@ export async function proxy(request: Request): Promise<Response> {
     const responseHeaders = new Headers({'content-type': 'application/json', 'cache-control': 'no-store'})
     const accessContext = result.headers.get('x-gitgood-access-context')
     if (accessContext) responseHeaders.set('x-gitgood-access-context', accessContext)
-    if (assetDownload && result.ok) {
+    if (download && result.ok) {
       responseHeaders.set('content-type', 'application/octet-stream')
       responseHeaders.set('x-content-type-options', 'nosniff')
       // Fetch may decompress an upstream response; its wire length is not the

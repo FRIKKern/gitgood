@@ -7,7 +7,7 @@
     "build": "vite build",
     "start": "srvx --prod -s dist/client server.mjs",
     "verify:production": "node ../../scripts/verify-production.mjs",
-    "check": "vite build && tsc --noEmit && node --test verification/client-address.test.mjs"
+    "check": "vite build && tsc --noEmit && node --test verification/client-address.test.mjs verification/forge-proxy.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.1",

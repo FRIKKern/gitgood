@@ -95,9 +95,15 @@ test('criterion evidence binds real Git and source revisions, retains history an
   expect(view.criteria[0].state).toBe('passed')
   const first = view.records[0]
   await panel.getByText('Evidence history (1)', {exact: true}).click()
-  const downloaded = page.waitForEvent('download')
-  await panel.getByRole('button', {name: 'Download protected artifact', exact: true}).click()
-  const download = await downloaded, file = await download.path()
+  const [download, downloadResponse] = await Promise.all([
+    page.waitForEvent('download', {timeout: 15000}),
+    page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname === new URL(endpoint + '/' + first.id + '/download').pathname),
+    panel.getByRole('button', {name: 'Download protected artifact', exact: true}).click(),
+  ])
+  expect(downloadResponse.status()).toBe(200)
+  expect(downloadResponse.headers()['x-gitgood-sha256']).toBe(hash(artifact))
+  expect(downloadResponse.headers()['content-type']).toBe('application/octet-stream')
+  const file = await download.path()
   expect(download.suggestedFilename()).toBe('browser-proof.txt')
   expect(hash(await readFile(file!))).toBe(hash(artifact))
   const post = async (outcome: string, key: string) => {
