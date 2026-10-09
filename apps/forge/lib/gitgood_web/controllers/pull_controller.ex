@@ -22,7 +22,7 @@ defmodule GitgoodWeb.PullController do
   def show(conn, params),
     do:
       with_pull(conn, params, fn repository, pull ->
-        case Pulls.revisions(repository, pull) do
+        case Pulls.browse_revisions(repository, pull) do
           {:ok, revisions} ->
             audit = if pull.state == "merged", do: Pulls.applied_operation(repository, pull)
 
@@ -59,20 +59,27 @@ defmodule GitgoodWeb.PullController do
               )
             )
 
-          _ ->
-            Auth.reject(conn, 409, "branches_unavailable")
+          {:error, reason} ->
+            revision_refusal(conn, reason)
         end
       end)
 
   def diff(conn, params),
     do:
       with_pull(conn, params, fn repository, pull ->
-        case Pulls.revisions(repository, pull) do
+        case Pulls.browse_revisions(repository, pull) do
           {:ok, current} ->
-            respond(conn, Browse.diff(repository, current.source_sha, current.target_sha), & &1)
+            case Browse.diff(repository, current.source_sha, current.target_sha) do
+              {:error, reason}
+              when reason in [:browse_busy_retry, :git_unavailable, :history_unavailable] ->
+                Auth.reject(conn, 503, Atom.to_string(reason))
 
-          _ ->
-            Auth.reject(conn, 409, "branches_unavailable")
+              result ->
+                respond(conn, result, & &1)
+            end
+
+          {:error, reason} ->
+            revision_refusal(conn, reason)
         end
       end)
 
@@ -189,6 +196,12 @@ defmodule GitgoodWeb.PullController do
   end
 
   defp key(conn), do: get_req_header(conn, "idempotency-key") |> List.first()
+
+  defp revision_refusal(conn, reason) when reason in [:browse_busy_retry, :ref_unavailable],
+    do: Auth.reject(conn, 503, Atom.to_string(reason))
+
+  defp revision_refusal(conn, _), do: Auth.reject(conn, 409, "branches_unavailable")
+
   defp respond(conn, {:ok, value}, render), do: json(conn, render.(value))
   defp respond(conn, {:error, reason}, _), do: Auth.reject(conn, 409, Atom.to_string(reason))
 end

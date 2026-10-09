@@ -28,6 +28,10 @@ defmodule Gitgood.Pulls do
 
   def get_public(_, _), do: nil
 
+  def browse_revisions(repository, pull) do
+    Gitgood.BrowseSlots.with_slot(fn -> revisions(repository, pull) end)
+  end
+
   def revisions(repository, %{state: "merged"} = pull) do
     operation = applied_operation(repository, pull)
 

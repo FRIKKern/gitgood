@@ -18,6 +18,23 @@ Git-command failure returns `503 git_unavailable`, including during commit reach
 unreachable commits retain their explicit refusal. Native team authorization precedes admission. The existing
 four-command subprocess limit remains in effect; other operations can consume that capacity.
 
+The repository page waits for its branch read to settle before starting the selected commit read.
+Code view requests a snapshot; diff view requests a diff. This avoids two simultaneous admitted Git
+reads per page and avoids loading a snapshot that the diff view does not display. Refresh retains the
+viewed SHA, and failed branch reads keep their explicit retry. Authorization, admission limits and
+the measured pilot targets are unchanged.
+
+Pull-request display and diff revision reads use the same admission queue. Missing refs still produce
+their branch-unavailable refusal; queue saturation and unavailable Git reads return a retryable 503.
+Authoritative merge/review revision validation keeps its existing transaction semantics. Revision
+admission is released before diff admission, avoiding nested slot acquisition.
+
+The eight-reader browser measurement at candidate `822058a540ab684b9cf3d92ef31927523f7c5ff1`
+reproduced `503 browse_busy_retry` on initial branch/snapshot requests. Thirty repository interactions
+passed, but concurrent direct directory entry failed some file-view preconditions. The retained wire
+refusals and screenshots identify the request burst; this scheduling repair still needs fresh browser
+and production measurement before any capacity claim.
+
 The first reference-guest pilot at candidate `9149a25b864da6e5713c54a5fde2ba5348176565` failed its concurrent
 read targets. Its QEMU TCG guest had four virtual CPUs and 4 GiB on a shared physical host. Sequential
 warmups passed, but eight independent readers observed 503 responses, misleading 422 responses from

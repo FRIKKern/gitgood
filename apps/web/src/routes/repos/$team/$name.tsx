@@ -37,8 +37,9 @@ function RepositoryPage() {
       void navigate({search: {...search, sha: initial.sha}, replace: true})
     }
   }, [branches.data, search, navigate])
-  const snapshot = useQuery({queryKey: ['snapshot', team, name, search.sha, search.path], queryFn: () => api<Snapshot>(base + '/snapshot?' + new URLSearchParams({sha: search.sha, path: search.path})), enabled: !!repository.data && !!search.sha, retry: false})
-  const diff = useQuery({queryKey: ['diff', team, name, search.sha], queryFn: () => api<{text: string; base: string}>(base + '/diff?sha=' + search.sha), enabled: !!repository.data && !!search.sha && search.view === 'diff', retry: false})
+  const browseReady = !!repository.data && !!branches.data && !branches.isFetching && !branches.error && !!search.sha
+  const snapshot = useQuery({queryKey: ['snapshot', team, name, search.sha, search.path], queryFn: () => api<Snapshot>(base + '/snapshot?' + new URLSearchParams({sha: search.sha, path: search.path})), enabled: browseReady && search.view === 'code', retry: false})
+  const diff = useQuery({queryKey: ['diff', team, name, search.sha], queryFn: () => api<{text: string; base: string}>(base + '/diff?sha=' + search.sha), enabled: browseReady && search.view === 'diff', retry: false})
   const link = (sha: string, path = '', view = 'code') => repository.data!.url + '?' + new URLSearchParams({sha, path, view})
   const selected = branches.data?.branches.find(b => b.sha === search.sha)
   async function issue() {

@@ -1,0 +1,1 @@
+{"id":"browse-request-scheduling","category":"Fixed","summary":"Sequence repository branch and selected commit reads, and admit pull-request revision reads through the same bounded queue; preserve retryable capacity refusals without raising resource limits.","impact":"product","references":["docs/implementation/browsing.md"],"journeys":["J04","J05"],"withdrawn":false}

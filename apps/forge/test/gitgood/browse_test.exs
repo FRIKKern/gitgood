@@ -128,4 +128,105 @@ defmodule Gitgood.BrowseTest do
     Enum.each(sockets, &:gen_tcp.close/1)
     for worker <- workers, do: assert(Task.await(worker, 5000) == {:ok, "", 0})
   end
+
+  defp await_slots(expected, deadline) do
+    actual = GenServer.call(Gitgood.BrowseSlots, :counts)
+
+    if actual != expected do
+      assert System.monotonic_time(:millisecond) < deadline, inspect(actual)
+
+      receive do
+      after
+        1 -> await_slots(expected, deadline)
+      end
+    end
+  end
+
+  test "eight authorized pull reads queue while outsiders and excess callers refuse", ctx do
+    sha = fixture(ctx.repository)
+    command(ctx.repository, ["update-ref", "refs/heads/work", sha])
+    {token, credential} = Accounts.issue(ctx.user, "session")
+
+    {:ok, pull} =
+      Gitgood.Pulls.create(
+        ctx.repository,
+        ctx.user,
+        credential,
+        %{"source" => "work", "title" => "Queued review"},
+        "queued-pull-create"
+      )
+
+    public = Gitgood.Pulls.public(pull)
+    path = "/api/repos/browse/fixture/pulls/" <> public.id
+
+    readers =
+      for index <- 1..8 do
+        {:ok, reader} = Accounts.create_user("queued-reader-#{index}", "synthetic-password")
+        {:ok, _} = Accounts.add_member(reader, "browse", "reader")
+        {reader_token, _} = Accounts.issue(reader, "session")
+        reader_token
+      end
+
+    {:ok, outsider} = Accounts.create_user("queued-outsider", "synthetic-password")
+    {outside_token, _} = Accounts.issue(outsider, "session")
+    tasks = start_supervised!({Task.Supervisor, name: nil})
+    owner = self()
+
+    holders =
+      for _ <- 1..4 do
+        Task.Supervisor.async_nolink(tasks, fn ->
+          Gitgood.BrowseSlots.with_slot(fn ->
+            send(owner, {:holding_browse, self()})
+
+            receive do
+              :release_browse -> :released
+            end
+          end)
+        end)
+      end
+
+    holder_pids =
+      for _ <- 1..4 do
+        assert_receive {:holding_browse, pid}
+        pid
+      end
+
+    requests =
+      readers
+      |> Enum.with_index()
+      |> Enum.map(fn {reader_token, index} ->
+        Task.Supervisor.async_nolink(tasks, fn ->
+          suffix = if rem(index, 2) == 0, do: "", else: "/diff"
+
+          result =
+            build_conn()
+            |> put_req_header("authorization", "Bearer " <> reader_token)
+            |> get(path <> suffix)
+            |> json_response(200)
+
+          if suffix == "" do
+            assert result["source_sha"] == sha and result["target_sha"] == sha
+          else
+            assert result["sha"] == sha and result["base"] == sha and result["text"] == ""
+          end
+        end)
+      end)
+
+    await_slots(%{active: 4, waiting: 8}, System.monotonic_time(:millisecond) + 3000)
+
+    assert build_conn()
+           |> put_req_header("authorization", "Bearer " <> outside_token)
+           |> get(path)
+           |> json_response(404) == %{"error" => "repository_not_found"}
+
+    assert build_conn()
+           |> put_req_header("authorization", "Bearer " <> token)
+           |> get(path)
+           |> json_response(503) == %{"error" => "browse_busy_retry"}
+
+    Enum.each(holder_pids, &send(&1, :release_browse))
+    for holder <- holders, do: assert(Task.await(holder, 10000) == :released)
+    for request <- requests, do: Task.await(request, 10000)
+    await_slots(%{active: 0, waiting: 0}, System.monotonic_time(:millisecond) + 1000)
+  end
 end
