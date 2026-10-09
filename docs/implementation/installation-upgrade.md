@@ -20,11 +20,12 @@ internal and public authenticated API/CA-verified HTTPS/pinned-key SSH probes
 preserved the private branch and commit. The release pointer and terminal journal
 identify the new artifact. Thirteen actual checks and a thirty-file private archive
 passed digest readback. The original older archive omitted its web parent entry
-and refused before enrollment; that artifact and failure remain retained. Current
+and refused before enrollment; that artifact and failure remain retained. Its
 structural checks passed 69 Linux and 27 Windows checks, with eight and fifty
 foreign-profile skips respectively, plus 23 planning tests; thirteen proof files
-passed digest readback. Failure and interruption paths still require current
-experiments, so this positive transition does not establish complete J15 acceptance.
+passed digest readback. The later failure and interruption experiments below are
+separate candidates; this positive transition alone does not establish complete
+J15 acceptance.
 
 Explicit previous-code recovery reclaims the same failed or uncertain operation,
 stops its complete owned groups before database-dependent observation, and requires
@@ -37,14 +38,29 @@ candidate's migrations. A durable repair event supersedes acknowledgements after
 maintenance while preserving every prior event; controlled migration, internal
 function, routing and public probes all repeat. A lost repair acknowledgement
 reopens the recorded pending migration instead of silently starting another
-operation. These forward paths have structural tests but await installed failure
-and interruption experiments. The installed partial-migration fixture reached
-fourteen migrations, refused previous-code recovery and retained maintenance.
-Its first forward repair exposed a missing read-only maintenance-probe permission
-during `migrate`; that phase now permits the probe under the existing owner lock.
-The failed operation and original proof are retained for same-operation repair.
-Matching-artifact restoration remains a separate
-offline recovery procedure.
+operation. The installed partial-migration fixture reached fourteen migrations,
+refused previous-code recovery and retained maintenance and the original pointer.
+Its deliberate conflicting empty table was renamed under the same database OID,
+preserving fixture custody. The first forward repair exposed a missing read-only
+maintenance-probe permission during `migrate`; that phase now permits the probe
+under the existing owner lock. Frozen `3142de2` resumed the exact failed operation,
+reobserved fourteen migrations, reached fifteen without a down migration, repeated
+internal/public authenticated API/CA HTTPS/pinned SSH probes and recorded the new
+pointer and complete journal while preserving every prior event. Twelve installed
+checks and twenty-five private proof files passed digest readback.
+Matching-artifact restoration remains a separate offline recovery procedure.
+
+A separate installed `3142de2` experiment killed the actual upgrade owner with
+SIGKILL after successful current-pointer file/directory fsync and before the
+public-verification journal acknowledgement. The retained pointer named the new
+operation while the journal still had six completed stages. Read-only status
+reported the dead owner's operation as uncertain. The runtime remained public;
+explicit same-operation forward repair independently reobserved the new pointer,
+reentered maintenance, repeated migration and internal/public API/CA HTTPS/pinned
+SSH probes, and completed without discarding prior events. Twelve checks and
+twenty-three ordinary proof files passed digest readback. This uses one artifact
+and fifteen-migration schema; it establishes lost stage acknowledgement after
+successful persistence, not filesystem durability failure or independent hardware.
 
 An initial same-schema fault experiment preserved the working runtime and pointer
 after a bad digest, then found an older runtime's process-present refusal during
@@ -53,7 +69,24 @@ and private dump are retained. Fixed native environments now direct crash dumps
 to private runtime custody. Whole-group shutdown captures kernel birth identities
 and reaps only matching child zombies from that owned group, leaving unrelated or
 reused child identities untouched. An actual three-child Linux test covers that
-boundary. The corrected installed recovery still needs fresh verification.
+boundary. Frozen `3bc6736` recovered the exact failed installation after moving the
+generated dump intact into private custody, independently revalidating the original
+artifact and observing its thirteen-migration schema and public Git function.
+Ten checks and twenty-three ordinary proof files passed digest readback; dump
+contents were not exported. This was cold recovery after the failed driver exited.
+The fresh warm-parent `e11ad2b` experiment then passed thirteen checks: wrong digest
+preserved the working pointer and exact runtime births; deliberately unhealthy
+web code never activated, and an independent TLS observer retained maintenance
+through candidate verification. Recovery reestablished the original artifact,
+schema and authenticated public API/HTTPS/SSH ref. Twenty-four ordinary proof files
+passed digest readback. The injected web payload has a distinct digest and is not
+a clean source build, despite its retained declared old identity.
+
+The frozen `3142de2` operator passes 72 Linux checks and 27 Windows checks, with
+eight and 53 foreign-profile skips respectively, plus all 26 planning tests.
+Independent frozen Git byte comparisons and four ordinary proof files passed
+digest readback. These structural results do not establish full product release
+acceptance or managed Cloud support.
 
 The frozen `fd9b909` installed supporting experiment exercised the fixed product
 probe and current-release libraries on the historical `1b0fe04` artifact. Thirteen
