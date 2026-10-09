@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "8cd5ab50e342e753f62c287e00485739483402d3",
+  "headCommit": "4bfd35f64c8c8693b2c48f6a60c36c301e1bdf82",
   "specRevision": "sha256:dc7402370e1d4b91f00cb124e6acea2713625f430880514f2eefc19884190e5a",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-08T22:15:17.418Z",
+      "observedAt": "2026-10-09T03:46:53.965Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
@@ -94,7 +94,7 @@
       "id": "J11",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J11.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/eac561558a9e5026bd9a864802cb5fa594d6f9c3/docs/implementation/criterion-evidence.md"
       }
     },
     {
@@ -121,15 +121,15 @@
     {
       "id": "J15",
       "implementation": {
-        "state": "planned",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J15.md"
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/2232976d18d9b74aa4cb047ee362322cbf67b8fa/docs/implementation/criterion-evidence.md"
       }
     },
     {
       "id": "J16",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J16.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/eac561558a9e5026bd9a864802cb5fa594d6f9c3/docs/implementation/offline-backup.md"
       }
     },
     {
@@ -140,5 +140,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-08T22:15:17.418Z"
+  "evaluatedAt": "2026-10-09T03:46:53.965Z"
 }
