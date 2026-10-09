@@ -1,0 +1,17 @@
+{
+  "id": "basic-releases",
+  "category": "Added",
+  "summary": "Added private tag/commit releases with transactional checksummed assets, actual commit ranges, reviewed-note publication, safe retries, retained corrections/withdrawals and native immutable tag pushes.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/releases.md",
+    "docs/decisions/0007-basic-private-releases.md"
+  ],
+  "journeys": [
+    "J12",
+    "J02",
+    "J03",
+    "J04"
+  ],
+  "withdrawn": false
+}

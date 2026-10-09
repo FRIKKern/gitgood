@@ -21,7 +21,7 @@ Initialization and recovery do not execute user code.
 Current bounds: 32 MiB request/pack input, 32 MiB transport response, 60-second Git RPC deadline, 64 refs per push.
 Plain browser API bodies remain capped at 1 MiB.
 The initial main branch is initialized by the repository creator; later raw main updates are refused.
-Feature branches allow fast-forward writes; deletes, forced rewrites, tags, LFS and broader format interoperability are not yet supported.
+Feature branches allow fast-forward writes; deletes, forced rewrites, tags, LFS and broader format interoperability were outside the initial transport slice. [Private release work](0007-basic-private-releases.md) subsequently adds immutable tag creation through the same journaled HTTPS/SSH push path; tag rewrites/deletion remain refused.
 HTTP-compressed RPC bodies are refused pending a bounded decompression experiment.
 The store format is SHA-1. Compatibility is explicitly limited to the tested clients and fixture workloads.
 

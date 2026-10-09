@@ -1,0 +1,1 @@
+{"id":"native-ci-boundary","category":"Added","summary":"Document the measured native rootless CI boundary and a pinned runner build recipe, preserving failed emulated/minimal-image results and requiring actual job conclusions.","impact":"operator","references":["docs/implementation/isolated-ci.md","tools/ci/native-runner.Containerfile"],"journeys":["J16"],"withdrawn":false}

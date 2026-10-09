@@ -1,0 +1,9 @@
+{
+  "id": "bounded-evidence-history",
+  "category": "Changed",
+  "summary": "Bounded evidence history to 20 records and 25 events per record per response, with authorized navigation and whole-history latest-result state. NUL-containing evidence text now refuses before database storage; retained records and artifact custody are unchanged.",
+  "impact": "product",
+  "references": ["docs/implementation/evidence-history.md"],
+  "journeys": ["J11"],
+  "withdrawn": false
+}

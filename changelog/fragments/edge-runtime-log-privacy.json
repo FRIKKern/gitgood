@@ -1,0 +1,9 @@
+{
+  "id": "edge-runtime-log-privacy",
+  "category": "Security",
+  "summary": "Filter private headers from Caddy runtime errors and cancelled-stream warnings as well as access evidence. Disable expanded config persistence and require actual failure-path privacy checks in copied-production verification.",
+  "impact": "operator",
+  "references": ["docs/deployment/production.md", "docs/deployment/Caddyfile.example"],
+  "journeys": ["J14"],
+  "withdrawn": false
+}

@@ -1,5 +1,8 @@
 defmodule Gitgood.Ref do
-  @moduledoc "The supported UTF-8 branch subset of git-check-ref-format, checked again by standard Git."
+  @moduledoc "The supported UTF-8 branch/tag subset of git-check-ref-format, checked again by standard Git."
+  def tag?("refs/tags/" <> name), do: branch?("refs/heads/" <> name)
+  def tag?(_), do: false
+
   def branch?(ref) when is_binary(ref) do
     String.valid?(ref) and String.starts_with?(ref, "refs/heads/") and byte_size(ref) <= 1024 and
       not Regex.match?(~r/[\x00-\x20\x7f~^:?*\[\\]/, ref) and

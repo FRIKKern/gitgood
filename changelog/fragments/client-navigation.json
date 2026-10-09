@@ -1,0 +1,1 @@
+{"id":"client-navigation","category":"Fixed","summary":"Navigate repository cards, files, history and pull-request lists through the web router while retaining shareable URLs and disabling speculative reads.","impact":"product","references":["docs/implementation/browsing.md"],"journeys":["J04","J06"],"withdrawn":false}

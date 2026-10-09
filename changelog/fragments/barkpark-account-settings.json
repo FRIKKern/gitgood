@@ -1,0 +1,13 @@
+{
+  "id": "barkpark-account-settings",
+  "category": "Added",
+  "summary": "Added private Barkpark account settings with credential-input clearing, current-state reconciliation after historical receipts, unavailable-read hiding and old-account completion guards.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/barkpark-accounts.md"
+  ],
+  "journeys": [
+    "J10"
+  ],
+  "withdrawn": false
+}

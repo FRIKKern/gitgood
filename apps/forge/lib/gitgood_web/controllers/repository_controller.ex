@@ -8,7 +8,11 @@ defmodule GitgoodWeb.RepositoryController do
       json(conn, %{
         repositories:
           Enum.map(
-            Repositories.list(conn.assigns.user),
+            Repositories.list(conn.assigns.user)
+            |> Enum.filter(fn repository ->
+              scope = conn.assigns.access_snapshot.repository_scope
+              is_nil(scope) or repository.id == scope
+            end),
             &Repositories.public(&1, conn.assigns.user)
           )
       })

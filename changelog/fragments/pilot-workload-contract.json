@@ -1,0 +1,9 @@
+{
+  "id": "pilot-workload-contract",
+  "category": "Added",
+  "summary": "Define the initial bounded pilot repository, independent concurrent actors, cache and network phases, and performance targets before measurement.",
+  "impact": "planning",
+  "references": ["docs/implementation/pilot-workload.md", "QUALITY.md"],
+  "journeys": ["J02", "J04", "J05", "J06", "J13"],
+  "withdrawn": false
+}

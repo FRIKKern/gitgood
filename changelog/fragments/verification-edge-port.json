@@ -1,0 +1,9 @@
+{
+  "id": "verification-edge-port",
+  "category": "Fixed",
+  "summary": "Select copied-production Caddy fixture ports only after both TCP and UDP bind successfully. Bounded retries preserve unrelated listeners and retain the HTTP/3 listener instead of dropping its protocol.",
+  "impact": "operator",
+  "references": ["scripts/verification-edge-port.mjs"],
+  "journeys": ["J14"],
+  "withdrawn": false
+}

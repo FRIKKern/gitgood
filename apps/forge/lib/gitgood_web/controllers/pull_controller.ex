@@ -1,6 +1,6 @@
 defmodule GitgoodWeb.PullController do
   use GitgoodWeb, :controller
-  alias Gitgood.{Browse, Checks, GitOperation, Merges, Pulls, Repo, Repositories}
+  alias Gitgood.{Checks, GitOperation, Merges, Pulls, Repo, Repositories}
   alias GitgoodWeb.Auth
 
   def index(conn, params),
@@ -22,12 +22,12 @@ defmodule GitgoodWeb.PullController do
   def show(conn, params),
     do:
       with_pull(conn, params, fn repository, pull ->
-        case Pulls.revisions(repository, pull) do
+        case Pulls.browse_revisions(repository, pull) do
           {:ok, revisions} ->
             audit = if pull.state == "merged", do: Pulls.applied_operation(repository, pull)
 
             events =
-              Enum.map(Pulls.events(pull), fn event ->
+              Enum.map(Pulls.events(pull, params["review"]), fn event ->
                 value = Pulls.event_public(event)
                 actor = Repo.get!(Gitgood.User, event.actor_id)
 
@@ -59,20 +59,25 @@ defmodule GitgoodWeb.PullController do
               )
             )
 
-          _ ->
-            Auth.reject(conn, 409, "branches_unavailable")
+          {:error, reason} ->
+            revision_refusal(conn, reason)
         end
       end)
 
   def diff(conn, params),
     do:
       with_pull(conn, params, fn repository, pull ->
-        case Pulls.revisions(repository, pull) do
-          {:ok, current} ->
-            respond(conn, Browse.diff(repository, current.source_sha, current.target_sha), & &1)
+        case Pulls.browse_diff(repository, pull) do
+          {:error, reason}
+          when reason in [:missing_ref, :ref_unavailable, :merge_audit_unavailable] ->
+            revision_refusal(conn, reason)
 
-          _ ->
-            Auth.reject(conn, 409, "branches_unavailable")
+          {:error, reason}
+          when reason in [:browse_busy_retry, :git_unavailable, :history_unavailable] ->
+            Auth.reject(conn, 503, Atom.to_string(reason))
+
+          result ->
+            respond(conn, result, & &1)
         end
       end)
 
@@ -150,8 +155,21 @@ defmodule GitgoodWeb.PullController do
             do:
               from(o in query,
                 where:
-                  o.kind == "merge" and fragment("?->>'pull_request_id' = ?", o.metadata, ^id)
+                  o.kind == "merge" and
+                    fragment(
+                      "?->>'pull_request_id' = ?",
+                      o.metadata,
+                      ^case Pulls.get_public(repository, id) do
+                        nil -> "unmatched"
+                        pull -> Integer.to_string(pull.id)
+                      end
+                    )
               ),
+            else: query
+
+        query =
+          if params["kind"] in ["push", "merge", "import"],
+            do: from(o in query, where: o.kind == ^params["kind"]),
             else: query
 
         operations = Repo.all(query)
@@ -162,15 +180,9 @@ defmodule GitgoodWeb.PullController do
   defp with_pull(conn, params, action),
     do:
       with_repository(conn, params, fn repository ->
-        case Integer.parse(params["id"] || "") do
-          {id, ""} when id > 0 ->
-            case Pulls.get(repository, id) do
-              nil -> Auth.reject(conn, 404, "pull_request_not_found")
-              pull -> action.(repository, pull)
-            end
-
-          _ ->
-            Auth.reject(conn, 404, "pull_request_not_found")
+        case Pulls.get_public(repository, params["id"]) do
+          nil -> Auth.reject(conn, 404, "pull_request_not_found")
+          pull -> action.(repository, pull)
         end
       end)
 
@@ -182,6 +194,12 @@ defmodule GitgoodWeb.PullController do
   end
 
   defp key(conn), do: get_req_header(conn, "idempotency-key") |> List.first()
+
+  defp revision_refusal(conn, reason) when reason in [:browse_busy_retry, :ref_unavailable],
+    do: Auth.reject(conn, 503, Atom.to_string(reason))
+
+  defp revision_refusal(conn, _), do: Auth.reject(conn, 409, "branches_unavailable")
+
   defp respond(conn, {:ok, value}, render), do: json(conn, render.(value))
   defp respond(conn, {:error, reason}, _), do: Auth.reject(conn, 409, Atom.to_string(reason))
 end

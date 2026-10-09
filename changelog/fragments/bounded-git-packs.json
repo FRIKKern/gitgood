@@ -1,0 +1,9 @@
+{
+  "id": "bounded-git-packs",
+  "category": "Fixed",
+  "summary": "Bound managed Git packing to two threads so many-core hosts retain functional HTTPS/SSH transfer within the existing worker memory ceiling.",
+  "impact": "product",
+  "references": ["docs/implementation/ssh.md", "apps/forge/README.md"],
+  "journeys": ["J02", "J03"],
+  "withdrawn": false
+}

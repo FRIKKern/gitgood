@@ -86,10 +86,11 @@ export function svg(m) {
     const x=36+i*382, values=[...states.values()].map(state=>state[s.key])
     out.push(`<g data-metric="${s.key}"><title>${esc(s.label+': '+metricText(s))}</title>`)
     rect(x,179,364,111,'panel')
-    text(x+18,206,s.label,15,'strong')
+    text(x+18,206,s.key==='implementation'?'Fully implemented':s.label,15,'strong')
     text(x+346,211,s.uncertain ? '?' : `${s.passed} / ${total}`,26,s.uncertain?'muted strong':'good strong','text-anchor="end"')
     const source=freshness(m.snapshot,s.source,clock)
-    text(x+18,235,source==='unconfigured'?'Status source not connected':source==='unavailable'?'Status source unavailable':metricText(s),14,'muted')
+    const detail=s.key==='implementation'&&!s.uncertain?`${s.passed} complete · ${values.filter(value=>value==='in_progress').length} in progress`:metricText(s)
+    text(x+18,235,source==='unconfigured'?'Status source not connected':source==='unavailable'?'Status source unavailable':detail,14,'muted')
     const segmentGap=Math.min(4,164/Math.max(1,total-1))
     const cell=(328-Math.max(0,total-1)*segmentGap)/Math.max(1,total)
     values.forEach((state,k)=>{

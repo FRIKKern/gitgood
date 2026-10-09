@@ -1,5 +1,38 @@
 import Config
 
+connection_key =
+  case System.get_env("GITGOOD_CONNECTION_KEY") do
+    nil ->
+      nil
+
+    encoded ->
+      case Base.decode64(encoded) do
+        {:ok, key} when byte_size(key) == 32 -> key
+        _ -> raise("GITGOOD_CONNECTION_KEY must be base64 encoding of 32 random bytes")
+      end
+  end
+
+config :gitgood, :connection_key, connection_key
+
+proxy_key =
+  case System.get_env("GITGOOD_PROXY_KEY") do
+    nil ->
+      nil
+
+    encoded ->
+      case Base.decode64(encoded) do
+        {:ok, key} when byte_size(key) == 32 ->
+          if Base.encode64(key) == encoded,
+            do: key,
+            else: raise("GITGOOD_PROXY_KEY must encode 32 random bytes")
+
+        _ ->
+          raise("GITGOOD_PROXY_KEY must encode 32 random bytes")
+      end
+  end
+
+config :gitgood, :proxy_key, proxy_key
+
 if System.get_env("GITGOOD_SSH_PORT") do
   config :gitgood,
     ssh_port: String.to_integer(System.fetch_env!("GITGOOD_SSH_PORT")),
@@ -12,6 +45,8 @@ if System.get_env("GITGOOD_SSH_PORT") do
 end
 
 config :gitgood,
+  barkpark_origin: System.get_env("GITGOOD_BARKPARK_ORIGIN"),
+  barkpark_ca_file: System.get_env("GITGOOD_BARKPARK_CA"),
   storage_root:
     System.get_env(
       "GITGOOD_STORAGE",
@@ -34,6 +69,17 @@ config :gitgood, GitgoodWeb.Endpoint,
 if System.get_env("PHX_SERVER") == "true", do: config(:gitgood, GitgoodWeb.Endpoint, server: true)
 
 if config_env() == :prod do
+  if is_nil(proxy_key), do: raise("Production login origin requires GITGOOD_PROXY_KEY")
+
+  if System.get_env("GITGOOD_BARKPARK_ORIGIN") && is_nil(connection_key),
+    do: raise("Production Barkpark connections require GITGOOD_CONNECTION_KEY")
+
+  case System.get_env("GITGOOD_BARKPARK_ORIGIN") do
+    nil -> :ok
+    "https://" <> _ -> :ok
+    _ -> raise("Production Barkpark origin must use HTTPS")
+  end
+
   config :gitgood, Gitgood.Repo,
     url: System.fetch_env!("DATABASE_URL"),
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))

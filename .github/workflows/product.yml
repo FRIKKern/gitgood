@@ -7,24 +7,38 @@ permissions:
   contents: read
 jobs:
   forge-and-web:
-    runs-on: ubuntu-24.04
-    services:
-      postgres:
-        image: postgres:18.4
-        env:
-          POSTGRES_USER: gitgood
-          POSTGRES_PASSWORD: synthetic-db-password
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U gitgood"
-          --health-interval 10s --health-timeout 5s --health-retries 5
+    runs-on: [self-hosted, Linux, X64, gitgood-isolated-v1]
+    timeout-minutes: 120
     env:
+      ImageOS: ubuntu24
       PGHOST: 127.0.0.1
       PGPORT: '5432'
       PGUSER: gitgood
       PGPASSWORD: synthetic-db-password
+      GITGOOD_TEST_DATABASE_LOCALE: 'true'
+      GITGOOD_PYTHON: /usr/bin/python3
+      GITGOOD_GIT: /usr/bin/git
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Verify native build platform
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$VERSION_ID" = 24.04
+          test "$(uname -m)" = x86_64
+      - name: Install native build tools
+        run: |
+          set -euo pipefail
+          sudo -n apt-get update
+          sudo -n apt-get install -y --no-install-recommends build-essential unzip openssh-client
+          command -v cc
+          command -v make
+          command -v unzip
+          command -v ssh
+          command -v ssh-keygen
+          test -x "$GITGOOD_PYTHON"
+          test -x "$GITGOOD_GIT"
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124
         with:
           otp-version: '29.1.1'
@@ -32,8 +46,27 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version-file: .node-version
+      - name: Build pinned native PostgreSQL server and recovery clients
+        run: |
+          set -euo pipefail
+          sudo -n apt-get install -y --no-install-recommends pkg-config zlib1g-dev libssl-dev bison flex
+          bash tools/ci/install-postgres-18.4.sh "$GITHUB_WORKSPACE/.gitgood/postgres-18.4"
+          echo "$GITHUB_WORKSPACE/.gitgood/postgres-18.4/bin" >> "$GITHUB_PATH"
+      - name: Start isolated native PostgreSQL
+        run: |
+          set -euo pipefail
+          umask 077
+          cluster="$GITHUB_WORKSPACE/.gitgood/postgres-cluster"
+          test ! -e "$cluster"
+          printf '%s\n' "$PGPASSWORD" > .gitgood/postgres-fixture-password
+          initdb -D "$cluster" -U "$PGUSER" --auth=scram-sha-256 --pwfile=.gitgood/postgres-fixture-password --encoding=UTF8 --locale=C.UTF-8 --locale-provider=libc
+          pg_ctl -D "$cluster" -l .gitgood/postgres-private.log -o '-h 127.0.0.1 -p 5432' -w start
+          test "$(psql -d postgres -Atc 'SHOW server_version')" = 18.4
+          getconf GNU_LIBC_VERSION
       - run: mix deps.get --check-locked && mix precommit && mix format --check-formatted
         working-directory: apps/forge
+      - name: Verify native artifact preflight refusal boundaries
+        run: python3 -m unittest discover -s tools/deployment -p 'test_*.py' -v
       - name: Verify real database recovery and VM crashes
         working-directory: apps/forge
         env:
@@ -52,28 +85,44 @@ jobs:
             GITGOOD_FAILURE_POINT=reconcile mix run verification/vm_crash.exs
             cp .gitgood/verification/vm-crash.json ".gitgood/verification/vm-crash-$point.json"
           done
-      - run: npm ci && npm run check
-        working-directory: apps/web
-      - run: npx playwright install --with-deps chromium
-        working-directory: apps/web
-      - name: Start disposable forge
+          for point in before_validation before_ref after_ref before_outcome; do
+            set +e
+            GITGOOD_FAILURE_POINT="$point" mix run verification/import_vm_crash.exs
+            result=$?
+            set -e
+            test "$result" -eq 70
+            GITGOOD_FAILURE_POINT=reconcile mix run verification/import_vm_crash.exs
+            cp .gitgood/verification/import-vm-crash.json ".gitgood/verification/import-vm-crash-$point.json"
+          done
+          for point in before_commit after_commit; do
+            set +e
+            GITGOOD_FAILURE_POINT="$point" mix run verification/release_vm_crash.exs
+            result=$?
+            set -e
+            test "$result" -eq 70
+            GITGOOD_FAILURE_POINT=reconcile mix run verification/release_vm_crash.exs
+            cp .gitgood/verification/release-vm-crash.json ".gitgood/verification/release-vm-crash-$point.json"
+          done
+      - name: Verify populated discovery upgrade and fresh VM
         working-directory: apps/forge
         run: |
-          mkdir -p .gitgood/ssh-host
-          ssh-keygen -q -t ed25519 -N '' -f .gitgood/ssh-host/ssh_host_ed25519_key
-          export GITGOOD_SSH_PORT=47842
-          export GITGOOD_SSH_HOST_KEY_DIRECTORY="$PWD/.gitgood/ssh-host"
-          mix ecto.create
-          mix ecto.migrate
-          mix run priv/repo/seeds.exs
-          mix phx.server > /tmp/gitgood-forge.log 2>&1 &
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:47841/health/ready; then exit 0; fi
-            sleep 1
-          done
-          exit 1
-      - run: npx playwright test
+          export PGDATABASE="gitgood_activity_upgrade_$(openssl rand -hex 4)"
+          export GITGOOD_STORAGE="$PWD/.gitgood/discovery-upgrade"
+          GITGOOD_DISCOVERY_MODE=prepare mix run --no-start verification/discovery_upgrade.exs
+          GITGOOD_DISCOVERY_MODE=check mix run --no-start verification/discovery_upgrade.exs
+      - run: npm ci && npm run check
         working-directory: apps/web
+      - name: Verify authenticated recovery bundle and schema boundaries
+        run: node --test apps/forge/test/operations/*.test.mjs
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Install pinned direct-edge verification runtime
+        run: |
+          mkdir -p .gitgood/caddy-2.11.7
+          curl -fsSL --retry 2 https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_amd64.tar.gz -o .gitgood/caddy-2.11.7/package.tar.gz
+          echo 'a7a433a1b133efc3c8d10eb0b99d52a24b5ef5c322dc77f5282182b1c0402139ab83f3a99f0c52409df77d20123fb0b523edad8a66d8f5e49136197bf61ef0e7  .gitgood/caddy-2.11.7/package.tar.gz' | sha512sum --check
+          tar -xzf .gitgood/caddy-2.11.7/package.tar.gz -C .gitgood/caddy-2.11.7 caddy
+          echo "GITGOOD_CADDY=$PWD/.gitgood/caddy-2.11.7/caddy" >> "$GITHUB_ENV"
       - name: Build clean production artifacts
         run: |
           npm run build --prefix apps/web
@@ -81,10 +130,31 @@ jobs:
           cd apps/forge
           MIX_ENV=prod mix release
       - name: Verify copied production installation
-        run: npm run verify:production
+        run: |
+          set -euo pipefail
+          test "$(id -un)" = ci
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          group="/sys/fs/cgroup/gitgood-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test ! -e "$group"
+          sudo -n mkdir "$group" "$group/native" "$group/maintenance"
+          sudo -n chmod 0755 "$group" "$group/native" "$group/maintenance"
+          sudo -n chown "$(id -u):$(id -g)" "$group/cgroup.procs" "$group/native/cgroup.procs" "$group/native/cgroup.kill" "$group/maintenance/cgroup.procs" "$group/maintenance/cgroup.kill"
+          printf '%s\n' "$$" | sudo -n tee "$group/cgroup.procs" >/dev/null
+          GITGOOD_VERIFY_CGROUP="$group/native" GITGOOD_VERIFY_RECOVERY=true npm run verify:production
+          test "$(awk '$1 == "populated" {print $2}' "$group/native/cgroup.events")" = 0
+          test "$(awk '$1 == "populated" {print $2}' "$group/maintenance/cgroup.events")" = 0
         working-directory: apps/web
       - run: node scripts/verification-manifest.mjs
         if: always()
+      - name: Stop owned native PostgreSQL
+        if: always()
+        run: |
+          set -euo pipefail
+          cluster="$GITHUB_WORKSPACE/.gitgood/postgres-cluster"
+          if test -f "$cluster/postmaster.pid"; then
+            "$GITHUB_WORKSPACE/.gitgood/postgres-18.4/bin/pg_ctl" -D "$cluster" -m fast -w stop
+          fi
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:

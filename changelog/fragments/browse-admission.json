@@ -1,0 +1,1 @@
+{"id":"browse-admission","category":"Fixed","summary":"Bound concurrent browse requests with four active readers, eight waiting callers and a five-second admission deadline; temporary Git capacity failures return retryable service errors.","impact":"product","references":["docs/implementation/browsing.md"],"journeys":["J04"],"withdrawn":false}

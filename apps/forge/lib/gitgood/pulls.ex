@@ -13,6 +13,37 @@ defmodule Gitgood.Pulls do
 
   def get(repository, id), do: Repo.get_by(PullRequest, id: id, repository_id: repository.id)
 
+  def get_public(repository, value) when is_binary(value) and byte_size(value) <= 36 do
+    case Ecto.UUID.cast(value) do
+      {:ok, uuid} ->
+        Repo.get_by(PullRequest, public_id: uuid, repository_id: repository.id)
+
+      _ ->
+        case Integer.parse(value) do
+          {id, ""} when id > 0 and id <= 9_223_372_036_854_775_807 -> get(repository, id)
+          _ -> nil
+        end
+    end
+  end
+
+  def get_public(_, _), do: nil
+
+  def browse_revisions(repository, pull) do
+    Gitgood.BrowseSlots.with_slot(fn ->
+      if pull.state == "merged",
+        do: revisions(repository, pull),
+        else: Git.branch_pair(repository, pull.source_ref, pull.target_ref)
+    end)
+  end
+
+  def browse_diff(repository, %{state: "merged"} = pull) do
+    with {:ok, current} <- browse_revisions(repository, pull),
+         do: Gitgood.Browse.diff(repository, current.source_sha, current.target_sha)
+  end
+
+  def browse_diff(repository, pull),
+    do: Gitgood.Browse.current_branch_diff(repository, pull.source_ref, pull.target_ref)
+
   def revisions(repository, %{state: "merged"} = pull) do
     operation = applied_operation(repository, pull)
 
@@ -88,14 +119,26 @@ defmodule Gitgood.Pulls do
     end)
   end
 
-  def events(pull),
-    do:
+  def events(pull, selected \\ nil) do
+    recent =
       Repo.all(
         from e in ReviewEvent,
           where: e.pull_request_id == ^pull.id,
-          order_by: [asc: e.id],
+          order_by: [desc: e.id],
           limit: 500
       )
+
+    selected =
+      with {:ok, uuid} <- Ecto.UUID.cast(selected) do
+        Repo.get_by(ReviewEvent, pull_request_id: pull.id, public_id: uuid)
+      else
+        _ -> nil
+      end
+
+    if(selected, do: [selected | recent], else: recent)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.sort_by(& &1.id)
+  end
 
   def submit(repository, pull, user, credential, params, key) do
     Lease.actor(repository, user, credential, ["owner", "writer"], fn repository ->
@@ -218,7 +261,6 @@ defmodule Gitgood.Pulls do
   def public(pull),
     do:
       Map.take(pull, [
-        :id,
         :repository_id,
         :author_id,
         :title,
@@ -228,11 +270,11 @@ defmodule Gitgood.Pulls do
         :state,
         :inserted_at
       ])
+      |> Map.put(:id, pull.public_id)
 
   def event_public(event),
     do:
       Map.take(event, [
-        :id,
         :actor_id,
         :kind,
         :source_sha,
@@ -244,4 +286,5 @@ defmodule Gitgood.Pulls do
         :body,
         :inserted_at
       ])
+      |> Map.put(:id, event.public_id)
 end

@@ -1,6 +1,6 @@
 # Journey index
 
-Generated from docs/journeys/catalog.json. Each specification owns its acceptance criteria. Status comes from evidence and the future Barkpark ledger, not this table.
+Generated from docs/journeys/catalog.json. Each specification owns its acceptance criteria. Status comes from observed evidence and the configured Barkpark ledger, not this table.
 
 | ID | First milestone | Journey | Required |
 |---|---|---|---|

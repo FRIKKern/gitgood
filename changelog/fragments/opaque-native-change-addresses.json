@@ -1,0 +1,13 @@
+{
+  "id": "opaque-native-change-addresses",
+  "category": "Added",
+  "summary": "Added opaque native change landing addresses with permission-bound resolution and validated sign-in return targets, preparing source links without exposing repository names in their URLs.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/barkpark-linked-changes.md"
+  ],
+  "journeys": [
+    "J10"
+  ],
+  "withdrawn": false
+}

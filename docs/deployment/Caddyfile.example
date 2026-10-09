@@ -1,4 +1,18 @@
-# Example only. Supply the real hostname and validate the deployed TLS/proxy configuration.
+# Direct TLS edge only. Supply the real hostname and private GITGOOD_PROXY_KEY environment.
+{
+  persist_config off
+  log default {
+    output stderr
+    format filter {
+      wrap json
+      fields {
+        request>headers delete
+        resp_headers delete
+      }
+    }
+  }
+}
+
 gitgood.example.invalid {
   handle /internal/* {
     respond 404
@@ -9,6 +23,11 @@ gitgood.example.invalid {
       max_size 33554432
     }
     reverse_proxy 127.0.0.1:47841 {
+      header_up -X-Gitgood-Edge-Key
+      header_up -X-Gitgood-Edge-Client
+      header_up -X-Gitgood-Client-Address
+      header_up -X-Gitgood-Client-Time
+      header_up -X-Gitgood-Client-Signature
       transport http {
         response_header_timeout 80s
       }
@@ -16,6 +35,12 @@ gitgood.example.invalid {
   }
 
   handle {
-    reverse_proxy 127.0.0.1:47840
+    reverse_proxy 127.0.0.1:47840 {
+      header_up X-Gitgood-Edge-Key {$GITGOOD_PROXY_KEY}
+      header_up X-Gitgood-Edge-Client {remote_host}
+      header_up -X-Gitgood-Client-Address
+      header_up -X-Gitgood-Client-Time
+      header_up -X-Gitgood-Client-Signature
+    }
   }
 }

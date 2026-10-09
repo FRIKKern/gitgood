@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test'
+import {fixtureSession as session} from './fixture-session'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {mkdtemp, writeFile, readFile, rm, mkdir} from 'node:fs/promises'
@@ -10,12 +11,6 @@ import type {AddressInfo} from 'node:net'
 const execute = promisify(execFile)
 const upstream = process.env.GITGOOD_TEST_API_URL ?? 'http://127.0.0.1:47841'
 const git = process.env.GITGOOD_GIT ?? 'git'
-async function session(username: string) {
-  const result = await fetch(upstream + '/api/session', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({username, password: 'synthetic-password'})})
-  expect(result.status).toBe(200)
-  const token = /gitgood_session=([^;]+)/.exec(result.headers.getSetCookie()[0])![1]
-  return {authorization: 'Bearer ' + token, 'content-type': 'application/json'}
-}
 test('real Git over trusted HTTPS clones pushes fetches, protects main and denies read-only/outsider credentials', async ({page,browser}, testInfo) => {
   test.setTimeout(180_000)
   const prefix = join(tmpdir(), 'gitgood-client-')
@@ -70,6 +65,10 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','commit','-m','Initial private commit'])
     const initial = (await command(['rev-parse','HEAD'])).stdout.trim()
     await command(['push','origin','HEAD:main'])
+    await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','tag','-a','v0','-m','Immutable version',initial])
+    const releaseTag = (await command(['rev-parse','refs/tags/v0'])).stdout.trim()
+    await command(['push','origin','refs/tags/v0'])
+    expect((await command(['ls-remote','origin','refs/tags/v0'])).stdout).toContain(releaseTag)
     expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(initial)
     await command(['switch','-c','feature'])
     await writeFile(join(client,'README.md'), '# Changed private project\n')
@@ -77,6 +76,10 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','commit','-m','Feature commit'])
     const feature = (await command(['rev-parse','HEAD'])).stdout.trim()
     await command(['push','origin','HEAD:feature'])
+    await command(['tag','-f','v0',feature])
+    await expect(command(['push','--force','origin','refs/tags/v0'])).rejects.toThrow()
+    await expect(command(['push','origin',':refs/tags/v0'])).rejects.toThrow()
+    expect((await command(['ls-remote','origin','refs/tags/v0'])).stdout).toContain(releaseTag)
     await expect(command(['push','origin','HEAD:main'])).rejects.toThrow()
     expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(initial)
     await page.goto('/')
@@ -93,8 +96,18 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await expect(page.getByText('Binary file. A text preview is unavailable.', {exact:false})).toBeVisible()
     await page.goto('/repos/team/' + name + '?sha=' + feature)
     await expect(page.getByRole('heading', {name:'Commit history'})).toBeVisible()
+    const documentProbe = await page.evaluate(() => document.documentElement.dataset.navigationProbe = crypto.randomUUID())
+    await page.locator('.file-list').getByRole('link', {name: 'space & $(demo).txt', exact: true}).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.source')).toHaveText('literal filename\n')
+    expect(new URL(page.url()).searchParams.get('sha')).toBe(feature)
+    expect(new URL(page.url()).searchParams.get('path')).toBe('space & $(demo).txt')
+    expect(await page.evaluate(() => document.documentElement.dataset.navigationProbe)).toBe(documentProbe)
+    await page.goBack()
+    await expect(page.getByRole('heading', {name: 'Commit history', exact: true})).toBeVisible()
     await page.getByRole('link', {name:'Commit diff', exact:true}).click()
     await expect(page.locator('.source')).toContainText('+# Changed private project')
+    expect(await page.evaluate(() => document.documentElement.dataset.navigationProbe)).toBe(documentProbe)
     await page.reload()
     await expect(page.locator('.source')).toContainText('+# Changed private project')
     await page.goto('/repos/team/' + name + '?sha=' + feature)
@@ -136,7 +149,70 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     await page.getByRole('button', {name:'Open pull request',exact:true}).click()
     await expect(page.getByRole('heading',{name:'Review the private change'})).toBeVisible()
     const pullUrl = page.url()
-    const pullId = /\/pulls\/(\d+)/.exec(pullUrl)![1]
+    const pullDocumentProbe = await page.evaluate(() => document.documentElement.dataset.navigationProbe = crypto.randomUUID())
+    await page.getByRole('link', {name: 'Repository', exact: true}).click()
+    await expect(page.getByRole('heading', {name: 'team / ' + name, exact: true})).toBeVisible()
+    const pullList = page.locator('.collaboration-panel').filter({has: page.getByRole('heading', {name: 'Pull requests', exact: true})})
+    await pullList.getByRole('link', {name: 'Review the private change', exact: true}).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('heading', {name: 'Review the private change', exact: true})).toBeVisible()
+    expect(page.url()).toBe(pullUrl)
+    expect(await page.evaluate(() => document.documentElement.dataset.navigationProbe)).toBe(pullDocumentProbe)
+    const pullId = /\/pulls\/([0-9a-f-]{36})/.exec(pullUrl)![1]
+    await page.goto('/changes/' + pullId)
+    await expect(page).toHaveURL(pullUrl)
+    await expect(page.getByRole('heading', {name: 'Review the private change', exact: true})).toBeVisible()
+    const aliasContext = await browser.newContext({baseURL: process.env.GITGOOD_TEST_WEB_URL ?? 'http://localhost:47840',
+      ignoreHTTPSErrors: process.env.GITGOOD_TEST_PRODUCTION === 'true'})
+    let releaseAlias: (() => void) | undefined
+    try {
+      const landing = await aliasContext.newPage()
+      await landing.goto('/changes/' + pullId)
+      await expect(landing.getByRole('link', {name: 'Sign in to Gitgood'})).toBeVisible()
+      expect(await landing.locator('main').innerText()).not.toContain(name)
+      expect(await landing.locator('main').innerText()).not.toContain('Review the private change')
+      await landing.getByRole('link', {name: 'Sign in to Gitgood'}).click()
+      await expect(landing).toHaveURL(new RegExp('change=' + pullId))
+      await landing.getByLabel('Username', {exact: true}).fill('owner')
+      await landing.getByLabel('Password', {exact: true}).fill('synthetic-password')
+      await landing.getByRole('button', {name: 'Sign in', exact: true}).click()
+      await expect(landing).toHaveURL(pullUrl)
+      await expect(landing.getByRole('heading', {name: 'Review the private change', exact: true})).toBeVisible()
+      const missing = await landing.request.get('/api/changes/' + crypto.randomUUID())
+      expect(missing.status()).toBe(404)
+      expect(await missing.json()).toEqual({error: 'change_not_found'})
+      let heldCount = 0, deliveredCount = 0
+      const held = new Promise<void>(resolve => {releaseAlias = resolve})
+      await landing.route('**/api/changes/' + pullId, async route => {
+        const response = await route.fetch()
+        if (response.status() === 200) {heldCount++; await held}
+        await route.fulfill({response}).catch(() => {})
+        if (response.status() === 200) deliveredCount++
+      })
+      await landing.goto('/changes/' + pullId)
+      await expect.poll(() => heldCount).toBeGreaterThan(0)
+      const switcher = await aliasContext.newPage()
+      await switcher.goto('/')
+      await expect(switcher.getByRole('heading', {name: 'Your repositories'})).toBeVisible()
+      await switcher.getByRole('button', {name: 'Sign out', exact: true}).click()
+      await expect(landing.getByRole('link', {name: 'Sign in to Gitgood'})).toBeVisible()
+      await switcher.getByLabel('Username', {exact: true}).fill('outsider')
+      await switcher.getByLabel('Password', {exact: true}).fill('synthetic-password')
+      await switcher.getByRole('button', {name: 'Sign in', exact: true}).click()
+      await expect(switcher.getByRole('heading', {name: 'Your repositories'})).toBeVisible()
+      await expect(landing.getByRole('alert')).toContainText('This change is unavailable for your account.')
+      const refused = await landing.request.get('/api/changes/' + pullId)
+      expect(refused.status()).toBe(404)
+      expect(await refused.json()).toEqual({error: 'change_not_found'})
+      releaseAlias!(); releaseAlias = undefined
+      await expect.poll(() => deliveredCount).toBe(heldCount)
+      await landing.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      expect(new URL(landing.url()).pathname).toBe('/changes/' + pullId)
+      expect(await landing.locator('main').innerText()).not.toContain(name)
+      expect(await landing.locator('main').innerText()).not.toContain('Review the private change')
+      await landing.screenshot({path: testInfo.outputPath('native-opaque-change-denied.png'), fullPage: true})
+      await switcher.close()
+    } finally {releaseAlias?.(); await aliasContext.close()}
     await page.getByRole('button',{name:'Merge under current policy'}).click()
     await expect(page.getByRole('alert')).toContainText('approval required')
     const providerResult = await fetch(upstream+'/api/repos/team/'+name+'/providers',{method:'POST',headers:owner,body:JSON.stringify({name:'fixture-ci'})})
@@ -164,6 +240,7 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
       await reviewPage.getByRole('textbox',{name:'Comment',exact:true}).fill('Preserve this exact line context')
       await reviewPage.route('**/reviews',async route=>{await route.fetch();await route.abort('failed')})
       await reviewPage.getByRole('textbox',{name:'Comment',exact:true}).focus()
+      await expect(reviewPage.getByRole('button', {name: 'Submit line comment', exact: true})).toBeEnabled()
       await reviewPage.keyboard.press('Tab')
       await expect(reviewPage.getByRole('button',{name:'Submit line comment'})).toBeFocused()
       await reviewPage.keyboard.press('Enter')
@@ -172,6 +249,7 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
       await reviewPage.reload()
       await expect(reviewPage.getByRole('textbox',{name:'Comment',exact:true})).toHaveValue('Preserve this exact line context',{timeout:10000})
       await reviewPage.getByRole('textbox',{name:'Comment',exact:true}).focus()
+      await expect(reviewPage.getByRole('button', {name: 'Submit line comment', exact: true})).toBeEnabled()
       await reviewPage.keyboard.press('Tab')
       await expect(reviewPage.getByRole('button',{name:'Submit line comment'})).toBeFocused()
       await reviewPage.keyboard.press('Enter')
@@ -179,13 +257,29 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
       await expect(reviewPage.getByText('Preserve this exact line context',{exact:true})).toHaveCount(1)
       await reviewPage.getByRole('button',{name:'Approve current revision'}).click()
       await expect(reviewPage.getByText('reviewer · approve',{exact:true})).toBeVisible()
+      let releaseDiff!: () => void, sawDiff!: () => void
+      const delayedDiff = new Promise<void>(resolve => {releaseDiff = resolve})
+      const diffRequested = new Promise<void>(resolve => {sawDiff = resolve})
+      const diffPath = '**/api/repos/team/' + name + '/pulls/' + pullId + '/diff'
+      await page.route(diffPath, async route => {sawDiff(); await delayedDiff; await route.continue()})
+      await page.reload()
+      await expect(page.getByRole('heading', {name: 'Review the private change', exact: true})).toBeVisible()
+      await diffRequested
+      await expect(page.getByRole('button', {name: 'Submit line comment', exact: true})).toBeDisabled()
       await writeFile(join(client,'README.md'),'# Revision after review\n')
       await command(['add','--','.'])
       await command(['-c','user.name=Synthetic owner','-c','user.email=fixture@example.invalid','commit','-m','Update reviewed source'])
       const reviewed = (await command(['rev-parse','HEAD'])).stdout.trim()
       mergedSource = reviewed
       await command(['push','origin','HEAD:feature'])
-      await page.getByRole('button',{name:'Refresh pull request'}).click()
+      releaseDiff()
+      await expect(page.getByRole('alert')).toContainText('branches advanced while loading changes')
+      await expect(page.locator('.code-panel pre.source')).toHaveCount(0)
+      await expect(page.getByRole('button', {name: 'Submit line comment', exact: true})).toBeDisabled()
+      await expect(page.getByRole('button', {name: 'Merge under current policy', exact: true})).toBeDisabled()
+      await page.unroute(diffPath)
+      await page.getByRole('button', {name: 'Refresh revision context', exact: true}).click()
+      await expect(page.locator('.code-panel pre.source')).toContainText('+# Revision after review')
       await expect(page.getByText('Outdated revision',{exact:true})).toHaveCount(2)
       await page.getByRole('button',{name:'Merge under current policy'}).click()
       await expect(page.getByRole('alert')).toContainText('approval required')
@@ -207,12 +301,35 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
       expect((await command(['ls-remote','origin','refs/heads/main'])).stdout).toContain(reviewed)
       expect((await command(['ls-remote','--refs','origin'])).stdout).not.toContain('refs/gitgood/')
       const details = await fetch(upstream+'/api/repos/team/'+name+'/pulls/'+pullId,{headers:owner})
+      expect(details.status).toBe(200)
       const finalPull = await details.json()
       expect(finalPull.events.filter((event:{kind:string})=>event.kind==='comment')).toHaveLength(1)
       expect(finalPull.events.find((event:{kind:string})=>event.kind==='comment').source_sha).toBe(interrupted)
       await expect(page.locator('.source')).toContainText('+# Revision after review')
       await expect(page.getByText('Outdated revision',{exact:true})).toHaveCount(2)
       await page.screenshot({path:testInfo.outputPath('review-and-merge.png'),fullPage:true})
+      await page.goto('/')
+      const discovery = page.getByRole('region',{name:'Search and activity',exact:true})
+      await discovery.getByLabel('Search permitted records').fill(finalPull.title)
+      await discovery.getByRole('button',{name:'Search',exact:true}).click()
+      const publicPullPath = '/repos/team/'+name+'/pulls/'+pullId
+      await discovery.locator('a[href="'+publicPullPath+'"]').click()
+      await expect(page.getByRole('heading',{name:finalPull.title,exact:true})).toBeVisible()
+      const selectedReview = finalPull.events.find((event:{kind:string})=>event.kind==='comment')
+      await page.goto('/repos/team/'+name)
+      const activity = page.getByRole('region',{name:'Repository activity and search',exact:true})
+      await activity.locator('a[href="'+publicPullPath+'#review-'+selectedReview.id+'"]').click()
+      await expect(page.locator('#review-'+selectedReview.id)).toContainText('Preserve this exact line context')
+      const retainedOperations = await (await fetch(upstream+'/api/repos/team/'+name+'/operations?pull_request_id='+pullId,{headers:owner})).json()
+      const applied = retainedOperations.operations.find((operation:{state:string})=>operation.state==='applied')
+      expect(applied).toBeTruthy()
+      await page.goto('/repos/team/'+name)
+      await page.getByRole('region',{name:'Repository activity and search',exact:true}).locator('a[href="/repos/team/'+name+'/operations/'+applied.id+'"]').click()
+      await expect(page.getByRole('heading',{name:'Code operation',exact:true})).toBeVisible()
+      await expect(page.getByRole('heading',{name:'merge · applied',exact:true})).toBeVisible()
+      await expect(page.getByText('refs/heads/main',{exact:true})).toBeVisible()
+      await expect(page.getByText(reviewed,{exact:true})).toHaveCount(2)
+      await page.screenshot({path:testInfo.outputPath('native-activity-operation.png'),fullPage:true})
     } finally {await reviewContext.close()}
     const oversized = await fetch(upstream + '/git/team/' + name + '.git/git-receive-pack', {method:'POST', headers:{
       authorization:'Basic ' + Buffer.from('owner:' + token).toString('base64'), 'content-type':'application/x-git-receive-pack-request'}, body: Buffer.alloc(33_554_433)})
@@ -222,9 +339,11 @@ test('real Git over trusted HTTPS clones pushes fetches, protects main and denie
     const revoked = await fetch(upstream + '/api/credentials/' + readerCredential.id, {method:'DELETE',headers:reader})
     expect(revoked.status).toBe(200)
     await expect(command(['ls-remote',url], clientEnv('reader',readerCredential.token))).rejects.toThrow()
-    await writeFile(testInfo.outputPath('git-receipt.json'), JSON.stringify({repository:repo.id, initial, feature,
-      mergedSource,pullRequest:Number(pullId),actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
-      checks:['empty clone','commit','push','fetch','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2))
+    const gitReceipt = JSON.stringify({repository:repo.id, initial, feature,
+      mergedSource,pullRequest:pullId,actors:['owner','reviewer','reader','outsider'], transport:'HTTPS, explicit CA verification',
+      releaseTag,native_change_landing:['opaque UUID','anonymous hides repository/title','sign-in return target','permitted native navigation','foreign equals missing','held response after account switch discarded'],checks:['empty clone','commit','push','fetch','immutable tag creation/replacement/deletion','protected main','reader denied write','outsider denied read','revoked credential denied','untrusted TLS denied','interrupted real push leaves refs unchanged','interrupted upload retry','32 MiB size limit','object fsck']},null,2) + '\n'
+    await writeFile(testInfo.outputPath('git-receipt.json'), gitReceipt)
+    await writeFile(resolve(process.env.GITGOOD_TEST_PRODUCTION === 'true' ? 'test-results-production' : 'test-results', 'git-receipt.json'), gitReceipt)
     complete = true
   } finally {
     proxy.closeAllConnections()

@@ -4,6 +4,7 @@ defmodule Gitgood.Readiness do
   def check do
     checks = %{
       database: database?(),
+      installation: Gitgood.InstallationLease.ready?(),
       storage: storage?(),
       executables: executables?(),
       ssh: is_nil(Application.get_env(:gitgood, :ssh_port)) or Gitgood.SSHDaemon.public().enabled,

@@ -29,6 +29,8 @@ A changed requirement or relevant implementation requires evidence reassessment.
 
 Before M4 acceptance, specify representative repository sizes, file counts, diff size, concurrent sessions/jobs, hardware, network, cache state, latency percentiles, and capacity targets. Measure browser interaction, browse/diff latency, event freshness, and bounded background resource use.
 
+The [initial bounded pilot workload](docs/implementation/pilot-workload.md) fixes its repository, independent actors, environment, cache phases and quantitative targets before measurement. It remains unverified until actual samples and current candidate evidence exist.
+
 Before M6 acceptance, set maximum tolerated data loss and restoration time, then measure both. These targets are deliberately not invented before the workload experiments.
 
 ## Review

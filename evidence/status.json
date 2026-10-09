@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": null,
-  "specRevision": "planning-2026-10-07",
+  "headCommit": "0d081ec5b4f95324526b98c3fb5754bc4a990fd1",
+  "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
-      "status": "unconfigured",
-      "observedAt": null
+      "status": "ok",
+      "observedAt": "2026-10-09T09:09:11.168Z",
+      "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "unconfigured",
@@ -18,5 +19,126 @@
       "observedAt": null
     }
   },
-  "records": []
+  "records": [
+    {
+      "id": "J01",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J01.md"
+      }
+    },
+    {
+      "id": "J02",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J02.md"
+      }
+    },
+    {
+      "id": "J03",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J03.md"
+      }
+    },
+    {
+      "id": "J04",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/0b585d1be0c0921bd18226ab46bede10b233bfeb/docs/journeys/J04.md"
+      }
+    },
+    {
+      "id": "J05",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J05.md"
+      }
+    },
+    {
+      "id": "J06",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/0b585d1be0c0921bd18226ab46bede10b233bfeb/docs/journeys/J06.md"
+      }
+    },
+    {
+      "id": "J07",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J07.md"
+      }
+    },
+    {
+      "id": "J08",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J08.md"
+      }
+    },
+    {
+      "id": "J09",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J09.md"
+      }
+    },
+    {
+      "id": "J10",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J10.md"
+      }
+    },
+    {
+      "id": "J11",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/eac561558a9e5026bd9a864802cb5fa594d6f9c3/docs/implementation/criterion-evidence.md"
+      }
+    },
+    {
+      "id": "J12",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J12.md"
+      }
+    },
+    {
+      "id": "J13",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J13.md"
+      }
+    },
+    {
+      "id": "J14",
+      "implementation": {
+        "state": "planned",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J14.md"
+      }
+    },
+    {
+      "id": "J15",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/0d081ec5b4f95324526b98c3fb5754bc4a990fd1/docs/implementation/installation-upgrade.md"
+      }
+    },
+    {
+      "id": "J16",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/eac561558a9e5026bd9a864802cb5fa594d6f9c3/docs/implementation/offline-backup.md"
+      }
+    },
+    {
+      "id": "J17",
+      "implementation": {
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/1b34a7c8d944ce4ea291f2077dcea6b78436bc4d/docs/operations/export.md"
+      }
+    }
+  ],
+  "evaluatedAt": "2026-10-09T09:09:11.168Z"
 }

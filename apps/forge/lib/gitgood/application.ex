@@ -12,14 +12,20 @@ defmodule Gitgood.Application do
     children = [
       GitgoodWeb.Telemetry,
       Gitgood.Repo,
+      {Gitgood.BrowseSlots, []},
       {DynamicSupervisor, name: Gitgood.Commands, strategy: :one_for_one, max_children: 4},
+      {DynamicSupervisor,
+       name: Gitgood.BarkparkRequests, strategy: :one_for_one, max_children: 4},
       {Task.Supervisor, name: Gitgood.DurableWrites},
       {DynamicSupervisor, name: Gitgood.PushWorkers, strategy: :one_for_one, max_children: 4},
       {DynamicSupervisor, name: Gitgood.MergeWorkers, strategy: :one_for_one, max_children: 4},
+      {DynamicSupervisor, name: Gitgood.ImportWorkers, strategy: :one_for_one, max_children: 2},
       Gitgood.TransportSlots,
       Gitgood.LoginLimiter,
       Gitgood.SSHIdentities,
       {Task.Supervisor, name: Gitgood.SSHJobs, max_children: 16},
+      {Task.Supervisor, name: Gitgood.SourceReturnJobs, max_children: 2},
+      Gitgood.SourceReturnWorker,
       Gitgood.Reconciler,
       {Phoenix.PubSub, name: Gitgood.PubSub},
       # Start a worker by calling: Gitgood.Worker.start_link(arg)
@@ -43,7 +49,12 @@ defmodule Gitgood.Application do
             ]
         end
 
-    opts = [strategy: :one_for_one, name: Gitgood.Supervisor]
+    children =
+      if Gitgood.InstallationLease.enabled?(),
+        do: List.insert_at(children, 2, Gitgood.InstallationLease),
+        else: children
+
+    opts = [strategy: :rest_for_one, name: Gitgood.Supervisor]
     Supervisor.start_link(children, opts)
   end
 

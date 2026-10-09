@@ -1,0 +1,1 @@
+{"id":"native-postgres-ci","category":"Fixed","summary":"Build digest-pinned PostgreSQL 18.4 server and recovery clients in the isolated Ubuntu runner, preserving exact recovery versions and the same-OS database locale profile.","impact":"operator","references":["tools/ci/install-postgres-18.4.sh",".github/workflows/product.yml"],"journeys":["J16"],"withdrawn":false}

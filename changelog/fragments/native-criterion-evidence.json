@@ -1,0 +1,9 @@
+{
+  "id": "native-criterion-evidence",
+  "category": "Added",
+  "summary": "Added immutable native evidence attached to linked task criteria and exact source/Git revisions, checksummed private text artifacts, explicit reassessment history and unavailable-artifact events; full J11 acceptance remains under verification.",
+  "impact": "product",
+  "references": ["docs/implementation/criterion-evidence.md"],
+  "journeys": ["J11"],
+  "withdrawn": false
+}

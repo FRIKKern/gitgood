@@ -34,7 +34,8 @@ Managed stores are upgraded before transport is admitted.
 
 The transport uses native stateless upload-pack and receive-pack. Current limits are 32 MiB input/output, 15 seconds
 for body upload, 60 seconds for Git, four concurrent requests, and 64 proposed refs. Forced rewrites, deletes,
-tags, LFS and compressed RPC bodies are outside this slice.
+LFS and compressed RPC bodies are outside this slice. New tags are supported through the same durable push path;
+tag replacement/deletion are denied so released identities cannot be silently reassigned.
 See [the transport decision](../../docs/decisions/0003-native-http-transport.md).
 
 Native SSH is opt-in through GITGOOD_SSH_PORT and a persistent GITGOOD_SSH_HOST_KEY_DIRECTORY.
@@ -43,7 +44,16 @@ revoked in the web interface; the same permissions, protected-main policy and du
 See [SSH configuration and verification](../../docs/implementation/ssh.md). OpenSSH ssh-keygen is needed
 for disposable test keys, not as the production SSH daemon.
 
+Creator-owned full Git bundle import initializes an empty repository with atomic branches/tags and
+durable source/outcome responsibility. See [supported import and recovery](../../docs/implementation/import.md)
+for source bounds, explicit limitations, replay, staging retention and whole-VM verification.
+
+Private releases pin tags/commits and actual change ranges, own bounded checksummed assets in Postgres,
+and retain corrections/withdrawals. See [release publication and recovery](../../docs/implementation/releases.md).
+
 Run mix precommit against isolated gitgood_test. The suite includes real Git storage, authorization, retry,
 reconciliation, process timeout, cancellation, concurrency, memory and output limits.
+
+Managed packing uses two threads so a host with many CPUs cannot exceed the existing worker memory ceiling just by creating thread stacks. Both HTTPS and SSH use this bound. The pack regression transfers a 5,000-file repository through the buffered and streaming workers and validates the received pack in a separate bare repository.
 The web suite additionally exercises trusted HTTPS clone/push/fetch, interrupted upload/retry, revocation,
 protected main and Git fsck. These checks establish development evidence, not release acceptance.

@@ -1,0 +1,1 @@
+{"id":"review-read-snapshot","category":"Fixed","summary":"Capture current pull-request branch revisions in bounded Git reads, bind diffs to their immutable objects and require matching browser context before review actions.","impact":"product","references":["docs/implementation/browsing.md","docs/implementation/collaboration.md"],"journeys":["J04","J06"],"withdrawn":false}

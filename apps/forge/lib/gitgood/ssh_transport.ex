@@ -24,7 +24,7 @@ defmodule Gitgood.SSHTransport do
              true <- repository.status == "ready" and repository.storage_version >= 2 do
           run = fn extra ->
             CommandStream.run(
-              [Git.executable(), service <> "-pack", Git.path(repository)],
+              Git.command_args([service <> "-pack", Git.path(repository)]),
               receiver,
               env: [{"GIT_PROTOCOL", protocol} | extra],
               timeout: 60_000,

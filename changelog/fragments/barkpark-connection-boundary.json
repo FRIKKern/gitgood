@@ -1,0 +1,14 @@
+{
+  "id": "barkpark-connection-boundary",
+  "category": "Added",
+  "summary": "Added an origin-pinned, bounded Barkpark HTTP adapter with separate request capacity, TLS and wire checks, plus real private-source permission and idempotency experiments; linked-workspace journeys remain pending.",
+  "impact": "product",
+  "references": [
+    "docs/implementation/barkpark.md",
+    "docs/decisions/0009-supported-barkpark-links.md"
+  ],
+  "journeys": [
+    "J10"
+  ],
+  "withdrawn": false
+}

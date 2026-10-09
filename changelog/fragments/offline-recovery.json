@@ -1,0 +1,9 @@
+{
+  "id": "offline-recovery",
+  "category": "Added",
+  "summary": "Implemented coordinated encrypted offline recovery with complete-process exclusion, database locale compatibility, exact restore retry and preserved interrupted Git locks; supported recovery acceptance remains under verification.",
+  "impact": "product",
+  "references": ["docs/implementation/offline-backup.md"],
+  "journeys": ["J16"],
+  "withdrawn": false
+}

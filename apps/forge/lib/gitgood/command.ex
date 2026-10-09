@@ -13,7 +13,7 @@ defmodule Gitgood.Command do
       {:error, :input_limit}
     else
       case DynamicSupervisor.start_child(
-             Gitgood.Commands,
+             Keyword.get(opts, :supervisor, Gitgood.Commands),
              {Gitgood.CommandWorker, {self(), config, Keyword.get(opts, :input, "")}}
            ) do
         {:ok, worker} ->

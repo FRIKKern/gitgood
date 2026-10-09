@@ -16,7 +16,7 @@ The [72-hour run plan](RUN-72H.md) includes that first day, then targets review/
 8. Complete scoped Git/Barkpark workflows.
 9. Prove Cloud lifecycle and enter a bounded pilot.
 
-No task below is automatically complete because its planning document or script exists. Assignments and work status belong in the future Barkpark ledger.
+No task below is automatically complete because its planning document or script exists. Assignments and work status belong in the [configured private Barkpark ledger](TRACKING.md); task completion alone does not establish verification or release.
 
 ## Setup work packages
 

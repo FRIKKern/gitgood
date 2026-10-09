@@ -1,0 +1,9 @@
+{
+  "id": "evidence-original-intent",
+  "category": "Fixed",
+  "summary": "Preserve the original browser evidence request across lost responses and Source revision changes, with explicit retry and native receipt validation.",
+  "impact": "product",
+  "references": ["docs/implementation/criterion-evidence.md"],
+  "journeys": ["J11"],
+  "withdrawn": false
+}

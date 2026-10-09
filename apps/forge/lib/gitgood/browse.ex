@@ -3,6 +3,10 @@ defmodule Gitgood.Browse do
   @limit 262_144
   @empty "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
   def branches(repository) do
+    Gitgood.BrowseSlots.with_slot(fn -> read_branches(repository) end)
+  end
+
+  defp read_branches(repository) do
     with {:ok, output, 0} <-
            run(
              repository,
@@ -21,6 +25,10 @@ defmodule Gitgood.Browse do
   end
 
   def snapshot(repository, sha, path) do
+    Gitgood.BrowseSlots.with_slot(fn -> read_snapshot(repository, sha, path) end)
+  end
+
+  defp read_snapshot(repository, sha, path) do
     with :ok <- reachable(repository, sha),
          {:ok, segments} <- segments(path),
          {:ok, object, kind, mode} <- walk(repository, sha, segments) do
@@ -41,9 +49,24 @@ defmodule Gitgood.Browse do
   end
 
   def diff(repository, sha, base) do
+    Gitgood.BrowseSlots.with_slot(fn -> read_diff(repository, sha, base) end)
+  end
+
+  def current_branch_diff(repository, source_ref, target_ref) do
+    Gitgood.BrowseSlots.with_slot(fn ->
+      with {:ok, current} <- Git.branch_pair(repository, source_ref, target_ref),
+           do: bound_diff(repository, current.source_sha, current.target_sha)
+    end)
+  end
+
+  defp read_diff(repository, sha, base) do
     with :ok <- reachable(repository, sha),
          {:ok, base} <- base(repository, sha, base),
-         {:ok, text, 0} <-
+         do: bound_diff(repository, sha, base)
+  end
+
+  defp bound_diff(repository, sha, base) do
+    with {:ok, text, 0} <-
            run(
              repository,
              ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", base, sha, "--"],
@@ -67,11 +90,13 @@ defmodule Gitgood.Browse do
                "--contains=" <> sha,
                "--count=1",
                "--format=%(refname)",
-               "refs/heads/"
+               "refs/heads/",
+               "refs/tags/"
              ],
              4096
            ) do
         {:ok, value, 0} when value != "" -> :ok
+        {:error, _} -> {:error, :git_unavailable}
         _ -> {:error, :commit_not_available}
       end
     else
@@ -203,8 +228,16 @@ defmodule Gitgood.Browse do
     with :ok <- reachable(repository, base), do: {:ok, base}
   end
 
-  defp run(repository, args, limit),
-    do: Git.command(["--git-dir", Git.path(repository) | args], limit: limit)
+  defp run(repository, args, limit) do
+    case Git.command(["--git-dir", Git.path(repository) | args], limit: limit) do
+      {:error, reason}
+      when reason in [:busy, :process_failed, :timeout, "timeout", "caller_interrupted"] ->
+        {:error, :git_unavailable}
+
+      result ->
+        result
+    end
+  end
 
   defp safe(value),
     do:
