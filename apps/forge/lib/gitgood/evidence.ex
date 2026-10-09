@@ -138,7 +138,8 @@ defmodule Gitgood.Evidence do
           with :ok <- parameters(params),
                do: attach_new(repository, pull, user, credential, link_id, params, key)
 
-        receipt -> {:ok, receipt}
+        receipt ->
+          {:ok, receipt}
       end
     end
   end
