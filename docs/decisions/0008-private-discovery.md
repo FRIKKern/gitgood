@@ -11,3 +11,15 @@ New discovery links use opaque collaboration UUIDs. Internal primary keys remain
 The browser needs one access boundary shared by all routes. Account changes, sign-out and authorization denials must discard private query results, transient credentials and actor-bound drafts. Responses started under an older browser access generation cannot refill the newer cache. Foreground session checks detect membership changes; reconnect/focus requires a current access check before private cached views reappear. Unavailable access checks hide private views and offer retry. A periodic check provides bounded detection rather than a claim of instantaneous erasure; already downloaded data cannot be recalled.
 
 Required proof includes two permitted identities with different teams, an outsider and reader, hidden-match and wildcard queries, foreign/expired/tampered cursors, permission changes between pages, account switching while requests are delayed, cross-tab logout, dropped/replayed refreshes, backend outage, stable links across restart/upgrade and retained actual actor/time attribution. Native source fixtures and later supported Barkpark links need separate provenance. Capacity and freshness targets still require M4 workload measurement.
+
+Main candidate `969a336` failed the activity source-unavailable browser assertion;
+the captured view retained a successful recent snapshot. Its actual failure and
+partial artifacts remain archived. The fixture had installed interception after
+navigation could already start its initial activity request. A controlled probe
+against the pinned query library confirms that refetch during initial loading
+reuses that request, while refetch after a successful baseline reaches the changed
+source and fails. The exact failed-run request timing was not recorded, so this
+is a supported timing diagnosis rather than a claim about unseen network events.
+The browser fixture now awaits the successful initial record, installs the fault,
+observes its actual 503 response and retains the same error/no-stale-record checks.
+No timeout increase or application behavior change substitutes for that proof.
