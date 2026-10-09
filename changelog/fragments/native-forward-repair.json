@@ -1,7 +1,7 @@
 {
   "id": "native-forward-repair",
   "category": "Added",
-  "summary": "Add explicit same-intent native forward repair with observed schema compatibility, preserved failed events, repeated migration and public probes, scoped child reaping and private crash-dump custody.",
+  "summary": "Add explicit same-intent native forward repair with observed schema compatibility, preserved failed events, repeated migration and public probes, scoped child reaping and private crash-dump custody. Permit owned read-only maintenance observation during controlled forward migration.",
   "impact": "operator",
   "references": ["tools/deployment/native_upgrade.py", "tools/deployment/upgrade_journal.py", "tools/deployment/native_actions.py", "docs/implementation/installation-upgrade.md"],
   "journeys": ["J15"],

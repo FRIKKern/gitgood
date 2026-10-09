@@ -38,7 +38,12 @@ maintenance while preserving every prior event; controlled migration, internal
 function, routing and public probes all repeat. A lost repair acknowledgement
 reopens the recorded pending migration instead of silently starting another
 operation. These forward paths have structural tests but await installed failure
-and interruption experiments. Matching-artifact restoration remains a separate
+and interruption experiments. The installed partial-migration fixture reached
+fourteen migrations, refused previous-code recovery and retained maintenance.
+Its first forward repair exposed a missing read-only maintenance-probe permission
+during `migrate`; that phase now permits the probe under the existing owner lock.
+The failed operation and original proof are retained for same-operation repair.
+Matching-artifact restoration remains a separate
 offline recovery procedure.
 
 An initial same-schema fault experiment preserved the working runtime and pointer

@@ -129,7 +129,7 @@ class NativeProbes:
     def maintenance(self):
         # Internal candidate verification must also establish that public routes
         # remain closed until activation. This probe performs no route mutation.
-        self._owned({"maintenance", "verify", "recover"})
+        self._owned({"maintenance", "migrate", "verify", "recover"})
         deadline = time.monotonic() + 30
         while True:
             try:
