@@ -26,6 +26,37 @@ Install the forge's entire `_build/prod/rel/gitgood` directory. Install web `dis
 
 ## Configuration and startup
 
+The initial operator entry point reads retained local custody without claiming a
+job or changing a file:
+
+```sh
+python3 tools/deployment/native_operator.py status \
+  --history-directory /absolute/private/installation-history \
+  --installation <expected-installation-uuid>
+```
+
+Run as the installation owner on Linux. It verifies private records, reads the
+upgrade history, optional activation pointer and retirement journal, and refuses
+if their identities or bytes change during observation. A dead recorded owner
+produces an uncertain observation without rewriting or reconciling the journal.
+An activation record reports retained metadata; it does not establish current
+readiness, actual artifact/store identity, archive usability or Cloud/provider
+inventory. The entry point currently exposes status only. Installation enrollment
+and lifecycle commands remain separate implementation work. Private-invalid,
+inconsistent or wrong-installation inputs refuse with a fixed error and no input
+or exception details.
+
+Four Linux checks passed, including a real killed journal owner, live-owner reads
+that leave every retained file unchanged, concurrent record changes and private
+input refusal. The complete operator suite passed 109 Linux checks with eight
+foreign-platform skips. A separate observation reads the retained historical
+installed upgrade and matches its independent configuration UUID without changing
+configuration. The first supporting producer used an incorrect full candidate
+suffix; its failed assertion and source remain retained. The corrected producer
+checks the independently known short prefix and reports the full validated record
+identity. It does not independently verify the historical artifact or current
+readiness, and required CI on this new entry point remains pending.
+
 Provide configuration through the service environment or a secret manager, never command arguments or repository files:
 
 | Service | Configuration |
