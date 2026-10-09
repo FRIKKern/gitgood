@@ -27,3 +27,9 @@ separate exact source absence and repeated fixed target function. Its execution
 design is accepted; eleven actual installed lifecycle checks, seven refusal checks
 and two unchanged terminal CLI observations passed. Current required CI/integration
 remains separate from that installed proof.
+
+[Fixed native retirement execution](0013-fixed-native-retirement-executor.md)
+defines the single owner command, independently bound private inputs and fixed
+stage reconciliation. Its design is accepted; current draft component checks
+pass135 Linux operators with eleven foreign skips. Actual complete CLI execution
+and interruption cases remain under verification.

@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-executor",
+  "category": "Added",
+  "summary": "Add a fixed native retirement operator command with independently bound private inputs, exact destructive-stage reconciliation and metadata-only terminal repeat; actual five-stage execution and pre-import owner-loss recovery passed on disposable installations.",
+  "impact": "operator",
+  "references": ["tools/deployment/native_retirement.py", "docs/decisions/0013-fixed-native-retirement-executor.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}
