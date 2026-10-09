@@ -110,9 +110,9 @@ current product release, functional-restoration pass or Cloud capability is
 established by accepting it. Revisit the local-origin restriction with actual
 certificate, routing and replacement-host evidence before extending the profile.
 
-### Application controller draft
+### Application controller implementation
 
-The functional controller draft requires full-plan protocol3. It independently
+The functional controller requires full-plan protocol3. It independently
 binds owner and outsider credential directories/digests in addition to the
 existing outsider session file. Each actor has a separate retained private Git
 witness and actual HTTPS/SSH credentials. The outsider must read its own witness
@@ -132,10 +132,16 @@ retry; restored target data is reobserved instead of reimported.
 
 Only the fixed controller may combine actual application probes, stopped target
 materialization/database checks and the unchanged original snapshot into a
-functional-restoration receipt. These draft paths compile,125 Linux operator
-checks pass with ten foreign skips, the current grouped-helper kernel experiment
-passes six checks, and existing protocol2 materialization observation still
-passes twelve actual archive/database checks. No installed application execution
-against this controller has been verified yet. Its implementation is not a
-functional-restoration acceptance claim. Final post-removal observation,
-cancellation, complete installed retirement and managed Cloud remain open.
+functional-restoration receipt.125 Linux operator checks pass with ten foreign
+skips, the current grouped-helper kernel experiment passes six checks, and legacy
+protocol2 observation passes twelve archive/database checks. Separately, actual
+clean artifact `ea3a2adbc2377138a66ea97fb90247509003fc9e` passed installed
+pre-removal restoration with two independent private actor witnesses, real TLS
+API/HTTPS/SSH probes, whole-group stop and unchanged original/target observations.
+Twelve packaged protocol3 adversarial marker checks also passed, including an
+actual live outside owner despite an empty target native group. The141-file
+installed archive and104-file component archive passed checksum readback.
+Failed fixture attempts remain explicitly retained. This establishes the
+pre-removal functional boundary; current required CI, killed-controller recovery,
+final post-removal observation, cancellation, complete installed retirement and
+managed Cloud remain open.

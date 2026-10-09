@@ -323,10 +323,10 @@ The original kernel/artifact/archive/result boundaries in that experiment were
 controlled. These are helper custody checks, not complete functional retirement.
 See [decision0011](../decisions/0011-isolated-retirement-verification.md).
 
-The fixed application controller, authenticated recovered access and transport
-probes, interrupted materialization reconciliation, final post-removal usability,
-cancellation and native Cloud lifecycle remain unfinished. This boundary cannot
-acknowledge `archive_verify` or authorize source removal by itself.
+The grouped-helper boundary cannot acknowledge `archive_verify` or authorize
+source removal by itself. The fixed controller below adds installed pre-removal
+application verification. Interrupted controller recovery, final post-removal
+usability, cancellation and native Cloud lifecycle remain unfinished.
 
 ### Existing materialized target observation
 
@@ -351,11 +351,12 @@ verified in this experiment.
 
 Copied-production recovery now checks the shipped existing-target observer and
 its actual receipt, complete target preservation, unexpected-file preservation
-and phase refusal. Current candidate required CI remains pending. Post-runtime
-marker reconciliation, fixed functional controller, final post-removal usability
-and complete retirement remain unfinished.
+and phase refusal. This observer passed required CI on its entire proposed tree
+and is merged. The controller below adds post-runtime marker observation and
+pre-removal function; final post-removal usability and complete retirement remain
+unfinished.
 
-### Draft fixed application verification controller
+### Fixed application verification controller
 
 `RetirementRestoration` composes original custody with fixed temporary forge, web
 and loopback TLS/SSH launches. Full-plan protocol3 adds separately bound outsider
@@ -373,9 +374,33 @@ groups, reobserve the original snapshot through the fixed read-only helper, and
 retry existing restored contents. No arbitrary callback or caller-supplied
 functional result is accepted by this controller.
 
-This is a draft awaiting installed execution.125 Linux operator checks, six
-current grouped-helper kernel checks and twelve existing-target observation
-checks do not establish the new application workflow. The component archive uses
-an inert archive candidate; actual installed artifact and independent actors are
-required next. Final retained usability after source removal, cancellation,
-complete retirement, managed Cloud and release acceptance remain unfinished.
+Installed pre-removal execution passed against clean artifact
+`ea3a2adbc2377138a66ea97fb90247509003fc9e`, SHA256
+`ebc5986d76a77a1b273ee3b6deea5a9a66483fc8b3b40651ce746f077db705a0`.
+A fresh UUID-owned installation used actual fixed migration, two account
+bootstraps, private repository creation/push/key registration, public probes and
+durable activation. Its actual encrypted export and checkpoint then fed the
+independently sealed target database/root/groups. Ten functional restoration
+checks passed through the unchanged packaged helper and controller: actual
+recovery-mode readiness/schema, independent valid actors, private branch reads,
+anonymous/cross-team API refusal, permitted/denied HTTPS and SSH Git, whole-group
+stop, birth-bound stopped-marker observation, unchanged target fingerprints and
+unchanged original snapshot. Only then did the owned journal acknowledge
+`archive_verify`. Its original database and stores remain retained.
+
+Twelve additional packaged protocol3 checks passed: repeated complete target
+preservation, wrong marker inode/hash/path, wrong native group identity/path,
+wrong database, digest/phase, unexpected file and an actual live outside marker
+owner all refused without helper repair. All nine original/target groups were
+observed empty. The141-file installed evidence archive passed checksum readback
+and excludes actual keys, actor credentials, decrypted stores/configuration,
+database dumps and environment. Failed cgroup traversal and outside-delegation
+fixture attempts are explicitly retained, separately from passing cases.
+
+The current125 Linux operator checks, six grouped-helper kernel checks and
+twelve legacy existing-target checks have their own104-file component archive.
+Those component cases remain distinct from installed function. Current controller
+required CI and killed-controller recovery are pending. Final retained usability
+after source removal, cancellation, complete retirement, managed Cloud and release
+acceptance remain unfinished. Initial installation uses fixed product libraries
+through a private fixture driver; product enrollment CLI is separate work.
