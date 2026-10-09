@@ -90,13 +90,18 @@ defmodule Gitgood.BarkparkConnections do
   # Internal source consumers can make a short, generation-bound decision without
   # receiving or exposing the encrypted credential. Network I/O belongs outside it.
   def with_current(user, credential, generation, action) do
-    owned(user, credential, fn row ->
-      unless row && is_nil(row.disconnected_at) && row.generation == generation &&
-               row.origin == Application.get_env(:gitgood, :barkpark_origin),
-             do: Repo.rollback(:connection_changed)
-
-      action.(public(row))
-    end)
+    # A generation mismatch changes nothing. An inner rollback would also abort
+    # a surrounding evidence transaction before its source refusal is resolved.
+    case owned(user, credential, fn row ->
+           if row && is_nil(row.disconnected_at) && row.generation == generation &&
+                row.origin == Application.get_env(:gitgood, :barkpark_origin),
+              do: {:current, action.(public(row))},
+              else: :connection_changed
+         end) do
+      {:ok, {:current, result}} -> {:ok, result}
+      {:ok, :connection_changed} -> {:error, :connection_changed}
+      error -> error
+    end
   end
 
   def disconnect(user, credential, generation, key) do

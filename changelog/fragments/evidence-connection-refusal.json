@@ -1,0 +1,9 @@
+{
+  "id": "evidence-connection-refusal",
+  "category": "Fixed",
+  "summary": "Preserve the original connection-generation refusal when retrying a saved evidence draft, retaining its responsibility without poisoning the surrounding database transaction or creating a new assessment.",
+  "impact": "product",
+  "references": ["docs/implementation/criterion-evidence.md"],
+  "journeys": ["J09", "J11"],
+  "withdrawn": false
+}
