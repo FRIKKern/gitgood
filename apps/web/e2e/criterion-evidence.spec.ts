@@ -81,8 +81,9 @@ test('criterion evidence binds real Git and source revisions, retains history an
       if (loseReply) {loseReply = false; expect((await route.fetch()).status()).toBe(200); await route.abort(); return}
       if (malformedReceipt) {
         malformedReceipt = false
-        expect((await route.fetch()).status()).toBe(200)
-        await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({id: 'invalid-receipt', recorded: true})})
+        const confirmed = await route.fetch()
+        expect(confirmed.status()).toBe(200)
+        await route.fulfill({response: confirmed, body: JSON.stringify({id: 'invalid-receipt', recorded: true})})
         return
       }
     }
