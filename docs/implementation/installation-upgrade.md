@@ -50,6 +50,53 @@ pointer and complete journal while preserving every prior event. Twelve installe
 checks and twenty-five private proof files passed digest readback.
 Matching-artifact restoration remains a separate offline recovery procedure.
 
+The fixed `native_upgrade_command.py` exposes the existing engine through three
+fixed `native_operator.py` choices: `upgrade`, `upgrade-recover` and
+`upgrade-resume`. A private request digest independently binds closed request,
+intent and inventory inputs, the existing upgrade-plan raw-byte digest and exact
+root/history identities. Bytes and file/parent identities are observed before
+invocation and afterward; admitted in-memory intent remains fixed. Nonterminal
+actions require actual enrolled driver membership before publishing responsibility.
+Existing resource, code, schema and probe checks remain in the fixed engine.
+Completed or recovered same-intent calls report historical responsibility without
+opening the journal or asserting new readiness.
+
+Eight Linux command checks and one separate Windows early-refusal check passed.
+The complete Linux operator suite passed 143 checks with twelve foreign-profile
+skips. Private files, real OS locks and actual CLI refusals are exercised; kernel,
+artifact/data and terminal success authorities are controlled. These component
+results are separate from the installed CLI observations below.
+
+The actual command completed all seven upgrade stages on a disposable enrolled
+installation using clean ea3a2ad application bytes. Independent later sessions
+verified public TLS readiness, owner/private API reads and anonymous refusal,
+CA-verified HTTPS Git and pinned-key SSH Git after the launching session exited.
+Standalone trials first exposed session lifetime and readiness-summary service
+names; their failures remain retained. Native/web and edge-guardian launches now
+create independent sessions inside the same exact kernel groups. Recovery still
+stops complete bound groups before restarting services.
+
+| Actual CLI case | Observed result |
+|---|---|
+| Ordinary execution | Seven stages, matching schema/function/pointer, six terminal calls preserving 93 history files |
+| Wrong candidate digest | Inspection refusal; original pointer and process births unchanged; fresh public API/HTTPS/SSH function |
+| Compatible previous-code recovery | Six checks, fresh internal/public function, later-session function, six terminal calls preserving 115 files |
+| Exact migration-owner SIGKILL | Actual migration command launched; only the bound controller killed; running responsibility and original pointer retained |
+| Same-intent forward repair | Six checks, repeated migration/internal/public function, later-session function, six terminal calls preserving 146 files |
+
+An earlier same-intent recovery of a session-lifetime failure separately passed
+six checks and later-session public function. The 322-file private archive passed
+digest readback and actual credential exclusions. All six cases use the same
+26 operator files; exact committed applicability and required CI remain separate
+gates. Each CLI case uses the same clean application artifact and fifteen-migration
+schema before/after. The SIGKILL observation proves owner loss after command
+launch, not partial schema application or filesystem power loss. Initial enrollment
+and independent private-input preparation use fixed fixture libraries. Exact
+fixture group shutdown followed completed observations; databases, stores and
+recovery materials remain retained. First-install enrollment, allocation,
+cancellation, managed Cloud and release acceptance remain unfinished. See
+[decision 0014](../decisions/0014-fixed-native-upgrade-commands.md).
+
 A separate installed `3142de2` experiment killed the actual upgrade owner with
 SIGKILL after successful current-pointer file/directory fsync and before the
 public-verification journal acknowledgement. The retained pointer named the new

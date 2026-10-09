@@ -217,7 +217,8 @@ class NativeActions:
         descriptor = self.journal._private_open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         with os.fdopen(descriptor, "wb") as output:
             process = subprocess.Popen([self.executables["python"], "-I", str(stage["wrapper"]), group["path"], *arguments],
-                                       cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, umask=0o077)
+                                       cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
+                                       start_new_session=True, umask=0o077)
             process.gitgood_log = log
             return process
 
