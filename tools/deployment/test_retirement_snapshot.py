@@ -65,6 +65,7 @@ class RetirementSnapshotTest(unittest.TestCase):
                      "current_sha256": hashlib.sha256(current.read_bytes()).hexdigest(), "resource_plan_sha256": hashlib.sha256(canonical(self.resources)).hexdigest(),
                      "retention_sha256": hashlib.sha256(canonical(self.retention)).hexdigest(), "checkpoint_sha256": hashlib.sha256(canonical(self.expected)).hexdigest(),
                      "archive_sha256": self.retention["archive"]["sha256"]}
+        self.configure_plan()
         self.plan_digest = hashlib.sha256(canonical(self.plan)).hexdigest()
         # Kernel identities and immutable artifact/observer result are controlled;
         # filesystem ownership, journal locks, real PG identity and actual node
@@ -88,6 +89,9 @@ class RetirementSnapshotTest(unittest.TestCase):
 
     def claim(self):
         return RetirementJournal(self.history, self.plan, self.plan_digest)
+
+    def configure_plan(self):
+        """Allow composed fixtures to seal their independently allocated target."""
 
     def action(self, journal):
         return RetirementSnapshot(journal, self.resources, self.retention, self.expected, self.fixture.configuration)

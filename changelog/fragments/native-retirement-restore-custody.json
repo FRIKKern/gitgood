@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-restore-custody",
+  "category": "Added",
+  "summary": "Bind restored-data verification to a separately sealed target and retain original retirement custody while the pinned packaged helper runs; functional application restoration and complete installed retirement remain separate work.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_restore_data.py", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}

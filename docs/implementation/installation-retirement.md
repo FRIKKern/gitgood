@@ -211,3 +211,30 @@ recovered contents, not installed application startup, authenticated functional
 probes, kernel/journal custody or the full retirement flow. No restoration-success
 flag for journal acknowledgement is emitted. Copied-production verification adds
 the shipped helper and actual dump/target checks; required CI remains pending.
+
+`retirement_restore_data.py` binds that packaged helper to a closed, independently
+hashed restoration target plan. The operation-derived target name, original OID,
+cluster, role/owner, endpoint and source separation are sealed before admission;
+the controller never allocates or deletes a database. The plan occupies the
+journal's restoration-input digest and declares its data-verification purpose.
+It cannot substitute for a future complete application-restoration plan.
+
+Snapshot and restored-data verification share a fixed packaged-child runner. It
+holds the journal lock, rechecks fence/kernel custody during execution, and checks
+the retained archive/key/tools, original database identity and entire staged code
+before and after. The child's request/result and diagnostics stay private in
+retained history. Restore mode imports only into the sealed separate target;
+observe mode reads that same target without repeating import. Failure preserves
+the target and original stores for explicit reconciliation. Termination stops only
+the controller's child; interrupted helper descendants or scratch must remain
+visible to reconciliation and cannot be treated as successful restoration.
+
+Five new controller checks and four inherited snapshot checks passed with actual
+filesystem/journal locks, PostgreSQL identities and node children with controlled
+kernel/artifact/result boundaries. The complete operator suite passed 110 Linux
+checks with eight foreign-platform skips. These tests do not prove
+an authenticated export import or functional application startup; the separate
+twelve-check helper experiment establishes recovered-data behavior. Neither scope
+establishes complete installed retirement. The controller emits a recovered-data
+receipt without `restore_function_verified`, so archive-stage acknowledgement and
+removal still require actual application restoration under continuous custody.

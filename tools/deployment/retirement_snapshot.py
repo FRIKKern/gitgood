@@ -108,26 +108,29 @@ class RetirementSnapshot:
         require(value["original_present_verified"] and not value["desired_state_verified"] and value["connected_clients"] == 0)
         return value
 
-    def observe(self):
+    def _run_packaged(self, module, prefix, request_value, database_environment):
+        """Fixed packaged reads/imports with retained custody and private results."""
+        require((module, prefix) in {("retirement-snapshot.mjs", "snapshot"),
+                                     ("retirement-restore-data.mjs", "restored-data")})
         stage = self._custody()
         self._retained()
         before = self._original_database()
         verified = verify_runtime_stage(stage, self.journal.plan["candidate"], self.journal.plan["artifact_sha256"])
-        modules = list((verified["code"] / "forge/lib").glob("gitgood-*/priv/operations/retirement-snapshot.mjs"))
+        modules = list((verified["code"] / "forge/lib").glob("gitgood-*/priv/operations/" + module))
         require(len(modules) == 1)
         identifier = str(uuid.uuid4())
-        request_path = self.journal.directory / ("snapshot-request-" + identifier + ".json")
-        request = canonical(self.request) + b"\n"
+        request_path = self.journal.directory / (prefix + "-request-" + identifier + ".json")
+        request = canonical(request_value) + b"\n"
         descriptor = self.journal._private_open(request_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         with os.fdopen(descriptor, "wb") as output:
             output.write(request)
             output.flush()
             os.fsync(output.fileno())
-        environment = {**self.database.environment, "PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
+        environment = {**database_environment, "PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
                        "GITGOOD_PSQL": self.database.psql["path"], "GITGOOD_GIT": self.bindings["executables"]["git"]["path"],
                        "GITGOOD_PG_DUMP": self.retention["tools"]["pg_dump"]["path"], "GITGOOD_PG_RESTORE": self.retention["tools"]["pg_restore"]["path"]}
-        stdout = self.journal.directory / ("snapshot-result-" + identifier + ".json")
-        stderr = self.journal.directory / ("snapshot-private-error-" + identifier + ".log")
+        stdout = self.journal.directory / (prefix + "-result-" + identifier + ".json")
+        stderr = self.journal.directory / (prefix + "-private-error-" + identifier + ".log")
         output = self.journal._private_open(stdout, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         try:
             errors = self.journal._private_open(stderr, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
@@ -155,15 +158,19 @@ class RetirementSnapshot:
                         child.kill()
                         child.wait(timeout=5)
         observed = json.loads(private_bytes(stdout, 65536), object_pairs_hook=unique_object)
-        require(isinstance(observed, dict) and set(observed) == {"protocol", "purpose", "status", "checks", "limitations", *CORE})
-        require(type(observed["protocol"]) is int and observed["protocol"] == 1 and observed["purpose"] == "retirement_snapshot" and observed["status"] == "observed")
-        require(isinstance(observed["checks"], list) and len(observed["checks"]) == 3 and isinstance(observed["limitations"], list) and len(observed["limitations"]) == 2)
-        require(all(observed[key] == self.expected[key] for key in CORE))
         require(self._custody() == stage)
         self._retained()
         after = self._original_database()
         require(after == before)
         require(verify_runtime_stage(stage, self.journal.plan["candidate"], self.journal.plan["artifact_sha256"]) == verified)
+        return observed
+
+    def observe(self):
+        observed = self._run_packaged("retirement-snapshot.mjs", "snapshot", self.request, self.database.environment)
+        require(isinstance(observed, dict) and set(observed) == {"protocol", "purpose", "status", "checks", "limitations", *CORE})
+        require(type(observed["protocol"]) is int and observed["protocol"] == 1 and observed["purpose"] == "retirement_snapshot" and observed["status"] == "observed")
+        require(isinstance(observed["checks"], list) and len(observed["checks"]) == 3 and isinstance(observed["limitations"], list) and len(observed["limitations"]) == 2)
+        require(all(observed[key] == self.expected[key] for key in CORE))
         value = {"archive_identity_verified": True, "current_snapshot_verified": True, "writer_exclusion_verified": True,
                  "checkpoint_sha256": self.journal.plan["checkpoint_sha256"], "retention_sha256": self.journal.plan["retention_sha256"],
                  "resource_plan_sha256": self.journal.plan["resource_plan_sha256"], "archive_sha256": self.journal.plan["archive_sha256"],
