@@ -37,7 +37,7 @@ class RetirementDatabase:
 
     def _custody(self, *, observing=False):
         self.journal._owned()
-        require(self.journal.record["stage"] in ({"database_remove", "stores_remove", "retention_verify"} if observing else {"database_remove"}))
+        require(self.journal.record["stage"] in ({"archive_verify", "database_remove", "stores_remove", "retention_verify"} if observing else {"database_remove"}))
         require(self.journal.record["status"] in ({"running", "failed", "uncertain"} if observing else {"running"}))
         require(executable_identity(self.psql["path"]) == self.psql)
         for name in ["native", "web", "edge", "maintenance", "driver"]:

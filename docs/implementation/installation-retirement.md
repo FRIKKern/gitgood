@@ -133,7 +133,43 @@ Because the fence also refuses ordinary backup admission, the existing packaged
 checkpoint cannot simply be called after fencing. The future fixed coordinator
 needs a snapshot observer under its continuously held driver/journal/kernel custody,
 plus an actual independently bound usable restoration, before admitting either
-removal action. Those observations and final retained-archive usability remain open.
+removal action. Final retained-archive usability remains open.
+
+`retirement_snapshot.py` provides that read-only snapshot step without opening a
+new ordinary backup lease. It requires the running archive-verification stage,
+retained fence and empty original runtime groups, original database identity and
+no connected clients, unchanged current pointer, and the independently pinned
+checkpoint and retention inputs. The retention inputs bind the external archive,
+32-byte key, private scratch directory and exact PostgreSQL dump/restore tools.
+They stay outside the removable roots. The observer comes from the immutable
+current artifact; its node/Git executables and the complete staged code are checked.
+The controller retains the journal lock and rechecks kernel/fence custody while
+its own child runs, then rechecks retained materials, code and database identity.
+Private request, result and diagnostic records remain in retained history.
+
+The packaged `retirement-snapshot.mjs` authenticates the independently named
+installation/candidate/ciphertext and compares live file and database fingerprints
+with that archive. It refuses other database clients at both boundary observations.
+Its metadata cannot establish kernel exclusion by itself; the controller supplies
+that managed-lifecycle boundary. Privileged unmanaged host/database actors remain
+outside the supported boundary. Interrupted read-only children may leave private
+scratch material; retention must account for it rather than erase uncertain work.
+
+The controller receipt deliberately has no `restore_function_verified` flag, so
+it cannot acknowledge the archive stage or authorize removal without a separate
+actual usable-restoration observation. Four controller tests use controlled kernel
+and artifact/result boundaries with real filesystem ownership, journal locks,
+PostgreSQL identities and node children. Wrong stage, changed key/result, and a
+writer appearing during the child read refuse without advancement.
+
+A separate nine-check experiment uses a real bare Git repository, SSH host key,
+PostgreSQL18.4 data/dump and authenticated encrypted export. It verifies matching
+live fingerprints, independent UUID/ciphertext/request bindings, database-only and
+file-only changes, a connected client left alive, a wrong key, and unchanged
+original observation on repeat. Its candidate and TLS fields are inert fixtures;
+it establishes neither application readiness nor a full installed retirement.
+Copied-production acceptance now exercises the shipped observer and its refusals;
+the proposed revision still needs its own full required CI and installed acceptance.
 
 The initial local profile must distinguish installation-owned resources from
 shared database roles, clusters, service identities and upstream user credentials.
