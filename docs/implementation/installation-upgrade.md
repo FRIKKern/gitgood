@@ -13,8 +13,18 @@ sequence verifies the working public baseline, stages before maintenance, stops
 whole owned groups, records actual schema before/after migration, verifies internal
 function while public routes remain closed, activates routing, and records the
 release pointer only after fresh public API/HTTPS/SSH probes. Plans contain fixed
-identities and paths; they cannot supply commands. Execution experiments are still
-pending, so this implementation does not establish J15 acceptance.
+identities and paths; they cannot supply commands. The frozen aa79679 coordinator
+executed a populated installation transition from authentic clean 95f8dee to
+1b0fe04 artifacts. The actual schema advanced from thirteen migrations to fifteen;
+internal and public authenticated API/CA-verified HTTPS/pinned-key SSH probes
+preserved the private branch and commit. The release pointer and terminal journal
+identify the new artifact. Thirteen actual checks and a thirty-file private archive
+passed digest readback. The original older archive omitted its web parent entry
+and refused before enrollment; that artifact and failure remain retained. Current
+structural checks passed 69 Linux and 27 Windows checks, with eight and fifty
+foreign-profile skips respectively, plus 23 planning tests; thirteen proof files
+passed digest readback. Failure and interruption paths still require current
+experiments, so this positive transition does not establish complete J15 acceptance.
 
 Explicit previous-code recovery reclaims the same failed or uncertain operation,
 stops its complete owned groups before database-dependent observation, and requires
