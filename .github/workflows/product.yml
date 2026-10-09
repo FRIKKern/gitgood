@@ -7,7 +7,8 @@ permissions:
   contents: read
 jobs:
   forge-and-web:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, gitgood-isolated-v1]
+    timeout-minutes: 120
     services:
       postgres:
         image: postgres:18.4
@@ -19,12 +20,29 @@ jobs:
           --health-cmd "pg_isready -U gitgood"
           --health-interval 10s --health-timeout 5s --health-retries 5
     env:
+      ImageOS: ubuntu24
       PGHOST: 127.0.0.1
       PGPORT: '5432'
       PGUSER: gitgood
       PGPASSWORD: synthetic-db-password
+      GITGOOD_TEST_DATABASE_LOCALE: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Verify native build platform
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$VERSION_ID" = 24.04
+          test "$(uname -m)" = x86_64
+      - name: Install native build tools
+        run: |
+          set -euo pipefail
+          sudo -n apt-get update
+          sudo -n apt-get install -y --no-install-recommends build-essential unzip
+          command -v cc
+          command -v make
+          command -v unzip
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124
         with:
           otp-version: '29.1.1'
@@ -32,6 +50,20 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version-file: .node-version
+      - name: Install PostgreSQL 18 recovery clients
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$VERSION_CODENAME" = noble
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /tmp/gitgood-pgdg-key.asc
+          sudo -n install -m 0644 /tmp/gitgood-pgdg-key.asc /usr/share/keyrings/gitgood-pgdg.asc
+          printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: noble-pgdg\nArchitectures: amd64\nComponents: main\nSigned-By: /usr/share/keyrings/gitgood-pgdg.asc\n' > /tmp/gitgood-pgdg.sources
+          sudo -n install -m 0644 /tmp/gitgood-pgdg.sources /etc/apt/sources.list.d/gitgood-pgdg.sources
+          sudo -n apt-get update
+          sudo -n apt-get install -y --no-install-recommends postgresql-client-18
+          /usr/lib/postgresql/18/bin/pg_dump --version
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
       - run: mix deps.get --check-locked && mix precommit && mix format --check-formatted
         working-directory: apps/forge
       - name: Verify real database recovery and VM crashes
@@ -97,7 +129,19 @@ jobs:
           cd apps/forge
           MIX_ENV=prod mix release
       - name: Verify copied production installation
-        run: npm run verify:production
+        run: |
+          set -euo pipefail
+          test "$(id -un)" = ci
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          group="/sys/fs/cgroup/gitgood-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test ! -e "$group"
+          sudo -n mkdir "$group" "$group/native" "$group/maintenance"
+          sudo -n chown "$(id -u):$(id -g)" "$group/cgroup.procs" "$group/native/cgroup.procs" "$group/native/cgroup.kill" "$group/maintenance/cgroup.procs" "$group/maintenance/cgroup.kill"
+          printf '%s\n' "$$" | sudo -n tee "$group/cgroup.procs" >/dev/null
+          GITGOOD_VERIFY_CGROUP="$group/native" GITGOOD_VERIFY_RECOVERY=true npm run verify:production
+          test "$(awk '$1 == "populated" {print $2}' "$group/native/cgroup.events")" = 0
+          test "$(awk '$1 == "populated" {print $2}' "$group/maintenance/cgroup.events")" = 0
         working-directory: apps/web
       - run: node scripts/verification-manifest.mjs
         if: always()
