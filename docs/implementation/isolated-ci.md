@@ -16,9 +16,17 @@ Run the guest emulator under its own non-login host identity. Its output firewal
 
 Register with a short-lived repository registration token supplied through `ACTIONS_RUNNER_INPUT_TOKEN`, never a command-line argument or tracked configuration. Use an ephemeral runner that accepts one job and automatically deregisters. Before reusing a name or stopping a process, check the exact owned runner ID or process creation identity. Preserve evidence and recovery resources. A stopped or occupied runner must not be reported as available capacity.
 
+A repository-scoped just-in-time registration is also supported. Supply `encodedJitConfig` through masked `ACTIONS_RUNNER_INPUT_JITCONFIG`; do not put it in arguments, tracked files or ordinary artifacts. Its decoded configuration and credential files remain private. Verify the installed runner's actual input and decoding contract rather than inferring JSON field names or types.
+
 ## Current status
 
 The dispatch probe and guest procedure are an investigation. Neither GitHub dispatch nor equivalent required checks are verified yet. No application release, production Cloud deployment or automatic runner fleet is established by this work.
+
+The measured guest boundary denied connections to a listening parent-host canary and both development database ports, with zero canary connections. Ordinary certificate-validated public GitHub HTTPS returned 200. The publisher's v2.338.0 Linux runner asset digest was verified before installation.
+
+Legacy registration attempts timed out. Repository JIT registration subsequently succeeded, but the listener remained offline and stalled during startup before dispatch. Its version command and direct public HTTPS probes succeeded. Keeping SSH open, disabling diagnostic pipes and testing managed hardware-intrinsic/ReadyToRun settings did not establish a working listener. The startup cause remains unresolved; absence of migrated settings is a normal SDK fallback and is not evidence of a configuration failure.
+
+Probe run 37875809681 at candidate 2bc8de87aac918b950679a7030d7a333a0ee2825 executed zero steps. After rechecking its exact queued job and offline/non-busy runner identity, the owned listener process group was stopped using its recorded creation identity. Twenty diagnostic files were copied into a private digest-checked guest archive, the owned registration was removed, and cancellation of the queued probe was requested. The guest filesystem and original diagnostics remain preserved. These observations establish neither equivalent CI nor a passing candidate.
 
 ## Primary references
 
@@ -27,3 +35,5 @@ The dispatch probe and guest procedure are an investigation. Neither GitHub disp
 - [Adding self-hosted runners](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners) documents repository registration and its one-hour token lifetime.
 - [Runner reference](https://docs.github.com/en/actions/reference/runners/self-hosted-runners) documents Docker for Linux service containers, ephemeral single-job assignment and diagnostic preservation.
 - [Runner command settings](https://github.com/actions/runner/blob/main/src/Runner.Listener/CommandSettings.cs) implements masked `ACTIONS_RUNNER_INPUT_TOKEN` environment input. Verify the installed runner's actual version and publisher digest before execution.
+- [Repository JIT configuration](https://docs.github.com/en/rest/actions/self-hosted-runners#create-configuration-for-a-just-in-time-runner-for-a-repository) documents repository registration and its encoded configuration response.
+- [Installed runner input handling](https://github.com/actions/runner/blob/v2.338.0/src/Runner.Listener/CommandSettings.cs) and [configuration decoding](https://github.com/actions/runner/blob/v2.338.0/src/Runner.Listener/Runner.cs) record the inspected v2.338.0 contract.
