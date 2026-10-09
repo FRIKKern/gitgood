@@ -1,4 +1,4 @@
-import {createFileRoute} from '@tanstack/react-router'
+import {createFileRoute, Link} from '@tanstack/react-router'
 import {useEffect, useRef, useState, type FormEvent} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {api, ApiError, type Session} from '../../../../../lib/api'
@@ -49,7 +49,7 @@ function PullPage() {
     try {const result=await api<{operations:Operation[]}>(base+'/operations?pull_request_id='+id);setOperation(result.operations[0]??null);await pull.refetch()}
     catch(e){setError(e instanceof Error?e.message:'Operations unavailable')}
   }
-  return <div className="shell"><header><a className="brand" href="/">gitgood<span className="dot">●</span></a><a href={base}>Repository</a></header><main>
+  return <div className="shell"><header><a className="brand" href="/">gitgood<span className="dot">●</span></a><Link to="/repos/$team/$name" params={{team, name}} search={{sha: '', path: '', view: 'code'}} preload={false}>Repository</Link></header><main>
     {pull.data && !pull.error ? <><p className="eyebrow">Pull request · {pull.data.state}</p><h1>{pull.data.title}</h1><p className="intro">{pull.data.source_ref.replace('refs/heads/','')} → main · fast-forward</p><p>{pull.data.body}</p>
       <p>Source {pull.data.source_sha.slice(0,12)} · target {pull.data.target_sha.slice(0,12)} · policy {pull.data.policy.version}</p>
       <button className="subtle" onClick={()=>void pull.refetch()}>Refresh pull request</button>

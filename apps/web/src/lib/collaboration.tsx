@@ -1,9 +1,10 @@
 import {useEffect, useRef, useState, type FormEvent} from 'react'
 import {useQuery, useQueryClient} from '@tanstack/react-query'
+import {Link} from '@tanstack/react-router'
 import {api, type Session} from './api'
 type Policy = {version: number; approvals: number; required_checks: {provider_id: number; name: string}[]}
 type Provider = {id: number; name: string; credential_id: number}
-export function PullRequests({base, session, branches}: {base: string; session?: Session; branches: {name: string}[]}) {
+export function PullRequests({base, team, name, session, branches}: {base: string; team: string; name: string; session?: Session; branches: {name: string}[]}) {
   const query = useQuery({queryKey: ['pulls',base],queryFn: () => api<{pull_requests: {id: string; title: string; state: string}[]}>(base + '/pulls')})
   const [error,setError] = useState('')
   const [busy,setBusy] = useState(false)
@@ -20,7 +21,7 @@ export function PullRequests({base, session, branches}: {base: string; session?:
     } catch (e) {setError(e instanceof Error ? e.message : 'Creation failed')} finally {setBusy(false)}
   }
   return <section className="collaboration-panel"><h2>Pull requests</h2>
-    {query.error ? <p role="alert">Pull requests unavailable. <button onClick={() => void query.refetch()}>Retry pull requests</button></p> : <ul className="history">{query.data?.pull_requests.map(pull => <li key={pull.id}><a href={base + '/pulls/' + pull.id}>{pull.title}</a><span>{pull.state}</span></li>)}</ul>}
+    {query.error ? <p role="alert">Pull requests unavailable. <button onClick={() => void query.refetch()}>Retry pull requests</button></p> : <ul className="history">{query.data?.pull_requests.map(pull => <li key={pull.id}><Link to="/repos/$team/$name/pulls/$id" params={{team, name, id: pull.id}} search={{sha: '', path: '', view: 'code'}} preload={false}>{pull.title}</Link><span>{pull.state}</span></li>)}</ul>}
     {writer && <details><summary>Open a pull request</summary><form onSubmit={create}><label>Source branch<select name="source" required>{branches.filter(b => b.name !== 'main').map(b => <option key={b.name}>{b.name}</option>)}</select></label><label>Title<input name="title" maxLength={200} required /></label><label>Description<textarea name="body" maxLength={16384} /></label>{error && <p role="alert">{error.replaceAll('_',' ')}</p>}<button disabled={busy || !branches.some(b => b.name !== 'main')}>{busy ? 'Opening…' : 'Open pull request'}</button><p>Target: main · fast-forward merge after current approvals and checks.</p></form></details>}
   </section>
 }

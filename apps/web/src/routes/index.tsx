@@ -1,4 +1,4 @@
-import {createFileRoute} from '@tanstack/react-router'
+import {createFileRoute, Link} from '@tanstack/react-router'
 import {useEffect, useRef, useState, type FormEvent} from 'react'
 import {useQuery, useQueryClient} from '@tanstack/react-query'
 import {api, ApiError, type Repository, type Session} from '../lib/api'
@@ -49,7 +49,7 @@ function Home() {
       <p className="intro">{session.data ? 'Private by default. Owned by your team.' : 'Code, collaboration, and a clear path from change to delivery.'}</p>
       {error && <p role="alert" className="error">{error.replaceAll('_', ' ')}</p>}
       {!ready || session.isPending ? <p>Connecting to Gitgood…</p> : session.data ? <>
-        <section className="grid">{!repos.error && repos.data?.repositories.map(repo => <article key={repo.id}><span className="badge">Private</span><h2><a href={repo.url}>{repo.team} / {repo.name}</a></h2><p>{repo.status === 'ready' ? 'Ready for your first commit.' : 'Creation pending. Retry with the original request.'}</p><label>Clone URL<input readOnly value={repo.clone_url} onFocus={e => e.target.select()} /></label>{repo.ssh_clone_url && <label>SSH clone URL<input readOnly value={repo.ssh_clone_url} onFocus={e => e.target.select()} /></label>}</article>)}</section>
+        <section className="grid">{!repos.error && repos.data?.repositories.map(repo => <article key={repo.id}><span className="badge">Private</span><h2><Link to="/repos/$team/$name" params={{team: repo.team, name: repo.name}} search={{sha: '', path: '', view: 'code'}} preload={false}>{repo.team} / {repo.name}</Link></h2><p>{repo.status === 'ready' ? 'Ready for your first commit.' : 'Creation pending. Retry with the original request.'}</p><label>Clone URL<input readOnly value={repo.clone_url} onFocus={e => e.target.select()} /></label>{repo.ssh_clone_url && <label>SSH clone URL<input readOnly value={repo.ssh_clone_url} onFocus={e => e.target.select()} /></label>}</article>)}</section>
         {repos.error && <p role="alert">Could not load repositories. <button onClick={() => void repos.refetch()}>Retry</button></p>}
         <section className="panel"><h2>Create a repository</h2><form onSubmit={create}><label>Team<select name="team">{session.data.teams.filter(t => t.role !== 'reader').map(t => <option key={t.team}>{t.team}</option>)}</select></label><label>Repository name<input name="name" required pattern="[a-z][a-z0-9-]{1,63}" placeholder="my-project" /></label><button disabled={busy || !session.data.teams.some(t => t.role !== 'reader')}>{busy ? 'Creating…' : 'Create private repository'}</button></form></section>
         <Discovery />

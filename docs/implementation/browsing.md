@@ -3,6 +3,19 @@ The browser opens /repos/TEAM/NAME?sha=COMMIT&path=PATH&view=code (or diff).
 Branch selection resolves its current tip once; refreshing branches preserves the viewed SHA.
 Files, history entries, breadcrumbs and commit diffs have shareable commit URLs.
 
+Repository cards, file/history/breadcrumb links and pull-request list links use the native web
+router to change the view without reloading the whole document. They remain real anchors with
+shareable URLs, keyboard activation and normal modified-click behavior. Route preloading is
+disabled, so hovering or focusing a link does not start speculative reads. Backend access checks
+and the shared browser access boundary remain authoritative; navigation does not create credentials
+or retain data across an account-context reset. Reload and browser history preserve commit context.
+
+The complete candidate `637733f17dc56ab392c53f5d597a6073fe7f1156` workload retained all
+90 correct browser interactions and 30 correct automatic activity observations with no wire refusals.
+Repository/file P95s were 2196/2384 ms against 2500 ms; review P95 was 3024 ms and failed that target.
+All warm reads, transfers, imports, cold reads and resource limits passed their separate targets.
+The client-navigation change requires fresh measurement; these retained results do not establish M4.
+
 The backend checks team membership before any Git access. Requested commits must be reachable from a current
 branch or commit tag; deleted/unreachable commits are refused. Tag-only release commits can be navigated without
 exposing internal recovery refs. Git receives separate arguments, and filenames are resolved
