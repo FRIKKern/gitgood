@@ -38,6 +38,8 @@ Recovery requires the PostgreSQL 18 client utilities alongside the existing 18.4
 
 At candidate bd172519f8e1c846247427739569346ab9c08f8d, actual planning job 113678211665 passed. Forge job 113678211980 initialized its PostgreSQL service and checked out the repository, then refused during `setup-beam`: self-hosted jobs do not supply the `ImageOS` value that the installer requires. No forge tests executed. Retain that failed result; it does not establish equivalent CI. The workflow now declares `ImageOS: ubuntu24` as required by the [pinned installer's self-hosted contract](https://github.com/erlef/setup-beam/blob/54075bcc5e249e4758d363f27d099f55d843f124/README.md#self-hosted-runners) and first verifies the actual Ubuntu 24.04 x86_64 platform. Actual required jobs on the repaired candidate still need to pass.
 
+At candidate 9531c33295f6464ff39db7a5b21ab273f1b12e9a, planning passed again and forge job 113682284180 passed the platform check. Erlang installation advanced, but Elixir extraction refused because the minimal guest lacked `unzip`. The workflow installs `unzip` and `build-essential` from the guest's configured signed Ubuntu repositories before the installer and checks the actual compiler, make and extraction tools. Native dependencies require compilation; an installer success alone still cannot establish passing forge checks. The failed job and its diagnostics remain private evidence.
+
 ## Primary references
 
 - [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions) currently lists self-hosted runner usage as free. Hosted artifact/cache charges and account restrictions are separate.
