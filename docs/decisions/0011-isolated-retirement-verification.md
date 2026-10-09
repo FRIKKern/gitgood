@@ -69,6 +69,30 @@ Codex primary agent accepts this boundary on 9 October 2026:
   verification target remains independently bound. A snapshot observer that
   requires the original database present cannot serve this final absence check.
 
+The Linux group layout was refined after an actual helper launch refused across
+separately delegated top-level installation parents. The [kernel delegation
+containment rule](https://docs.kernel.org/admin-guide/cgroup-v2.html#delegation-containment)
+requires write access to the source/destination common ancestor's `cgroup.procs`.
+The refusal is consistent with that rule; the first probe removed its private
+helper stderr during fixture cleanup, so the exact kernel error was not retained.
+Do not grant write access to the global cgroup root. Verification groups instead
+live at `gitgood-installation-<original>/retirement-<operation>/<target>/<role>`.
+They share the original delegated parent with the original driver, while remaining
+outside the original four runtime groups. The fixed observer checks canonical
+UUID-derived paths, actual kernel device/inode, delegated controls and the common
+ancestor. The retirement subtree remains part of the retained inventory.
+
+A fresh kernel experiment passed six checks: actual Node/Python membership,
+separate original driver/canary, no functional authority in a data receipt,
+visible descendant after actual helper SIGKILL, retry refusal before another
+helper launch, and exact target-group shutdown leaving the canary alive. A second
+probe failed because its global subprocess mock also intercepted PostgreSQL;
+its diagnostics and resources remain recorded. The corrected probe permits real
+database observation. These experiments use controlled original kernel,
+artifact, archive and helper-result boundaries; they do not establish an installed
+functional restoration. The source-bound operator suite passed 122 Linux tests
+with nine foreign-profile skips. Full controller implementation remains open.
+
 The full restoration plan needs a closed versioned form that binds both data and
 functional verification inputs to the existing restoration digest. The current
 five-field data-only plan remains supported for its existing scope and cannot

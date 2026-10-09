@@ -299,4 +299,31 @@ neither experiment establishes continuous retirement journal/kernel custody,
 functional access/transport or complete retirement. The helper emits no
 `restore_function_verified` flag. Copied-production verification now invokes the
 shipped helper and checks original checkpoint bindings, retained secrets and
-occupied-target refusal; current required CI remains pending.
+occupied-target refusal. PR56 required CI passed180 backend,116 Linux operators
+with eight foreign skips,10 web,11 browser without skips/flaky results,22 copied
+production,17 offline and33 planning checks against the entire head46c0612 tree;
+the component is merged in main9689d11. Complete retirement remains unverified.
+
+### Full-restoration input and helper custody boundary
+
+The draft protocol2 `retirement_functional_restore_plan` independently binds the
+existing data plan, fixed materialization request, target UUID/root/database,
+four operation-specific kernel groups and private actor probe inputs. Parsing
+never grants functional success. The existing protocol1 data-only plan retains
+its original scope. Fixed archive/data/materialization helpers can execute in
+the exact empty target maintenance group while the original driver retains its
+journal lock, fence and quiescence observations. Surviving descendants refuse a
+new helper launch; private request/result/error files remain in retained history.
+
+The verification groups live beneath the original delegated installation parent
+at `retirement-<operation>/<target>/<role>`. A real cross-delegation probe refused;
+a fresh nested-layout experiment passed six kernel/process checks including
+SIGKILL descendant retention and scoped shutdown with a surviving outside canary.
+The original kernel/artifact/archive/result boundaries in that experiment were
+controlled. These are helper custody checks, not complete functional retirement.
+See [decision0011](../decisions/0011-isolated-retirement-verification.md).
+
+The fixed application controller, authenticated recovered access and transport
+probes, interrupted materialization reconciliation, final post-removal usability,
+cancellation and native Cloud lifecycle remain unfinished. This boundary cannot
+acknowledge `archive_verify` or authorize source removal by itself.

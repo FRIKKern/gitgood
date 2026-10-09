@@ -12,6 +12,7 @@ import uuid
 from native_actions import verify_runtime_stage
 from native_activation import NativeActivation
 from native_inventory import directory_identity, executable_identity, private_bytes
+from retirement_restore_plan import observe_target_group, validate_full_restore_plan
 from retirement_database import RetirementDatabase
 from retirement_quiescence import RetirementQuiescence
 from upgrade_journal import canonical, require, unique_object, validate_time
@@ -108,14 +109,26 @@ class RetirementSnapshot:
         require(value["original_present_verified"] and not value["desired_state_verified"] and value["connected_clients"] == 0)
         return value
 
-    def _run_packaged(self, module, prefix, request_value, database_environment):
+    def _run_packaged(self, module, prefix, request_value, database_environment, *, restoration=None):
         """Fixed packaged reads/imports with retained custody and private results."""
         require((module, prefix) in {("retirement-snapshot.mjs", "snapshot"),
-                                     ("retirement-restore-data.mjs", "restored-data")})
+                                     ("retirement-restore-data.mjs", "restored-data"),
+                                     ("retirement-restore-materialize.mjs", "materialization")})
+        if module == "retirement-restore-materialize.mjs":
+            require(restoration is not None)
         stage = self._custody()
         self._retained()
         before = self._original_database()
         verified = verify_runtime_stage(stage, self.journal.plan["candidate"], self.journal.plan["artifact_sha256"])
+        execution = None
+        if restoration is not None:
+            full = validate_full_restore_plan(self.journal, restoration)
+            execution = (full["materialization"]["target_installation"], full["target_groups"]["maintenance"])
+            installation, group = execution
+            require(observe_target_group(self.journal.plan["installation"], self.journal.operation, installation, "maintenance") == group)
+            require(dict(line.split() for line in (Path(group["path"]) / "cgroup.events").read_text().splitlines()).get("populated") == "0")
+            require(not (Path(group["path"]) / "cgroup.procs").read_text().strip())
+            require(executable_identity(self.bindings["executables"]["python"]["path"]) == self.bindings["executables"]["python"])
         modules = list((verified["code"] / "forge/lib").glob("gitgood-*/priv/operations/" + module))
         require(len(modules) == 1)
         identifier = str(uuid.uuid4())
@@ -138,13 +151,18 @@ class RetirementSnapshot:
             os.close(output)
             raise
         with os.fdopen(output, "wb") as sink, os.fdopen(errors, "wb") as diagnostic:
-            child = subprocess.Popen([self.bindings["executables"]["node"]["path"], str(modules[0]), str(request_path), hashlib.sha256(request).hexdigest()],
+            arguments = [self.bindings["executables"]["node"]["path"], str(modules[0]), str(request_path), hashlib.sha256(request).hexdigest()]
+            if execution is not None:
+                arguments = [self.bindings["executables"]["python"]["path"], "-I", str(verified["wrapper"]), execution[1]["path"], *arguments]
+            child = subprocess.Popen(arguments,
                                      env=environment, stdin=subprocess.DEVNULL, stdout=sink, stderr=diagnostic, umask=0o077)
             try:
                 deadline = time.monotonic() + 600
                 while child.poll() is None:
                     require(time.monotonic() < deadline)
                     require(self._custody() == stage)
+                    if execution is not None:
+                        require(observe_target_group(self.journal.plan["installation"], self.journal.operation, execution[0], "maintenance") == execution[1])
                     time.sleep(.05)
                 require(child.returncode == 0)
                 os.fsync(sink.fileno())
@@ -163,10 +181,16 @@ class RetirementSnapshot:
         after = self._original_database()
         require(after == before)
         require(verify_runtime_stage(stage, self.journal.plan["candidate"], self.journal.plan["artifact_sha256"]) == verified)
+        if execution is not None:
+            require(observe_target_group(self.journal.plan["installation"], self.journal.operation, execution[0], "maintenance") == execution[1])
+            require(dict(line.split() for line in (Path(execution[1]["path"]) / "cgroup.events").read_text().splitlines()).get("populated") == "0")
+            require(not (Path(execution[1]["path"]) / "cgroup.procs").read_text().strip())
+            require(executable_identity(self.bindings["executables"]["python"]["path"]) == self.bindings["executables"]["python"])
         return observed
 
-    def observe(self):
-        observed = self._run_packaged("retirement-snapshot.mjs", "snapshot", self.request, self.database.environment)
+    def observe(self, *, restoration=None):
+        observed = self._run_packaged("retirement-snapshot.mjs", "snapshot", self.request, self.database.environment,
+                                      restoration=restoration)
         require(isinstance(observed, dict) and set(observed) == {"protocol", "purpose", "status", "checks", "limitations", *CORE})
         require(type(observed["protocol"]) is int and observed["protocol"] == 1 and observed["purpose"] == "retirement_snapshot" and observed["status"] == "observed")
         require(isinstance(observed["checks"], list) and len(observed["checks"]) == 3 and isinstance(observed["limitations"], list) and len(observed["limitations"]) == 2)

@@ -1,0 +1,14 @@
+{
+  "id": "native-retirement-restoration-plan",
+  "category": "Added",
+  "summary": "Bind full retirement restoration inputs and fixed helpers to operation-specific delegated process groups while preserving original custody; surviving descendants refuse retry and functional restoration remains unfinished.",
+  "impact": "operator",
+  "references": [
+    "tools/deployment/retirement_restore_plan.py",
+    "docs/implementation/installation-retirement.md"
+  ],
+  "journeys": [
+    "J17"
+  ],
+  "withdrawn": false
+}
