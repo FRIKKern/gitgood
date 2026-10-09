@@ -97,6 +97,10 @@ class UpgradeHistory:
                 fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise UpgradeRefused("Native installation upgrade is already owned") from None
+            # The retirement protocol shares this lock and keeps its intent even
+            # after owner loss. Never start/recover an upgrade over that intent.
+            retirement = self.directory / "retirement-journal-v1.json"
+            require(not retirement.exists() and not retirement.is_symlink())
             if not self.operations.exists() and not self.operations.is_symlink():
                 self.operations.mkdir(mode=0o700)
                 self._sync(self.directory)

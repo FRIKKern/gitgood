@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "01d2c2ee904c4e5ecc88c475422849ff4a8abca8",
+  "headCommit": "fe4d835df35b10b63ad16eb4171c911c1cdc1ca3",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-09T14:52:33.481Z",
+      "observedAt": "2026-10-09T15:36:21.613Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "ok",
-      "observedAt": "2026-10-09T14:50:09.000Z",
+      "observedAt": "2026-10-09T15:36:23.178Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/v1/data/query/production/gitgood_verification",
       "receipts": [
         {
@@ -101,7 +101,7 @@
       "id": "J11",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/eac561558a9e5026bd9a864802cb5fa594d6f9c3/docs/implementation/criterion-evidence.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/ca45b0570cfc7e9c98471630d9631b7e572962ca/docs/implementation/delivery-evaluations.md"
       },
       "verification": {
         "state": "inconclusive",
@@ -196,9 +196,9 @@
       "id": "J17",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/1b34a7c8d944ce4ea291f2077dcea6b78436bc4d/docs/operations/export.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/fe4d835df35b10b63ad16eb4171c911c1cdc1ca3/docs/implementation/installation-retirement.md"
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T14:52:33.481Z"
+  "evaluatedAt": "2026-10-09T15:36:23.178Z"
 }

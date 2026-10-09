@@ -35,6 +35,31 @@ actual usable restoration and the current recovery point, exclude every owned
 writer, and journal exact resource identities before consequential actions.
 An inspected archive alone does not authorize or establish safe removal.
 
+`tools/deployment/retirement_journal.py` adds durable responsibility for a fixed
+retirement sequence: quiesce, archive/restore verification, database removal,
+store removal, and retained-resource verification. It records receipts, counts
+and booleans, never credentials or commands. The independently hashed plan binds
+the installation, current candidate/artifact/pointer, resource plan, archive,
+checkpoint, restoration and retention observations. These hashes identify the
+operator's retained inputs; journal admission does not execute or validate the
+referenced restoration by itself.
+
+The journal acquires the same OS lock as `UpgradeHistory`, requires the previous
+upgrade to be complete/recovered, and rejects a different installed release or
+current pointer. Its retained marker also prevents a later upgrade from bypassing
+an interrupted retirement. A killed owner leaves uncertainty; explicit observed
+applied/unapplied reconciliation precedes continuation. Fixed event replay rejects
+invented completion, changed intent and missing destructive-action observations.
+File/directory sync errors invalidate the current owner until reopening. Read-only
+status never acknowledges an action. There is no cancellation or removal executor
+yet; creating retirement intent is reserved for that future owned executor.
+
+The Linux journal checks use inert receipt fixtures and real competing processes,
+SIGKILL, private-file aliases and sync faults. They exercise custody without deleting
+resources or proving actual archive/restore functionality. The full Linux operator
+suite currently passes 84 checks with eight foreign-platform skips; current
+packaged production checks for this separate journal integration remain pending.
+
 The initial local profile must distinguish installation-owned resources from
 shared database roles, clusters, service identities and upstream user credentials.
 Shared credentials cannot be revoked as installation cleanup. Retention must name
