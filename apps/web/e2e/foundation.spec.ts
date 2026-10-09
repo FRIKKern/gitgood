@@ -7,7 +7,11 @@ test('private creation survives reload, denied outsiders and missing csrf', asyn
   await expect(page.getByRole('heading', {name: 'Your repositories'})).toBeVisible()
   const name = 'browser-' + Date.now()
   await page.getByLabel('Repository name').fill(name)
-  await page.getByRole('button', {name: 'Create private repository'}).click()
+  const [created] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/repos' && response.request().method() === 'POST'),
+    page.getByRole('button', {name: 'Create private repository'}).click(),
+  ])
+  expect(created.status()).toBe(201)
   await expect(page.getByRole('heading', {name: 'team / ' + name})).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', {name: 'team / ' + name})).toBeVisible()
