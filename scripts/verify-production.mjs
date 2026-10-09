@@ -12,6 +12,7 @@ import {createHmac} from 'node:crypto'
 import {reserveEdgePort} from './verification-edge-port.mjs'
 import assert from 'node:assert/strict'
 import {verifyOfflineRecovery} from './verify-offline-recovery.mjs'
+import {provisionConfiguration} from '../apps/forge/priv/operations/recovery-configuration.mjs'
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 const sourceWeb=join(repository,'apps/web')
 const sourceForge=join(repository,'apps/forge')
@@ -144,6 +145,8 @@ try {
     await run(release,['eval','Gitgood.Release.bootstrap()'],{...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'},installedForge,'bootstrap')
   }
   const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl,GITGOOD_PROXY_KEY:proxyKey}
+  if(!windows)await provisionConfiguration({directory:join(root,'diagnostic-configuration'),forge:env,web:webEnv,
+    certificate,tlsKey:key,sourceCa})
   const startBackend=(configuration={...env,PHX_SERVER:'true'})=>{
     const group=process.env.GITGOOD_VERIFY_CGROUP
     const child=group?launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'priv/operations/runtime_cgroup.py'),group,release,'start'],configuration,installedForge,'forge'):
@@ -427,8 +430,17 @@ try {
     assert.deepEqual(await unresolved.json(),{intents:[pendingEvidence.intent]},'Acknowledged browser result stays resolved while a separate original draft survives restart')
     const unapplied=await fetch(origin+evidencePath+'/intents/'+pendingEvidence.intent.id+'/retry',{
       method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
-    assert.equal(unapplied.status,409,'A restart cannot rebind an unapplied original draft to a newer source/connection revision')
-    assert(['evidence_requirement_changed','connection_changed','evidence_revision_changed','source_link_changed'].includes((await unapplied.json()).error))
+    const unappliedError=await unapplied.json()
+    assert(['evidence_requirement_changed','connection_changed','evidence_revision_changed','source_link_changed','evidence_source_unavailable'].includes(unappliedError.error),
+      'Unexpected retained-draft refusal: '+(typeof unappliedError.error==='string'&&/^[a-z_]{1,80}$/.test(unappliedError.error)?unappliedError.error:'unclassified'))
+    assert.equal(unapplied.status,unappliedError.error==='evidence_source_unavailable'?503:409,
+      'The exact original draft must refuse a changed revision or unavailable original source binding')
+    const retainedDraft=await fetch(origin+evidencePath+'/intents',{headers:{authorization}})
+    assert.equal(retainedDraft.status,200)
+    assert.deepEqual(await retainedDraft.json(),{intents:[pendingEvidence.intent]},'Refusal retains original unapplied responsibility')
+    const unchangedEvidence=await fetch(origin+evidencePath+evidenceQuery,{headers:{authorization}})
+    assert.equal(unchangedEvidence.status,200)
+    assert.deepEqual((await unchangedEvidence.json()).records,view.records,'Refused retry cannot create or rewrite an assessment')
     const recovered=await fetch(origin+evidencePath+'/intents/'+intentId+'/retry',{
       method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
     assert.equal(recovered.status,200)

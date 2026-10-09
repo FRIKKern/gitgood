@@ -144,8 +144,16 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
     assert.deepEqual(await unresolved.json(),{intents:[pendingEvidence.intent]},'Encrypted unapplied evidence responsibility survives complete restore')
     const retried=await fetch(origin+pendingEvidence.path+'/intents/'+pendingEvidence.intent.id+'/retry',{
       method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
-    assert.equal(retried.status,409)
-    assert(['evidence_requirement_changed','connection_changed','evidence_revision_changed','source_link_changed'].includes((await retried.json()).error))
+    const retryError=await retried.json()
+    assert(['evidence_requirement_changed','connection_changed','evidence_revision_changed','source_link_changed','evidence_source_unavailable'].includes(retryError.error))
+    assert.equal(retried.status,retryError.error==='evidence_source_unavailable'?503:409)
+    const retained=await fetch(origin+pendingEvidence.path+'/intents',{headers:{authorization}})
+    assert.equal(retained.status,200)
+    assert.deepEqual(await retained.json(),{intents:[pendingEvidence.intent]},'A refused restored retry retains original responsibility')
+    const result=await fetch(origin+pendingEvidence.path+'?connection_generation='+sourceLinks.owner_connection_generation,{headers:{authorization}})
+    assert.equal(result.status,200)
+    const restoredResults=await result.json()
+    assert.equal(restoredResults.records.length,5,'No new assessment is created by a refused restored retry')
   }
   const retirement=await fetch(forgeUrl+pendingEvidence.path+'/intents/'+pendingEvidence.intent.id+'/retire',{
     method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
