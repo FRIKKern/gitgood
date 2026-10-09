@@ -35,3 +35,10 @@ Deployment must quiesce older application processes before introducing new opera
 The implementation supports a single configured deployment target; rolling upgrades, power-loss durability,
 distributed storage failover and operator repair of uncertain/corrupt stores need additional evidence.
 No Cloud deployment or completed milestone is implied by these development checks.
+
+Review browsing captures exact current branch SHAs and binds its diff to those objects. The browser
+requires matching metadata and diff revisions before enabling review controls, preserving unsent drafts
+when a branch advances between reads. The real Git browser fixture delays the diff request, pushes a new
+revision after metadata loads, verifies the explicit refusal to display mismatched context, then refreshes
+and resumes the existing stale-approval/protected-merge checks. This changes read composition; merge,
+comment and review transactions retain their existing current-ref validation.

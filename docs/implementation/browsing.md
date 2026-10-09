@@ -42,6 +42,24 @@ their branch-unavailable refusal; queue saturation and unavailable Git reads ret
 Authoritative merge/review revision validation keeps its existing transaction semantics. Revision
 admission is released before diff admission, avoiding nested slot acquisition.
 
+Open pull-request browsing resolves the exact source and target branch names in one bounded Git
+ref listing. The diff request captures those current branch SHAs inside its admitted read and renders
+their immutable objects directly; it does not repeat reachability queries for SHAs it just obtained
+from those branches. The response retains both SHAs. Invalid/non-branch and missing exact refs refuse;
+matching a nested branch prefix cannot substitute for a deleted branch. General commit browsing and
+merged-request audit diffs retain their reachability checks. Mutation revision validation is unchanged.
+
+The review page compares the diff's source/target SHAs with its displayed metadata. If branches advanced
+between those reads, it hides the mismatched diff, retains the existing comment draft and disables
+comment/review/merge controls until a revision refresh loads matching context. Native transactions still
+check current refs when those actions are submitted.
+
+Candidate `e0ddeb288442d0f74492b5bbe7f274834407c674` passed both copied-production workflows.
+Its complete 90-interaction workload had zero content failures or wire refusals; file P95 improved
+to 1610 ms, repository P95 was 2238 ms, and review P95 of 3227 ms still exceeded 2500 ms.
+All 30 automatic activity observations passed at a 5540 ms P95 against 6000 ms. The captured-ref
+repair needs fresh backend, production and workload evidence; no target or resource limit is raised.
+
 The eight-reader browser measurement at candidate `822058a540ab684b9cf3d92ef31927523f7c5ff1`
 reproduced `503 browse_busy_retry` on initial branch/snapshot requests. Thirty repository interactions
 passed, but concurrent direct directory entry failed some file-view preconditions. The retained wire

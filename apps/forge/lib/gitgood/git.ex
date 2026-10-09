@@ -89,23 +89,53 @@ defmodule Gitgood.Git do
            limit: 65536
          ) do
       {:ok, output, 0} ->
-        prefix = ref <> " "
-
-        case String.split(output, "\n", trim: true)
-             |> Enum.find(&String.starts_with?(&1, prefix)) do
-          nil ->
-            {:error, :missing_ref}
-
-          line ->
-            value = String.replace_prefix(line, prefix, "")
-
-            if Regex.match?(~r/\A[0-9a-f]{40}\z/, value),
-              do: {:ok, value},
-              else: {:error, :ref_unavailable}
-        end
+        ref_value(output, ref)
 
       _ ->
         {:error, :ref_unavailable}
+    end
+  end
+
+  def branch_pair(repository, source_ref, target_ref) do
+    if Gitgood.Ref.branch?(source_ref) and Gitgood.Ref.branch?(target_ref) do
+      case command(
+             [
+               "--git-dir",
+               path(repository),
+               "for-each-ref",
+               "--format=%(refname) %(objectname)",
+               source_ref,
+               target_ref
+             ],
+             limit: 65536
+           ) do
+        {:ok, output, 0} ->
+          with {:ok, source} <- ref_value(output, source_ref),
+               {:ok, target} <- ref_value(output, target_ref),
+               do: {:ok, %{source_sha: source, target_sha: target}}
+
+        _ ->
+          {:error, :ref_unavailable}
+      end
+    else
+      {:error, :ref_unavailable}
+    end
+  end
+
+  defp ref_value(output, ref) do
+    prefix = ref <> " "
+
+    case String.split(output, "\n", trim: true)
+         |> Enum.find(&String.starts_with?(&1, prefix)) do
+      nil ->
+        {:error, :missing_ref}
+
+      line ->
+        value = String.replace_prefix(line, prefix, "")
+
+        if Regex.match?(~r/\A[0-9a-f]{40}\z/, value),
+          do: {:ok, value},
+          else: {:error, :ref_unavailable}
     end
   end
 end

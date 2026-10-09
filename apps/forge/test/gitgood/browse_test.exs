@@ -91,7 +91,19 @@ defmodule Gitgood.BrowseTest do
 
   test "temporary command saturation is retryable, rather than a missing commit", ctx do
     sha = fixture(ctx.repository)
-    {token, _} = Accounts.issue(ctx.user, "session")
+    command(ctx.repository, ["update-ref", "refs/heads/work", sha])
+    {token, credential} = Accounts.issue(ctx.user, "session")
+
+    {:ok, pull} =
+      Gitgood.Pulls.create(
+        ctx.repository,
+        ctx.user,
+        credential,
+        %{"source" => "work", "title" => "Busy review"},
+        "busy-review-create"
+      )
+
+    pull_path = "pulls/" <> Gitgood.Pulls.public(pull).id
     {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, ip: {127, 0, 0, 1}])
     on_exit(fn -> :gen_tcp.close(listener) end)
     {:ok, {_, port}} = :inet.sockname(listener)
@@ -117,8 +129,17 @@ defmodule Gitgood.BrowseTest do
 
     assert {:error, :git_unavailable} = Browse.reachable(ctx.repository, sha)
 
-    for path <- ["branches", "snapshot?sha=" <> sha, "diff?sha=" <> sha] do
-      assert %{"error" => "git_unavailable"} =
+    for path <- [
+          "branches",
+          "snapshot?sha=" <> sha,
+          "diff?sha=" <> sha,
+          pull_path,
+          pull_path <> "/diff"
+        ] do
+      expected =
+        if String.starts_with?(path, pull_path), do: "ref_unavailable", else: "git_unavailable"
+
+      assert %{"error" => ^expected} =
                build_conn()
                |> put_req_header("authorization", "Bearer " <> token)
                |> get("/api/repos/browse/fixture/" <> path)
@@ -140,6 +161,83 @@ defmodule Gitgood.BrowseTest do
         1 -> await_slots(expected, deadline)
       end
     end
+  end
+
+  test "review diffs bind exact current branches and refuse deleted or invalid references", ctx do
+    commit = fn content, parent ->
+      blob = command(ctx.repository, ["hash-object", "-w", "--stdin"], content)
+      tree = command(ctx.repository, ["mktree"], "100644 blob #{blob}\tREADME.md\n")
+
+      args = [
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit-tree",
+        tree
+      ]
+
+      command(
+        ctx.repository,
+        args ++ if(parent, do: ["-p", parent], else: []),
+        "Review fixture\n"
+      )
+    end
+
+    main = commit.("original\n", nil)
+    source = commit.("first change\n", main)
+    command(ctx.repository, ["update-ref", "refs/heads/main", main])
+    command(ctx.repository, ["update-ref", "refs/heads/work", source])
+    {token, credential} = Accounts.issue(ctx.user, "session")
+
+    {:ok, pull} =
+      Gitgood.Pulls.create(
+        ctx.repository,
+        ctx.user,
+        credential,
+        %{"source" => "work", "title" => "Bound revision"},
+        "bound-revision-create"
+      )
+
+    path = "/api/repos/browse/fixture/pulls/" <> Gitgood.Pulls.public(pull).id
+
+    get_as_owner = fn suffix ->
+      build_conn() |> put_req_header("authorization", "Bearer " <> token) |> get(path <> suffix)
+    end
+
+    assert %{"source_sha" => ^source, "target_sha" => ^main} =
+             get_as_owner.("") |> json_response(200)
+
+    assert %{"sha" => ^source, "base" => ^main, "text" => text} =
+             get_as_owner.("/diff") |> json_response(200)
+
+    assert text =~ "+first change"
+
+    advanced = commit.("later change\n", source)
+    command(ctx.repository, ["update-ref", "refs/heads/work", advanced, source])
+
+    assert %{"sha" => ^advanced, "base" => ^main, "text" => later} =
+             get_as_owner.("/diff") |> json_response(200)
+
+    assert later =~ "+later change" and not (later =~ "+first change")
+
+    assert {:error, :ref_unavailable} =
+             Git.branch_pair(ctx.repository, "--all", "refs/heads/main")
+
+    assert {:error, :ref_unavailable} =
+             Browse.current_branch_diff(ctx.repository, "refs/tags/private", "refs/heads/main")
+
+    command(ctx.repository, ["update-ref", "-d", "refs/heads/work", advanced])
+    command(ctx.repository, ["update-ref", "refs/heads/work/deep", advanced])
+
+    assert {:error, :missing_ref} =
+             Git.branch_pair(ctx.repository, "refs/heads/work", "refs/heads/main")
+
+    for suffix <- ["", "/diff"],
+        do:
+          assert(
+            get_as_owner.(suffix) |> json_response(409) == %{"error" => "branches_unavailable"}
+          )
   end
 
   test "eight authorized pull reads queue while outsiders and excess callers refuse", ctx do

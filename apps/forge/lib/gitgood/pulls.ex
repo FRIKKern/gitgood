@@ -29,8 +29,20 @@ defmodule Gitgood.Pulls do
   def get_public(_, _), do: nil
 
   def browse_revisions(repository, pull) do
-    Gitgood.BrowseSlots.with_slot(fn -> revisions(repository, pull) end)
+    Gitgood.BrowseSlots.with_slot(fn ->
+      if pull.state == "merged",
+        do: revisions(repository, pull),
+        else: Git.branch_pair(repository, pull.source_ref, pull.target_ref)
+    end)
   end
+
+  def browse_diff(repository, %{state: "merged"} = pull) do
+    with {:ok, current} <- browse_revisions(repository, pull),
+         do: Gitgood.Browse.diff(repository, current.source_sha, current.target_sha)
+  end
+
+  def browse_diff(repository, pull),
+    do: Gitgood.Browse.current_branch_diff(repository, pull.source_ref, pull.target_ref)
 
   def revisions(repository, %{state: "merged"} = pull) do
     operation = applied_operation(repository, pull)

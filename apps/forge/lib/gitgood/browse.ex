@@ -52,10 +52,21 @@ defmodule Gitgood.Browse do
     Gitgood.BrowseSlots.with_slot(fn -> read_diff(repository, sha, base) end)
   end
 
+  def current_branch_diff(repository, source_ref, target_ref) do
+    Gitgood.BrowseSlots.with_slot(fn ->
+      with {:ok, current} <- Git.branch_pair(repository, source_ref, target_ref),
+           do: bound_diff(repository, current.source_sha, current.target_sha)
+    end)
+  end
+
   defp read_diff(repository, sha, base) do
     with :ok <- reachable(repository, sha),
          {:ok, base} <- base(repository, sha, base),
-         {:ok, text, 0} <-
+         do: bound_diff(repository, sha, base)
+  end
+
+  defp bound_diff(repository, sha, base) do
+    with {:ok, text, 0} <-
            run(
              repository,
              ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", base, sha, "--"],

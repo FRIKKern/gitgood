@@ -1,6 +1,6 @@
 defmodule GitgoodWeb.PullController do
   use GitgoodWeb, :controller
-  alias Gitgood.{Browse, Checks, GitOperation, Merges, Pulls, Repo, Repositories}
+  alias Gitgood.{Checks, GitOperation, Merges, Pulls, Repo, Repositories}
   alias GitgoodWeb.Auth
 
   def index(conn, params),
@@ -67,19 +67,17 @@ defmodule GitgoodWeb.PullController do
   def diff(conn, params),
     do:
       with_pull(conn, params, fn repository, pull ->
-        case Pulls.browse_revisions(repository, pull) do
-          {:ok, current} ->
-            case Browse.diff(repository, current.source_sha, current.target_sha) do
-              {:error, reason}
-              when reason in [:browse_busy_retry, :git_unavailable, :history_unavailable] ->
-                Auth.reject(conn, 503, Atom.to_string(reason))
-
-              result ->
-                respond(conn, result, & &1)
-            end
-
-          {:error, reason} ->
+        case Pulls.browse_diff(repository, pull) do
+          {:error, reason}
+          when reason in [:missing_ref, :ref_unavailable, :merge_audit_unavailable] ->
             revision_refusal(conn, reason)
+
+          {:error, reason}
+          when reason in [:browse_busy_retry, :git_unavailable, :history_unavailable] ->
+            Auth.reject(conn, 503, Atom.to_string(reason))
+
+          result ->
+            respond(conn, result, & &1)
         end
       end)
 
