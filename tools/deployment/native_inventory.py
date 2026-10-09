@@ -20,7 +20,7 @@ SQL = """SELECT json_build_object(
  'database', d.datname, 'database_oid', d.oid::bigint, 'owner_oid', d.datdba::bigint,
  'role_oid', r.oid::bigint, 'encoding', pg_encoding_to_char(d.encoding),
  'version', current_setting('server_version'),
- 'address', inet_server_addr()::text, 'port', inet_server_port())
+ 'address', host(inet_server_addr()), 'port', inet_server_port())
  FROM pg_database d JOIN pg_roles r ON r.rolname=current_user
  WHERE d.datname=current_database() AND d.datdba=r.oid"""
 
