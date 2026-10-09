@@ -15,6 +15,7 @@ from native_inventory import directory_identity, executable_identity, private_by
 from retirement_restore_plan import observe_target_group, validate_full_restore_plan
 from retirement_database import RetirementDatabase
 from retirement_quiescence import RetirementQuiescence
+from retirement_stores import RetirementStores
 from upgrade_journal import canonical, require, unique_object, validate_time
 
 MAX_ARCHIVE = 16 * 1024**3 + 16 * 1024**2 + 64
@@ -51,11 +52,14 @@ def capture_retention_inputs(operation, installation, archive, key, pg_dump, pg_
 
 
 class RetirementSnapshot:
-    def __init__(self, journal, resource_plan, retention, expected_checkpoint, configuration_bytes):
+    def __init__(self, journal, resource_plan, retention, expected_checkpoint, configuration_bytes, *, lifecycle_stage="archive_verify"):
+        require(isinstance(lifecycle_stage, str) and lifecycle_stage in {"archive_verify", "retention_verify"})
+        self.lifecycle_stage = lifecycle_stage
         self.journal = journal
         self.bindings = resource_plan["bindings"]
         self.quiescence = RetirementQuiescence(journal, resource_plan)
         self.database = RetirementDatabase(journal, resource_plan, configuration_bytes)
+        self.stores = RetirementStores(journal, resource_plan)
         require(isinstance(retention, dict) and set(retention) == {"protocol", "operation", "installation", "archive", "key", "scratch", "tools"})
         require(type(retention["protocol"]) is int and retention["protocol"] == 1)
         require(retention["operation"] == journal.operation and retention["installation"] == journal.plan["installation"])
@@ -86,7 +90,9 @@ class RetirementSnapshot:
 
     def _core_custody(self):
         self.journal._owned()
-        require(self.journal.record["stage"] == "archive_verify" and self.journal.record["status"] in {"running", "failed", "uncertain"})
+        require(self.journal.record["stage"] == self.lifecycle_stage and self.journal.record["status"] in {"running", "failed", "uncertain"})
+        if self.lifecycle_stage == "retention_verify":
+            require(self.journal.record["completed"] == ["quiesce", "archive_verify", "database_remove", "stores_remove"])
         self.quiescence.observe()
         raw = private_bytes(self.journal.directory / "current-release-v1.json", 16384)
         require(hashlib.sha256(raw).hexdigest() == self.journal.plan["current_sha256"])
@@ -110,7 +116,14 @@ class RetirementSnapshot:
 
     def _original_database(self):
         value = self.database.observe()
-        require(value["original_present_verified"] and not value["desired_state_verified"] and value["connected_clients"] == 0)
+        require(value["connected_clients"] == 0)
+        if self.lifecycle_stage == "archive_verify":
+            require(value["original_present_verified"] and not value["desired_state_verified"])
+        else:
+            require(not value["original_present_verified"] and value["desired_state_verified"])
+            stores = self.stores.observe()
+            require(stores["desired_state_verified"] and stores["remaining"] == 0)
+            value = {**value, "stores_absence_sha256": stores["receipt_sha256"]}
         return value
 
     def _target_helper_custody(self, full):
@@ -128,6 +141,9 @@ class RetirementSnapshot:
         require((module, prefix) in {("retirement-snapshot.mjs", "snapshot"),
                                      ("retirement-restore-data.mjs", "restored-data"),
                                      ("retirement-restore-materialize.mjs", "materialization")})
+        if self.lifecycle_stage == "retention_verify":
+            require(module in {"retirement-restore-data.mjs", "retirement-restore-materialize.mjs"})
+            require(request_value.get("phase") == "observe")
         if module == "retirement-restore-materialize.mjs":
             require(restoration is not None)
         require(type(observing_uncertain) is bool)
@@ -214,11 +230,13 @@ class RetirementSnapshot:
         return observed
 
     def observe(self, *, restoration=None):
+        require(self.lifecycle_stage == "archive_verify")
         observed = self._run_packaged("retirement-snapshot.mjs", "snapshot", self.request, self.database.environment,
                                       restoration=restoration)
         return self._snapshot_receipt(observed)
 
     def reconcile_unapplied(self, *, restoration):
+        require(self.lifecycle_stage == "archive_verify")
         observed = self._run_packaged("retirement-snapshot.mjs", "snapshot", self.request, self.database.environment,
                                       restoration=restoration, observing_uncertain=True)
         value = {**self._snapshot_receipt(observed), "unapplied_verified": True}

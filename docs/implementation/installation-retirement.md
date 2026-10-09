@@ -34,7 +34,7 @@ recovery checks. Both private artifact sets retain matching checkpoint/export
 installation, ciphertext, file and database hashes. This proves the checkpoint
 scope on those candidates; it does not prove later removal or a product release.
 
-Removal remains implementation work. The executor must retain an independently
+The native lifecycle CLI remains implementation work. The fixed controllers retain an independently
 identified archive and external key outside the live resources, establish an
 actual usable restoration and the current recovery point, exclude every owned
 writer, and journal exact resource identities before consequential actions.
@@ -386,7 +386,7 @@ recovery-mode readiness/schema, independent valid actors, private branch reads,
 anonymous/cross-team API refusal, permitted/denied HTTPS and SSH Git, whole-group
 stop, birth-bound stopped-marker observation, unchanged target fingerprints and
 unchanged original snapshot. Only then did the owned journal acknowledge
-`archive_verify`. Its original database and stores remain retained.
+`archive_verify`. At that boundary its original database and stores remained retained.
 
 Twelve additional packaged protocol3 checks passed: repeated complete target
 preservation, wrong marker inode/hash/path, wrong native group identity/path,
@@ -400,7 +400,75 @@ fixture attempts are explicitly retained, separately from passing cases.
 The current125 Linux operator checks, six grouped-helper kernel checks and
 twelve legacy existing-target checks have their own104-file component archive.
 Those component cases remain distinct from installed function. Current controller
-required CI and killed-controller recovery are pending. Final retained usability
-after source removal, cancellation, complete retirement, managed Cloud and release
-acceptance remain unfinished. Initial installation uses fixed product libraries
+required CI passed against the complete tracked tree of
+`085778c0dde07103342444caad4fc5ac88e55788`:180 backend,9 database recovery,
+125 Linux operators/ten foreign skips,10 web,24 operations,11 browser without
+skips/flaky results,22 copied production,18 offline and33 planning. The five
+run/log records and61 uploaded files passed digest readback. PR59 merged into
+`06c0877bd1a796ebd7cd5687e776399c69c7555c`; its own main pipeline is under
+verification. A second independently installed fixture passed actual
+SIGKILL of the ready controller, preserving live target services and an
+unacknowledged archive stage. Product status reported dead-owner uncertainty;
+the new fixed owner stopped only sealed target groups, reobserved the original
+snapshot, reconciled the interrupted history and repeated actual existing-target
+function. Ten recovery checks passed, with exactly one database import and all
+nine groups empty afterward. Fixed resume took404166ms; this measures resume only,
+not complete retirement RTO acceptance. Its101-file archive passed checksum and
+credential-exclusion checks. The post-removal continuation below establishes the
+fixed five-stage installed disposable case. Cancellation, lifecycle CLI, managed
+Cloud and release acceptance remain unfinished. Initial installation uses fixed product libraries
 through a private fixture driver; product enrollment CLI is separate work.
+
+### Final retained usability
+
+`retirement_retention.py` introduces a separate fixed final profile, admitted only
+after the four prior journal stages are acknowledged. It requires actual original
+database and store absence throughout target observations and application probes.
+It cannot reimport target data, publish an empty target or run the original live
+snapshot helper. The independently hashed original configuration is retained in
+private history before database removal so exact absence can be observed after
+the configuration store is gone. It is excluded from ordinary evidence.
+
+The existing target's stopped marker/data/materialization and actual independent
+actor/API/HTTPS/SSH function must repeat before whole-group stop, unchanged target
+fingerprints and unchanged original absence can produce final authority. A failed
+or uncertain final stage observes absence and retained identities before retry.
+The actual same installed fixture continued from acknowledged pre-removal function:
+ordinary exact-OID database removal with zero clients, sealed three-store removal,
+and durable private configuration retention. The final profile observed source
+absence and authenticated the existing recovered target, then started the actual
+loopback verification application. An exact-birth SIGKILL at final readiness left
+live target services and an unacknowledged final stage. New-owner status reported
+uncertainty; only the sealed target groups stopped before further observation.
+
+Seven adversarial checks passed. Changed archive/key/private configuration, an
+actual different-OID replacement source database, a replacement source store and
+an unexpected target file refused and were preserved by the product. Fixture
+cleanup removed only its own separately observed witnesses. The unexpected target
+case produced failed final responsibility; the same fixed retry then reconciled
+and repeated actual independent actor/private API/HTTPS/SSH function after source
+deletion. Target data/materialization and original absence remained unchanged;
+exactly one database import occurred across the complete lifecycle. Only the
+combined final receipt acknowledged all five stages as complete.
+
+Eleven installed lifecycle checks and seven refusal checks passed. The final
+resume, including adversarial checks, took380209ms; this is not complete
+provisioning/retirement RTO acceptance. Two actual operator CLI status observations
+reported complete responsibility without changing any of115 private history files.
+All nine original/target groups were observed empty. The145-file evidence archive
+passed checksum readback and excludes actual keys, actor credentials, private
+configuration, stores, database dumps and environment. The initial resume fixture
+used inherited read-only PostgreSQL options for witness creation and refused;
+its failed driver/log remain retained, separately from corrected v2.
+
+The clean installed application remains `ea3a2adbc2377138a66ea97fb90247509003fc9e`,
+artifact SHA256 `ebc5986d76a77a1b273ee3b6deea5a9a66483fc8b3b40651ce746f077db705a0`.
+Every executed draft operator file has independent bytes/SHA256 observation and
+matches the proposed operator source. The current129 Linux operator regressions
+pass with ten foreign skips; required CI for this new profile is pending. Same
+physical host/kernel and fixture-driven initial enrollment remain explicit limits.
+Retained archive/key/probe credentials/private configuration/history/code/target
+database and stores/kernel groups/shared roles/provider resources are preserved;
+no cancellation, provider deallocation, managed Cloud or complete release follows.
+See
+[decision0012](../decisions/0012-post-removal-retained-usability.md).

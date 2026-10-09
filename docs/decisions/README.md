@@ -18,4 +18,12 @@ Use [the decision template](TEMPLATE.md). Agents own decision resolution and eng
 
 [Isolated retirement verification](0011-isolated-retirement-verification.md) defines
 the temporary restored copy and continuous original custody boundary. Its design
-is accepted; implementation and installed verification remain open.
+is accepted; installed pre-removal function and stopped-marker observation have
+passed scoped checks. The separate post-removal profile completed the fixed
+five-stage installed disposable case; native lifecycle CLI and managed Cloud remain open.
+
+[Post-removal retained usability](0012-post-removal-retained-usability.md) defines
+separate exact source absence and repeated fixed target function. Its execution
+design is accepted; eleven actual installed lifecycle checks, seven refusal checks
+and two unchanged terminal CLI observations passed. Current required CI/integration
+remains separate from that installed proof.

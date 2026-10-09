@@ -141,7 +141,12 @@ API/HTTPS/SSH probes, whole-group stop and unchanged original/target observation
 Twelve packaged protocol3 adversarial marker checks also passed, including an
 actual live outside owner despite an empty target native group. The141-file
 installed archive and104-file component archive passed checksum readback.
-Failed fixture attempts remain explicitly retained. This establishes the
-pre-removal functional boundary; current required CI, killed-controller recovery,
-final post-removal observation, cancellation, complete installed retirement and
-managed Cloud remain open.
+Failed fixture attempts remain explicitly retained. A second actual installation
+also passed ten killed-controller recovery checks: ready services survived exact
+owner SIGKILL, product status preserved uncertainty, the new owner stopped only
+sealed target groups and reconciled source preservation before repeating the
+fixed existing-target function. Database import occurred exactly once; all nine
+groups were observed empty, and the101-file recovery archive passed checksum and
+credential checks. This establishes pre-removal function and interrupted-owner
+recovery on the recorded code. Current required CI, final post-removal observation,
+cancellation, complete installed retirement and managed Cloud remain open.
