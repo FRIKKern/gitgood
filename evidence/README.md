@@ -6,7 +6,7 @@ Keep binary artifacts outside Git and retain the manifest. Access to private cod
 
 evidence/status.json contains the current reporting snapshot. It begins unconfigured. Task work state comes from the ledger source; verification from the evidence source; published versions from the releases source. Each source carries its real observedAt and status. All journey records require a source reference; verified records additionally require passed acceptance and matching code/spec revision. Released records require matching publication identity and passing release acceptance.
 
-This skeleton validates reporting shape and refuses invented success without references, but it cannot verify external artifact truth or signatures. Those checks and authenticated fetchers belong to S09/S16. Do not hand-edit the snapshot to make progress appear green.
+The [delivery evaluation collector](../docs/implementation/delivery-evaluations.md) reads explicit assessments and bounded protected text proofs from Source. It verifies byte checksums, identities, all criterion outcomes, latest sequence, proof age and previously observed manifest custody. It does not reexecute commands or cryptographically attest their truth; evaluators must actually inspect retained results. Binary/external artifact providers and release ingestion remain separate S09/S16 work. Do not hand-edit the snapshot to make progress appear green.
 
 Freshness is independent from recorded result. Invalid or changed revisions become stale; unavailable/unconfigured sources become unknown. A last-known result can be retained with its observation time, but release acceptance requires current input.
 

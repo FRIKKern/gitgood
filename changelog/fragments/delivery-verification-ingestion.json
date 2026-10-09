@@ -1,7 +1,7 @@
 {
   "id": "delivery-verification-ingestion",
   "category": "Added",
-  "summary": "Read explicit delivery evaluations from the scoped Source with criterion identities, protected text proof checksums, retained provenance, latest-result selection and proof-age checks; live ingestion remains disabled pending its actual Source experiment.",
+  "summary": "Read explicit delivery evaluations from the scoped Source with criterion identities, protected text proof checksums, retained provenance, latest-result selection and proof-age checks; actual protected publication and denied-refresh preservation retain an inconclusive supporting assessment.",
   "impact": "operator",
   "references": ["scripts/verification-source.mjs", "scripts/refresh-verification.mjs", "docs/implementation/delivery-evaluations.md"],
   "journeys": ["J11"],

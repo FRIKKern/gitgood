@@ -5,7 +5,7 @@ the private delivery evaluations; Gitgood continues to own its product evidence
 records. These evaluations assess retained delivery proofs against the repository
 journeys. They do not create native criterion evidence or application releases.
 
-The collector will read published `gitgood_verification` documents through the
+The collector reads published `gitgood_verification` documents through the
 existing finite Gitgood workspace identity. Each evaluation binds one journey,
 all its criteria, exact code and requirement identities, actual observation times,
 producer and evaluator, reproduction commands, environment and retained protected
@@ -26,7 +26,16 @@ automatic reexecution or independent cryptographic attestation. The collector
 checks protected byte integrity and identity, not the truth of a command's claimed
 execution. Evaluators must actually inspect retained results under QUALITY.md.
 
-The Source configuration remains disabled until actual authenticated read/write,
-protected proof access, byte integrity, changed-revision handling and failed-read
-preservation are demonstrated. Product J11 browser/access/reassessment acceptance,
-binary/external artifact providers and release ingestion remain separate work.
+Live ingestion is configured after the actual finite Gitgood identity read and
+atomic create/publish experiment. Frozen `01d2c2e` collector bytes read back the
+protected published assessment and its 7,258-byte proof with manifest SHA256
+`92e4010c66025dccaba38595d6b2b029d81001aae642fe465256d4709791d823`.
+Anonymous access to that exact document refused. An actual unauthorized refresh
+returned 401, kept prior result bytes and observation time, and made verification
+unavailable; restoring the scoped identity recovered the same inconclusive record.
+The seven live checks supplement 33 planning/collector checks, including real
+loopback denial, redirects, changed/missing protected proofs and changed revisions.
+
+The assessment explicitly remains inconclusive for complete J11. Product browser,
+native criterion creation/access/reassessment, binary/external artifact providers,
+release ingestion and unattended collection remain separate work.
