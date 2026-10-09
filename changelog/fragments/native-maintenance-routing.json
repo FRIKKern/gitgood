@@ -1,0 +1,9 @@
+{
+  "id": "native-maintenance-routing",
+  "category": "Added",
+  "summary": "Introduce fixed TLS maintenance and bounded SSH routing under the installation-owned edge group; complete upgrade activation remains under verification.",
+  "impact": "operator",
+  "references": ["tools/deployment/native_edge.py", "tools/deployment/test_native_edge.py", "docs/implementation/installation-upgrade.md"],
+  "journeys": ["J15"],
+  "withdrawn": false
+}

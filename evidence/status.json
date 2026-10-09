@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "9180e781f10fb24f6a35598f628e751b4c8db673",
+  "headCommit": "6736877be81ea626a576d02d465c113c23b171ca",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-09T11:37:45.332Z",
+      "observedAt": "2026-10-09T12:35:44.145Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
@@ -122,7 +122,7 @@
       "id": "J15",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/2eb9d1517d39b03cc523437571ffffc49b545c33/docs/implementation/installation-upgrade.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/6736877be81ea626a576d02d465c113c23b171ca/docs/implementation/installation-upgrade.md"
       }
     },
     {
@@ -140,5 +140,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T11:37:45.332Z"
+  "evaluatedAt": "2026-10-09T12:35:44.145Z"
 }
