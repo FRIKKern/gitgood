@@ -9,7 +9,7 @@ import {promisify} from 'node:util'
 import {randomBytes,createHash} from 'node:crypto'
 import {request as httpsRequest} from 'node:https'
 import {createHmac} from 'node:crypto'
-import {createServer as netServer} from 'node:net'
+import {reserveEdgePort} from './verification-edge-port.mjs'
 import assert from 'node:assert/strict'
 import {verifyOfflineRecovery} from './verify-offline-recovery.mjs'
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..')
@@ -101,10 +101,7 @@ try {
   await run(process.env.GITGOOD_OPENSSL??'openssl',['req','-x509','-newkey','rsa:2048','-sha256','-nodes','-keyout',key,'-out',certificate,'-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost,IP:127.0.0.1'],process.env,root,'fixture-tls')
   await mkdir(sshHost)
   await run(keygen,['-q','-t','ed25519','-N','','-f',join(sshHost,'ssh_host_ed25519_key')],process.env,root,'fixture-ssh-host')
-  const reservation=netServer()
-  await new Promise(resolve=>reservation.listen(0,'127.0.0.1',resolve))
-  const publicPort=reservation.address().port
-  await new Promise(resolve=>reservation.close(resolve))
+  const publicPort=await reserveEdgePort()
   const publicUrl='https://localhost:'+publicPort
   const quotePath=path=>'"'+path.replaceAll('\\','/')+'"'
   const accessLog=join(logs,'caddy-access.log')
