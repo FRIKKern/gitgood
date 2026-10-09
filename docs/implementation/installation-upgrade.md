@@ -103,6 +103,21 @@ configuration and recovery bundle through activation and subsequent verification
 
 ## Implementation sequence
 
+`native_edge.py` adds a fixed guardian for the installation-owned edge group.
+The initial TLS profile uses retained certificate/key custody and distinct public
+HTTPS/SSH and loopback native/web/SSH ports. Maintenance returns HTTP 503 with a
+retry hint and closes SSH without opening its upstream. Active routing uses the
+existing private-header filter and fixed forge/web paths; only the actual current
+journal owner may request it during activation or recovery. A closed environment,
+exact configuration/binary/module identities and driver membership precede entry
+into the empty owned edge group. No supplied command or arbitrary upstream exists.
+SSH forwarding admits at most 32 connections, bounds buffers, connect time and
+connection lifetime, and closes live sockets before waiting for server closure.
+That ordering fixes an observed Python 3.12 shutdown deadlock. Guardian failure
+stops its Caddy child too. Socket checks establish binary forwarding, maintenance
+refusal and live-connection shutdown; actual installed routing remains to be
+verified. This primitive does not establish complete upgrade activation.
+
 `native_actions.py` supplies fixed migration and native/web launch actions for
 the forthcoming executor. Actions require the current process to own a running
 journal stage in the bound driver group. Launch re-observes installation bindings,
