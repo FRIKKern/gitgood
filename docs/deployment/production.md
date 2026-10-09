@@ -46,8 +46,10 @@ pre-provisioned dedicated runtime cgroup through its supervisor or the packaged
 `priv/operations/runtime_cgroup.py` helper. Stop the complete group before another
 bootstrap or runtime admission and retain the empty group for marker verification.
 Do not run bootstrap in the operator's still-populated parent group. Production
-migration and Linux replacement-runtime admission refuse when a previous runtime
-group is unbound, unavailable or still contains descendants, even after its BEAM
+migration refuses when a previous runtime group is unbound, unavailable or still
+contains descendants. Linux replacement-runtime admission additionally validates
+that any processes present are exclusively its own new BEAM startup lineage,
+using kernel process identities and group membership. Unrelated survivors refuse even after their BEAM
 owner and database lease are gone. A first migration with no previous runtime
 marker remains supported.
 
