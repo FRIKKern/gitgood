@@ -23,6 +23,10 @@ group refuses. The copied-production interruption experiment verifies refusal
 with a real prepared Git transaction and retained schema/lock bytes, then migration
 permission after the entire owned group stops. This admission safeguard does not
 establish a complete installed upgrade or automatic schema compatibility.
+Bootstrap also starts the native application, so Linux setup must run it within
+the installation's dedicated runtime cgroup and stop that whole group before the
+next bootstrap/runtime admission. The copied-production verifier follows this
+boundary rather than writing a marker for its still-running parent harness.
 
 The first component is implemented as
 `python3 tools/deployment/inspect_native_artifact.py ARCHIVE SHA256 CANDIDATE`.
