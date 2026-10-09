@@ -34,6 +34,8 @@ The new guest again refused the listening parent canary and both database ports,
 
 Planning and forge now target the same isolated runner labels with bounded job timeouts. The forge job explicitly enables the PostgreSQL locale check and full copied-production offline recovery. Its production harness enters a newly owned cgroup parent; native and maintenance children must be empty after verification. Fresh repository JIT workers are registered for individual jobs. Availability remains dependent on an active provisioner; no persistent runner fleet is claimed.
 
+Recovery requires the PostgreSQL 18 client utilities alongside the existing 18.4 service container. The job installs the client package from the [official signed Ubuntu repository](https://www.postgresql.org/download/linux/ubuntu/) and records the actual dump-tool version. It does not install another database server or copy application runtime credentials into the guest.
+
 ## Primary references
 
 - [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions) currently lists self-hosted runner usage as free. Hosted artifact/cache charges and account restrictions are separate.

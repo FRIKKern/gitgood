@@ -34,6 +34,20 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version-file: .node-version
+      - name: Install PostgreSQL 18 recovery clients
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$VERSION_CODENAME" = noble
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /tmp/gitgood-pgdg-key.asc
+          sudo -n install -m 0644 /tmp/gitgood-pgdg-key.asc /usr/share/keyrings/gitgood-pgdg.asc
+          printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: noble-pgdg\nArchitectures: amd64\nComponents: main\nSigned-By: /usr/share/keyrings/gitgood-pgdg.asc\n' > /tmp/gitgood-pgdg.sources
+          sudo -n install -m 0644 /tmp/gitgood-pgdg.sources /etc/apt/sources.list.d/gitgood-pgdg.sources
+          sudo -n apt-get update
+          sudo -n apt-get install -y --no-install-recommends postgresql-client-18
+          /usr/lib/postgresql/18/bin/pg_dump --version
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
       - run: mix deps.get --check-locked && mix precommit && mix format --check-formatted
         working-directory: apps/forge
       - name: Verify real database recovery and VM crashes
