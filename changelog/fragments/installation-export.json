@@ -1,0 +1,1 @@
+{"id":"installation-export","category":"Added","summary":"Expose coordinated encrypted native installation export and inspect its authenticated Git/configuration/database inventory without connecting to the live database; removal remains unfinished.","impact":"product","references":["docs/operations/export.md"],"journeys":["J17"],"withdrawn":false}
