@@ -154,7 +154,8 @@ class NativeActions:
 
     def _environment(self, component):
         values = self.configuration[component]
-        environment = {"PATH": "/usr/bin:/bin", "HOME": str(self.root), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
+        tool_paths = [str(Path(self.executables[name]).parent) for name in ["node", "psql"]]
+        environment = {"PATH": ":".join([*tool_paths, "/usr/bin", "/bin"]), "HOME": str(self.root), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
         environment.update(values)
         if component == "forge":
             runtime = self.root / "private-runtime"
