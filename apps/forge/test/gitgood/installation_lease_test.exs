@@ -30,6 +30,35 @@ defmodule Gitgood.InstallationLeaseTest do
     %{root: root}
   end
 
+  if :os.type() == {:unix, :linux} do
+    test "production migration and replacement runtime require the previous complete group", %{
+      root: root
+    } do
+      previous = Application.fetch_env!(:gitgood, :environment)
+      Application.put_env(:gitgood, :environment, :prod)
+      on_exit(fn -> Application.put_env(:gitgood, :environment, previous) end)
+      {:ok, host} = :inet.gethostname()
+
+      File.write!(
+        Path.join(root, ".gitgood-runtime-v1.json"),
+        Jason.encode!(%{protocol: 1, host: to_string(host), owners: [2_000_000_000]})
+      )
+
+      assert start(root, :migrate) == {:error, :installation_marker_invalid}
+      assert start(root) == {:error, :installation_marker_invalid}
+    end
+
+    test "first production migration can establish a new installation without a previous runtime",
+         %{root: root} do
+      previous = Application.fetch_env!(:gitgood, :environment)
+      Application.put_env(:gitgood, :environment, :prod)
+      on_exit(fn -> Application.put_env(:gitgood, :environment, previous) end)
+      {:ok, maintenance} = start(root, :migrate)
+      assert InstallationLease.assert_held(maintenance) == :ok
+      GenServer.stop(maintenance, :normal)
+    end
+  end
+
   defp start(root, mode \\ :runtime) do
     InstallationLease.start_link(root: root, mode: mode, name: nil)
   end

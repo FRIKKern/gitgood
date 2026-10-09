@@ -70,8 +70,17 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
     interruptedLock=await readFile(lock)
     await wait(launch(release,['eval','Gitgood.Release.backup()'],backupEnv,installedForge,'backup-held-writer-refusal'),'backup-held-writer-refusal',[1])
     assert((await readFile(lock)).equals(interruptedLock));await assert.rejects(lstat(bundle))
+    await wait(launch(release,['eval','case Application.ensure_all_started(:gitgood) do {:error, _} -> System.halt(1); _ -> System.halt(0) end'],env,installedForge,'runtime-held-writer-refusal'),'runtime-held-writer-refusal',[1])
+    const schemaCommand='SELECT version::text FROM schema_migrations ORDER BY version'
+    await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--tuples-only','--no-align','--command',schemaCommand],pgEnv,root,'migration-held-schema-before')
+    await wait(launch(release,['eval','Gitgood.Release.migrate()'],env,installedForge,'migration-held-writer-refusal'),'migration-held-writer-refusal',[1])
+    await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--tuples-only','--no-align','--command',schemaCommand],pgEnv,root,'migration-held-schema-after')
+    assert((await readFile(join(root,'logs/migration-held-schema-before.log'))).equals(await readFile(join(root,'logs/migration-held-schema-after.log'))))
+    assert((await readFile(lock)).equals(interruptedLock),'Refused migration must retain the prepared Git lock byte-for-byte')
   }finally{if(held)await stop(held)}
   assert((await readFile(lock)).equals(interruptedLock),'Kernel termination must leave the real unpublished Git lock for recovery')
+  await run(release,['eval','Gitgood.Release.migrate()'],env,installedForge,'migration-empty-group')
+  assert((await readFile(lock)).equals(interruptedLock),'Permitted migration must not publish or remove the interrupted Git transaction')
   const pausedAt=performance.now()
   await run(release,['eval','Gitgood.Release.export()'],backupEnv,installedForge,'backup')
   const backupLog=await readFile(join(root,'logs/backup.log'),'utf8')
@@ -189,7 +198,7 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
     backup:{...backupReceipt},export:exportInspection,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
-    checks:['running installation refuses backup','kernel cgroup empty before snapshot','exact database rows/sequences/schema and locale fingerprint',
+    checks:['running installation refuses backup','kernel cgroup empty before snapshot','migration and replacement runtime refuse a real surviving Git writer; schema/lock bytes retained and migration permits only after the complete owned group stops','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
       'real prepared Git transaction excluded while alive; killed lock quarantined byte-for-byte without publishing its ref',
       'restored session, proxy and source key custody','SSH host identity retained','unknown sealed request retained and observed without another write',

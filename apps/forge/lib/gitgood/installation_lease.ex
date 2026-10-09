@@ -147,7 +147,11 @@ defmodule Gitgood.InstallationLease do
 
       true ->
         Enum.reduce_while([runtime, maintenance], :ok, fn path, _ ->
-          case marker_status(path, mode == :backup and path == runtime and enabled?()) do
+          require_cgroup =
+            enabled?() and path == runtime and
+              (mode in [:backup, :migrate] or (mode == :runtime and :os.type() == {:unix, :linux}))
+
+          case marker_status(path, require_cgroup) do
             :clear -> {:cont, :ok}
             error -> {:halt, error}
           end

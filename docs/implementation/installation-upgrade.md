@@ -14,6 +14,16 @@ two forge versions cannot hold the same installation lease concurrently. Stage
 immutable code separately from the mutable database, Git stores, assets, private
 configuration and external recovery key. Never downgrade a schema automatically.
 
+Production migration admission requires an existing runtime marker's complete
+cgroup to be empty, as backup already requires. Linux replacement-runtime
+admission uses that same kernel boundary. A dead BEAM owner or released database
+lease does not establish that its Git descendants stopped. First installation
+migration still permits an absent runtime marker; a present unbound or nonempty
+group refuses. The copied-production interruption experiment verifies refusal
+with a real prepared Git transaction and retained schema/lock bytes, then migration
+permission after the entire owned group stops. This admission safeguard does not
+establish a complete installed upgrade or automatic schema compatibility.
+
 The first component is implemented as
 `python3 tools/deployment/inspect_native_artifact.py ARCHIVE SHA256 CANDIDATE`.
 It opens the archive without following a file symlink on supported Linux, verifies
