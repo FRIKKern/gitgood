@@ -88,4 +88,44 @@ defmodule Gitgood.BrowseTest do
     assert {:error, :commit_not_available} = Browse.snapshot(ctx.repository, sha, "")
     assert get(conn, "/api/repos/browse/fixture/snapshot?sha=" <> sha) |> json_response(422)
   end
+
+  test "temporary command saturation is retryable, rather than a missing commit", ctx do
+    sha = fixture(ctx.repository)
+    {token, _} = Accounts.issue(ctx.user, "session")
+    {:ok, listener} = :gen_tcp.listen(0, [:binary, active: false, ip: {127, 0, 0, 1}])
+    on_exit(fn -> :gen_tcp.close(listener) end)
+    {:ok, {_, port}} = :inet.sockname(listener)
+    tasks = start_supervised!({Task.Supervisor, name: nil})
+    python = Application.fetch_env!(:gitgood, :python_executable) |> System.find_executable()
+
+    code =
+      "import socket; s=socket.create_connection(('127.0.0.1',#{port})); s.sendall(b'ready'); s.recv(1)"
+
+    workers =
+      for _ <- 1..4,
+          do:
+            Task.Supervisor.async_nolink(tasks, fn ->
+              Gitgood.Command.run([python, "-c", code])
+            end)
+
+    sockets =
+      for _ <- 1..4 do
+        {:ok, socket} = :gen_tcp.accept(listener, 5000)
+        assert {:ok, "ready"} = :gen_tcp.recv(socket, 5, 5000)
+        socket
+      end
+
+    assert {:error, :git_unavailable} = Browse.reachable(ctx.repository, sha)
+
+    for path <- ["branches", "snapshot?sha=" <> sha, "diff?sha=" <> sha] do
+      assert %{"error" => "git_unavailable"} =
+               build_conn()
+               |> put_req_header("authorization", "Bearer " <> token)
+               |> get("/api/repos/browse/fixture/" <> path)
+               |> json_response(503)
+    end
+
+    Enum.each(sockets, &:gen_tcp.close/1)
+    for worker <- workers, do: assert(Task.await(worker, 5000) == {:ok, "", 0})
+  end
 end

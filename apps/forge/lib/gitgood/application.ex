@@ -12,6 +12,7 @@ defmodule Gitgood.Application do
     children = [
       GitgoodWeb.Telemetry,
       Gitgood.Repo,
+      {Gitgood.BrowseSlots, []},
       {DynamicSupervisor, name: Gitgood.Commands, strategy: :one_for_one, max_children: 4},
       {DynamicSupervisor,
        name: Gitgood.BarkparkRequests, strategy: :one_for_one, max_children: 4},

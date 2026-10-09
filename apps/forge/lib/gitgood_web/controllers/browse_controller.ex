@@ -23,7 +23,10 @@ defmodule GitgoodWeb.BrowseController do
           {:error, reason} ->
             Auth.reject(
               conn,
-              if(reason in [:git_unavailable, :history_unavailable], do: 503, else: 422),
+              if(reason in [:git_unavailable, :history_unavailable, :browse_busy_retry],
+                do: 503,
+                else: 422
+              ),
               Atom.to_string(reason)
             )
         end
