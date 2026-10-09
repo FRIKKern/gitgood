@@ -62,8 +62,26 @@ digests rather than payloads or environment. Linux tests include a genuinely
 killed owner, process contention, altered history, lost acknowledgement and
 interrupted recovery. Windows tests only establish early platform refusal; they
 do not establish Windows upgrade support. Full installed activation, resource
-inventory, supervised execution and a subsequent independent upgrade operation
-with retained history remain implementation work.
+inventory and supervised execution remain implementation work.
+
+`UpgradeHistory` in `tools/deployment/upgrade_history.py` coordinates successive
+operations in a dedicated private directory. Its installation lock spans the
+whole claimed journal. A new operation requires the previous one to be complete
+or recovered, keeps its exact terminal journal bytes and digest, and binds the
+next previous artifact to the actually recorded outcome. Installation and resource
+bindings cannot change between operations. Reusing an older operation UUID or
+starting another operation while responsibility remains pending, failed or uncertain
+refuses. This component records probe obligations; it does not perform activation
+or establish that a declared recovery receipt reflects a healthy running release.
+
+History reserves the immutable intent durably before creating or claiming its
+operation journal. After a lost reservation acknowledgement, read-only inspection
+shows `reserved`; only the same intent can continue. It does not infer an applied
+stage. Interrupted journal stages still require explicit observation and reconciliation.
+Read-only history preserves ownership and events. Sealed journal tampering,
+symlinks, hardlinks, shared permissions and orphan operation directories refuse.
+The bounded initial profile retains up to 128 operations; exceeding that bound
+requires an explicit future retention design, rather than deleting evidence.
 
 `stage_native_artifact.py ARCHIVE SHA256 CANDIDATE PRIVATE_DIRECTORY OPERATION_UUID`
 implements private staging. It copies a bounded archive into a fresh request
