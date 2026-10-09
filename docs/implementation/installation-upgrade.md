@@ -66,6 +66,16 @@ it is not an old-to-new transition or a complete coordinator proof.
 
 ## Initial operating profile
 
+Edge launch files now use a fresh private UUID for each attempt. An actual
+`fd9b909` recovery experiment stopped maintenance and started active routing
+within the same recovery stage, without overwriting prior launch custody. That
+experiment recovered the same operation, passed thirteen real schema/internal/
+public HTTPS/SSH and release-pointer checks, and retained forty proof files with
+digest readback. Earlier maintenance-observation and repeated-launch-path failures
+remain retained. Its edge module is byte-identical here; the newer probe,
+activation and action libraries used by that experiment are separate coordinator
+work. It does not establish a version-changing complete upgrade.
+
 Support the measured Ubuntu 24.04 x86-64 installation, PostgreSQL 18.4, one forge
 runtime, its TanStack web server and an owned edge route. Use a maintenance window:
 two forge versions cannot hold the same installation lease concurrently. Stage

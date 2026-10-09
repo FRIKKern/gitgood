@@ -1,0 +1,9 @@
+{
+  "id": "production-component-port-admission",
+  "category": "Fixed",
+  "summary": "Select distinct available copied-production fixture TCP ports below the observed outbound ephemeral range, preserving explicit targets and unrelated listeners after a real web bind collision.",
+  "impact": "operator",
+  "references": ["scripts/verification-component-ports.mjs", "scripts/verification-component-ports.test.mjs", "scripts/verify-production.mjs"],
+  "journeys": ["J14", "J15"],
+  "withdrawn": false
+}
