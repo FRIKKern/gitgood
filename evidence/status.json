@@ -1,18 +1,25 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "e11ad2bd3e1a0f3b131c1ff2d4828a917a4e237c",
+  "headCommit": "01d2c2ee904c4e5ecc88c475422849ff4a8abca8",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-09T14:14:38.161Z",
+      "observedAt": "2026-10-09T14:52:33.481Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
-      "status": "unconfigured",
-      "observedAt": null
+      "status": "ok",
+      "observedAt": "2026-10-09T14:50:09.000Z",
+      "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/v1/data/query/production/gitgood_verification",
+      "receipts": [
+        {
+          "id": "gitgood-verification-8cacb7a1-d3b0-4057-9494-84421f634b73",
+          "manifestSha256": "92e4010c66025dccaba38595d6b2b029d81001aae642fe465256d4709791d823"
+        }
+      ]
     },
     "releases": {
       "status": "unconfigured",
@@ -95,6 +102,59 @@
       "implementation": {
         "state": "in_progress",
         "reference": "https://github.com/FRIKKern/gitgood/blob/eac561558a9e5026bd9a864802cb5fa594d6f9c3/docs/implementation/criterion-evidence.md"
+      },
+      "verification": {
+        "state": "inconclusive",
+        "passed": false,
+        "codeCommit": "01d2c2ee904c4e5ecc88c475422849ff4a8abca8",
+        "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
+        "requirementSha256": "0b3cefbe9c60c47715531c60d5414418767ff4474e1325b013d75f08f0784905",
+        "observedAt": "2026-10-09T14:46:12.864Z",
+        "evaluatedAt": "2026-10-09T14:49:05.902Z",
+        "sequence": 1,
+        "evaluator": "Codex primary agent; supporting collector checks do not establish full native J11 acceptance",
+        "manifestSha256": "92e4010c66025dccaba38595d6b2b029d81001aae642fe465256d4709791d823",
+        "artifacts": [
+          {
+            "bytes": 7258,
+            "id": "collector-checks",
+            "name": "collector-checks.log",
+            "sha256": "51701e44715fc5f9a48c63ed5bce60d0aa9c973a16eca19b37a732167e914970"
+          }
+        ],
+        "criteria": [
+          {
+            "artifactIds": [
+              "collector-checks"
+            ],
+            "id": "J11-A",
+            "observedAt": "2026-10-09T14:46:12.864Z",
+            "outcome": "inconclusive",
+            "producer": "Codex primary agent on frozen collector module bytes",
+            "reason": "All33 supporting reporting tests passed, including actual HTTP checksum/denial/redirect/latest-result/staleness and failed-refresh preservation. This is not complete native product J11 verification."
+          },
+          {
+            "artifactIds": [
+              "collector-checks"
+            ],
+            "id": "J11-B",
+            "observedAt": "2026-10-09T14:46:12.864Z",
+            "outcome": "inconclusive",
+            "producer": "Codex primary agent on frozen collector module bytes",
+            "reason": "All33 supporting reporting tests passed, including actual HTTP checksum/denial/redirect/latest-result/staleness and failed-refresh preservation. This is not complete native product J11 verification."
+          },
+          {
+            "artifactIds": [
+              "collector-checks"
+            ],
+            "id": "J11-C",
+            "observedAt": "2026-10-09T14:46:12.864Z",
+            "outcome": "inconclusive",
+            "producer": "Codex primary agent on frozen collector module bytes",
+            "reason": "All33 supporting reporting tests passed, including actual HTTP checksum/denial/redirect/latest-result/staleness and failed-refresh preservation. This is not complete native product J11 verification."
+          }
+        ],
+        "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/v1/data/doc/production/gitgood_verification/gitgood-verification-8cacb7a1-d3b0-4057-9494-84421f634b73"
       }
     },
     {
@@ -122,7 +182,7 @@
       "id": "J15",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/e11ad2bd3e1a0f3b131c1ff2d4828a917a4e237c/docs/implementation/installation-upgrade.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/be3e9b1be817fda65875184f35624a805160b6f7/docs/implementation/installation-upgrade.md"
       }
     },
     {
@@ -140,5 +200,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T14:14:38.161Z"
+  "evaluatedAt": "2026-10-09T14:52:33.481Z"
 }
