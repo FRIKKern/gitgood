@@ -147,7 +147,20 @@ defmodule Gitgood.InstallationLease do
 
       true ->
         Enum.reduce_while([runtime, maintenance], :ok, fn path, _ ->
-          case marker_status(path, mode == :backup and path == runtime and enabled?()) do
+          require_cgroup =
+            cond do
+              enabled?() and path == runtime and mode in [:backup, :migrate] ->
+                :empty
+
+              enabled?() and path == runtime and mode == :runtime and
+                  :os.type() == {:unix, :linux} ->
+                :startup
+
+              true ->
+                false
+            end
+
+          case marker_status(path, require_cgroup) do
             :clear -> {:cont, :ok}
             error -> {:halt, error}
           end
@@ -165,7 +178,12 @@ defmodule Gitgood.InstallationLease do
         script = Application.app_dir(:gitgood, "priv/operations/process_status.py")
 
         arguments =
-          ["-I", script, path] ++ if(require_cgroup, do: ["require-empty-cgroup"], else: [])
+          ["-I", script, path] ++
+            case require_cgroup do
+              :empty -> ["require-empty-cgroup"]
+              :startup -> ["require-exclusive-startup", System.pid()]
+              false -> []
+            end
 
         case System.cmd(python, arguments, stderr_to_stdout: true) do
           {"clear\n", 0} ->

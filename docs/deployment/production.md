@@ -41,6 +41,18 @@ Run release migrations before service startup:
 `bin/gitgood eval 'Gitgood.Release.migrate()'`.
 Bootstrap a local actor once with `GITGOOD_BOOTSTRAP_USERNAME`, `GITGOOD_BOOTSTRAP_TEAM`, `GITGOOD_BOOTSTRAP_ROLE` and `GITGOOD_BOOTSTRAP_PASSWORD`, then `bin/gitgood eval 'Gitgood.Release.bootstrap()'`; remove bootstrap variables afterward. Bootstrap user/membership creation is transactional. There is no production signup or managed identity provider yet.
 
+On Linux, bootstrap starts the native application and must use the installation's
+pre-provisioned dedicated runtime cgroup through its supervisor or the packaged
+`priv/operations/runtime_cgroup.py` helper. Stop the complete group before another
+bootstrap or runtime admission and retain the empty group for marker verification.
+Do not run bootstrap in the operator's still-populated parent group. Production
+migration refuses when a previous runtime group is unbound, unavailable or still
+contains descendants. Linux replacement-runtime admission additionally validates
+that any processes present are exclusively its own new BEAM startup lineage,
+using kernel process identities and group membership. Unrelated survivors refuse even after their BEAM
+owner and database lease are gone. A first migration with no previous runtime
+marker remains supported.
+
 The packaged forge runs without automatic distributed Erlang registration; see [single-host releases](../decisions/0010-single-host-releases.md). Use the OS supervisor for stop/restart and release eval for offline maintenance. Remote/rpc commands are outside this profile.
 
 For Barkpark account connections, select GITGOOD_BARKPARK_ORIGIN and provision GITGOOD_CONNECTION_KEY as a separate secret. Preserve the key with coordinated recovery materials; a database copy alone cannot recover encrypted source credentials. See [account connection bounds](../implementation/barkpark-accounts.md). An optional GITGOOD_BARKPARK_CA PEM path provides explicit source-issuer trust while certificate-chain and hostname checks remain enabled; default operation uses normal platform trust. Keep this trust configuration outside replaceable artifacts.

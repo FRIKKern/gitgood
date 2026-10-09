@@ -142,7 +142,13 @@ try {
   await run(process.env.GITGOOD_CREATEDB??'createdb',['-h',process.env.PGHOST??'127.0.0.1','-p',process.env.PGPORT??'55432','-U',process.env.PGUSER??'gitgood',database],process.env,root,'database-create')
   await run(release,['eval','Gitgood.Release.migrate()'],env,installedForge,'migrate')
   for(const [username,team,role] of [['owner','team','owner'],['reviewer','team','writer'],['reader','team','reader'],['outsider','elsewhere','owner']]) {
-    await run(release,['eval','Gitgood.Release.bootstrap()'],{...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'},installedForge,'bootstrap')
+    const configuration={...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'}
+    const group=process.env.GITGOOD_VERIFY_CGROUP
+    if(!windows)assert(group,'Linux bootstrap verification requires its owned runtime cgroup')
+    const child=group?launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'priv/operations/runtime_cgroup.py'),group,release,'eval','Gitgood.Release.bootstrap()'],configuration,installedForge,'bootstrap'):
+      launch(release,['eval','Gitgood.Release.bootstrap()'],configuration,installedForge,'bootstrap')
+    if(group)child.runtimeCgroup=group
+    try{await wait(child,'bootstrap')}finally{if(group)await stop(child)}
   }
   const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl,GITGOOD_PROXY_KEY:proxyKey}
   if(!windows)await provisionConfiguration({directory:join(root,'diagnostic-configuration'),forge:env,web:webEnv,
