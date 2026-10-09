@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "fe4d835df35b10b63ad16eb4171c911c1cdc1ca3",
+  "headCommit": "2d455bf04425cf7ec020dc99f5fde460f2ecfb11",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-09T15:36:21.613Z",
+      "observedAt": "2026-10-09T17:28:10.735Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "ok",
-      "observedAt": "2026-10-09T15:36:23.178Z",
+      "observedAt": "2026-10-09T17:28:00.802Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/v1/data/query/production/gitgood_verification",
       "receipts": [
         {
@@ -196,9 +196,9 @@
       "id": "J17",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/fe4d835df35b10b63ad16eb4171c911c1cdc1ca3/docs/implementation/installation-retirement.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/2d455bf04425cf7ec020dc99f5fde460f2ecfb11/docs/implementation/installation-retirement.md"
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T15:36:23.178Z"
+  "evaluatedAt": "2026-10-09T17:28:10.735Z"
 }
