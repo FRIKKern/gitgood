@@ -2,6 +2,36 @@ defmodule Gitgood.InstallationLeaseTest do
   use ExUnit.Case, async: false
   alias Gitgood.InstallationLease
 
+  test "retirement outside stores refuses runtime and offline work after owner loss", %{
+    root: root
+  } do
+    storage = Path.join(root, "storage")
+    File.mkdir!(storage)
+    fence = Path.join(root, ".gitgood-retirement-v1.json")
+    File.write!(fence, Jason.encode!(%{protocol: 1, owner: "no live owner required"}))
+    assert start(storage) == {:error, :installation_retiring}
+    assert start(storage, :backup) == {:error, :installation_retiring}
+    assert start(storage, :migrate) == {:error, :installation_retiring}
+    assert start(storage, :restore) == {:error, :installation_retiring}
+    # Refused attempts leave both the fence and the target untouched.
+    assert File.read!(fence) =~ "no live owner required"
+    assert File.ls!(storage) == []
+  end
+
+  if match?({:unix, _}, :os.type()) do
+    test "a dangling retirement fence refuses instead of following its target", %{root: root} do
+      storage = Path.join(root, "storage")
+      File.mkdir!(storage)
+      fence = Path.join(root, ".gitgood-retirement-v1.json")
+      File.ln_s!(Path.join(root, "missing-fence-target"), fence)
+      assert start(storage) == {:error, :installation_retiring}
+      assert start(storage, :backup) == {:error, :installation_retiring}
+      assert start(storage, :migrate) == {:error, :installation_retiring}
+      assert start(storage, :restore) == {:error, :installation_retiring}
+      assert File.read_link!(fence) == Path.join(root, "missing-fence-target")
+    end
+  end
+
   test "an incomplete restore refuses runtime and backup even with no live owner", %{root: root} do
     File.write!(Path.join(root, ".gitgood-restore-incomplete-v1.json"), "{}")
     assert start(root) == {:error, :installation_restore_incomplete}

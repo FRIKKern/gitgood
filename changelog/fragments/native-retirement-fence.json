@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-fence",
+  "category": "Added",
+  "summary": "Retain retirement admission outside removable stores, refuse new runtime and offline leases after owner loss, and stop only enrolled kernel groups behind the held fence; complete installed retirement remains unfinished.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_fence.py", "tools/deployment/retirement_quiescence.py", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J15", "J17"],
+  "withdrawn": false
+}
