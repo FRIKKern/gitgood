@@ -81,6 +81,7 @@ export function validate(m, now = new Date()) {
       const v = r.verification
       if (!['verified', 'failed', 'inconclusive'].includes(v.state) || !nonempty(v.reference)) errors.push('Invalid verification: ' + r.id)
       if (v.state === 'verified' && (v.passed !== true || !/^[0-9a-f]{40,64}$/.test(v.codeCommit ?? '') || !nonempty(v.specRevision))) errors.push('Verification lacks proof identity: ' + r.id)
+      if (v.observedAt !== undefined && (!Number.isFinite(Date.parse(v.observedAt)) || Date.parse(v.observedAt) > now.getTime())) errors.push('Invalid verification observation time: ' + r.id)
     }
     if (r.release) {
       const v = r.release
@@ -121,6 +122,9 @@ export function classify(record, snapshot, now) {
   }
   const v = record?.verification
   if (status.verification === 'verified' && (v.codeCommit !== snapshot.headCommit || v.specRevision !== snapshot.specRevision)) status.verification = 'stale'
+  if (v && !['unknown','stale'].includes(status.verification) &&
+      (v.codeCommit && v.codeCommit !== snapshot.headCommit || v.specRevision && v.specRevision !== snapshot.specRevision ||
+       v.observedAt && clock.getTime() - Date.parse(v.observedAt) > snapshot.maxAgeHours * 3600000)) status.verification = 'stale'
   if (status.release === 'released' && (record.release.codeCommit !== snapshot.headCommit || status.verification !== 'verified')) status.release = 'stale'
   return status
 }

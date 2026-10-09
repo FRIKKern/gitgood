@@ -9,7 +9,7 @@ export function requirementIdentity(catalog,readSpec){
     return {...journey,sha256:hash(spec),criteria:[...spec.matchAll(/^- \*\*(J\d\d-[A-Z]):\*\* (.+)$/gm)].map(([,id,text])=>id+': '+text.trim())}
   })
 }
-export async function readLedger({config,token,requirements,now=new Date(),allowInsecureLoopback=false}){
+export async function sourceReader({config,token,now=new Date(),allowInsecureLoopback=false}){
   if(config.schemaVersion!==1||typeof config.workspaceId!=='string'||!/^[0-9a-f-]{36}$/.test(config.workspaceId)||
     !token||typeof token!=='string'||/[\r\n]/.test(token))refuse('ledger_configuration_invalid')
   const base=new URL(config.baseUrl)
@@ -32,7 +32,13 @@ export async function readLedger({config,token,requirements,now=new Date(),allow
   if(identity.workspace?.id!==config.workspaceId||identity.workspace.slug!==config.workspace||
     !Array.isArray(identity.permissions)||!identity.permissions.includes('read')||identity.permissions.includes('admin')||
     !identity.expires_at||Date.parse(identity.expires_at)<=now.getTime()||!Number.isFinite(Date.parse(identity.expires_at)))refuse('ledger_identity_invalid')
-  const scope='/w/'+config.workspace+'/p/'+config.project+'/v1/data/query/'+config.dataset+'/task'
+  return {base,identity,get,scope:'/w/'+config.workspace+'/p/'+config.project+'/v1/data/query/'+config.dataset,
+    documentScope:'/w/'+config.workspace+'/p/'+config.project+'/v1/data/doc/'+config.dataset}
+}
+export async function readLedger(options){
+  const {config,requirements,now=new Date()}=options
+  const {base,identity,get,scope:rootScope}=await sourceReader(options)
+  const scope=rootScope+'/task'
   const docs=[],seen=new Set();let offset=0,total=null
   while(true){
     const query=new URLSearchParams({limit:'100',offset:String(offset),count:'true',fields:'gitgood,parent_id,acceptance_criteria,lifecycle_status,labels'})
