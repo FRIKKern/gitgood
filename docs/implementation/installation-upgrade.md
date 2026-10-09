@@ -119,9 +119,20 @@ manifest cannot substitute changed code under the original artifact digest.
 Missing web runtime dependencies refuse before launch. Whole-group stopping uses
 the exact recorded kernel identity and remains available when the database is
 unavailable; it never discovers or kills unrelated host processes. Structural and
-artifact-refusal checks pass. Real process-action verification, public maintenance
-routing, authenticated activation probes and the complete executing coordinator
-remain unfinished; no installed-upgrade acceptance follows from these primitives.
+artifact-refusal checks pass. The retained operator `9f51885` experiment staged a
+clean historical `1b0fe04` native/web package and ran its fixed migration command,
+native and production web processes under the owned journal. Both actual readiness
+responses matched the artifact; whole-group stopping removed the live native
+runtime and an independent owned descendant. All immutable code was rechecked
+after execution, and generated runtime configuration remained outside it. Nine
+process-action checks passed, all five groups were empty after the driver exited,
+and thirteen private proof files passed digest readback. Fifty Linux operator
+checks and seventeen Windows checks passed in separate platform profiles, with
+four and thirty-seven foreign-profile skips respectively; planning checks passed.
+The same native artifact and existing schema were used before and after. Public
+maintenance routing, authenticated activation, a version-changing pending migration
+and the complete executing coordinator remain unfinished. The journal remains
+pending activation; this experiment does not establish an installed upgrade.
 
 The read-only `native_inventory.py` component binds the initial local operator
 profile to an owned private installation root, exact configuration and Ed25519
