@@ -1,8 +1,11 @@
 import {createServer} from 'node:net'
 import {createSocket} from 'node:dgram'
+import {randomInt} from 'node:crypto'
 
 // Caddy serves TCP HTTPS and UDP QUIC on the same port. A TCP reservation
-// alone can select a Windows port that is forbidden for UDP.
+// alone can select a Windows port that is forbidden for UDP. Either protocol's
+// automatic allocation can cluster inside the other's excluded range, so each
+// retry uses an independent explicit candidate from the dynamic-port range.
 export async function reserveEdgePort({port = 0, attempts = 16} = {}) {
   if (!Number.isInteger(port) || port < 0 || port > 65535 ||
       !Number.isInteger(attempts) || attempts < 1 || attempts > 64)
@@ -13,7 +16,7 @@ export async function reserveEdgePort({port = 0, attempts = 16} = {}) {
     try {
       await new Promise((resolve, reject) => {
         udp.once('error', reject)
-        udp.bind(attempt === 0 ? port : 0, '127.0.0.1', resolve)
+        udp.bind(attempt === 0 && port !== 0 ? port : randomInt(49152, 65536), '127.0.0.1', resolve)
       })
       const selected = udp.address().port
       await new Promise((resolve, reject) => {
