@@ -61,8 +61,8 @@ must inspect the durable state. Evidence fields admit bounded counts, booleans a
 digests rather than payloads or environment. Linux tests include a genuinely
 killed owner, process contention, altered history, lost acknowledgement and
 interrupted recovery. Windows tests only establish early platform refusal; they
-do not establish Windows upgrade support. Full installed activation, resource
-inventory and supervised execution remain implementation work.
+do not establish Windows upgrade support. Full installed version transitions and
+the executing coordinator remain implementation work.
 
 `UpgradeHistory` in `tools/deployment/upgrade_history.py` coordinates successive
 operations in a dedicated private directory. Its installation lock spans the
@@ -115,8 +115,29 @@ SSH forwarding admits at most 32 connections, bounds buffers, connect time and
 connection lifetime, and closes live sockets before waiting for server closure.
 That ordering fixes an observed Python 3.12 shutdown deadlock. Guardian failure
 stops its Caddy child too. Socket checks establish binary forwarding, maintenance
-refusal and live-connection shutdown; actual installed routing remains to be
-verified. This primitive does not establish complete upgrade activation.
+refusal and live-connection shutdown. The actual operator `b015370` experiment used
+the copied historical `1b0fe04` native/web artifact in a fresh private installation.
+Twelve checks passed: TLS maintenance and SSH closure held through internal
+candidate function checks, then public readiness, authenticated branch reads,
+anonymous refusal and real CA-verified HTTPS/strict-host-key SSH clients identified
+the same retained commit. Immutable code stayed unchanged and logs excluded
+edge/session/Git credentials. The disposable fixture was stopped while the
+public-verification stage remained owned, then its completed history was sealed;
+all five groups were empty after the driver exited. Fifteen private proof files
+passed digest readback.
+
+Retained attempts include a private-file creation refusal before edge startup and
+a fixture SSH request with the wrong account name. The latter's lost owner remained
+visible at public verification; explicit recovery using its exact previous artifact
+and the returned owner-account URL passed eleven public function/history checks.
+Twenty-five private files passed digest readback. A separate earlier `8c99172`
+operator experiment held the SSH port with an owned fixture listener: guardian
+refusal stopped Caddy, left its exact group empty, removed TLS and retained a failed
+maintenance stage. Five checks and eleven private files passed readback. These
+older proofs retain their actual operator identities. The current route experiment
+uses the same artifact and existing schema before/after; version-changing pending
+migrations, the product coordinator and durable current-release pointer remain
+unfinished. No complete J15 acceptance follows from these supporting experiments.
 
 `native_actions.py` supplies fixed migration and native/web launch actions for
 the forthcoming executor. Actions require the current process to own a running
@@ -144,10 +165,11 @@ process-action checks passed, all five groups were empty after the driver exited
 and thirteen private proof files passed digest readback. Fifty Linux operator
 checks and seventeen Windows checks passed in separate platform profiles, with
 four and thirty-seven foreign-profile skips respectively; planning checks passed.
-The same native artifact and existing schema were used before and after. Public
-maintenance routing, authenticated activation, a version-changing pending migration
-and the complete executing coordinator remain unfinished. The journal remains
-pending activation; this experiment does not establish an installed upgrade.
+The same native artifact and existing schema were used before and after. This
+earlier journal remains pending activation. The subsequent route experiments are
+separately identified above; a version-changing pending migration and the complete
+executing coordinator remain unfinished. This earlier action experiment does not
+establish an installed upgrade.
 
 The read-only `native_inventory.py` component binds the initial local operator
 profile to an owned private installation root, exact configuration and Ed25519
