@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-snapshot",
+  "category": "Added",
+  "summary": "Compare authenticated retained exports with live file/database fingerprints under continuously owned retirement custody, with independently bound materials and changed-writer refusals; usable restoration and complete installed retirement remain separate work.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_snapshot.py", "apps/forge/priv/operations/retirement-snapshot.mjs", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}
