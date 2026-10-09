@@ -84,9 +84,9 @@ class RetirementSnapshot:
             require(not any(Path(path).is_relative_to(Path(root)) for root in self.request["roots"].values()))
         require(retention["scratch"]["path"] == str(Path(retention["archive"]["path"]).parent))
 
-    def _custody(self):
+    def _core_custody(self):
         self.journal._owned()
-        require(self.journal.record["stage"] == "archive_verify" and self.journal.record["status"] == "running")
+        require(self.journal.record["stage"] == "archive_verify" and self.journal.record["status"] in {"running", "failed", "uncertain"})
         self.quiescence.observe()
         raw = private_bytes(self.journal.directory / "current-release-v1.json", 16384)
         require(hashlib.sha256(raw).hexdigest() == self.journal.plan["current_sha256"])
@@ -94,6 +94,10 @@ class RetirementSnapshot:
         require(all(pointer[key] == self.journal.plan[key] for key in ["installation", "candidate", "artifact_sha256", "bindings_sha256"]))
         require(directory_identity(pointer["stage"]["path"], private=True) == pointer["stage"])
         return Path(pointer["stage"]["path"])
+
+    def _custody(self):
+        require(self.journal.record["status"] == "running")
+        return self._core_custody()
 
     def _retained(self):
         for name, maximum in [("archive", MAX_ARCHIVE), ("key", 32)]:
@@ -109,20 +113,37 @@ class RetirementSnapshot:
         require(value["original_present_verified"] and not value["desired_state_verified"] and value["connected_clients"] == 0)
         return value
 
-    def _run_packaged(self, module, prefix, request_value, database_environment, *, restoration=None):
+    def _target_helper_custody(self, full):
+        for name, expected in full["target_groups"].items():
+            group = observe_target_group(self.journal.plan["installation"], self.journal.operation,
+                                         full["materialization"]["target_installation"], name)
+            require(group == expected)
+            if name != "maintenance":
+                path = Path(group["path"])
+                require(dict(line.split() for line in (path / "cgroup.events").read_text().splitlines()).get("populated") == "0")
+                require(not (path / "cgroup.procs").read_text().strip())
+
+    def _run_packaged(self, module, prefix, request_value, database_environment, *, restoration=None, observing_uncertain=False):
         """Fixed packaged reads/imports with retained custody and private results."""
         require((module, prefix) in {("retirement-snapshot.mjs", "snapshot"),
                                      ("retirement-restore-data.mjs", "restored-data"),
                                      ("retirement-restore-materialize.mjs", "materialization")})
         if module == "retirement-restore-materialize.mjs":
             require(restoration is not None)
-        stage = self._custody()
+        require(type(observing_uncertain) is bool)
+        if observing_uncertain:
+            require(module == "retirement-snapshot.mjs" and prefix == "snapshot")
+            require(restoration is not None)
+            require(self.journal.record["status"] in {"failed", "uncertain"})
+        custody = self._core_custody if observing_uncertain else self._custody
+        stage = custody()
         self._retained()
         before = self._original_database()
         verified = verify_runtime_stage(stage, self.journal.plan["candidate"], self.journal.plan["artifact_sha256"])
         execution = None
         if restoration is not None:
             full = validate_full_restore_plan(self.journal, restoration)
+            self._target_helper_custody(full)
             execution = (full["materialization"]["target_installation"], full["target_groups"]["maintenance"])
             installation, group = execution
             require(observe_target_group(self.journal.plan["installation"], self.journal.operation, installation, "maintenance") == group)
@@ -142,6 +163,8 @@ class RetirementSnapshot:
         environment = {**database_environment, "PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
                        "GITGOOD_PSQL": self.database.psql["path"], "GITGOOD_GIT": self.bindings["executables"]["git"]["path"],
                        "GITGOOD_PG_DUMP": self.retention["tools"]["pg_dump"]["path"], "GITGOOD_PG_RESTORE": self.retention["tools"]["pg_restore"]["path"]}
+        if execution is not None:
+            environment["GITGOOD_PYTHON"] = self.bindings["executables"]["python"]["path"]
         stdout = self.journal.directory / (prefix + "-result-" + identifier + ".json")
         stderr = self.journal.directory / (prefix + "-private-error-" + identifier + ".log")
         output = self.journal._private_open(stdout, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
@@ -160,9 +183,10 @@ class RetirementSnapshot:
                 deadline = time.monotonic() + 600
                 while child.poll() is None:
                     require(time.monotonic() < deadline)
-                    require(self._custody() == stage)
+                    require(custody() == stage)
                     if execution is not None:
                         require(observe_target_group(self.journal.plan["installation"], self.journal.operation, execution[0], "maintenance") == execution[1])
+                        self._target_helper_custody(full)
                     time.sleep(.05)
                 require(child.returncode == 0)
                 os.fsync(sink.fileno())
@@ -176,7 +200,7 @@ class RetirementSnapshot:
                         child.kill()
                         child.wait(timeout=5)
         observed = json.loads(private_bytes(stdout, 65536), object_pairs_hook=unique_object)
-        require(self._custody() == stage)
+        require(custody() == stage)
         self._retained()
         after = self._original_database()
         require(after == before)
@@ -186,11 +210,22 @@ class RetirementSnapshot:
             require(dict(line.split() for line in (Path(execution[1]["path"]) / "cgroup.events").read_text().splitlines()).get("populated") == "0")
             require(not (Path(execution[1]["path"]) / "cgroup.procs").read_text().strip())
             require(executable_identity(self.bindings["executables"]["python"]["path"]) == self.bindings["executables"]["python"])
+            self._target_helper_custody(full)
         return observed
 
     def observe(self, *, restoration=None):
         observed = self._run_packaged("retirement-snapshot.mjs", "snapshot", self.request, self.database.environment,
                                       restoration=restoration)
+        return self._snapshot_receipt(observed)
+
+    def reconcile_unapplied(self, *, restoration):
+        observed = self._run_packaged("retirement-snapshot.mjs", "snapshot", self.request, self.database.environment,
+                                      restoration=restoration, observing_uncertain=True)
+        value = {**self._snapshot_receipt(observed), "unapplied_verified": True}
+        value.pop("receipt_sha256")
+        return {**value, "receipt_sha256": hashlib.sha256(canonical(value)).hexdigest()}
+
+    def _snapshot_receipt(self, observed):
         require(isinstance(observed, dict) and set(observed) == {"protocol", "purpose", "status", "checks", "limitations", *CORE})
         require(type(observed["protocol"]) is int and observed["protocol"] == 1 and observed["purpose"] == "retirement_snapshot" and observed["status"] == "observed")
         require(isinstance(observed["checks"], list) and len(observed["checks"]) == 3 and isinstance(observed["limitations"], list) and len(observed["limitations"]) == 2)

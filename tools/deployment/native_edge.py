@@ -107,6 +107,16 @@ def caddy_source(root, configuration, mode):
     return source + "}\n"
 
 
+def verification_caddy_source(root, configuration):
+    """Fixed loopback routing for temporary retirement verification only."""
+    profile = routing_profile(configuration)
+    require(profile["hostname"] == "127.0.0.1")
+    source = caddy_source(root, configuration, "active")
+    site = profile["origin"] + " {\n"
+    require(source.count(site) == 1)
+    return source.replace(site, site + "  bind 127.0.0.1\n", 1)
+
+
 def start_edge(actions, mode):
     """Only the current durable owner can publish fixed maintenance/active routing."""
     require(sys.platform == "linux")
@@ -148,7 +158,8 @@ def start_edge(actions, mode):
                                 env=environment, cwd=directory, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, umask=0o077)
 
 
-async def route_ssh(mode, upstream_port, public_port, stopped):
+async def route_ssh(mode, upstream_port, public_port, stopped, *, loopback=False):
+    require(type(loopback) is bool)
     connections = set()
 
     async def close_stream(stream):
@@ -191,7 +202,7 @@ async def route_ssh(mode, upstream_port, public_port, stopped):
         connections.add(task)
         task.add_done_callback(connections.discard)
 
-    server = await asyncio.start_server(accepted, "0.0.0.0", public_port, limit=65_536)
+    server = await asyncio.start_server(accepted, "127.0.0.1" if loopback else "0.0.0.0", public_port, limit=65_536)
     try:
         await stopped.wait()
     finally:
@@ -205,7 +216,8 @@ async def route_ssh(mode, upstream_port, public_port, stopped):
         await asyncio.wait_for(server.wait_closed(), 3)
 
 
-async def supervise(plan, configuration, directory):
+async def supervise(plan, configuration, directory, *, loopback=False):
+    require(type(loopback) is bool)
     environment = {"PATH": "/usr/bin:/bin", "HOME": str(directory), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8",
                    "XDG_DATA_HOME": str(directory / "data"), "XDG_CONFIG_HOME": str(directory / "config"),
                    "GITGOOD_PROXY_KEY": configuration["forge"]["GITGOOD_PROXY_KEY"]}
@@ -221,7 +233,7 @@ async def supervise(plan, configuration, directory):
         process = await asyncio.create_subprocess_exec(command[0], "run", *command[1:], env=environment,
                                                        stdin=subprocess.DEVNULL, stdout=output, stderr=output)
         watcher = asyncio.create_task(process.wait())
-        router = asyncio.create_task(route_ssh(plan["mode"], plan["profile"]["ports"]["native_ssh"], plan["profile"]["ports"]["ssh"], stopped))
+        router = asyncio.create_task(route_ssh(plan["mode"], plan["profile"]["ports"]["native_ssh"], plan["profile"]["ports"]["ssh"], stopped, loopback=loopback))
         stop_waiter = asyncio.create_task(stopped.wait())
         try:
             done, _ = await asyncio.wait([watcher, router, stop_waiter], return_when=asyncio.FIRST_COMPLETED)

@@ -21,6 +21,33 @@ from upgrade_journal import canonical, require, unique_object
 SCHEMA_SQL = "SELECT coalesce(json_agg(version::text ORDER BY version), '[]'::json) FROM public.schema_migrations"
 
 
+def probe_credentials(directory, expected_sha256, installation):
+    """Read independently bound actor inputs shared by fixed lifecycle probes."""
+    require(sys.platform == "linux")
+    directory = Path(directory)
+    directory_identity(directory, private=True)
+    raw = private_bytes(directory / "credentials.json", 8192)
+    require(isinstance(expected_sha256, str) and re.fullmatch(r"[0-9a-f]{64}", expected_sha256))
+    require(hashlib.sha256(raw).hexdigest() == expected_sha256)
+    value = json.loads(raw, object_pairs_hook=unique_object)
+    require(isinstance(value, dict) and set(value) == {"protocol", "installation", "username", "team", "repository", "branch", "commit_sha",
+            "session_token", "git_token", "ssh_executable", "ssh_sha256", "ssh_private_key_sha256"})
+    require(type(value["protocol"]) is int and value["protocol"] == 1 and value["installation"] == installation)
+    for field in ["username", "team", "repository"]:
+        require(isinstance(value[field], str) and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", value[field]))
+    require(isinstance(value["branch"], str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}", value["branch"]))
+    require(".." not in value["branch"] and "//" not in value["branch"] and not value["branch"].endswith(("/", ".")))
+    require(isinstance(value["commit_sha"], str) and re.fullmatch(r"[0-9a-f]{40}", value["commit_sha"]))
+    for field in ["session_token", "git_token"]:
+        require(isinstance(value[field], str) and re.fullmatch(r"[A-Za-z0-9_-]{20,512}", value[field]))
+    for field in ["ssh_sha256", "ssh_private_key_sha256"]:
+        require(isinstance(value[field], str) and re.fullmatch(r"[0-9a-f]{64}", value[field]))
+    ssh = executable_identity(value["ssh_executable"])
+    require(ssh["sha256"] == value["ssh_sha256"])
+    require(hashlib.sha256(private_bytes(directory / "ssh-private-key", 65_536)).hexdigest() == value["ssh_private_key_sha256"])
+    return value, ssh
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, response, code, message, headers, url):
         require(False)
@@ -31,28 +58,7 @@ class NativeProbes:
         require(sys.platform == "linux")
         self.actions = actions
         self.directory = Path(directory)
-        directory_identity(self.directory, private=True)
-        raw = private_bytes(self.directory / "credentials.json", 8192)
-        require(isinstance(expected_sha256, str) and re.fullmatch(r"[0-9a-f]{64}", expected_sha256))
-        require(hashlib.sha256(raw).hexdigest() == expected_sha256)
-        value = json.loads(raw, object_pairs_hook=unique_object)
-        require(isinstance(value, dict) and set(value) == {"protocol", "installation", "username", "team", "repository", "branch", "commit_sha",
-                "session_token", "git_token", "ssh_executable", "ssh_sha256", "ssh_private_key_sha256"})
-        require(type(value["protocol"]) is int and value["protocol"] == 1 and value["installation"] == actions.bindings["installation"])
-        for field in ["username", "team", "repository"]:
-            require(isinstance(value[field], str) and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", value[field]))
-        require(isinstance(value["branch"], str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,127}", value["branch"]))
-        require(".." not in value["branch"] and "//" not in value["branch"] and not value["branch"].endswith(("/", ".")))
-        require(isinstance(value["commit_sha"], str) and re.fullmatch(r"[0-9a-f]{40}", value["commit_sha"]))
-        for field in ["session_token", "git_token"]:
-            require(isinstance(value[field], str) and re.fullmatch(r"[A-Za-z0-9_-]{20,512}", value[field]))
-        for field in ["ssh_sha256", "ssh_private_key_sha256"]:
-            require(isinstance(value[field], str) and re.fullmatch(r"[0-9a-f]{64}", value[field]))
-        ssh = executable_identity(value["ssh_executable"])
-        require(ssh["sha256"] == value["ssh_sha256"])
-        require(hashlib.sha256(private_bytes(self.directory / "ssh-private-key", 65_536)).hexdigest() == value["ssh_private_key_sha256"])
-        self.ssh = ssh
-        self.credentials = value
+        self.credentials, self.ssh = probe_credentials(self.directory, expected_sha256, actions.bindings["installation"])
         self.credentials_sha256 = expected_sha256
         self.profile = routing_profile(actions.configuration)
         context = ssl.create_default_context()
@@ -177,8 +183,9 @@ class NativeProbes:
                        "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_TERMINAL_PROMPT": "0"}
         git_path = "/git/" + self.credentials["team"] + "/" + self.credentials["repository"] + ".git"
         credential = base64.b64encode((self.credentials["username"] + ":" + self.credentials["git_token"]).encode()).decode()
-        https_environment = {**environment, "GIT_CONFIG_COUNT": "2", "GIT_CONFIG_KEY_0": "credential.helper", "GIT_CONFIG_VALUE_0": "",
-                             "GIT_CONFIG_KEY_1": "http.extraHeader", "GIT_CONFIG_VALUE_1": "Authorization: Basic " + credential}
+        https_environment = {**environment, "GIT_CONFIG_COUNT": "3", "GIT_CONFIG_KEY_0": "credential.helper", "GIT_CONFIG_VALUE_0": "",
+                             "GIT_CONFIG_KEY_1": "http.extraHeader", "GIT_CONFIG_VALUE_1": "Authorization: Basic " + credential,
+                             "GIT_CONFIG_KEY_2": "http.followRedirects", "GIT_CONFIG_VALUE_2": "false"}
         if public:
             https_environment["GIT_SSL_CAINFO"] = str(self.actions.root / "configuration" / self.actions.configuration["edge"]["tls_certificate"])
         https_ref = self._git_read(stage, origin + git_path, https_environment)

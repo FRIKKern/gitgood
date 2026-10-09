@@ -13,7 +13,7 @@ class RetirementRestoreData:
         self.snapshot = RetirementSnapshot(journal, resource_plan, retention, expected_checkpoint, configuration_bytes)
         self.journal = journal
         self.full_restoration = None
-        if isinstance(restoration, dict) and type(restoration.get("protocol")) is int and restoration["protocol"] == 2:
+        if isinstance(restoration, dict) and type(restoration.get("protocol")) is int and restoration["protocol"] in {2, 3}:
             self.full_restoration = validate_full_restore_plan(journal, restoration)
             restoration = self.full_restoration["data_plan"]
         require(isinstance(restoration, dict) and set(restoration) == {"protocol", "purpose", "operation", "installation", "target_database"})
@@ -43,6 +43,9 @@ class RetirementRestoreData:
             root = materialization["target_root"]["path"]
             for original in self.snapshot.request["roots"].values():
                 require(not Path(root).is_relative_to(Path(original)) and not Path(original).is_relative_to(Path(root)))
+                for path in [self.full_restoration["probe_directory"]["path"], self.full_restoration["outsider_token"]["path"],
+                             *([self.full_restoration["outsider_probe_directory"]["path"]] if self.full_restoration["protocol"] == 3 else [])]:
+                    require(not Path(path).is_relative_to(Path(original)) and not Path(original).is_relative_to(Path(path)))
 
     def verify(self, phase):
         require(isinstance(phase, str) and phase in {"restore", "observe"})

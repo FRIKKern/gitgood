@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-application-controller",
+  "category": "Added",
+  "summary": "Verify an installed recovery application through independently bound actors, loopback routing, private API and HTTPS/SSH Git probes, whole-group shutdown and stopped-marker observation; final removal and interruption recovery remain separate work.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_restoration.py", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}

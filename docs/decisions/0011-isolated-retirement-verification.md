@@ -109,3 +109,39 @@ This decision changes the execution design, not J17 acceptance criteria. No
 current product release, functional-restoration pass or Cloud capability is
 established by accepting it. Revisit the local-origin restriction with actual
 certificate, routing and replacement-host evidence before extending the profile.
+
+### Application controller implementation
+
+The functional controller requires full-plan protocol3. It independently
+binds owner and outsider credential directories/digests in addition to the
+existing outsider session file. Each actor has a separate retained private Git
+witness and actual HTTPS/SSH credentials. The outsider must read its own witness
+before and after refusal of the owner's private repository; session identity and
+cross-team API refusals prevent an invalid credential or dead listener from being
+reported as restored permission enforcement. Git redirects are disabled.
+
+Fixed target launches use operation-bound verification mode, preserved key
+material, private runtime files outside the materialized root, actual reserved
+loopback sockets and explicit loopback TLS/SSH routing. A live runtime marker is
+observed by actual PID/birth/group identity before whole-group stop. Closed
+materializer protocol3 observes only that separately identified marker after
+independent stopped-owner/empty-group observation; other unexpected files still
+refuse. Snapshot reconciliation in an uncertain archive stage is restricted to
+the fixed read-only snapshot helper. Original preservation is observed before
+retry; restored target data is reobserved instead of reimported.
+
+Only the fixed controller may combine actual application probes, stopped target
+materialization/database checks and the unchanged original snapshot into a
+functional-restoration receipt.125 Linux operator checks pass with ten foreign
+skips, the current grouped-helper kernel experiment passes six checks, and legacy
+protocol2 observation passes twelve archive/database checks. Separately, actual
+clean artifact `ea3a2adbc2377138a66ea97fb90247509003fc9e` passed installed
+pre-removal restoration with two independent private actor witnesses, real TLS
+API/HTTPS/SSH probes, whole-group stop and unchanged original/target observations.
+Twelve packaged protocol3 adversarial marker checks also passed, including an
+actual live outside owner despite an empty target native group. The141-file
+installed archive and104-file component archive passed checksum readback.
+Failed fixture attempts remain explicitly retained. This establishes the
+pre-removal functional boundary; current required CI, killed-controller recovery,
+final post-removal observation, cancellation, complete installed retirement and
+managed Cloud remain open.
