@@ -85,15 +85,21 @@ test('criterion evidence binds real Git and source revisions, retains history an
   await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
   await expect(panel.getByRole('status')).toContainText('could not be confirmed')
   const originalObservation = requests[0].body.manifest.observed_at
+  expect((await fetch(control + '/control/evidence-change', {method: 'POST',
+    headers: {'content-type': 'application/json', authorization: 'Bearer synthetic-fixture-control'},
+    body: JSON.stringify({revision: true, criterion: false})})).status).toBe(200)
   await page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname === new URL(endpoint).pathname)
+  await expect(panel.getByRole('list').first()).toContainText('Stale · reassessment needed', {timeout: 15000})
   await expect(panel.getByLabel('Observation time in UTC', {exact: true})).toHaveValue(originalObservation)
-  await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
+  const originalRetry = panel.getByRole('button', {name: 'Retry original evidence request', exact: true})
+  if (await originalRetry.count()) await originalRetry.click()
+  else await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
   await expect(panel.getByRole('status')).toContainText('Request recorded')
   expect(requests).toHaveLength(2)
   expect(requests[1]).toEqual(requests[0])
   let view = await (await fetch(endpoint + query, {headers: owner})).json()
   expect(view.records).toHaveLength(1)
-  expect(view.criteria[0].state).toBe('passed')
+  expect(view.criteria[0].state).toBe('stale')
   const first = view.records[0]
   await panel.getByText('Evidence history (1)', {exact: true}).click()
   const [download, downloadResponse] = await Promise.all([
@@ -108,7 +114,9 @@ test('criterion evidence binds real Git and source revisions, retains history an
   expect(download.suggestedFilename()).toBe('browser-proof.txt')
   expect(hash(await readFile(file!))).toBe(hash(artifact))
   const post = async (outcome: string, key: string) => {
-    const response = await fetch(endpoint, {method: 'POST', headers: {...owner, 'idempotency-key': key}, body: JSON.stringify({...requests[0].body, outcome})})
+    const current = await (await fetch(endpoint + query, {headers: owner})).json()
+    const response = await fetch(endpoint, {method: 'POST', headers: {...owner, 'idempotency-key': key},
+      body: JSON.stringify({...requests[0].body, source_revision: current.source.revision, outcome})})
     expect(response.status).toBe(200)
     return await response.json()
   }
@@ -138,7 +146,7 @@ test('criterion evidence binds real Git and source revisions, retains history an
   const receipt = {repository: name, repository_id: repositoryId, pull_id: pull.id, link, first_evidence: first,
     original_request: requests[0], reassessed: reassessed.id, owner_connection_generation: connection.generation,
     artifact_sha256: hash(artifact), checks: ['real native imported Git commits', 'upstream met does not create evidence',
-      'browser artifact attachment and lost reply stable retry', 'checksum-verified private download',
+      'lost reply retries exact original bytes and binding after source revision changes', 'checksum-verified private download',
       'new failed and inconclusive records override older pass', 'source revision makes result stale',
       'explicit reassessment retains history', 'unavailable artifact blocks current result and download',
       'viewer source denial hides provenance and bytes', 'native outsider denied', 'mobile width'],
