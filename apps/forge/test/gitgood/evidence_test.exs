@@ -264,7 +264,8 @@ defmodule Gitgood.EvidenceTest do
     assert {:ok, %{"recorded" => true}} = retry_intent(c, next["id"])
   end
 
-  test "a rotated connection refuses a saved draft without poisoning its enclosing transaction", c do
+  test "a rotated connection refuses a saved draft without poisoning its enclosing transaction",
+       c do
     {:ok, saved} =
       prepare(c, %{"kind" => "attach", "body" => Jason.encode!(c.params)}, "durable-rotated")
 
