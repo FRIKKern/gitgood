@@ -26,9 +26,9 @@ class ArtifactInspectionTest(unittest.TestCase):
         header[18:20] = machine.to_bytes(2, "little")
         files = {
             "forge/bin/gitgood": b"synthetic test entry point; never executed",
-            "forge/lib/gitgood-0.1.0/priv/build-identity.json": json.dumps(native or self.identity).encode(),
+            "forge/lib/gitgood-0.1.0/priv/build-identity.json": native if isinstance(native, bytes) else json.dumps(native or self.identity).encode(),
             "forge/erts-17.1/bin/beam.smp": bytes(header),
-            "web/dist/build-identity.json": json.dumps(web or self.identity).encode(),
+            "web/dist/build-identity.json": web if isinstance(web, bytes) else json.dumps(web or self.identity).encode(),
             "web/server.mjs": b"synthetic test module; never executed",
             "web/package.json": b"{}",
         }
@@ -91,6 +91,10 @@ class ArtifactInspectionTest(unittest.TestCase):
     def test_boolean_schema_refuses(self):
         invalid = {**self.identity, "schema": True}
         self.refuses(self.archive(native=invalid, web=invalid))
+
+    def test_duplicate_identity_keys_refuse(self):
+        ambiguous = json.dumps(self.identity).replace('"schema": 1', '"schema": 1, "schema": 1').encode()
+        self.refuses(self.archive(native=ambiguous, web=ambiguous))
 
     def test_duplicate_and_traversing_members_refuse(self):
         for name in ["web/package.json", "forge/../../outside", "/forge/outside", "web\\outside"]:
