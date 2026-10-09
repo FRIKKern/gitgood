@@ -103,6 +103,23 @@ configuration and recovery bundle through activation and subsequent verification
 
 ## Implementation sequence
 
+`native_actions.py` supplies fixed migration and native/web launch actions for
+the forthcoming executor. Actions require the current process to own a running
+journal stage in the bound driver group. Launch re-observes installation bindings,
+uses a closed configuration-key set and a fresh environment, and joins the exact
+empty component cgroup before executing the release. No descriptor supplies a
+shell command. Migration is the fixed `Gitgood.Release.migrate()` entry point.
+
+Before execution, the action layer rechecks every staged file, link and executable
+mode against the independently pinned retained archive. Updating a private
+manifest cannot substitute changed code under the original artifact digest.
+Missing web runtime dependencies refuse before launch. Whole-group stopping uses
+the exact recorded kernel identity and remains available when the database is
+unavailable; it never discovers or kills unrelated host processes. Structural and
+artifact-refusal checks pass. Real process-action verification, public maintenance
+routing, authenticated activation probes and the complete executing coordinator
+remain unfinished; no installed-upgrade acceptance follows from these primitives.
+
 The read-only `native_inventory.py` component binds the initial local operator
 profile to an owned private installation root, exact configuration and Ed25519
 host-key digests, store directory device/inode identities, pinned runtime binary
