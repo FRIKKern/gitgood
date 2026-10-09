@@ -117,6 +117,15 @@ This is infrastructure exclusion proof, not a passing required GitHub job or a
 product release. The previous live run is preserved and subsequent workers require
 the measured boundary before registration.
 
+At c60b438, the pinned native database preparation, backend, populated upgrade,
+web and all 24 operation checks passed. Copied-production verification reached
+its real interrupted-writer recovery exercise, then refused before spawning it:
+the workflow had not supplied the required `GITGOOD_PYTHON` executable setting.
+The workflow now declares and checks the observed Ubuntu Python/Git paths before
+verification. Retain the actual failed run; the separately reproduced cgroup
+mapping defect was not its reported failure, and required recovery assertions
+remain unchanged.
+
 Dispatch is verified for the recorded probe below. Equivalent required checks remain under investigation. No application release, production Cloud deployment or automatic runner fleet is established by this work.
 
 The measured guest boundary denied connections to a listening parent-host canary and both development database ports, with zero canary connections. Ordinary certificate-validated public GitHub HTTPS returned 200. The publisher's v2.338.0 Linux runner asset digest was verified before installation.

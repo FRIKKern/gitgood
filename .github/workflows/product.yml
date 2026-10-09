@@ -16,6 +16,8 @@ jobs:
       PGUSER: gitgood
       PGPASSWORD: synthetic-db-password
       GITGOOD_TEST_DATABASE_LOCALE: 'true'
+      GITGOOD_PYTHON: /usr/bin/python3
+      GITGOOD_GIT: /usr/bin/git
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Verify native build platform
@@ -35,6 +37,8 @@ jobs:
           command -v unzip
           command -v ssh
           command -v ssh-keygen
+          test -x "$GITGOOD_PYTHON"
+          test -x "$GITGOOD_GIT"
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124
         with:
           otp-version: '29.1.1'

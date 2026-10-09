@@ -1,0 +1,1 @@
+{"id":"ci-native-executables","category":"Fixed","summary":"Declare and verify the native Python and Git executable paths required by copied-production interrupted-writer recovery in Linux CI.","impact":"operator","references":[".github/workflows/product.yml","docs/implementation/isolated-ci.md"],"journeys":["J16"],"withdrawn":false}
