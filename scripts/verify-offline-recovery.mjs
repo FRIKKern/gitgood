@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import {mkdir,readFile,writeFile,lstat,readdir} from 'node:fs/promises'
+import {mkdir,readFile,writeFile,lstat,readdir,unlink} from 'node:fs/promises'
 import {join} from 'node:path'
 import {randomBytes,randomUUID,createHash} from 'node:crypto'
 import {provisionConfiguration,readConfiguration} from '../apps/forge/priv/operations/recovery-configuration.mjs'
@@ -211,6 +211,32 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   assert.equal(createHash('sha256').update(await readFile(join(materializationRoot,'configuration/installation.json'))).digest('hex'),retirementMaterialization.configuration_sha256)
   await materialize('retirement-materialization-populated-root',{},[1])
   assert.equal(createHash('sha256').update(await readFile(join(materializationRoot,'configuration/installation.json'))).digest('hex'),retirementMaterialization.configuration_sha256)
+  const materializedTree=async()=>{
+    const observed=[]
+    const visit=async path=>{
+      const stat=await lstat(path)
+      assert(stat.isDirectory()||stat.isFile());assert.equal(stat.uid,process.getuid())
+      observed.push({path,device:stat.dev,inode:stat.ino,mode:stat.mode,links:stat.nlink,bytes:stat.size,mtime:stat.mtimeMs,ctime:stat.ctimeMs,
+        ...(stat.isFile()?{sha256:createHash('sha256').update(await readFile(path)).digest('hex')}:{})})
+      if(stat.isDirectory())for(const name of (await readdir(path)).sort())await visit(join(path,name))
+    }
+    await visit(materializationRoot);return observed
+  }
+  const beforeObservation=await materializedTree()
+  const retirementMaterializationObservation=await materialize('retirement-materialization-observe',{protocol:2,phase:'observe'})
+  assert.equal(retirementMaterializationObservation.protocol,2);assert.equal(retirementMaterializationObservation.status,'observed')
+  assert.equal(retirementMaterializationObservation.phase,'observe')
+  for(const field of ['candidate','installation','ciphertext_sha256','recovery_point','resource_fingerprints','database_fingerprint',
+    'operation','target_installation','target_root','target_database','target_resource_fingerprints','configuration_sha256','ports'])
+    assert.deepEqual(retirementMaterializationObservation[field],retirementMaterialization[field])
+  assert.deepEqual(await materializedTree(),beforeObservation,'Observation must preserve actual target bytes and identities')
+  const witness=join(materializationRoot,'git/observation-witness')
+  await writeFile(witness,'Preserve this unexpected owned fixture file.',{flag:'wx',mode:0o600})
+  const changedTree=await materializedTree()
+  await materialize('retirement-materialization-observe-extra',{protocol:2,phase:'observe'},[1])
+  assert.deepEqual(await materializedTree(),changedTree)
+  await unlink(witness)
+  await materialize('retirement-materialization-observe-wrong-phase',{protocol:2,phase:'restore'},[1])
   assert.deepEqual(await observeTarget('retirement-materialization-target-final'),restoreDataTarget)
   // Only this freshly created target is eligible for removal; ordinary DROP
   // refuses connected clients and never disconnects a foreign process.
@@ -309,7 +335,7 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const recoveryMs=performance.now()-pausedAt
   assert(recoveryMs<targetRtoMs)
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
-    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,retirement_restored_data:retirementRestoredData,retirement_materialization:retirementMaterialization,restored_database:database,installation:recovered.installation,
+    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,retirement_restored_data:retirementRestoredData,retirement_materialization:retirementMaterialization,retirement_materialization_observation:retirementMaterializationObservation,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','migration and replacement runtime refuse a real surviving Git writer; schema/lock bytes retained and migration permits only after the complete owned group stops','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
@@ -320,7 +346,8 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
       'packaged retirement checkpoint binds installation/archive and live inventories; wrong UUID/digest and a real database-only change refuse without removing stores or archive',
       'packaged read-only snapshot observer matches the checkpoint; wrong UUID/digest and database-only changes refuse without acquiring a new offline lease or removing resources',
       'packaged restored-data verifier imports the authenticated dump into an independently named target, matches schema/data/sequences/locale, reobserves it and refuses changed target identity or repeat import into populated data',
-      'packaged materializer preserves authenticated Git/SSH/configuration contents in a sealed separate root, checks retained local TLS identity, adapts fixed paths/ports/hooks without external Source origin and refuses a wrong or occupied target'],
+      'packaged materializer preserves authenticated Git/SSH/configuration contents in a sealed separate root, checks retained local TLS identity, adapts fixed paths/ports/hooks without external Source origin and refuses a wrong or occupied target',
+      'packaged existing-target observation authenticates the archive and database again, checks the entire adapted tree without copying or rewriting target contents, preserves bytes/inodes/metadata, and refuses unexpected files or an unsupported phase'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}
   await writeFile(join(options.evidence,'offline-recovery-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   return receipt

@@ -42,8 +42,12 @@ async function validateCopiedTree(source,target) {
 
 export async function materializeRetirementRestore(request) {
   check(process.platform==='linux' && process.arch==='x64' && process.version==='v22.23.3')
-  check(request && Object.keys(request).sort().join(',')==='candidate,ciphertext_sha256,installation,key_path,operation,ports,protocol,scratch_directory,source,target_database,target_installation,target_root')
-  check(request.protocol===1 && uuid(request.operation) && uuid(request.installation) && uuid(request.target_installation) && request.target_installation!==request.installation)
+  check(request && typeof request==='object')
+  const observing=request.protocol===2 && request.phase==='observe'
+  check(Object.keys(request).sort().join(',')===(observing ?
+    'candidate,ciphertext_sha256,installation,key_path,operation,phase,ports,protocol,scratch_directory,source,target_database,target_installation,target_root' :
+    'candidate,ciphertext_sha256,installation,key_path,operation,ports,protocol,scratch_directory,source,target_database,target_installation,target_root'))
+  check((request.protocol===1 || observing) && uuid(request.operation) && uuid(request.installation) && uuid(request.target_installation) && request.target_installation!==request.installation)
   check(typeof request.candidate==='string' && /^[a-f0-9]{40}$/.test(request.candidate) && digest(request.ciphertext_sha256))
   const ports=request.ports
   check(ports && Object.keys(ports).sort().join(',')==='forge,https,native_ssh,ssh,web')
@@ -51,7 +55,7 @@ export async function materializeRetirementRestore(request) {
   await targetIdentity(request.target_root)
   const target=request.target_root.path
   check(basename(target)==='gitgood_retirement_restore_'+request.operation.replaceAll('-',''))
-  check((await readdir(target)).length===0)
+  check(observing ? same((await readdir(target)).sort(),['configuration','git','ssh']) : (await readdir(target)).length===0)
   for(const path of [request.source,request.key_path]) check(typeof path==='string' && resolve(path)===path && !overlaps(target,path))
   check(typeof request.scratch_directory==='string' && resolve(request.scratch_directory)===request.scratch_directory &&
     request.scratch_directory!==target && !request.scratch_directory.startsWith(target+'/'))
@@ -96,14 +100,17 @@ export async function materializeRetirementRestore(request) {
     config.web.GITGOOD_API_URL='http://127.0.0.1:'+ports.forge
     validateConfiguration(config)
     await writeFile(join(configuration,'installation.json'),JSON.stringify(config)+'\n',{mode:0o600})
-    await targetIdentity(request.target_root); check((await readdir(target)).length===0)
+    await targetIdentity(request.target_root)
+    check(observing ? same((await readdir(target)).sort(),['configuration','git','ssh']) : (await readdir(target)).length===0)
     targetHandle=await open(target,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW)
     const opened=await targetHandle.stat(); check(opened.dev===request.target_root.device && opened.ino===request.target_root.inode)
     // Descriptor anchoring keeps publication inside the original owned target
     // even if its pathname changes. Existing files are never overwritten.
-    for(const name of ['git','ssh','configuration']) {
-      await targetIdentity(request.target_root)
-      await cp(join(verified,name),'/proc/self/fd/'+targetHandle.fd+'/'+name,{recursive:true,force:false,errorOnExist:true})
+    if(!observing) {
+      for(const name of ['git','ssh','configuration']) {
+        await targetIdentity(request.target_root)
+        await cp(join(verified,name),'/proc/self/fd/'+targetHandle.fd+'/'+name,{recursive:true,force:false,errorOnExist:true})
+      }
     }
     await targetIdentity(request.target_root)
     check(same((await readdir(target)).sort(),['configuration','git','ssh']))
@@ -120,12 +127,12 @@ export async function materializeRetirementRestore(request) {
     check(same(data,after))
     await targetIdentity(request.target_root)
     await targetHandle.sync()
-    return {protocol:1,purpose:'retirement_restore_materialization',status:'materialized',operation:request.operation,
+    return {protocol:observing?2:1,purpose:'retirement_restore_materialization',status:observing?'observed':'materialized',...(observing?{phase:'observe'}:{}),operation:request.operation,
       installation:request.installation,candidate:request.candidate,ciphertext_sha256:request.ciphertext_sha256,recovery_point:data.recovery_point,
       resource_fingerprints:data.resource_fingerprints,database_fingerprint:data.database_fingerprint,
       target_installation:request.target_installation,target_root:request.target_root,target_database:request.target_database,
       target_resource_fingerprints:fingerprints,configuration_sha256:await hash(join(target,'configuration/installation.json')),ports,
-      checks:['authenticated archive and restored database match','sealed empty separate target and retained local TLS identity match','private stores, fixed hooks and operational configuration materialize exactly','archive and restored target data remain unchanged'],
+      checks:['authenticated archive and restored database match',observing?'sealed existing separate target and retained local TLS identity match':'sealed empty separate target and retained local TLS identity match',observing?'existing private stores, fixed hooks and operational configuration match without copying':'private stores, fixed hooks and operational configuration materialize exactly','archive and restored target data remain unchanged'],
       limitations:['No runtime was launched and functional restoration remains unverified.','The fixed native controller must hold original custody and retain every target, group and interrupted material.','No original resource, target database, provider resource or failed target is removed.']}
   } finally {
     if(targetHandle) await targetHandle.close()
