@@ -67,6 +67,28 @@ records, and restore the current schema before its fresh-process check. Browser 
 copied-production steps did not execute. This failed result remains evidence; complete
 required CI and a product release remain unverified.
 
+At 8083885, planning passed. Forge job 113744018069 passed all 172 backend
+checks, recovery/crash verification, the corrected populated upgrade/fresh-process
+experiment and web checks. The operation suite passed 23 of 24 checks; export
+inspection refused the installed `pg_restore` version. The unpinned PostgreSQL 18
+APT client package had advanced to 18.6 while recovery requires exact 18.4 tools.
+Preserve that failure rather than accepting an unverified version combination.
+
+The revised workflow builds the official PostgreSQL 18.4 source archive after
+checking its [publisher SHA-256](https://ftp.postgresql.org/pub/source/v18.4/postgresql-18.4.tar.gz.sha256).
+It installs server and clients into the job's private workspace, initializes an
+owned UTF8/libc/C.UTF-8 cluster with a synthetic password, binds only loopback and
+checks actual server/tool versions. The server and verifier now use the same
+Ubuntu 24.04 libc, as required by the native recovery locale profile. An independently
+versioned distribution client or Debian service container cannot establish that
+profile. All application, operation, interruption and full copied-production
+checks remain required; always stop only the job's own native cluster. A fresh
+credential-free native OCI probe built this exact installer, verified all three
+18.4 version strings, initialized and authenticated the native cluster, observed
+Ubuntu libc, and stopped it cleanly. Its owned container and private build log are
+preserved. This proves environment preparation; actual required-job conclusions
+must still pass before integration.
+
 JIT settings enter the container through private stdin, then masked listener environment
 input. Keep them out of arguments and ordinary evidence. Each fresh worker consumes
 one job and deregisters. Use GitHub's actual job conclusion for success: zero listener

@@ -9,16 +9,6 @@ jobs:
   forge-and-web:
     runs-on: [self-hosted, Linux, X64, gitgood-isolated-v1]
     timeout-minutes: 120
-    services:
-      postgres:
-        image: postgres:18.4
-        env:
-          POSTGRES_USER: gitgood
-          POSTGRES_PASSWORD: synthetic-db-password
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U gitgood"
-          --health-interval 10s --health-timeout 5s --health-retries 5
     env:
       ImageOS: ubuntu24
       PGHOST: 127.0.0.1
@@ -52,20 +42,23 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version-file: .node-version
-      - name: Install PostgreSQL 18 recovery clients
+      - name: Build pinned native PostgreSQL server and recovery clients
         run: |
           set -euo pipefail
-          . /etc/os-release
-          test "$ID" = ubuntu
-          test "$VERSION_CODENAME" = noble
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /tmp/gitgood-pgdg-key.asc
-          sudo -n install -m 0644 /tmp/gitgood-pgdg-key.asc /usr/share/keyrings/gitgood-pgdg.asc
-          printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: noble-pgdg\nArchitectures: amd64\nComponents: main\nSigned-By: /usr/share/keyrings/gitgood-pgdg.asc\n' > /tmp/gitgood-pgdg.sources
-          sudo -n install -m 0644 /tmp/gitgood-pgdg.sources /etc/apt/sources.list.d/gitgood-pgdg.sources
-          sudo -n apt-get update
-          sudo -n apt-get install -y --no-install-recommends postgresql-client-18
-          /usr/lib/postgresql/18/bin/pg_dump --version
-          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
+          sudo -n apt-get install -y --no-install-recommends pkg-config zlib1g-dev libssl-dev bison flex
+          bash tools/ci/install-postgres-18.4.sh "$GITHUB_WORKSPACE/.gitgood/postgres-18.4"
+          echo "$GITHUB_WORKSPACE/.gitgood/postgres-18.4/bin" >> "$GITHUB_PATH"
+      - name: Start isolated native PostgreSQL
+        run: |
+          set -euo pipefail
+          umask 077
+          cluster="$GITHUB_WORKSPACE/.gitgood/postgres-cluster"
+          test ! -e "$cluster"
+          printf '%s\n' "$PGPASSWORD" > .gitgood/postgres-fixture-password
+          initdb -D "$cluster" -U "$PGUSER" --auth=scram-sha-256 --pwfile=.gitgood/postgres-fixture-password --encoding=UTF8 --locale=C.UTF-8 --locale-provider=libc
+          pg_ctl -D "$cluster" -l .gitgood/postgres-private.log -o '-h 127.0.0.1 -p 5432' -w start
+          test "$(psql -d postgres -Atc 'SHOW server_version')" = 18.4
+          getconf GNU_LIBC_VERSION
       - run: mix deps.get --check-locked && mix precommit && mix format --check-formatted
         working-directory: apps/forge
       - name: Verify native artifact preflight refusal boundaries
@@ -149,6 +142,14 @@ jobs:
         working-directory: apps/web
       - run: node scripts/verification-manifest.mjs
         if: always()
+      - name: Stop owned native PostgreSQL
+        if: always()
+        run: |
+          set -euo pipefail
+          cluster="$GITHUB_WORKSPACE/.gitgood/postgres-cluster"
+          if test -f "$cluster/postmaster.pid"; then
+            "$GITHUB_WORKSPACE/.gitgood/postgres-18.4/bin/pg_ctl" -D "$cluster" -m fast -w stop
+          fi
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
