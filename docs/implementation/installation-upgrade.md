@@ -103,6 +103,25 @@ configuration and recovery bundle through activation and subsequent verification
 
 ## Implementation sequence
 
+The read-only `native_inventory.py` component binds the initial local operator
+profile to an owned private installation root, exact configuration and Ed25519
+host-key digests, store directory device/inode identities, pinned runtime binary
+identities, and dedicated `gitgood-installation-UUID` native/web/edge/maintenance
+cgroups. It also observes the PostgreSQL 18.4 cluster system identifier, database
+OID and database-owner role through one fixed read-only query. Re-observation
+must match the independently retained bindings digest. A copied directory with
+the same name or another database cannot silently replace the recorded target.
+
+This initial enrollment requires the configured database role to own the database
+and have permission to read `pg_control_system()`. PostgreSQL permits a specific
+EXECUTE grant; broad administrative access is not inferred or granted by the
+collector. See the official [control data functions](https://www.postgresql.org/docs/18/functions-info.html#FUNCTIONS-PG-CONTROL-DATA).
+The collector never logs connection credentials or expands the environment into
+receipts. It performs no migration, shutdown, routing or deletion. Observed
+resource identity is distinct from readiness, an active public release and
+replacement-host enrollment. Real native inventory observation remains under
+verification; structural checks alone do not close J15.
+
 1. Inspect an immutable native artifact against its independently supplied digest
    and candidate. Verify the forge/web build identities agree, required files and
    Linux x86-64 runtime exist, declared migrations and dependency/requirement
