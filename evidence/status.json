@@ -1,15 +1,14 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "637733f17dc56ab392c53f5d597a6073fe7f1156",
+  "headCommit": "0b585d1be0c0921bd18226ab46bede10b233bfeb",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
-      "status": "unavailable",
-      "observedAt": "2026-10-09T06:05:12.665Z",
-      "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio",
-      "failure": "ledger_requirement_mismatch"
+      "status": "ok",
+      "observedAt": "2026-10-09T06:46:12.956Z",
+      "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "unconfigured",
@@ -46,7 +45,7 @@
       "id": "J04",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J04.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/0b585d1be0c0921bd18226ab46bede10b233bfeb/docs/journeys/J04.md"
       }
     },
     {
@@ -60,7 +59,7 @@
       "id": "J06",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J06.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/0b585d1be0c0921bd18226ab46bede10b233bfeb/docs/journeys/J06.md"
       }
     },
     {
@@ -141,5 +140,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T06:43:41.740Z"
+  "evaluatedAt": "2026-10-09T06:46:12.956Z"
 }
