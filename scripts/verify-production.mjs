@@ -106,12 +106,13 @@ try {
   const quotePath=path=>'"'+path.replaceAll('\\','/')+'"'
   const accessLog=join(logs,'caddy-access.log')
   const edgeTemplate=(await readFile(join(repository,'docs/deployment/Caddyfile.example'),'utf8')).replaceAll('\r\n','\n')
+    .replace('persist_config off','persist_config off\n  admin off\n  auto_https off')
   const edgeSource=edgeTemplate.replace('gitgood.example.invalid',publicUrl)
     .replaceAll('127.0.0.1:47841','127.0.0.1:'+forgePort).replaceAll('127.0.0.1:47840','127.0.0.1:'+webPort)
     .replace(publicUrl+' {',publicUrl+' {\n  bind 127.0.0.1\n  tls '+quotePath(certificate)+' '+quotePath(key)+
       '\n  log {\n    output file '+quotePath(accessLog)+' {\n      mode 0600\n    }\n    format filter {\n      wrap json\n      fields {\n        request>headers delete\n        resp_headers delete\n      }\n    }\n  }')
   const edgeConfig=join(root,'Caddyfile')
-  await writeFile(edgeConfig,'{\n  admin off\n  auto_https off\n  persist_config off\n}\n'+edgeSource)
+  await writeFile(edgeConfig,edgeSource)
   const edgeEnv={...process.env,GITGOOD_PROXY_KEY:proxyKey,XDG_DATA_HOME:join(root,'caddy-data'),XDG_CONFIG_HOME:join(root,'caddy-config'),APPDATA:join(root,'caddy-appdata')}
   await run(caddyExecutable,['version'],edgeEnv,root,'caddy-version')
   await run(caddyExecutable,['validate','--config',edgeConfig,'--adapter','caddyfile'],edgeEnv,root,'caddy-validate')
@@ -238,6 +239,8 @@ try {
     direct_forge_and_web_refused:true,normal_tls_issuer_and_hostname_verification:true}
   const testEnv={...process.env,GITGOOD_TEST_API_URL:forgeUrl,GITGOOD_TEST_WEB_URL:publicUrl,GITGOOD_TEST_PRODUCTION:'true',GITGOOD_TEST_CA:certificate,NODE_EXTRA_CA_CERTS:certificate,GITGOOD_TEST_SOURCE_CONTROL:sourceControl}
   await run(process.execPath,[join(sourceWeb,'node_modules/@playwright/test/cli.js'),'test'],testEnv,sourceWeb,'browser')
+  await run(process.execPath,['--test',join(sourceWeb,'verification/caddy-log-privacy.test.mjs')],
+    {...process.env,GITGOOD_EDGE_PRIVACY_RECEIPT:join(sourceWeb,'test-results-production/edge-log-privacy-receipt.json')},repository,'edge-log-privacy')
   const signedLogin=()=>{
     const stamp=String(Math.floor(Date.now()/1000)),address='127.0.0.1'
     const frame=['gitgood-login-origin-v1',address,stamp,'POST','/api/session'].join('\n')
@@ -499,6 +502,11 @@ try {
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   receipt.checks.push('Git compatibility signed commit/tag identity and independently authorized child gitlink persist after restart')
   receipt.checks.push('Paged evidence records, all withdrawal reasons, latest-result authority and event permissions persist after restart')
+  const edgePrivacy=JSON.parse(await readFile(join(sourceWeb,'test-results-production/edge-log-privacy-receipt.json'),'utf8'))
+  assert.equal(edgePrivacy.status,'passed');assert.equal(edgePrivacy.checks.length,7)
+  assert(!(await readFile(join(logs,'caddy.log'),'utf8')).includes(proxyKey),'Completed Caddy runtime log must not contain the edge secret')
+  receipt.edgeLogPrivacy=edgePrivacy
+  receipt.checks.push('Actual Caddy failed requests and cancelled streams retain diagnostics without private headers')
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})
   await writeFile(join(sourceWeb,'test-results-production/production-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   console.log('PASS production artifacts, full workflow, persistence and readiness rejection: '+identity.candidate)

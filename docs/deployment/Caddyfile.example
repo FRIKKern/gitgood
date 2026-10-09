@@ -1,4 +1,18 @@
 # Direct TLS edge only. Supply the real hostname and private GITGOOD_PROXY_KEY environment.
+{
+  persist_config off
+  log default {
+    output stderr
+    format filter {
+      wrap json
+      fields {
+        request>headers delete
+        resp_headers delete
+      }
+    }
+  }
+}
+
 gitgood.example.invalid {
   handle /internal/* {
     respond 404
