@@ -2,7 +2,7 @@ import {mkdtemp,rm,lstat,realpath} from 'node:fs/promises'
 import {join,resolve} from 'node:path'
 import {spawn} from 'node:child_process'
 import {fileURLToPath} from 'node:url'
-import {unpackRecovery,RecoveryError} from './recovery-bundle.mjs'
+import {unpackRecovery,RecoveryError,resourceFingerprints} from './recovery-bundle.mjs'
 import {privateFile,readConfiguration} from './recovery-configuration.mjs'
 import {inspectRepositories} from './recovery-git.mjs'
 
@@ -54,6 +54,7 @@ export async function inspectInstallationExport({source,keyPath,scratchDirectory
     const tables=await dumpInventory(join(unpacked.verified_directory,'database.dump'),unpacked.manifest.postgres)
     check(JSON.stringify(tables)===JSON.stringify(descriptor.database.tables.map(row=>row.table).sort()))
     return {protocol:1,purpose:'installation_export',candidate:unpacked.manifest.candidate,installation:config.installation,
+      resource_fingerprints:resourceFingerprints(unpacked.manifest.entries),
       ciphertext_sha256:unpacked.ciphertext_sha256,recovery_point:unpacked.manifest.recovery_point,
       formats:{code:'bare Git SHA-1 repositories',collaboration:'PostgreSQL custom-format dump',configuration:'private JSON and key material'},
       repositories:repositories.length,tables:tables.length,files:unpacked.manifest.entries.filter(entry=>entry.type==='file').length,

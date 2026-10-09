@@ -54,8 +54,8 @@ function validate(manifest,expectedCandidate,expectedPostgres){
   return total
 }
 
-async function inventory(roots){
-  requireThat(Object.keys(roots).sort().join(',')==='configuration,database.dump,git,ssh','inventory_invalid')
+async function inventory(roots,{withoutDatabase=false}={}){
+  requireThat(Object.keys(roots).sort().join(',')===(withoutDatabase?'configuration,git,ssh':'configuration,database.dump,git,ssh'),'inventory_invalid')
   const entries=[],sources=new Map()
   async function walk(name,path){
     requireThat(entries.length<MAX_ENTRIES&&safePath(name),'inventory_invalid')
@@ -78,6 +78,20 @@ async function inventory(roots){
   }
   entries.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)
   return {entries,sources,paths}
+}
+
+export function resourceFingerprints(entries){
+  return Object.fromEntries(['git','ssh','configuration'].map(root=>{
+    const selected=entries.filter(entry=>(entry.path===root||entry.path.startsWith(root+'/'))&&entry.path!=='configuration/recovery.json')
+    requireThat(selected.length>0,'inventory_invalid')
+    return [root,createHash('sha256').update(JSON.stringify(selected)).digest('hex')]
+  }))
+}
+
+export async function snapshotInstallationRoots(roots){
+  // Read-only normalized archive-format hashes; this grants no removal action.
+  const {entries}=await inventory(roots,{withoutDatabase:true})
+  return resourceFingerprints(entries)
 }
 
 export async function packRecovery({destination,key,metadata,roots,beforePublish}){

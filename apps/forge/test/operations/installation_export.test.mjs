@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {mkdtemp,mkdir,writeFile,readFile,readdir,rm,chmod} from 'node:fs/promises'
+import {mkdtemp,mkdir,writeFile,readFile,readdir,rm,chmod,unlink} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {randomBytes,randomUUID} from 'node:crypto'
 import {spawnSync} from 'node:child_process'
-import {packRecovery} from '../../priv/operations/recovery-bundle.mjs'
+import {packRecovery,snapshotInstallationRoots} from '../../priv/operations/recovery-bundle.mjs'
 import {provisionConfiguration} from '../../priv/operations/recovery-configuration.mjs'
 import {fingerprintDatabase,dumpDatabase,query} from '../../priv/operations/recovery-database.mjs'
 import {inspectInstallationExport} from '../../priv/operations/installation-export.mjs'
@@ -52,8 +52,14 @@ test('installation export inspects real Git and a real database dump without cha
     const receipt=await inspectInstallationExport(options)
     assert.equal(receipt.repositories,1);assert.equal(receipt.tables,1);assert.equal(receipt.checks.length,4)
     assert.equal(receipt.installation,installation)
+    assert.deepEqual(receipt.resource_fingerprints,await snapshotInstallationRoots({git,ssh,configuration}))
     assert(!JSON.stringify(receipt).includes('private collaboration fixture'))
     assert.deepEqual(await fingerprintDatabase(),before);assert.equal(gitCall(['for-each-ref','--format=%(refname) %(objectname)']),refs)
+    await writeFile(join(git,'changed-after-export'),'Changed live store after the retained export',{mode:0o600})
+    const changed=await snapshotInstallationRoots({git,ssh,configuration})
+    assert.notEqual(changed.git,receipt.resource_fingerprints.git)
+    assert.equal(changed.ssh,receipt.resource_fingerprints.ssh);assert.equal(changed.configuration,receipt.resource_fingerprints.configuration)
+    await unlink(join(git,'changed-after-export'))
     for(const invalid of [{expectedCandidate:'b'.repeat(40)},{expectedInstallation:randomUUID()},{expectedInstallation:'../foreign'},{keyPath:join(root,'wrong-key')},{source:join(root,'corrupt')}]){
       if(invalid.keyPath)await writeFile(invalid.keyPath,randomBytes(32),{mode:0o600})
       if(invalid.source){const bytes=await readFile(source);bytes[100]^=1;await writeFile(invalid.source,bytes,{mode:0o600})}

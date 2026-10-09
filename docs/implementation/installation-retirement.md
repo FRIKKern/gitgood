@@ -6,6 +6,13 @@ the application candidate: two installations can run the same build. The inspect
 now reports the authenticated installation UUID and accepts an independent expected
 UUID; a different installation refuses while preserving the archive and stores.
 Copied-production verification binds the packaged inspector to its original UUID.
+Authenticated inspection also reports normalized Git, SSH and configuration file
+inventory hashes. The read-only `snapshotInstallationRoots()` observer uses the
+same archive inventory format. A live Git-store change after export changes its
+hash while unrelated SSH/configuration hashes remain stable. These hashes cover
+file bytes, paths, kinds and normalized private archive modes; installation runtime
+markers and the generated recovery descriptor are excluded by the existing format.
+They do not establish database data equality or usable restoration by themselves.
 
 Removal remains implementation work. The executor must retain an independently
 identified archive and external key outside the live resources, establish an
