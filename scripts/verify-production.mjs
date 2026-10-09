@@ -10,6 +10,7 @@ import {randomBytes,createHash} from 'node:crypto'
 import {request as httpsRequest} from 'node:https'
 import {createHmac} from 'node:crypto'
 import {reserveEdgePort} from './verification-edge-port.mjs'
+import {selectComponentPorts} from './verification-component-ports.mjs'
 import assert from 'node:assert/strict'
 import {verifyOfflineRecovery} from './verify-offline-recovery.mjs'
 import {provisionConfiguration} from '../apps/forge/priv/operations/recovery-configuration.mjs'
@@ -22,13 +23,17 @@ const installedWeb=join(root,'web')
 const windows=process.platform==='win32'
 const releaseName=windows?'gitgood.bat':'gitgood'
 const release=join(installedForge,'bin',releaseName)
-const forgePort=Number(process.env.GITGOOD_VERIFY_FORGE_PORT??47851)
-const webPort=Number(process.env.GITGOOD_VERIFY_WEB_PORT??47850)
+const requestedPorts={}
+for(const [name,variable] of [['forge','GITGOOD_VERIFY_FORGE_PORT'],['web','GITGOOD_VERIFY_WEB_PORT'],['ssh','GITGOOD_VERIFY_SSH_PORT']])
+  if(process.env[variable]!==undefined)requestedPorts[name]=Number(process.env[variable])
+const componentPorts=await selectComponentPorts(requestedPorts)
+const forgePort=componentPorts.forge
+const webPort=componentPorts.web
 const forgeUrl='http://127.0.0.1:'+forgePort
 const webUrl='http://127.0.0.1:'+webPort
 const database='gitgood_production_'+randomBytes(4).toString('hex')
 const storage=join(root,'storage')
-const sshPort=Number(process.env.GITGOOD_VERIFY_SSH_PORT??47852)
+const sshPort=componentPorts.ssh
 const proxyKey=randomBytes(32).toString('base64')
 const observedProbePeers=new Set()
 const caddyExecutable=process.env.GITGOOD_CADDY
