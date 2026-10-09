@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from pathlib import Path
 import sys
 import tempfile
@@ -12,7 +13,7 @@ from upgrade_journal import UpgradeRefused
 def configuration():
     return {"forge": {"GITGOOD_PUBLIC_URL": "https://localhost:54420", "GITGOOD_WEB_ORIGIN": "https://localhost:54420",
                       "GITGOOD_SSH_PUBLIC_HOST": "localhost", "GITGOOD_SSH_PUBLIC_PORT": "54422",
-                      "GITGOOD_SSH_PORT": "50022", "PORT": "50021", "GITGOOD_PROXY_KEY": "a" * 43 + "="},
+                      "GITGOOD_SSH_PORT": "50022", "PORT": "50021", "GITGOOD_PROXY_KEY": base64.b64encode(b"x" * 32).decode()},
             "web": {"PORT": "50020", "GITGOOD_API_URL": "http://127.0.0.1:50021"},
             "edge": {"tls_certificate": "tls-certificate.pem", "tls_key": "tls-key.pem"}}
 
@@ -21,6 +22,7 @@ class EdgeProfileTest(unittest.TestCase):
     def test_origin_command_injection_and_colliding_ports_refuse(self):
         self.assertEqual(routing_profile(configuration())["ports"]["ssh"], 54422)
         cases = [("GITGOOD_PUBLIC_URL", "https://localhost:54420/\nrespond secret"),
+                 ("GITGOOD_PUBLIC_URL", "https://localhost:\n54420"),
                  ("GITGOOD_PUBLIC_URL", "https://actor:secret@localhost:54420"),
                  ("GITGOOD_SSH_PUBLIC_HOST", "different.invalid"),
                  ("GITGOOD_SSH_PUBLIC_PORT", "50022"), ("PORT", "50020"), ("PORT", "-1")]

@@ -1,5 +1,6 @@
 """Fixed TLS and bounded SSH routing in one exact installation-owned cgroup."""
 import asyncio
+import base64
 import hashlib
 import json
 import os
@@ -32,12 +33,16 @@ def routing_profile(configuration):
     require(url.scheme == "https" and not url.username and not url.password and not url.query and not url.fragment and url.path in {"", "/"})
     require(url.hostname and re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?", url.hostname))
     require(url.port is not None and 1024 <= url.port <= 65535)
+    canonical_origin = "https://" + url.hostname + ":" + str(url.port)
+    require(origin in {canonical_origin, canonical_origin + "/"})
     require(forge["GITGOOD_WEB_ORIGIN"] == origin and forge["GITGOOD_SSH_PUBLIC_HOST"] == url.hostname)
     ports = {"https": url.port, "web": port(web["PORT"]), "forge": port(forge["PORT"]),
              "ssh": port(forge["GITGOOD_SSH_PUBLIC_PORT"]), "native_ssh": port(forge["GITGOOD_SSH_PORT"])}
     require(len(set(ports.values())) == len(ports))
     require(web["GITGOOD_API_URL"] == "http://127.0.0.1:" + str(ports["forge"]))
     require(re.fullmatch(r"[A-Za-z0-9+/]{43}=", forge["GITGOOD_PROXY_KEY"]))
+    proxy_key = base64.b64decode(forge["GITGOOD_PROXY_KEY"], validate=True)
+    require(len(proxy_key) == 32 and base64.b64encode(proxy_key).decode() == forge["GITGOOD_PROXY_KEY"])
     return {"origin": origin.rstrip("/"), "hostname": url.hostname, "ports": ports}
 
 
