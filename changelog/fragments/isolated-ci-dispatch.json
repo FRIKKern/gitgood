@@ -1,7 +1,7 @@
 {
   "id": "isolated-ci-dispatch",
   "category": "Changed",
-  "summary": "Route required planning and forge jobs to the measured isolated ephemeral Linux runner after real GitHub dispatch proof, preserving tests and explicitly requiring full production recovery.",
+  "summary": "Route required planning and forge jobs to the measured isolated ephemeral Linux runner after real GitHub dispatch proof, verifying the build platform and installer image identity while preserving tests and full production recovery.",
   "impact": "operator",
   "references": ["docs/implementation/isolated-ci.md"],
   "journeys": ["J16"],

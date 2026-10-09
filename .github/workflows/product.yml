@@ -20,6 +20,7 @@ jobs:
           --health-cmd "pg_isready -U gitgood"
           --health-interval 10s --health-timeout 5s --health-retries 5
     env:
+      ImageOS: ubuntu24
       PGHOST: 127.0.0.1
       PGPORT: '5432'
       PGUSER: gitgood
@@ -27,6 +28,13 @@ jobs:
       GITGOOD_TEST_DATABASE_LOCALE: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Verify native build platform
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$VERSION_ID" = 24.04
+          test "$(uname -m)" = x86_64
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124
         with:
           otp-version: '29.1.1'

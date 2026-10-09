@@ -36,6 +36,8 @@ Planning and forge now target the same isolated runner labels with bounded job t
 
 Recovery requires the PostgreSQL 18 client utilities alongside the existing 18.4 service container. The job installs the client package from the [official signed Ubuntu repository](https://www.postgresql.org/download/linux/ubuntu/) and records the actual dump-tool version. It does not install another database server or copy application runtime credentials into the guest.
 
+At candidate bd172519f8e1c846247427739569346ab9c08f8d, actual planning job 113678211665 passed. Forge job 113678211980 initialized its PostgreSQL service and checked out the repository, then refused during `setup-beam`: self-hosted jobs do not supply the `ImageOS` value that the installer requires. No forge tests executed. Retain that failed result; it does not establish equivalent CI. The workflow now declares `ImageOS: ubuntu24` as required by the [pinned installer's self-hosted contract](https://github.com/erlef/setup-beam/blob/54075bcc5e249e4758d363f27d099f55d843f124/README.md#self-hosted-runners) and first verifies the actual Ubuntu 24.04 x86_64 platform. Actual required jobs on the repaired candidate still need to pass.
+
 ## Primary references
 
 - [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions) currently lists self-hosted runner usage as free. Hosted artifact/cache charges and account restrictions are separate.
