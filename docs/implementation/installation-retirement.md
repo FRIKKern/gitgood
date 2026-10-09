@@ -26,8 +26,13 @@ database inventories. Independent expected installation and ciphertext digests
 are required. Archive/key paths must be outside the three live store roots.
 Wrong bindings and a database-only change refuse. The lease ends when this command
 returns; its receipt cannot authorize later removal without continuous custody
-and fresh revalidation. Copied-production acceptance for this new command is
-pending on the proposed revision.
+and fresh revalidation. PR48 copied-production verification passed on executed
+candidate `da3a1f1b2a25c9e119249aaa1f6d46d1cec36f51`, whose tracked tree equals
+the proposed `fe4d835df35b10b63ad16eb4171c911c1cdc1ca3` tree. The merged
+`db639601fba10ce9219f84ca5e2caf432219fa7b` pipeline also passed fourteen offline
+recovery checks. Both private artifact sets retain matching checkpoint/export
+installation, ciphertext, file and database hashes. This proves the checkpoint
+scope on those candidates; it does not prove later removal or a product release.
 
 Removal remains implementation work. The executor must retain an independently
 identified archive and external key outside the live resources, establish an
@@ -51,14 +56,49 @@ an interrupted retirement. A killed owner leaves uncertainty; explicit observed
 applied/unapplied reconciliation precedes continuation. Fixed event replay rejects
 invented completion, changed intent and missing destructive-action observations.
 File/directory sync errors invalidate the current owner until reopening. Read-only
-status never acknowledges an action. There is no cancellation or removal executor
-yet; creating retirement intent is reserved for that future owned executor.
+status never acknowledges an action. There is no cancellation or complete retirement
+coordinator yet; creating retirement intent is reserved for that future owned executor.
 
 The Linux journal checks use inert receipt fixtures and real competing processes,
 SIGKILL, private-file aliases and sync faults. They exercise custody without deleting
 resources or proving actual archive/restore functionality. The full Linux operator
 suite currently passes 84 checks with eight foreign-platform skips; current
-packaged production checks for this separate journal integration remain pending.
+packaged production checks for PR49 passed on executed
+`ef6bbe4416d8e5ee8f4a887376cdccdffb73f4bb`, whose entire tracked tree equals
+the proposed `cfb07b3cb24beb743a8ae508ff3e146d1f3a7d4d` tree. Integration into
+main `23fd7612405f924e2658eefafcb359e9c069d636` is recorded separately.
+
+`retirement_database.py` and `retirement_stores.py` provide the two scoped removal
+actions for the future coordinator. Each requires the held journal lock, the exact
+independently hashed resource plan, the corresponding running action stage, the
+original owned kernel groups and driver membership, and empty runtime groups.
+Observation also works during retained-resource verification; it does not authorize
+another deletion. The database action checks the original cluster, role, database
+OID, owner, encoding and endpoint through the administrative database before an
+ordinary `DROP DATABASE`. Existing clients refuse; the action never uses FORCE,
+disconnects clients, drops shared roles, or removes the cluster. Configuration
+bytes must match the original installation hash, including when recovered from
+retained private material after store removal.
+
+The store action removes only the sealed configuration, SSH-host and Git-storage
+entries. It pins directory descriptors, checks inode/owner/mode and file hashes,
+refuses unexpected entries and aliases before deletion, and syncs each changed
+parent. Replacement resources refuse. A partial interrupted removal can resume
+only after actual remaining entries match the original plan. Its explicit unapplied
+stage reconciliation means the stage remains incomplete; it does not assert that
+no individual file was deleted. Lost acknowledgement after complete deletion can
+be reconciled from observed absence without repeating the destructive action.
+
+Eight filesystem and five actual PostgreSQL checks cover scoped deletion,
+preserved unrelated data/shared roles, changed resources, connected clients,
+partial failure and real SIGKILL after deletion before journal acknowledgement.
+Their kernel observation boundary is controlled and preceding restore receipts
+are inert fixtures. They do not prove real kernel exclusion, usable restoration,
+continuous custody across the full retirement, or provider deallocation. All
+destructive checks allocate new disposable resources. Managed lifecycle actors
+must obey the installation lock and kernel custody; privileged external host or
+database administrators remain outside that boundary. No filesystem power-loss
+guarantee is established.
 
 The initial local profile must distinguish installation-owned resources from
 shared database roles, clusters, service identities and upstream user credentials.

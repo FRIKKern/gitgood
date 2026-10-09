@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-actions",
+  "category": "Added",
+  "summary": "Remove exactly inventoried native databases and stores under retirement custody, refuse replacement resources and connected clients, and reconcile partial deletion or lost acknowledgements; complete installed retirement remains unfinished.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_database.py", "tools/deployment/retirement_stores.py", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}
