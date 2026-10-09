@@ -155,7 +155,8 @@ def start_edge(actions, mode):
     environment = {"PATH": "/usr/bin:/bin", "HOME": str(actions.root), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
     with open(directory / "guardian.log", "xb", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
         return subprocess.Popen([actions.executables["python"], "-I", str(module), str(path)],
-                                env=environment, cwd=directory, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, umask=0o077)
+                                env=environment, cwd=directory, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
+                                start_new_session=True, umask=0o077)
 
 
 async def route_ssh(mode, upstream_port, public_port, stopped, *, loopback=False):

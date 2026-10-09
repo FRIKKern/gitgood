@@ -69,6 +69,29 @@ commands remain separate implementation work. Private-invalid,
 inconsistent or wrong-installation inputs refuse with a fixed error and no input
 or exception details.
 
+Fixed upgrade commands require an already enrolled working installation:
+
+```sh
+python3 tools/deployment/native_operator.py upgrade \
+  --history-directory /absolute/private/installation-history \
+  --inputs-directory /absolute/private/upgrade-inputs \
+  --request-sha256 <independently-pinned-canonical-request-sha256>
+```
+
+The same inputs select `upgrade-recover` for compatible previous-code recovery
+or `upgrade-resume` for explicit same-intent forward repair. They contain
+`request.json`, `intent.json` and `inventory.json`; the request also pins the
+existing `plans/<operation-UUID>.json` raw-byte digest. It seals the operation,
+installation and exact root/history identities. No request supplies commands or
+callbacks. Execute through the existing OS delegation in the enrolled driver
+group. The command cannot enroll/allocate resources. A same-intent complete or
+recovered call returns historical metadata without fresh function authority.
+Scoped actual seven-stage execution, bad-artifact refusal, compatible recovery
+and migration-owner loss/forward repair passed, including independent API/Git
+checks after launcher exit. The CLI cases use the same application artifact/schema;
+current required CI and complete journey acceptance remain separate gates. See
+[upgrade evidence](../implementation/installation-upgrade.md).
+
 Five Linux checks passed, including a real killed journal owner, live-owner reads that leave
 every retained file unchanged, concurrent changes, private input refusal and
 inconsistent activation metadata. The final component operator suite passed 110 Linux checks with eight
@@ -144,7 +167,8 @@ actual controller interruption and adversarial refusals; required CI and the
 merged main run passed. The fixed retirement CLI separately passed ordinary
 all-five-stage execution, destructive/final continuation and pre-import owner-loss
 recovery on actual disposable installations. Its required integration CI is
-pending. Enrollment/allocation CLI, cancellation and managed provider inventory
+separately archived against its exact proposed tree and merged main.
+Enrollment/allocation CLI, cancellation and managed provider inventory
 remain separate work. See
 [the design decision](../decisions/0011-isolated-retirement-verification.md) and
 [the current evidence](../implementation/installation-retirement.md).

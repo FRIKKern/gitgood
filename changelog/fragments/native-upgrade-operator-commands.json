@@ -1,0 +1,9 @@
+{
+  "id": "native-upgrade-operator-commands",
+  "category": "Added",
+  "summary": "Add fixed native upgrade, previous-code recovery and forward-repair commands with independently pinned private inputs, session-independent supervised runtimes and metadata-only terminal repeat; actual seven-stage execution, bad-artifact refusal and migration-owner recovery passed on a disposable installation.",
+  "impact": "operator",
+  "references": ["tools/deployment/native_upgrade_command.py", "docs/decisions/0014-fixed-native-upgrade-commands.md"],
+  "journeys": ["J15"],
+  "withdrawn": false
+}

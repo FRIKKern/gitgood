@@ -96,18 +96,29 @@ def main():
     retirement.add_argument("--history-directory", required=True)
     retirement.add_argument("--plan-directory", required=True)
     retirement.add_argument("--plan-sha256", required=True)
+    for name, help_text in [("upgrade", "Execute a fixed enrolled-installation upgrade."),
+                            ("upgrade-recover", "Recover exact compatible previous code for the same intent."),
+                            ("upgrade-resume", "Repair forward under the same retained upgrade intent.")]:
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("--history-directory", required=True)
+        command.add_argument("--inputs-directory", required=True)
+        command.add_argument("--request-sha256", required=True)
     arguments = parser.parse_args()
     try:
         if arguments.command == "status":
             result = read_status(arguments.history_directory, arguments.installation)
-        else:
+        elif arguments.command == "retire":
             from native_retirement import NativeRetirement
             result = NativeRetirement(arguments.history_directory, arguments.plan_directory, arguments.plan_sha256).run()
+        else:
+            from native_upgrade_command import NativeUpgradeCommand
+            result = NativeUpgradeCommand(arguments.history_directory, arguments.inputs_directory, arguments.request_sha256).run(arguments.command)
         print(json.dumps(result, sort_keys=True))
         return 0
     except Exception:
         # Never print private input, credentials, paths or exception details.
-        code = "native_operator_status_invalid" if arguments.command == "status" else "native_operator_retirement_invalid"
+        code = ("native_operator_status_invalid" if arguments.command == "status" else
+                "native_operator_retirement_invalid" if arguments.command == "retire" else "native_operator_upgrade_invalid")
         print(json.dumps({"status": "refused", "code": code}), file=sys.stderr)
         return 2
 

@@ -30,6 +30,14 @@ remains separate from that installed proof.
 
 [Fixed native retirement execution](0013-fixed-native-retirement-executor.md)
 defines the single owner command, independently bound private inputs and fixed
-stage reconciliation. Its design is accepted; current draft component checks
-pass135 Linux operators with eleven foreign skips. Actual complete CLI execution
-and interruption cases remain under verification.
+stage reconciliation. Actual continuation, pre-import owner-loss recovery and
+ordinary all-five-stage CLI execution each passed five checks plus two terminal
+calls. Exact committed applicability and126/122/117-file archive readback passed;
+its required CI remains a separate integration gate.
+
+[Fixed native upgrade commands](0014-fixed-native-upgrade-commands.md) exposes the
+existing enrolled-installation engine through execution, compatible previous-code
+recovery and forward-repair choices. Actual seven-stage execution, wrong-artifact
+refusal, compatible recovery and migration-owner loss/forward repair passed with
+later-session API/HTTPS/SSH function. A 322-file private archive passed readback;
+exact committed applicability and required integration CI remain separate gates.
