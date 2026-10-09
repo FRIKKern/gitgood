@@ -107,7 +107,10 @@ The read-only `native_inventory.py` component binds the initial local operator
 profile to an owned private installation root, exact configuration and Ed25519
 host-key digests, store directory device/inode identities, pinned runtime binary
 identities, and dedicated `gitgood-installation-UUID` native/web/edge/maintenance
-cgroups. It also observes the PostgreSQL 18.4 cluster system identifier, database
+cgroups, with its supervisor in a separate driver group under the same delegated
+parent. The parent process-control file must be delegated too, so lifecycle children
+can move from the driver into their exact sibling group. Collection requires that
+actual driver membership. It also observes the PostgreSQL 18.4 cluster system identifier, database
 OID and database-owner role through one fixed read-only query. Re-observation
 must match the independently retained bindings digest. A copied directory with
 the same name or another database cannot silently replace the recorded target.

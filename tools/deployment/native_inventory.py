@@ -106,6 +106,7 @@ def cgroup_identity(installation, name):
     for control in ["cgroup.procs", "cgroup.kill"]:
         info = (path / control).lstat()
         require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid())
+    require((path.parent / "cgroup.procs").lstat().st_uid == os.getuid())
     require("populated" in (path / "cgroup.events").read_text())
     require(any(" - cgroup2 " in line and line.split()[4] == "/sys/fs/cgroup" for line in Path("/proc/self/mountinfo").read_text().splitlines()))
     return {"path": str(path), "kernel_path": "/" + path.relative_to("/sys/fs/cgroup").as_posix(),
@@ -142,7 +143,8 @@ def capture_native_inventory(root, executables):
                  for name in ["ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"]}
     require(set(executables) == EXECUTABLES)
     binaries = {name: executable_identity(path) for name, path in executables.items()}
-    groups = {name: cgroup_identity(installation, name) for name in ["native", "web", "edge", "maintenance"]}
+    groups = {name: cgroup_identity(installation, name) for name in ["native", "web", "edge", "maintenance", "driver"]}
+    require(Path("/proc/self/cgroup").read_text().splitlines() == ["0::" + groups["driver"]["kernel_path"]])
     runtime = json.loads(private_bytes(root / "storage/.gitgood-runtime-v1.json", 8192), object_pairs_hook=unique_object)
     require(type(runtime.get("protocol")) is int and runtime["protocol"] == 1 and runtime.get("mode") == "runtime" and runtime.get("host") == socket.gethostname())
     require(runtime.get("cgroup") == groups["native"]["kernel_path"])
