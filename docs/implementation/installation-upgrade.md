@@ -6,6 +6,37 @@ This work keeps the single-runtime installation lease and independent recovery
 custody as operating constraints. Managed Cloud execution remains a separate J14
 integration dependency.
 
+The first executing library is `tools/deployment/native_upgrade.py`. It requires
+an independently pinned private plan and resource inventory, a previously enrolled
+artifact and current-release digest, and scoped probe credentials. Its fixed stage
+sequence verifies the working public baseline, stages before maintenance, stops
+whole owned groups, records actual schema before/after migration, verifies internal
+function while public routes remain closed, activates routing, and records the
+release pointer only after fresh public API/HTTPS/SSH probes. Plans contain fixed
+identities and paths; they cannot supply commands. Execution experiments are still
+pending, so this implementation does not establish J15 acceptance.
+
+Explicit previous-code recovery reclaims the same failed or uncertain operation,
+stops its complete owned groups before database-dependent observation, and requires
+the actual schema to equal the previous artifact's migration list. Incompatible or
+unavailable schema remains closed or in maintenance with a failed recovery stage;
+no down migration occurs. Automatic continuation of partially applied forward
+migrations and matching-artifact restoration remain unfinished in this library.
+
+The frozen `fd9b909` installed supporting experiment exercised the fixed product
+probe and current-release libraries on the historical `1b0fe04` artifact. Thirteen
+actual checks passed, including schema identity, internal function behind
+maintenance, public authenticated API/HTTPS/SSH reads, exact pointer readback and
+repeat, immutable code, and empty owned groups after cleanup. Forty private files
+passed digest readback. It recovered the same operation after two retained actual
+failures: `e33a2c1` omitted read-only maintenance observation during candidate
+verification; `34fdd46` exposed repeated edge launch paths within one recovery
+stage. Distinct private attempts now preserve each edge launch. Separate current
+structural checks passed 66 Linux checks and 26 Windows checks, with seven and
+47 foreign-profile skips, plus 23 planning tests; eleven proof files passed digest
+readback. This experiment used the same artifact and schema before and after;
+it is not an old-to-new transition or a complete coordinator proof.
+
 ## Initial operating profile
 
 Support the measured Ubuntu 24.04 x86-64 installation, PostgreSQL 18.4, one forge
