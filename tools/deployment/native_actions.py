@@ -10,7 +10,7 @@ import sys
 import tarfile
 import time
 
-from native_inventory import cgroup_identity, private_bytes, require_native_inventory
+from native_inventory import cgroup_identity, directory_identity, private_bytes, require_native_inventory
 from inspect_native_artifact import inspect_native_artifact
 from upgrade_journal import canonical, owner, require, unique_object
 
@@ -157,7 +157,12 @@ class NativeActions:
         environment = {"PATH": "/usr/bin:/bin", "HOME": str(self.root), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
         environment.update(values)
         if component == "forge":
-            environment.update({"GITGOOD_GIT": self.executables["git"], "GITGOOD_PYTHON": self.executables["python"], "PHX_SERVER": "true"})
+            runtime = self.root / "private-runtime"
+            if not runtime.exists() and not runtime.is_symlink():
+                runtime.mkdir(mode=0o700)
+            directory_identity(runtime, private=True)
+            environment.update({"GITGOOD_GIT": self.executables["git"], "GITGOOD_PYTHON": self.executables["python"], "PHX_SERVER": "true",
+                                "RELEASE_TMP": str(runtime)})
         return environment
 
     def _stage(self, directory, previous=False):
@@ -174,7 +179,7 @@ class NativeActions:
         descriptor = self.journal._private_open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         with os.fdopen(descriptor, "wb") as output:
             return subprocess.Popen([self.executables["python"], "-I", str(stage["wrapper"]), group["path"], *arguments],
-                                    cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT)
+                                    cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, umask=0o077)
 
     def migrate(self, directory):
         self._owned({"migrate"})

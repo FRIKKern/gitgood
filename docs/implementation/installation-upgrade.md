@@ -109,6 +109,9 @@ journal stage in the bound driver group. Launch re-observes installation binding
 uses a closed configuration-key set and a fresh environment, and joins the exact
 empty component cgroup before executing the release. No descriptor supplies a
 shell command. Migration is the fixed `Gitgood.Release.migrate()` entry point.
+The release's generated runtime configuration stays in a private mutable directory
+outside staged code, with a private child-process umask; runtime secrets are not
+added to immutable code inventories or their evidence.
 
 Before execution, the action layer rechecks every staged file, link and executable
 mode against the independently pinned retained archive. Updating a private
