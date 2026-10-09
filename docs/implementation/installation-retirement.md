@@ -182,3 +182,30 @@ resources. Destructive acceptance uses newly allocated disposable fixtures only.
 Managed Cloud deallocation requires its own verified provider inventory and action
 contract. No live installation, database, key or provider resource has been removed
 by the inspector change.
+
+`retirement-restore-data.mjs` verifies recovered contents in a separately allocated
+database whose name derives from the independently bound operation UUID. The owner
+allocates that target; the helper neither creates nor drops any database. Exact
+cluster, original target OID, role/owner, encoding, version and endpoint are required,
+and the archived original database name must differ. The original credentials bind
+the same local endpoint without appearing in its request or result.
+
+Restore mode requires an empty public schema, no other application schemas or
+clients, authenticated archive inspection and the original locale profile before
+single-transaction dump import. It then compares the actual schema, ordered row
+hashes, sequences and locale with the authenticated descriptor. Observe mode repeats
+these reads without import; restore mode refuses a populated target. Replacement
+identities and connected clients refuse, and failed or interrupted targets remain
+for explicit reconciliation. Only freshly allocated unpack directories are cleaned
+after the call. Interrupted child scratch requires retained inventory.
+
+Ten real PostgreSQL18.4/export checks passed on fresh disposable resources: wrong
+installation/ciphertext/request/target identity, actual import and observation,
+populated-target refusal, changed data, a connected client left alive and an unchanged
+repeat. The first producer run used an incorrect fixture table name after import;
+its partial results remain preserved. A corrected producer allocated a new target
+and passed all ten checks. These archive candidate/TLS fields are inert. This proves
+recovered contents, not installed application startup, authenticated functional
+probes, kernel/journal custody or the full retirement flow. No restoration-success
+flag for journal acknowledgement is emitted. Copied-production verification adds
+the shipped helper and actual dump/target checks; required CI remains pending.

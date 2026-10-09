@@ -145,6 +145,41 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   }
   await run(release,['eval','Gitgood.Release.retirement_checkpoint()'],checkpointEnv,installedForge,'retirement-checkpoint-restored')
   await observeSnapshot('retirement-snapshot-restored')
+  const restoreDataModule=join(installedForge,'lib',libraries[0],'priv/operations/retirement-restore-data.mjs')
+  assert((await lstat(restoreDataModule)).isFile(),'Restored-data verifier must be shipped in the copied artifact')
+  const restoreDataOperation=randomUUID(),restoreDataDatabase='gitgood_retirement_restore_'+restoreDataOperation.replaceAll('-','')
+  const restoreDataEnvironment={...pgEnv,PGHOST:'127.0.0.1',PGDATABASE:restoreDataDatabase}
+  await run(process.env.GITGOOD_CREATEDB??'createdb',['--template=template0','--encoding=UTF8','--locale=C.UTF-8','--locale-provider=libc',restoreDataDatabase],
+    pgEnv,root,'retirement-restore-data-target-create')
+  const targetSql="SELECT json_build_object('cluster',(SELECT system_identifier::text FROM pg_control_system()),'database',current_database(),'database_oid',d.oid::bigint,'owner_oid',d.datdba::bigint,'role_oid',r.oid::bigint,'encoding',pg_encoding_to_char(d.encoding),'version',current_setting('server_version'),'address',host(inet_server_addr()),'port',inet_server_port()) FROM pg_database d,pg_roles r WHERE d.datname=current_database() AND r.rolname=current_user"
+  const observeTarget=async label=>{
+    await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--tuples-only','--no-align','--set','ON_ERROR_STOP=1','--command',targetSql],restoreDataEnvironment,root,label)
+    return JSON.parse((await readFile(join(root,'logs/'+label+'.log'),'utf8')).trim())
+  }
+  const restoreDataTarget=await observeTarget('retirement-restore-data-target-identity')
+  const restoreDataRequest={protocol:1,operation:restoreDataOperation,installation:originalInstallation,candidate:backupReceipt.candidate,
+    ciphertext_sha256:backupReceipt.ciphertext_sha256,source:bundle,key_path:keyFile,scratch_directory:root,phase:'restore',target:restoreDataTarget}
+  const restoreDataRequestPath=join(root,'retirement-restore-data-request-private.json')
+  const observeRestoreData=async(label,patch={},allowed=[0])=>{
+    const bytes=Buffer.from(JSON.stringify({...restoreDataRequest,...patch})+'\n')
+    await writeFile(restoreDataRequestPath,bytes,{mode:0o600})
+    await wait(launch(process.execPath,[restoreDataModule,restoreDataRequestPath,createHash('sha256').update(bytes).digest('hex')],restoreDataEnvironment,root,label),label,allowed)
+    return allowed[0]===0?JSON.parse((await readFile(join(root,'logs/'+label+'.log'),'utf8')).trim()):null
+  }
+  await observeRestoreData('retirement-restore-data-wrong-target',{target:{...restoreDataTarget,database_oid:restoreDataTarget.database_oid+1}},[1])
+  const retirementRestoredData=await observeRestoreData('retirement-restore-data-import')
+  assert.equal(retirementRestoredData.status,'verified');assert.equal(retirementRestoredData.purpose,'retirement_restore_data')
+  for(const field of ['candidate','installation','ciphertext_sha256','recovery_point','database_fingerprint','resource_fingerprints'])
+    assert.deepEqual(retirementRestoredData[field],retirementCheckpoint[field])
+  assert.deepEqual(retirementRestoredData.target_database,restoreDataTarget)
+  const reobservedRestoredData=await observeRestoreData('retirement-restore-data-observe',{phase:'observe'})
+  assert.equal(reobservedRestoredData.database_fingerprint,retirementRestoredData.database_fingerprint)
+  await observeRestoreData('retirement-restore-data-populated-target',{},[1])
+  assert.deepEqual(await observeTarget('retirement-restore-data-target-final'),restoreDataTarget)
+  // Only this freshly created target is eligible for removal; ordinary DROP
+  // refuses connected clients and never disconnects a foreign process.
+  await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--set','ON_ERROR_STOP=1','--command','DROP DATABASE "'+restoreDataDatabase+'"'],
+    {...pgEnv,PGDATABASE:'postgres'},root,'retirement-restore-data-owned-target-cleanup')
   const wrongLocaleDatabase='gitgood_wrong_locale_'+randomBytes(4).toString('hex')
   const wrongLocaleInstallation=join(root,'wrong-locale');await mkdir(wrongLocaleInstallation,{mode:0o700})
   await run(process.env.GITGOOD_CREATEDB??'createdb',['--template=template0','--encoding=UTF8','--locale=C',
@@ -238,7 +273,7 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const recoveryMs=performance.now()-pausedAt
   assert(recoveryMs<targetRtoMs)
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
-    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,restored_database:database,installation:recovered.installation,
+    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,retirement_restored_data:retirementRestoredData,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','migration and replacement runtime refuse a real surviving Git writer; schema/lock bytes retained and migration permits only after the complete owned group stops','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
@@ -247,7 +282,8 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
       'private collaboration and asset access retained','outsider denied','authorized HTTPS and SSH refs, clone and new push with rebound hooks',
       'copied release export uses coordinated backup exclusion; packaged inspector validates the archive without database connection settings',
       'packaged retirement checkpoint binds installation/archive and live inventories; wrong UUID/digest and a real database-only change refuse without removing stores or archive',
-      'packaged read-only snapshot observer matches the checkpoint; wrong UUID/digest and database-only changes refuse without acquiring a new offline lease or removing resources'],
+      'packaged read-only snapshot observer matches the checkpoint; wrong UUID/digest and database-only changes refuse without acquiring a new offline lease or removing resources',
+      'packaged restored-data verifier imports the authenticated dump into an independently named target, matches schema/data/sequences/locale, reobserves it and refuses changed target identity or repeat import into populated data'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}
   await writeFile(join(options.evidence,'offline-recovery-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   return receipt
