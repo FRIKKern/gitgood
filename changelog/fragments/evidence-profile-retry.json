@@ -1,0 +1,9 @@
+{
+  "id": "evidence-profile-retry",
+  "category": "Fixed",
+  "summary": "Resolve exact actor-bound evidence receipts before validating new creation inputs. Legacy protected bytes keep their checksum; changed bodies conflict and revoked native writers cannot replay receipts.",
+  "impact": "product",
+  "references": ["docs/implementation/criterion-evidence.md"],
+  "journeys": ["J11", "J15"],
+  "withdrawn": false
+}

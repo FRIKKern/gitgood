@@ -127,15 +127,17 @@ defmodule Gitgood.Evidence do
   end
 
   def attach(repository, pull, user, credential, link_id, params, key) do
-    with :ok <- parameters(params),
-         {:ok, preparation} <-
+    with {:ok, preparation} <-
            writer(repository, pull, user, credential, fn ->
              key = Lease.key!(key)
              link = link!(pull, link_id)
              replay(link.id, user.id, key, Lease.digest(params)) || :new
            end) do
       case preparation do
-        :new -> attach_new(repository, pull, user, credential, link_id, params, key)
+        :new ->
+          with :ok <- parameters(params),
+               do: attach_new(repository, pull, user, credential, link_id, params, key)
+
         receipt -> {:ok, receipt}
       end
     end

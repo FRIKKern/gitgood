@@ -155,6 +155,55 @@ defmodule Gitgood.EvidenceTest do
     })
   end
 
+  test "a stricter artifact profile retains exact legacy receipts and protected bytes", c do
+    legacy_content = "Legacy text\0artifact\n"
+
+    legacy_params =
+      Map.put(c.params, "artifact", %{
+        "name" => "legacy.txt",
+        "content" => legacy_content,
+        "sha256" => hash(legacy_content)
+      })
+
+    assert {:error, :invalid_evidence} = attach(c, "new-nul-refused", legacy_params)
+    {:ok, template_receipt} = attach(c, "legacy-template")
+    template = Repo.get_by!(CriterionEvidence, public_id: template_receipt["id"])
+
+    # An upgrade fixture represents bytes accepted by the original UTF-8 profile.
+    # Its actor, key and digest are canonical; no existing artifact is rewritten.
+    legacy =
+      %CriterionEvidence{}
+      |> Ecto.Changeset.change(
+        template
+        |> Map.from_struct()
+        |> Map.drop([:id, :__meta__])
+        |> Map.merge(%{
+          public_id: Ecto.UUID.generate(),
+          creation_key: "legacy-exact-retry",
+          request_digest: Gitgood.Lease.digest(legacy_params),
+          artifact_name: "legacy.txt",
+          artifact_content: legacy_content,
+          artifact_size: byte_size(legacy_content),
+          artifact_sha256: hash(legacy_content)
+        })
+      )
+      |> Repo.insert!()
+
+    receipt = %{"id" => legacy.public_id, "recorded" => true}
+    assert {:ok, {metadata, ^legacy_content, _}} = download(c, legacy.public_id)
+    assert metadata.artifact_sha256 == hash(legacy_content)
+    assert {:ok, ^receipt} = attach(c, "legacy-exact-retry", legacy_params)
+
+    command(c, "doc-state 503", "DOC_STATE 503")
+    assert {:ok, ^receipt} = attach(c, "legacy-exact-retry", legacy_params)
+    assert {:error, :idempotency_conflict} = attach(c, "legacy-exact-retry", c.params)
+    assert {:error, :invalid_evidence} = attach(c, "new-nul-still-refused", legacy_params)
+    assert Repo.aggregate(CriterionEvidence, :count) == 2
+
+    Repo.delete_all(from(m in Membership, where: m.user_id == ^c.owner.id))
+    assert {:error, :authorization_changed} = attach(c, "legacy-exact-retry", legacy_params)
+  end
+
   test "NUL metadata and text artifacts are refused before database storage", c do
     for params <- [
           put_in(c.params, ["manifest", "commands"], ["command\0argument"]),

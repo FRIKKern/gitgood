@@ -16,6 +16,8 @@ Native repository permission and current source permission are both required to 
 
 Within one criterion, the newest attached record governs the displayed result. A failed, inconclusive, stale or unavailable newer record cannot fall back to an older pass. An untested criterion is absent. Idempotent retries preserve the original receipt and cannot create another record or edit its provenance.
 
+Creation-profile validation applies to new records. An exact actor/link/key/body match first resolves the original opaque receipt under current native writer permission, even if a later profile would refuse those original bytes or current source access is unavailable. A changed body remains an idempotency conflict. Older protected bytes retain their checksum and current native/source download permissions; tightening new-input rules never rewrites them or transfers source permission. NUL text is an explicit new-creation refusal, not a migration of existing byte custody.
+
 The [bounded history contract](evidence-history.md) keeps the entire history while paging record and event reads. A selected older page does not change which result governs a criterion. Pagination is a resource boundary, not measured capacity.
 
 ## Acceptance still pending
