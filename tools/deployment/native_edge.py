@@ -9,6 +9,7 @@ import re
 import signal
 import subprocess
 import sys
+import uuid
 from urllib.parse import urlsplit
 
 if __name__ == "__main__":
@@ -122,7 +123,9 @@ def start_edge(actions, mode):
     # cannot supply a command or substitute an edge implementation.
     module = Path(__file__).resolve()
     module_digest = hashlib.sha256(private_bytes(module, 131_072)).hexdigest()
-    directory = actions.journal.directory / ("edge-" + str(len(actions.journal.record["events"])))
+    # Recovery can stop maintenance and start active routing within one journal
+    # stage. Preserve every attempt rather than reusing its private launch files.
+    directory = actions.journal.directory / ("edge-" + str(len(actions.journal.record["events"])) + "-" + str(uuid.uuid4()))
     directory.mkdir(mode=0o700)
     configuration = directory / "Caddyfile"
     with open(configuration, "x", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
