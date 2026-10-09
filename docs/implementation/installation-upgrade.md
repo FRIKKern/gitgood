@@ -23,6 +23,28 @@ and executes nothing. The emitted `inspected` receipt is separate from readiness
 or activation. Its structural tests use synthetic inert fixtures; the retained
 9392a31 real artifact also passed inspection. No full J15 result follows from this.
 
+The private Linux journal in `tools/deployment/upgrade_journal.py` persists the
+fixed inspect/stage/maintenance/migrate/verify/activate/public-verify sequence
+under a nonblocking OS lock. It binds one operation UUID and immutable installation,
+artifact, candidate, resource-binding digest and rollback policy. Concurrent owners
+refuse. Reclaiming an interrupted stage records uncertainty and requires explicit
+reconciliation with an observation receipt before continuing. Recovery completion
+requires receipts for the previous identity and public functional probe. These
+receipts are obligations on the supervisor; the journal does not perform probes.
+
+Journal files use private ownership, reject symlinks/hardlinks/shared permissions,
+and persist by atomic replacement plus file/directory fsync. Loaded histories are
+replayed against the fixed protocol before their reported state is trusted.
+Read-only status polling does not claim the operation or append events. A lost
+write acknowledgement disables that owner's in-memory continuation; a new owner
+must inspect the durable state. Evidence fields admit bounded counts, booleans and
+digests rather than payloads or environment. Linux tests include a genuinely
+killed owner, process contention, altered history, lost acknowledgement and
+interrupted recovery. Windows tests only establish early platform refusal; they
+do not establish Windows upgrade support. Full installed activation, resource
+inventory, supervised execution and a subsequent independent upgrade operation
+with retained history remain implementation work.
+
 The supervisor receives only fixed lifecycle actions and exact owned resources.
 A user-supplied descriptor cannot introduce arbitrary host commands. Runtime
 processes are identified by PID and creation identity; the dedicated native cgroup
