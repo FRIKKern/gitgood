@@ -1,0 +1,9 @@
+{
+  "id": "native-executing-upgrade",
+  "category": "Added",
+  "summary": "Execute fixed native upgrade stages from pinned private plans, with a working public baseline, actual migration schema checks, authenticated probes, durable activation and schema-bound previous-code recovery.",
+  "impact": "operator",
+  "references": ["tools/deployment/native_upgrade.py", "tools/deployment/test_native_upgrade.py", "docs/implementation/installation-upgrade.md"],
+  "journeys": ["J15"],
+  "withdrawn": false
+}

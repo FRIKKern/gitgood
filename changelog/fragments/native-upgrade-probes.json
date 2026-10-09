@@ -1,0 +1,9 @@
+{
+  "id": "native-upgrade-probes",
+  "category": "Added",
+  "summary": "Bind fixed authenticated upgrade probes to private actor credentials, exact schema/candidate identity and real HTTPS/SSH Git refs with redirect refusal and owned client-process exclusion.",
+  "impact": "operator",
+  "references": ["tools/deployment/native_probes.py", "tools/deployment/test_native_probes.py", "docs/implementation/installation-upgrade.md"],
+  "journeys": ["J15"],
+  "withdrawn": false
+}

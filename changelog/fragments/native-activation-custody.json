@@ -1,0 +1,9 @@
+{
+  "id": "native-activation-custody",
+  "category": "Added",
+  "summary": "Persist exact native current-release observations under the installation history lock, with artifact/schema/probe binding and explicit lost-write uncertainty.",
+  "impact": "operator",
+  "references": ["tools/deployment/native_activation.py", "tools/deployment/test_native_activation.py", "docs/implementation/installation-upgrade.md"],
+  "journeys": ["J15"],
+  "withdrawn": false
+}

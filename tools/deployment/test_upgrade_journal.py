@@ -53,6 +53,60 @@ class UpgradeJournalTest(unittest.TestCase):
             with self.assertRaises(UpgradeRefused):
                 journal.begin("inspect")
 
+    def test_forward_repair_preserves_failed_events_and_repeats_migration_and_probes(self):
+        with self.journal() as journal:
+            for stage in STAGES[:6]:
+                journal.begin(stage)
+                journal.succeed(stage, self.evidence)
+            journal.begin("public_verify")
+            journal.fail("public_probe_failed")
+            journal.begin_recovery()
+            journal.fail("recovery_failed")
+            before = copy.deepcopy(journal.record["events"])
+            evidence = {**self.evidence, "artifact_verified": True, "schema_observed": True, "completed_stages": 3}
+            for field, value in [("artifact_verified", False), ("schema_observed", False), ("completed_stages", True), ("completed_stages", 6)]:
+                with self.subTest(field=field), self.assertRaises(UpgradeRefused):
+                    journal.forward_repair({**evidence, field: value})
+                self.assertEqual(journal.record["events"], before)
+            journal.forward_repair(evidence)
+            self.assertEqual(journal.record["events"][:-1], before)
+            self.assertEqual(journal.status()["completed"], list(STAGES[:3]))
+            with self.assertRaises(UpgradeRefused):
+                journal.begin("activate")
+            for stage in STAGES[3:]:
+                journal.begin(stage)
+                journal.succeed(stage, self.evidence)
+        with self.journal() as journal:
+            self.assertEqual(journal.status()["status"], "complete")
+            self.assertEqual(journal.status()["last_failure"], {"stage": "recover", "code": "recovery_failed"})
+            with self.assertRaises(UpgradeRefused):
+                journal.forward_repair(evidence)
+
+    def test_lost_forward_repair_acknowledgement_poisoned_owner_reopens_durable_pending_migration(self):
+        with self.journal() as journal:
+            for stage in STAGES[:3]:
+                journal.begin(stage)
+                journal.succeed(stage, self.evidence)
+            journal.begin("migrate")
+            journal.fail("migration_failed")
+            sync = os.fsync
+            count = 0
+            def lose_ack(descriptor):
+                nonlocal count
+                sync(descriptor)
+                count += 1
+                if count == 2:
+                    raise OSError("actual directory sync completed; controlled lost acknowledgement")
+            with patch("upgrade_journal.os.fsync", side_effect=lose_ack), self.assertRaises(OSError):
+                journal.forward_repair({**self.evidence, "artifact_verified": True, "schema_observed": True, "completed_stages": 3})
+            self.assertFalse(journal.usable)
+            with self.assertRaises(UpgradeRefused):
+                journal.begin("migrate")
+        with self.journal() as journal:
+            self.assertEqual(journal.status()["status"], "pending")
+            self.assertEqual(journal.status()["completed"], list(STAGES[:3]))
+            journal.begin("migrate")
+
     def test_changed_candidate_bindings_or_operation_never_replace_intent(self):
         with self.journal():
             pass

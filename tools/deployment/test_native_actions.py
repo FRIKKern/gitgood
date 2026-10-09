@@ -1,10 +1,12 @@
 import hashlib
 import json
 import os
+import subprocess
 from pathlib import Path
 import sys
 import tarfile
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 import uuid
@@ -17,6 +19,25 @@ from upgrade_journal import UpgradeJournal, UpgradeRefused, canonical
 
 @unittest.skipUnless(sys.platform == "linux", "Native lifecycle operations require Linux")
 class NativeActionsTest(unittest.TestCase):
+    def test_exact_owned_zombie_is_reaped_without_reaping_unrelated_or_changed_birth_child(self):
+        children = [subprocess.Popen([sys.executable, "-c", "pass"]) for _ in range(3)]
+        try:
+            deadline = time.monotonic() + 10
+            while True:
+                observed = [NativeActions._process_birth(child.pid) for child in children]
+                if all(value is not None and value["state"] == "Z" for value in observed):
+                    break
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(.01)
+            changed = {**observed[2], "birth": str(int(observed[2]["birth"]) + 1)}
+            NativeActions._reap_owned([observed[0], changed])
+            self.assertIsNone(NativeActions._process_birth(children[0].pid))
+            self.assertEqual(NativeActions._process_birth(children[1].pid)["state"], "Z")
+            self.assertEqual(NativeActions._process_birth(children[2].pid)["state"], "Z")
+        finally:
+            for child in children:
+                child.wait(timeout=10)
+
     def setUp(self):
         self.fixture = fixtures.ArtifactInspectionTest()
         self.fixture.setUp()

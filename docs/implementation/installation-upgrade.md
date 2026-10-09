@@ -6,6 +6,102 @@ This work keeps the single-runtime installation lease and independent recovery
 custody as operating constraints. Managed Cloud execution remains a separate J14
 integration dependency.
 
+The first executing library is `tools/deployment/native_upgrade.py`. It requires
+an independently pinned private plan and resource inventory, a previously enrolled
+artifact and current-release digest, and scoped probe credentials. Its fixed stage
+sequence verifies the working public baseline, stages before maintenance, stops
+whole owned groups, records actual schema before/after migration, verifies internal
+function while public routes remain closed, activates routing, and records the
+release pointer only after fresh public API/HTTPS/SSH probes. Plans contain fixed
+identities and paths; they cannot supply commands. The frozen aa79679 coordinator
+executed a populated installation transition from authentic clean 95f8dee to
+1b0fe04 artifacts. The actual schema advanced from thirteen migrations to fifteen;
+internal and public authenticated API/CA-verified HTTPS/pinned-key SSH probes
+preserved the private branch and commit. The release pointer and terminal journal
+identify the new artifact. Thirteen actual checks and a thirty-file private archive
+passed digest readback. The original older archive omitted its web parent entry
+and refused before enrollment; that artifact and failure remain retained. Its
+structural checks passed 69 Linux and 27 Windows checks, with eight and fifty
+foreign-profile skips respectively, plus 23 planning tests; thirteen proof files
+passed digest readback. The later failure and interruption experiments below are
+separate candidates; this positive transition alone does not establish complete
+J15 acceptance.
+
+Explicit previous-code recovery reclaims the same failed or uncertain operation,
+stops its complete owned groups before database-dependent observation, and requires
+the actual schema to equal the previous artifact's migration list. Incompatible or
+unavailable schema remains closed or in maintenance with a failed recovery stage;
+no down migration occurs. Explicit same-intent forward repair independently
+rechecks the immutable candidate stage, private plan, current pointer and actual
+schema. The schema must contain the old migrations and be an exact prefix of the
+candidate's migrations. A durable repair event supersedes acknowledgements after
+maintenance while preserving every prior event; controlled migration, internal
+function, routing and public probes all repeat. A lost repair acknowledgement
+reopens the recorded pending migration instead of silently starting another
+operation. The installed partial-migration fixture reached fourteen migrations,
+refused previous-code recovery and retained maintenance and the original pointer.
+Its deliberate conflicting empty table was renamed under the same database OID,
+preserving fixture custody. The first forward repair exposed a missing read-only
+maintenance-probe permission during `migrate`; that phase now permits the probe
+under the existing owner lock. Frozen `3142de2` resumed the exact failed operation,
+reobserved fourteen migrations, reached fifteen without a down migration, repeated
+internal/public authenticated API/CA HTTPS/pinned SSH probes and recorded the new
+pointer and complete journal while preserving every prior event. Twelve installed
+checks and twenty-five private proof files passed digest readback.
+Matching-artifact restoration remains a separate offline recovery procedure.
+
+A separate installed `3142de2` experiment killed the actual upgrade owner with
+SIGKILL after successful current-pointer file/directory fsync and before the
+public-verification journal acknowledgement. The retained pointer named the new
+operation while the journal still had six completed stages. Read-only status
+reported the dead owner's operation as uncertain. The runtime remained public;
+explicit same-operation forward repair independently reobserved the new pointer,
+reentered maintenance, repeated migration and internal/public API/CA HTTPS/pinned
+SSH probes, and completed without discarding prior events. Twelve checks and
+twenty-three ordinary proof files passed digest readback. This uses one artifact
+and fifteen-migration schema; it establishes lost stage acknowledgement after
+successful persistence, not filesystem durability failure or independent hardware.
+
+An initial same-schema fault experiment preserved the working runtime and pointer
+after a bad digest, then found an older runtime's process-present refusal during
+restart and an Erlang crash dump written inside staged code. That failed operation
+and private dump are retained. Fixed native environments now direct crash dumps
+to private runtime custody. Whole-group shutdown captures kernel birth identities
+and reaps only matching child zombies from that owned group, leaving unrelated or
+reused child identities untouched. An actual three-child Linux test covers that
+boundary. Frozen `3bc6736` recovered the exact failed installation after moving the
+generated dump intact into private custody, independently revalidating the original
+artifact and observing its thirteen-migration schema and public Git function.
+Ten checks and twenty-three ordinary proof files passed digest readback; dump
+contents were not exported. This was cold recovery after the failed driver exited.
+The fresh warm-parent `e11ad2b` experiment then passed thirteen checks: wrong digest
+preserved the working pointer and exact runtime births; deliberately unhealthy
+web code never activated, and an independent TLS observer retained maintenance
+through candidate verification. Recovery reestablished the original artifact,
+schema and authenticated public API/HTTPS/SSH ref. Twenty-four ordinary proof files
+passed digest readback. The injected web payload has a distinct digest and is not
+a clean source build, despite its retained declared old identity.
+
+The frozen `3142de2` operator passes 72 Linux checks and 27 Windows checks, with
+eight and 53 foreign-profile skips respectively, plus all 26 planning tests.
+Independent frozen Git byte comparisons and four ordinary proof files passed
+digest readback. These structural results do not establish full product release
+acceptance or managed Cloud support.
+
+The frozen `fd9b909` installed supporting experiment exercised the fixed product
+probe and current-release libraries on the historical `1b0fe04` artifact. Thirteen
+actual checks passed, including schema identity, internal function behind
+maintenance, public authenticated API/HTTPS/SSH reads, exact pointer readback and
+repeat, immutable code, and empty owned groups after cleanup. Forty private files
+passed digest readback. It recovered the same operation after two retained actual
+failures: `e33a2c1` omitted read-only maintenance observation during candidate
+verification; `34fdd46` exposed repeated edge launch paths within one recovery
+stage. Distinct private attempts now preserve each edge launch. Separate current
+structural checks passed 66 Linux checks and 26 Windows checks, with seven and
+47 foreign-profile skips, plus 23 planning tests; eleven proof files passed digest
+readback. This experiment used the same artifact and schema before and after;
+it is not an old-to-new transition or a complete coordinator proof.
+
 ## Initial operating profile
 
 Edge launch files now use a fresh private UUID for each attempt. An actual
@@ -112,6 +208,34 @@ must include all descendants before maintenance. Preserve the previous artifact,
 configuration and recovery bundle through activation and subsequent verification.
 
 ## Implementation sequence
+
+`native_probes.py` fixes the coordinator's probe contract to a private, independently
+hash-bound actor manifest, pinned SSH client/key custody, installation identity and
+one expected repository branch/commit. Reads do not follow HTTP redirects or inherit
+proxy/environment credentials. Schema observation uses the bound PostgreSQL client
+with the existing fixed read-only environment. Native/web readiness must identify
+the intended clean candidate and checks; functional probes require authenticated
+branch state, anonymous refusal and exact Git refs through actual HTTPS/SSH clients.
+Git probe descendants enter the separately owned maintenance group and that whole
+group stops after each client command. Distinct private command logs permit multiple
+fixed probes in one durable stage without replacing prior diagnostics. Inspection
+may stop only that client group, never the working native/web/edge groups. Ordinary
+receipts contain candidate/ref/check observations and digests, not credentials.
+Probe execution against installed artifacts and the complete coordinator remain
+under verification.
+
+`native_activation.py` supplies private current-release observation custody for
+the forthcoming coordinator. The installation history lock and its current owned
+public-verification/recovery journal govern the write. Candidate, archive digest,
+staged code inventory/directory identity, exact expected schema and a public probe
+receipt bind the record. Compare-and-swap against the independent previous record
+digest refuses stale or foreign responsibility. An exact repeated write is
+idempotent; file/directory fsync acknowledgement loss disables continuation from
+that in-memory owner while preserving the landed observation for reconciliation.
+Pointer files reject aliases, hardlinks and shared modes. The pointer does not
+perform probes, switch routing or complete the journal; its producer must supply
+actual observations. Structural custody checks use inert staged artifacts and
+receipts and establish no installed upgrade or live activation.
 
 `native_edge.py` adds a fixed guardian for the installation-owned edge group.
 The initial TLS profile uses retained certificate/key custody and distinct public
