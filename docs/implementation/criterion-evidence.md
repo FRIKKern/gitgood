@@ -20,6 +20,10 @@ Creation-profile validation applies to new records. An exact actor/link/key/body
 
 The [bounded history contract](evidence-history.md) keeps the entire history while paging record and event reads. A selected older page does not change which result governs a criterion. Pagination is a resource boundary, not measured capacity.
 
+The open browser evidence panel freezes a consequential request's destination, exact body and idempotency key until a valid native receipt confirms it. A lost reply, malformed success receipt or later Source revision cannot turn retry into a new assessment. The explicit original-request retry uses that frozen intent; new attachments and withdrawals remain disabled while its outcome is unknown. A structured invalid-evidence refusal allows correction. Synchronous guards exclude overlapping writes and artifact preparation. A failed read after a confirmed receipt does not undo confirmation.
+
+This panel intent exists only in memory. Reload, navigation or Source-panel unmount can lose its body; private artifacts are not copied into browser storage. The native original receipt remains durable and actor-bound, but recovery across those browser lifecycle boundaries still needs a separate contract and proof. This profile does not establish complete browser retry recovery or full J11 acceptance.
+
 ## Acceptance still pending
 
 Implementation, database constraints, API permission/race checks, source and code revision fixtures, durable retry, unavailable-artifact handling, browser distinction of states and copied production verification must all be demonstrated before claiming J11 complete. These paragraphs define the intended behavior; they are not evidence that it works.

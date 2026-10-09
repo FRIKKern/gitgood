@@ -33,35 +33,62 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
   const view = !query.isError && query.data?.source.generation === link.generation &&
     query.data.source.connection_generation === generation && query.data.source.source_state === 'available' ? query.data : undefined
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('')
-  const intent = useRef<{path: string; body: string; key: string} | null>(null)
+  type Intent = {path: string; body: string; key: string}
+  const intent = useRef<Intent | null>(null), inFlight = useRef(false), preparing = useRef(false)
+  const [pending, setPending] = useState<Intent | null>(null)
 
   async function mutate(destination: string, body: string) {
     const store = accessStore(), ticket = store?.ticket()
     const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
-    if (!active() || busy) return false
-    if (intent.current?.body !== body || intent.current.path !== destination)
-      intent.current = {path: destination, body, key: crypto.randomUUID()}
+    if (!active() || inFlight.current) return false
+    if (intent.current && (intent.current.body !== body || intent.current.path !== destination)) {
+      setMessage('Confirm the original evidence request before starting another result or withdrawal.')
+      return false
+    }
+    const requested = intent.current ?? {path: destination, body, key: crypto.randomUUID()}
+    intent.current = requested; setPending(requested); inFlight.current = true
     setBusy(true); setMessage('')
     try {
-      await api(destination, {method: 'POST', body,
-        headers: {'x-gitgood-csrf': session.csrf, 'idempotency-key': intent.current.key}})
-      if (active()) {intent.current = null; setMessage('Request recorded. Current evidence is shown below.'); await query.refetch()}
+      await privateRequest(destination, {method: 'POST', body,
+        headers: {'x-gitgood-csrf': session.csrf, 'idempotency-key': requested.key}}, async response => {
+        let receipt: {id?: unknown; recorded?: unknown; artifact_unavailable_recorded?: unknown; error?: unknown}
+        try {receipt = await response.json()}
+        catch {throw new ApiError(response.status, 'forge_response_unavailable')}
+        if (!response.ok) throw new ApiError(response.status, typeof receipt?.error === 'string' ? receipt.error : 'Request failed')
+        const withdrawal = destination !== path
+        if (!receipt || typeof receipt.id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(receipt.id) ||
+          (withdrawal ? receipt.artifact_unavailable_recorded !== true || destination !== path + '/' + receipt.id + '/unavailable' : receipt.recorded !== true))
+          throw new ApiError(response.status, 'evidence_receipt_unavailable')
+        return receipt
+      })
+      if (active()) {
+        intent.current = null; setPending(null)
+        setMessage('Request recorded. Current evidence is shown below.')
+        // A later read failure cannot make the confirmed write uncertain again.
+        await query.refetch().catch(() => undefined)
+      }
       return active()
-    } catch {
-      if (active()) setMessage('The request could not be confirmed. Refresh current evidence before retrying.')
+    } catch (error) {
+      if (active()) {
+        if (error instanceof ApiError && error.status === 422 && error.message === 'invalid_evidence') {
+          intent.current = null; setPending(null)
+          setMessage('The request was refused as invalid evidence. Correct the fields before submitting a new request.')
+        } else setMessage('The request could not be confirmed. Retry the original request to confirm its outcome.')
+      }
       return false
-    } finally {if (active()) setBusy(false)}
+    } finally {inFlight.current = false; if (active()) setBusy(false)}
   }
 
   async function attach(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = event.currentTarget
-    if (!view?.source.revision || !view.source_sha || !view.target_sha || busy) return
+    if (!view?.source.revision || !view.source_sha || !view.target_sha || inFlight.current || preparing.current || intent.current) return
     const store = accessStore(), ticket = store?.ticket()
     const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
     const fields = new FormData(form), index = Number(fields.get('criterion'))
     const criterion = view.criteria.find(value => value.index === index), file = fields.get('artifact')
     if (!criterion || !(file instanceof File)) return
+    preparing.current = true
     try {
       if (file.size < 1 || file.size > 65536) throw new Error('Use a UTF-8 text artifact between 1 byte and 64 KiB.')
       const bytes = await file.arrayBuffer()
@@ -78,6 +105,7 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
         artifact: {name: file.name, content, sha256}})
       if (await mutate(path, body)) form.reset()
     } catch (error) {if (active()) setMessage(error instanceof Error ? error.message : 'Artifact could not be prepared.')}
+    finally {preparing.current = false}
   }
 
   async function download(record: Record) {
@@ -103,6 +131,10 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
     <h3>Criterion evidence</h3>
     <p>Producer results are bound to this task revision and both Git commits. They do not change protected merge policy.</p>
     {message && <p role="status">{message}</p>}
+    {writer && pending && <div>
+      <p>The original request keeps its exact artifact, observation time and revision binding. Confirm it before reassessing against a newer revision.</p>
+      <button type="button" disabled={busy} onClick={() => void mutate(pending.path, pending.body)}>Retry original evidence request</button>
+    </div>}
     {historyCursor && <button type="button" onClick={() => {setHistoryCursor(null); setHistoryStack([])}}>Show newest evidence</button>}
     {query.isError ? <p role="alert">Evidence could not be confirmed. <button onClick={() => void query.refetch()}>Refresh evidence</button></p> :
       query.isPending ? <p role="status">Loading evidence…</p> : !view ?
@@ -134,10 +166,10 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
               event.preventDefault()
               void mutate(path + '/' + record.id + '/unavailable', JSON.stringify({reason: new FormData(event.currentTarget).get('reason')}))
             }}><label>Reason artifact is unavailable<input name="reason" required maxLength={1000}/></label>
-              <button disabled={busy}>Mark artifact unavailable</button></form>}
+              <button disabled={busy || !!pending}>Mark artifact unavailable</button></form>}
           </article>)}
         </details>
-        {writer && view.criteria.length > 0 && <details><summary>Attach evidence or reassess a result</summary><form onSubmit={event => void attach(event)}>
+        {writer && view.criteria.length > 0 && <details><summary>Attach evidence or reassess a result</summary><form onSubmit={event => void attach(event)}><fieldset disabled={busy || !!pending}>
           <label>Criterion<select name="criterion" required>{view.criteria.map(criterion => <option key={criterion.index} value={criterion.index}>{criterion.index + 1}. {criterion.text}</option>)}</select></label>
           <label>Producer outcome<select name="outcome" defaultValue="inconclusive"><option value="passed">Passed</option><option value="failed">Failed</option><option value="inconclusive">Inconclusive</option></select></label>
           <label>Producer label<input name="producer" required maxLength={128}/></label>
@@ -147,7 +179,7 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
           <label>UTF-8 artifact · up to 64 KiB<input name="artifact" type="file" required accept="text/plain,application/json,.txt,.json,.log"/></label>
           <p>Include the runtime versions, actors, relevant configuration and reproducible observations in the artifact.</p>
           <button disabled={busy}>{busy ? 'Recording evidence…' : 'Attach immutable result'}</button>
-        </form></details>}
+        </fieldset></form></details>}
       </>}
   </section>
 }

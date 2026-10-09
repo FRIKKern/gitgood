@@ -74,11 +74,17 @@ test('criterion evidence binds real Git and source revisions, retains history an
   const artifact = Buffer.from('Reproducible browser evidence fixture\n')
   await panel.getByLabel('UTF-8 artifact · up to 64 KiB', {exact: true}).setInputFiles({name: 'browser-proof.txt', mimeType: 'text/plain', buffer: artifact})
   const requests: {key: string; body: any}[] = []
-  let loseReply = true
+  let loseReply = true, malformedReceipt = true
   await page.route('**/links/' + link.id + '/evidence', async route => {
     if (route.request().method() === 'POST') {
       requests.push({key: route.request().headers()['idempotency-key'], body: route.request().postDataJSON()})
       if (loseReply) {loseReply = false; expect((await route.fetch()).status()).toBe(200); await route.abort(); return}
+      if (malformedReceipt) {
+        malformedReceipt = false
+        expect((await route.fetch()).status()).toBe(200)
+        await route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({id: 'invalid-receipt', recorded: true})})
+        return
+      }
     }
     await route.continue()
   })
@@ -94,9 +100,13 @@ test('criterion evidence binds real Git and source revisions, retains history an
   const originalRetry = panel.getByRole('button', {name: 'Retry original evidence request', exact: true})
   if (await originalRetry.count()) await originalRetry.click()
   else await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
+  await expect(panel.getByRole('status')).toContainText('could not be confirmed')
+  await expect(panel.getByRole('button', {name: 'Attach immutable result', exact: true})).toBeDisabled()
+  await originalRetry.click()
   await expect(panel.getByRole('status')).toContainText('Request recorded')
-  expect(requests).toHaveLength(2)
+  expect(requests).toHaveLength(3)
   expect(requests[1]).toEqual(requests[0])
+  expect(requests[2]).toEqual(requests[0])
   let view = await (await fetch(endpoint + query, {headers: owner})).json()
   expect(view.records).toHaveLength(1)
   expect(view.criteria[0].state).toBe('stale')
@@ -146,7 +156,7 @@ test('criterion evidence binds real Git and source revisions, retains history an
   const receipt = {repository: name, repository_id: repositoryId, pull_id: pull.id, link, first_evidence: first,
     original_request: requests[0], reassessed: reassessed.id, owner_connection_generation: connection.generation,
     artifact_sha256: hash(artifact), checks: ['real native imported Git commits', 'upstream met does not create evidence',
-      'lost reply retries exact original bytes and binding after source revision changes', 'checksum-verified private download',
+      'lost reply and malformed receipt retry exact original bytes and binding after source revision changes', 'checksum-verified private download',
       'new failed and inconclusive records override older pass', 'source revision makes result stale',
       'explicit reassessment retains history', 'unavailable artifact blocks current result and download',
       'viewer source denial hides provenance and bytes', 'native outsider denied', 'mobile width'],
