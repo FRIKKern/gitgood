@@ -238,3 +238,11 @@ twelve-check helper experiment establishes recovered-data behavior. Neither scop
 establishes complete installed retirement. The controller emits a recovered-data
 receipt without `restore_function_verified`, so archive-stage acknowledgement and
 removal still require actual application restoration under continuous custody.
+
+The combined data/custody/operator-status integration passed all 115 Linux
+operator checks, with eight foreign-platform skips. The separate component
+archives remain scoped: twelve real authenticated-export/database checks, nine
+custody/snapshot checks with controlled boundaries, and five read-only status
+cases plus historical record observation. Combining these results does not
+establish functional restoration or complete installed retirement. Required
+copied-production CI on this combined revision remains pending.
