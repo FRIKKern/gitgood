@@ -91,7 +91,7 @@ class NativeProbes:
         return value
 
     def readiness(self, candidate, *, public=False):
-        self._owned()
+        self._owned({"inspect", "verify", "activate", "public_verify", "recover"})
         origins = [self.profile["origin"]] if public else ["http://127.0.0.1:" + str(self.profile["ports"][name]) for name in ["forge", "web"]]
         observations = []
         deadline = time.monotonic() + 60
