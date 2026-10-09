@@ -166,9 +166,13 @@ if mode == "prepare" do
       "upgrade-member-remove"
     )
 
+  membership_audit = Repo.query!("SELECT * FROM membership_events ORDER BY id").rows
+  current_schema = Repo.query!("SELECT version FROM schema_migrations ORDER BY version").rows
+
   audit_refused =
     try do
-      Ecto.Migrator.run(Repo, migration_path, :down, step: 1)
+      # New migrations must not change which protection this experiment exercises.
+      Ecto.Migrator.run(Repo, migration_path, :down, to: 20_261_008_123_201)
       false
     rescue
       error in Postgrex.Error ->
@@ -177,6 +181,17 @@ if mode == "prepare" do
     end
 
   unless audit_refused, do: raise("Downgrade discarded membership audit")
+
+  unless Repo.query!("SELECT * FROM membership_events ORDER BY id").rows == membership_audit,
+    do: raise("Refused downgrade changed membership audit")
+
+  # Earlier empty migrations may have rolled back before the protected migration refused.
+  Ecto.Migrator.run(Repo, migration_path, :up, all: true)
+
+  unless Repo.query!("SELECT version FROM schema_migrations ORDER BY version").rows ==
+           current_schema and
+           Repo.query!("SELECT * FROM membership_events ORDER BY id").rows == membership_audit,
+         do: raise("Forward repair lost current schema or membership audit")
 
   fixture = %{
     repository_id: repository.id,
@@ -193,7 +208,9 @@ if mode == "prepare" do
     downgrade_refused: refused,
     membership_event_ids: [granted.id, removed.id],
     membership_target_id: member.id,
-    membership_downgrade_refused: audit_refused
+    membership_downgrade_refused: audit_refused,
+    membership_audit_retained: true,
+    schema_restored: true
   }
 
   File.mkdir_p!(Path.dirname(file))
@@ -203,6 +220,11 @@ else
   unless mode == "check", do: raise("Unknown discovery verification mode")
   {:ok, _} = Application.ensure_all_started(:gitgood)
   fixture = file |> File.read!() |> Jason.decode!()
+
+  unless fixture["membership_downgrade_refused"] and fixture["membership_audit_retained"] and
+           fixture["schema_restored"],
+         do: raise("Upgrade preparation did not verify protected audit and forward repair")
+
   repository = Repo.get!(Gitgood.Repository, fixture["repository_id"])
   actor = Repo.get!(Gitgood.User, fixture["actor_id"])
   credential = Repo.get!(Gitgood.Credential, fixture["credential_id"])

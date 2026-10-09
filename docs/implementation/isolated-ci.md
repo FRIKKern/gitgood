@@ -58,9 +58,14 @@ At 9392a31, actual native planning job 113725734694 passed and forge job 1137257
 passed 171 of 172 backend tests. The remaining test refused because `ssh-keygen` was
 absent from the minimal image. No assertion or timing target was relaxed. The failed
 run and native isolation/service-container proof have private digest-checked archives.
-At f3d6324, planning job 113734921544 passed; forge job 113734921747 passed its backend
-step and is running the remaining recovery, browser and copied-production checks.
-These intermediate outcomes do not establish complete required CI or a product release.
+At f3d6324, planning job 113734921544 passed. Forge job 113734921747 passed all 172
+backend checks, nine database recovery checks and the deliberate crash/reconciliation
+loops, then failed the populated upgrade experiment. Its one-step downgrade now
+reached a newer empty migration instead of the membership audit safeguard. The
+experiment must target the protected migration explicitly, verify retained audit
+records, and restore the current schema before its fresh-process check. Browser and
+copied-production steps did not execute. This failed result remains evidence; complete
+required CI and a product release remain unverified.
 
 JIT settings enter the container through private stdin, then masked listener environment
 input. Keep them out of arguments and ordinary evidence. Each fresh worker consumes

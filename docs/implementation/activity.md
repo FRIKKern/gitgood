@@ -20,4 +20,6 @@ Candidate bac8583 passed 77 backend checks on both Windows and independent Linux
 
 Evidence review found that the merge VM crash fixture recorded its synthetic repository's HEAD as the candidate. The fixture now reads the clean Gitgood source checkout explicitly and refuses reconciliation against another candidate or J08 revision. Preserve the original receipts as a reporting defect, and rerun the corrected fixture before accepting crash provenance. Import receipts already identify the source checkout.
 
+The populated upgrade experiment targets the schema before membership auditing explicitly. Rolling back only the latest migration stopped exercising that safeguard after later features added migrations. It verifies that refusal preserves every audit field, reapplies any earlier empty migrations that rolled back before refusal, and requires the restored schema before checking retained access and records in a fresh process. This verifies a migration boundary; full controlled installation activation remains J15 work.
+
 Supported Barkpark records remain J10 work; this native view does not create another task/specification owner. Capacity targets remain M4 measurement work.
