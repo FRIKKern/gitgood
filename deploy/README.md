@@ -4,6 +4,10 @@ This is a design contract, not a deployable package.
 
 Gitgood owns its web/API release packaging, migrations, version/readiness endpoints, functional probes, and app-specific data requirements. Cloud owns generic validation, provisioning, inventory, routing, constrained lifecycle execution, and reporting.
 
+The [controlled native upgrade work](../docs/implementation/installation-upgrade.md)
+starts with digest-bound artifact inspection without extraction or execution. It
+does not establish Cloud deployment or full installed-release activation.
+
 The proposed descriptor must declare immutable artifact digests, target CPU/runtime, service/private-network dependencies, database and volume bindings, secret references, HTTP/SSH routes, owner bootstrap, migrations, health gates, backup/restore, and upgrade compatibility.
 
 The inspected Cloud Node path expects Next.js standalone output. Prototype actual TanStack output rather than claiming existing support. The current archive path covers Barkpark database/media; Git repositories and other adopted stores need explicit lifecycle support.

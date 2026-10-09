@@ -68,6 +68,8 @@ jobs:
           echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
       - run: mix deps.get --check-locked && mix precommit && mix format --check-formatted
         working-directory: apps/forge
+      - name: Verify native artifact preflight refusal boundaries
+        run: python3 -m unittest discover -s tools/deployment -p 'test_*.py' -v
       - name: Verify real database recovery and VM crashes
         working-directory: apps/forge
         env:
