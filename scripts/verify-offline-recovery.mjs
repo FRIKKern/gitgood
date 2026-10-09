@@ -113,17 +113,38 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   assert.equal(retirementCheckpoint.ciphertext_sha256,backupReceipt.ciphertext_sha256)
   assert.deepEqual(retirementCheckpoint.resource_fingerprints,exportInspection.resource_fingerprints)
   assert.equal(retirementCheckpoint.database_fingerprint,exportInspection.database_fingerprint)
+  const snapshotProgram=join(installedForge,'lib',libraries[0],'priv/operations/retirement-snapshot.mjs')
+  assert((await lstat(snapshotProgram)).isFile(),'Snapshot observer must ship in the copied forge artifact')
+  const snapshotRequest={protocol:1,candidate:backupReceipt.candidate,installation:originalInstallation,
+    ciphertext_sha256:backupReceipt.ciphertext_sha256,source:bundle,key_path:keyFile,
+    roots:{git:env.GITGOOD_STORAGE,ssh:env.GITGOOD_SSH_HOST_KEY_DIRECTORY,configuration}}
+  const snapshotPath=join(root,'retirement-snapshot-request.json')
+  const observeSnapshot=async(name,patch={},codes=[0])=>{
+    const bytes=Buffer.from(JSON.stringify({...snapshotRequest,...patch})+'\n')
+    await writeFile(snapshotPath,bytes,{mode:0o600})
+    await wait(launch(process.execPath,[snapshotProgram,snapshotPath,createHash('sha256').update(bytes).digest('hex')],
+      {...pgEnv,PGHOST:'127.0.0.1'},root,name),name,codes)
+  }
+  await observeSnapshot('retirement-snapshot')
+  const retirementSnapshot=JSON.parse((await readFile(join(root,'logs/retirement-snapshot.log'),'utf8')).trim())
+  assert.equal(retirementSnapshot.status,'observed');assert.equal(retirementSnapshot.purpose,'retirement_snapshot')
+  for(const key of ['candidate','installation','ciphertext_sha256','recovery_point','database_fingerprint'])assert.equal(retirementSnapshot[key],retirementCheckpoint[key])
+  assert.deepEqual(retirementSnapshot.resource_fingerprints,retirementCheckpoint.resource_fingerprints)
+  await observeSnapshot('retirement-snapshot-wrong-installation',{installation:randomUUID()},[1])
+  await observeSnapshot('retirement-snapshot-wrong-ciphertext',{ciphertext_sha256:'0'.repeat(64)},[1])
   for(const [name,patch] of [['installation',{GITGOOD_RETIREMENT_INSTALLATION:randomUUID()}],['ciphertext',{GITGOOD_RETIREMENT_CIPHERTEXT_SHA256:'0'.repeat(64)}]])
     await wait(launch(release,['eval','Gitgood.Release.retirement_checkpoint()'],{...checkpointEnv,...patch},installedForge,'retirement-'+name+'-refusal'),'retirement-'+name+'-refusal',[1])
   const checkpointTable='retirement_checkpoint_'+randomBytes(6).toString('hex')
   await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--set','ON_ERROR_STOP=1','--command','CREATE TABLE public.'+checkpointTable+'(id integer PRIMARY KEY)'],pgEnv,root,'retirement-database-change')
   try{
     await wait(launch(release,['eval','Gitgood.Release.retirement_checkpoint()'],checkpointEnv,installedForge,'retirement-changed-database-refusal'),'retirement-changed-database-refusal',[1])
+    await observeSnapshot('retirement-snapshot-changed-database',{},[1])
     assert.equal(createHash('sha256').update(await readFile(bundle)).digest('hex'),backupReceipt.ciphertext_sha256)
   }finally{
     await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--set','ON_ERROR_STOP=1','--command','DROP TABLE public.'+checkpointTable],pgEnv,root,'retirement-owned-probe-cleanup')
   }
   await run(release,['eval','Gitgood.Release.retirement_checkpoint()'],checkpointEnv,installedForge,'retirement-checkpoint-restored')
+  await observeSnapshot('retirement-snapshot-restored')
   const wrongLocaleDatabase='gitgood_wrong_locale_'+randomBytes(4).toString('hex')
   const wrongLocaleInstallation=join(root,'wrong-locale');await mkdir(wrongLocaleInstallation,{mode:0o700})
   await run(process.env.GITGOOD_CREATEDB??'createdb',['--template=template0','--encoding=UTF8','--locale=C',
@@ -217,7 +238,7 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const recoveryMs=performance.now()-pausedAt
   assert(recoveryMs<targetRtoMs)
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
-    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,restored_database:database,installation:recovered.installation,
+    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','migration and replacement runtime refuse a real surviving Git writer; schema/lock bytes retained and migration permits only after the complete owned group stops','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
@@ -225,7 +246,8 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
       'restored session, proxy and source key custody','SSH host identity retained','unknown sealed request retained and observed without another write',
       'private collaboration and asset access retained','outsider denied','authorized HTTPS and SSH refs, clone and new push with rebound hooks',
       'copied release export uses coordinated backup exclusion; packaged inspector validates the archive without database connection settings',
-      'packaged retirement checkpoint binds installation/archive and live inventories; wrong UUID/digest and a real database-only change refuse without removing stores or archive'],
+      'packaged retirement checkpoint binds installation/archive and live inventories; wrong UUID/digest and a real database-only change refuse without removing stores or archive',
+      'packaged read-only snapshot observer matches the checkpoint; wrong UUID/digest and database-only changes refuse without acquiring a new offline lease or removing resources'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}
   await writeFile(join(options.evidence,'offline-recovery-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   return receipt
