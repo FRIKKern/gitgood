@@ -199,12 +199,14 @@ identities and connected clients refuse, and failed or interrupted targets remai
 for explicit reconciliation. Only freshly allocated unpack directories are cleaned
 after the call. Interrupted child scratch requires retained inventory.
 
-Ten real PostgreSQL18.4/export checks passed on fresh disposable resources: wrong
+Twelve real PostgreSQL18.4/export checks passed on fresh disposable resources: wrong
 installation/ciphertext/request/target identity, actual import and observation,
 populated-target refusal, changed data, a connected client left alive and an unchanged
-repeat. The first producer run used an incorrect fixture table name after import;
+repeat, an actual same-name replacement with a different OID, and preserved
+populated replacement data. The first producer run used an incorrect fixture table name after import;
 its partial results remain preserved. A corrected producer allocated a new target
-and passed all ten checks. These archive candidate/TLS fields are inert. This proves
+and passed all ten initial checks. A third fresh producer added the actual
+replacement cases and passed all twelve. These archive candidate/TLS fields are inert. This proves
 recovered contents, not installed application startup, authenticated functional
 probes, kernel/journal custody or the full retirement flow. No restoration-success
 flag for journal acknowledgement is emitted. Copied-production verification adds
