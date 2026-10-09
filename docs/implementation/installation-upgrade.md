@@ -103,6 +103,37 @@ configuration and recovery bundle through activation and subsequent verification
 
 ## Implementation sequence
 
+`native_actions.py` supplies fixed migration and native/web launch actions for
+the forthcoming executor. Actions require the current process to own a running
+journal stage in the bound driver group. Launch re-observes installation bindings,
+uses a closed configuration-key set and a fresh environment, and joins the exact
+empty component cgroup before executing the release. No descriptor supplies a
+shell command. Migration is the fixed `Gitgood.Release.migrate()` entry point.
+The release's generated runtime configuration stays in a private mutable directory
+outside staged code, with a private child-process umask; runtime secrets are not
+added to immutable code inventories or their evidence.
+
+Before execution, the action layer rechecks every staged file, link and executable
+mode against the independently pinned retained archive. Updating a private
+manifest cannot substitute changed code under the original artifact digest.
+Missing web runtime dependencies refuse before launch. Whole-group stopping uses
+the exact recorded kernel identity and remains available when the database is
+unavailable; it never discovers or kills unrelated host processes. Structural and
+artifact-refusal checks pass. The retained operator `9f51885` experiment staged a
+clean historical `1b0fe04` native/web package and ran its fixed migration command,
+native and production web processes under the owned journal. Both actual readiness
+responses matched the artifact; whole-group stopping removed the live native
+runtime and an independent owned descendant. All immutable code was rechecked
+after execution, and generated runtime configuration remained outside it. Nine
+process-action checks passed, all five groups were empty after the driver exited,
+and thirteen private proof files passed digest readback. Fifty Linux operator
+checks and seventeen Windows checks passed in separate platform profiles, with
+four and thirty-seven foreign-profile skips respectively; planning checks passed.
+The same native artifact and existing schema were used before and after. Public
+maintenance routing, authenticated activation, a version-changing pending migration
+and the complete executing coordinator remain unfinished. The journal remains
+pending activation; this experiment does not establish an installed upgrade.
+
 The read-only `native_inventory.py` component binds the initial local operator
 profile to an owned private installation root, exact configuration and Ed25519
 host-key digests, store directory device/inode identities, pinned runtime binary
