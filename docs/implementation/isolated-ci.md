@@ -20,6 +20,54 @@ A repository-scoped just-in-time registration is also supported. Supply `encoded
 
 ## Current status
 
+### Native execution boundary
+
+The emulated `Nehalem` guest at 0af6246 completed planning but passed only 68 of 155
+backend tests, with process-start and database timeouts. Its failure remains retained.
+A native Linux rootless OCI alternative now uses a dedicated non-login host identity,
+private image storage and an owned 4 CPU / 8 GiB cgroup allocation. It shares the parent
+kernel and physical host; it does not establish VM or independent cloud isolation.
+
+The runner executes as `ci` inside a separate container filesystem and PID/network
+namespaces. Container root maps to the dedicated unprivileged host identity through
+subordinate UID/GID mappings. Nested Docker requires capabilities in that user namespace;
+never substitute a rootful privileged container. Product files, Windows mounts, Source
+credentials, application data and recovery materials are absent. The sole extra bind
+mount exposes the newly owned CI cgroup subtree for disposable job resources. It must
+not expose the host's complete cgroup hierarchy or application runtime groups.
+
+Apply destination-denial rules only to the dedicated host identity before public
+network use. Retain the actual resolver exception and established replies. Rootless
+networking has host-loopback forwarding disabled. Before JIT registration, check actual
+rootless execution, filesystem/PID separation, a reachable parent-host canary with
+positive control and zero container connections, private/metadata destination denial,
+certificate-validated public GitHub HTTPS, owned cgroup movement and a real nested
+PostgreSQL service start/readiness/stop under `ci`. Docker daemon availability alone is
+insufficient. Preserve stopped containers and private diagnostics until actual GitHub
+results and evidence custody are confirmed. Do not upload runner credentials or raw
+configuration with ordinary artifacts.
+
+The [build recipe](../../tools/ci/native-runner.Containerfile) pins the Ubuntu base digest
+and verifies the published runner package checksum. Signed Ubuntu package updates mean
+new builds can differ: record their resulting image identity and runtime versions.
+The observed v3 image was `7447a74b4c0486f6dc6e0ee2c3bded325b172848bdaa21d931e2e1b1f6dc71f4`;
+this checked-in recipe additionally installs OpenSSH clients and is not that observed
+image. The workflow installs and verifies its required SSH tools independently.
+
+At 9392a31, actual native planning job 113725734694 passed and forge job 113725734307
+passed 171 of 172 backend tests. The remaining test refused because `ssh-keygen` was
+absent from the minimal image. No assertion or timing target was relaxed. The failed
+run and native isolation/service-container proof have private digest-checked archives.
+At f3d6324, planning job 113734921544 passed; forge job 113734921747 passed its backend
+step and is running the remaining recovery, browser and copied-production checks.
+These intermediate outcomes do not establish complete required CI or a product release.
+
+JIT settings enter the container through private stdin, then masked listener environment
+input. Keep them out of arguments and ordinary evidence. Each fresh worker consumes
+one job and deregisters. Use GitHub's actual job conclusion for success: zero listener
+or container exit status only establishes worker termination. No persistent fleet is
+installed by these experiments.
+
 Dispatch is verified for the recorded probe below. Equivalent required checks remain under investigation. No application release, production Cloud deployment or automatic runner fleet is established by this work.
 
 The measured guest boundary denied connections to a listening parent-host canary and both development database ports, with zero canary connections. Ordinary certificate-validated public GitHub HTTPS returned 200. The publisher's v2.338.0 Linux runner asset digest was verified before installation.
