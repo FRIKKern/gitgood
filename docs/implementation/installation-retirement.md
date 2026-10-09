@@ -57,7 +57,7 @@ yet; creating retirement intent is reserved for that future owned executor.
 The Linux journal checks use inert receipt fixtures and real competing processes,
 SIGKILL, private-file aliases and sync faults. They exercise custody without deleting
 resources or proving actual archive/restore functionality. The full Linux operator
-suite currently passes 83 checks with eight foreign-platform skips; current
+suite currently passes 84 checks with eight foreign-platform skips; current
 packaged production checks for this separate journal integration remain pending.
 
 The initial local profile must distinguish installation-owned resources from

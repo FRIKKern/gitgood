@@ -33,7 +33,11 @@ class RetirementJournalTest(unittest.TestCase):
                 journal.begin(stage)
                 journal.succeed(stage, self.receipt)
         self.pointer = self.root / "current-release-v1.json"
-        self.pointer.write_text('{"inert_fixture":true}\n')
+        root_stat = self.root.stat()
+        self.pointer.write_text(json.dumps({"protocol": 1, "installation": self.installation, "operation": self.upgrade,
+            "candidate": "b" * 40, "artifact_sha256": "d" * 64, "bindings_sha256": "e" * 64,
+            "stage": {"path": str(self.root), "device": root_stat.st_dev, "inode": root_stat.st_ino, "uid": os.getuid()},
+            "stage_inventory_sha256": "f" * 64, "schema": ["20261007000000"], "public_probe_sha256": "f" * 64}) + '\n')
         self.pointer.chmod(0o600)
         self.plan = {"protocol": 1, "operation": str(uuid.uuid4()), "installation": self.installation,
                      "candidate": "b" * 40, **{key: "f" * 64 for key in DIGESTS},
@@ -116,6 +120,16 @@ class RetirementJournalTest(unittest.TestCase):
                 pass
         self.assertFalse((self.root / "retirement-journal-v1.json").exists())
         self.assertEqual((self.root / "upgrade-history-v1.json").read_bytes(), prior)
+
+    def test_pointer_digest_does_not_substitute_for_actual_pointer_identity(self):
+        original = json.loads(self.pointer.read_text())
+        for patch in [{"candidate": "9" * 40}, {"operation": str(uuid.uuid4())}, {"installation": str(uuid.uuid4())}]:
+            self.pointer.write_text(json.dumps({**original, **patch}))
+            plan = {**self.plan, "current_sha256": hashlib.sha256(self.pointer.read_bytes()).hexdigest()}
+            with self.assertRaises(UpgradeRefused):
+                with self.claim(plan):
+                    pass
+            self.assertFalse((self.root / "retirement-journal-v1.json").exists())
 
     def test_reclaim_cannot_replace_retained_plan_or_operation(self):
         with self.claim():

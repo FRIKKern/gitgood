@@ -9,6 +9,7 @@ import sys
 import uuid
 
 from native_inventory import directory_identity, private_bytes
+from native_activation import NativeActivation
 from upgrade_history import UpgradeHistory
 from upgrade_journal import (UpgradeRefused, canonical, fcntl, now, owner,
                              owner_alive, require, unique_object, validate_owner,
@@ -74,7 +75,11 @@ class RetirementJournal:
         intent = last["intent"]
         require(intent["installation"] == self.plan["installation"] and intent["bindings_sha256"] == self.plan["bindings_sha256"])
         require(intent[prefix + "_candidate"] == self.plan["candidate"] and intent[prefix + "_artifact_sha256"] == self.plan["artifact_sha256"])
-        require(hashlib.sha256(private_bytes(self.directory / "current-release-v1.json")).hexdigest() == self.plan["current_sha256"])
+        current = private_bytes(self.directory / "current-release-v1.json", 16_384)
+        require(hashlib.sha256(current).hexdigest() == self.plan["current_sha256"])
+        pointer = NativeActivation.validate(json.loads(current, object_pairs_hook=unique_object))
+        require(pointer["operation"] == last["operation"])
+        require(all(pointer[key] == self.plan[key] for key in ["installation", "candidate", "artifact_sha256", "bindings_sha256"]))
 
     def __enter__(self):
         self.lock = self._private_open(self.directory / ".upgrade-history-lock-v1", os.O_RDWR | os.O_CREAT)
