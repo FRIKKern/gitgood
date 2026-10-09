@@ -1,0 +1,9 @@
+{
+  "id": "isolated-retirement-verification-design",
+  "category": "Added",
+  "summary": "Define isolated functional retirement verification with a separate bound target, continuous original custody, private listeners and disabled external Source effects; implementation and installed acceptance remain open.",
+  "impact": "planning",
+  "references": ["docs/decisions/0011-isolated-retirement-verification.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}

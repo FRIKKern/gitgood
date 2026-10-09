@@ -1,0 +1,9 @@
+{
+  "id": "recovery-verification-isolation",
+  "category": "Added",
+  "summary": "Isolate temporary retirement recovery runtimes from external Barkpark effects and ordinary activation evidence, with operation-bound local startup constraints and explicit health identity; complete functional retirement remains unfinished.",
+  "impact": "operator",
+  "references": ["docs/deployment/production.md", "docs/decisions/0011-isolated-retirement-verification.md"],
+  "journeys": ["J17", "J15"],
+  "withdrawn": false
+}

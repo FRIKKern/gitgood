@@ -19,6 +19,11 @@ defmodule GitgoodWeb.HealthController do
     do:
       Map.merge(Gitgood.Build.public(), %{
         service: "gitgood",
+        operational_mode:
+          if(Application.get_env(:gitgood, :recovery_verification, false),
+            do: "recovery_verification",
+            else: "active"
+          ),
         version: Application.spec(:gitgood, :vsn) |> to_string(),
         runtime: %{
           elixir: System.version(),

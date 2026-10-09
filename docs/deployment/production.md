@@ -57,7 +57,9 @@ configuration. The first supporting producer used an incorrect full candidate
 suffix; its failed assertion and source remain retained. The corrected producer
 checks the independently known short prefix and reports the full validated record
 identity. It does not independently verify the historical artifact or current
-readiness, and required CI on this new entry point remains pending.
+readiness. Combined restored-data/custody/status PR54 passed its required CI
+against the exact proposed tree before merging; the archived result includes
+115 Linux operator checks with eight foreign-platform skips.
 
 Provide configuration through the service environment or a secret manager, never command arguments or repository files:
 
@@ -99,6 +101,23 @@ The example disables expanded config persistence and filters request/response he
 ## Readiness and replacement
 
 `/health/live` reports process/build identity. Forge `/health/ready` checks database migrations, writable storage, required executables and clean build identity. Web readiness additionally requires a ready forge with exactly the same candidate. Readiness is a prerequisite for routing traffic, not a complete backup/restore or security proof.
+
+Temporary retirement recovery copies use `GITGOOD_RECOVERY_VERIFY_ONLY=true`
+and `GITGOOD_RECOVERY_VERIFY_OPERATION=<bound-operation-UUID>` through the fixed
+controller's private launch environment. Startup requires the operation-derived
+local target database, explicit loopback HTTPS origin and matching web origin,
+and no configured Barkpark origin. Malformed mode or operation inputs refuse;
+an operation cannot remain set when verification mode is disabled. These flags
+are not exported into ordinary recovery configuration.
+
+Verification mode disables automatic reconciliation and refuses Barkpark reads
+and writes before external I/O. Forge health reports
+`operational_mode=recovery_verification`; web readiness preserves that mode and
+refuses unknown modes. Ordinary native upgrade/activation probes refuse a
+verification copy even when its candidate and readiness match. The mode is an
+isolation prerequisite, not evidence that restoration succeeded. The complete
+fixed restoration controller, retained target lifecycle and installed retirement
+acceptance remain unfinished; see [the design decision](../decisions/0011-isolated-retirement-verification.md).
 
 Quiesce writes, drain and stop all old forge instances before migration/replacement. The operation/reconciler protocol currently assumes one deployed version against a repository's stores. Do not use the existing Cloud blue/green overlap without an explicit protocol compatibility proof. Start the matching candidate, reconcile unfinished operations, require both readiness probes, then route traffic. Rollback requires a schema-compatible previous artifact and matching stores; incompatible migrations need a tested recovery procedure.
 

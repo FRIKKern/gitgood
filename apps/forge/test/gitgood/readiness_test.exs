@@ -1,6 +1,30 @@
 defmodule Gitgood.ReadinessTest do
   use GitgoodWeb.ConnCase, async: false
 
+  test "verification runtime identity is distinct from ordinary activation evidence" do
+    previous = Application.get_env(:gitgood, :recovery_verification)
+
+    on_exit(fn ->
+      if previous == nil,
+        do: Application.delete_env(:gitgood, :recovery_verification),
+        else: Application.put_env(:gitgood, :recovery_verification, previous)
+    end)
+
+    Application.put_env(:gitgood, :recovery_verification, true)
+
+    assert build_conn()
+           |> get("/health/live")
+           |> json_response(200)
+           |> Map.get("operational_mode") == "recovery_verification"
+
+    Application.put_env(:gitgood, :recovery_verification, false)
+
+    assert build_conn()
+           |> get("/health/live")
+           |> json_response(200)
+           |> Map.get("operational_mode") == "active"
+  end
+
   test "readiness refuses an unavailable store while liveness remains a separate fact" do
     original = Application.fetch_env!(:gitgood, :storage_root)
 

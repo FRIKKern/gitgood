@@ -111,6 +111,7 @@ class NativeProbes:
                 try:
                     status, raw = self._request(origin, "/health/ready", authenticated=False)
                     value = json.loads(raw, object_pairs_hook=unique_object) if status == 200 else {}
+                    require(value.get("operational_mode", "active") == "active")
                     ready = value.get("candidate") == candidate and value.get("status") == "ready" and value.get("dirty") is False
                     if value.get("service") == "gitgood-web":
                         ready = ready and value.get("forge_candidate") == candidate

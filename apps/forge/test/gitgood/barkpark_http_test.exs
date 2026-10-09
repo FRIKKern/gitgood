@@ -63,6 +63,24 @@ defmodule Gitgood.BarkparkHTTPTest do
     }
   end
 
+  test "recovery verification blocks reads and both writes before external I/O" do
+    previous = Application.get_env(:gitgood, :recovery_verification)
+    on_exit(fn -> restore(:recovery_verification, previous) end)
+    assert {:ok, %{body: %{"count" => 0}}} = BarkparkHTTP.get("/redirect-count", @token)
+    Application.put_env(:gitgood, :recovery_verification, true)
+    assert {:error, :barkpark_unavailable} = BarkparkHTTP.get("/redirect", @token)
+    assert {:error, :barkpark_unavailable} = BarkparkHTTP.get("/ok", @token)
+
+    assert {:error, :barkpark_unavailable} =
+             BarkparkHTTP.post("/mutate", @token, %{}, "blocked-write")
+
+    assert {:error, :barkpark_unavailable} =
+             BarkparkHTTP.post_bytes("/mutate", @token, "{}", "blocked-bytes")
+
+    restore(:recovery_verification, previous)
+    assert {:ok, %{body: %{"count" => 0}}} = BarkparkHTTP.get("/redirect-count", @token)
+  end
+
   test "authenticated requests retain source status, body and mutation key" do
     assert {:ok, %{status: 200, body: %{"authorized" => true}}} = BarkparkHTTP.get("/ok", @token)
 
