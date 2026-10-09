@@ -134,6 +134,7 @@ jobs:
           group="/sys/fs/cgroup/gitgood-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           test ! -e "$group"
           sudo -n mkdir "$group" "$group/native" "$group/maintenance"
+          sudo -n chmod 0755 "$group" "$group/native" "$group/maintenance"
           sudo -n chown "$(id -u):$(id -g)" "$group/cgroup.procs" "$group/native/cgroup.procs" "$group/native/cgroup.kill" "$group/maintenance/cgroup.procs" "$group/maintenance/cgroup.kill"
           printf '%s\n' "$$" | sudo -n tee "$group/cgroup.procs" >/dev/null
           GITGOOD_VERIFY_CGROUP="$group/native" GITGOOD_VERIFY_RECOVERY=true npm run verify:production

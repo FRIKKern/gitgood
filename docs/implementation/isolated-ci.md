@@ -95,6 +95,28 @@ one job and deregisters. Use GitHub's actual job conclusion for success: zero li
 or container exit status only establishes worker termination. No persistent fleet is
 installed by these experiments.
 
+The recovery guard reads the runtime's actual `/proc/self/cgroup` path and resolves
+it beneath `/sys/fs/cgroup`. A host cgroup namespace with only the jobs subtree
+mounted there produced a different path: an actually empty group refused the real
+guard. A credential-free probe reproduced this with a production-user-readable
+marker; the earlier probe with an unreadable marker is retained separately.
+
+Each worker must now enter a newly owned child of the delegated jobs subtree before
+starting its container, use a private cgroup namespace, and bind that same child
+at `/sys/fs/cgroup`. Keep its directory traversable and its resource ceiling inherited
+from the owned parent. The job explicitly sets 0755 on its new parent/native/maintenance
+cgroup directories before delegating their control files; private application
+configuration and marker files retain their existing protections. Never expose
+foreign cgroup control or alter a running worker's namespace.
+
+Fresh probes verified actual path correspondence with the unchanged production
+guard. A dead marker owner with another live process in its runtime cgroup refused;
+after that owned process exited, the same guard reported clear. Preserve the failed
+host-namespace and permission probes along with the passing boundary evidence.
+This is infrastructure exclusion proof, not a passing required GitHub job or a
+product release. The previous live run is preserved and subsequent workers require
+the measured boundary before registration.
+
 Dispatch is verified for the recorded probe below. Equivalent required checks remain under investigation. No application release, production Cloud deployment or automatic runner fleet is established by this work.
 
 The measured guest boundary denied connections to a listening parent-host canary and both development database ports, with zero canary connections. Ordinary certificate-validated public GitHub HTTPS returned 200. The publisher's v2.338.0 Linux runner asset digest was verified before installation.

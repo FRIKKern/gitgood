@@ -1,0 +1,1 @@
+{"id":"ci-cgroup-namespace","category":"Fixed","summary":"Align each isolated CI worker's private cgroup namespace with its delegated mount and make owned job directories traversable, preserving actual backup writer-exclusion checks.","impact":"operator","references":[".github/workflows/product.yml","docs/implementation/isolated-ci.md"],"journeys":["J16"],"withdrawn":false}
