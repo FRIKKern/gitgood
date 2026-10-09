@@ -264,6 +264,32 @@ defmodule Gitgood.EvidenceTest do
     assert {:ok, %{"recorded" => true}} = retry_intent(c, next["id"])
   end
 
+  test "a rotated connection refuses a saved draft without poisoning its enclosing transaction", c do
+    {:ok, saved} =
+      prepare(c, %{"kind" => "attach", "body" => Jason.encode!(c.params)}, "durable-rotated")
+
+    {:ok, changed} =
+      BarkparkConnections.connect(
+        c.owner,
+        c.credential,
+        %{
+          "token" => "synthetic-fixture-credential",
+          "workspace" => "fixture-workspace",
+          "project" => "default",
+          "dataset" => "production",
+          "expected_generation" => c.connection["generation"]
+        },
+        "durable-rotate-source"
+      )
+
+    refute changed["generation"] == c.connection["generation"]
+    assert {:error, :connection_changed} = retry_intent(c, saved["id"])
+    assert {:ok, %{"intents" => [^saved]}} = pending(c)
+    assert Repo.aggregate(CriterionEvidence, :count) == 0
+    assert {:ok, %{"retired" => true}} = retire_intent(c, saved["id"])
+    assert {:error, :evidence_intent_retired} = retry_intent(c, saved["id"])
+  end
+
   test "retirement confirms an already applied request and retains protected history", c do
     {:ok, saved} =
       prepare(
