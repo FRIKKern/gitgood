@@ -110,7 +110,7 @@ def caddy_source(root, configuration, mode):
 def start_edge(actions, mode):
     """Only the current durable owner can publish fixed maintenance/active routing."""
     require(sys.platform == "linux")
-    actions._owned({"maintenance", "activate", "public_verify", "recover"})
+    actions._owned({"maintenance", "migrate", "verify", "activate", "public_verify", "recover"})
     require(mode in {"maintenance", "active"})
     if mode == "active":
         require(actions.journal.record["stage"] in {"activate", "public_verify", "recover"})

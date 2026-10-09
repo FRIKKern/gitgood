@@ -112,6 +112,79 @@ class NativeUpgrade:
                 # in maintenance. No down migration or unproven code rollback.
                 raise
 
+    def resume_forward(self):
+        """Reobserve the same intent; repeat controlled migration and all probes."""
+        with self.history as journal:
+            pending_repair = (journal.record["status"] == "pending" and journal.record["stage"] == "maintenance"
+                              and len(journal.record["completed"]) == 3
+                              and any(event["kind"] == "forward_repair_started" for event in journal.record["events"]))
+            require(journal.record["status"] in {"failed", "uncertain"} or pending_repair)
+            require(3 <= len(journal.record["completed"]) < 7)
+            actions, probes, activation, old = self._context(journal)
+            verified = verify_runtime_stage(self.stage, self.intent["new_candidate"], self.intent["new_artifact_sha256"])
+            schema = probes.schema(observe_uncertain=True)
+            require(schema[:len(old["migrations"])] == old["migrations"])
+            require(verified["migrations"][:len(schema)] == schema)
+            current = activation.read()
+            require(current is not None)
+            require((current["record"]["candidate"], current["record"]["artifact_sha256"]) in {
+                (self.intent["old_candidate"], self.intent["old_artifact_sha256"]),
+                (self.intent["new_candidate"], self.intent["new_artifact_sha256"])})
+            if (current["record"]["candidate"] == self.intent["new_candidate"] and current["record"]["artifact_sha256"] == self.intent["new_artifact_sha256"]
+                    and current["record"]["stage"] == directory_identity(self.stage, private=True)):
+                require(current["record"]["operation"] == self.operation)
+                require(current["record"]["stage"] == directory_identity(self.stage, private=True))
+            else:
+                require(current["record"]["candidate"] == self.intent["old_candidate"] and current["record"]["artifact_sha256"] == self.intent["old_artifact_sha256"])
+                require(current["record"]["stage"] == directory_identity(self.plan["old_stage"], private=True))
+            if not pending_repair:
+                journal.forward_repair({**receipt({"schema": schema, "inventory_sha256": verified["inventory_sha256"], "current_sha256": current["sha256"]}),
+                                        "completed_stages": 3, "artifact_verified": True, "schema_observed": True})
+            code = "migration_failed"
+            try:
+                journal.begin("migrate")
+                for name in ["edge", "native", "web", "maintenance"]:
+                    actions.stop_group(name)
+                start_edge(actions, "maintenance")
+                maintenance = probes.maintenance()
+                require(probes.schema() == schema)
+                migrated = actions.migrate(self.stage)
+                after = probes.schema()
+                require(after == verified["migrations"])
+                journal.succeed("migrate", receipt({"command": migrated, "before": schema, "after": after}))
+                code = "readiness_failed"
+                journal.begin("verify")
+                actions.start_native(self.stage)
+                actions.start_web(self.stage)
+                probes.readiness(self.intent["new_candidate"])
+                code = "functional_probe_failed"
+                internal = probes.functional(self.stage)
+                require(probes.maintenance() == maintenance)
+                journal.succeed("verify", receipt(internal))
+                code = "activation_failed"
+                journal.begin("activate")
+                actions.stop_group("edge")
+                start_edge(actions, "active")
+                ready = probes.readiness(self.intent["new_candidate"], public=True)
+                journal.succeed("activate", receipt(ready))
+                code = "public_probe_failed"
+                journal.begin("public_verify")
+                public = probes.functional(self.stage, public=True)
+                require(probes.schema() == after)
+                pointer = activation.activate(self.stage, after, public["receipt"], expected_current_sha256=current["sha256"])
+                observations = {"before": schema, "after": after, "internal": internal, "public": public, "pointer_sha256": pointer["sha256"]}
+                journal.succeed("public_verify", receipt(observations))
+                return {"outcome": "repaired_forward", "operation": self.operation, "status": journal.status(), "observations": observations}
+            except Exception:
+                if journal.usable and journal.record["status"] == "running":
+                    journal.fail(code)
+                    try:
+                        return self._closed_previous(journal)
+                    except Exception:
+                        if journal.usable and journal.record["status"] == "running":
+                            journal.fail("recovery_failed")
+                raise
+
     def run(self):
         with self.history as journal:
             # This first executing profile does not infer applied stages on retry.

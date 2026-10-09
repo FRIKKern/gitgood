@@ -126,15 +126,43 @@ class NativeActions:
         require(set(self.configuration["forge"]) <= FORGE_KEYS and set(self.configuration["web"]) == WEB_KEYS)
         self.reobserve()
 
-    def _owned(self, stages):
+    def _custody(self):
         require(self.journal.lock is not None and self.journal.usable)
-        require(self.journal.record["owner"] == owner() and self.journal.record["status"] == "running" and self.journal.record["stage"] in stages)
+        require(self.journal.record["owner"] == owner())
         driver = cgroup_identity(self.bindings["installation"], "driver")
         require(driver == self.bindings["cgroups"]["driver"])
         require(Path("/proc/self/cgroup").read_text().splitlines() == ["0::" + driver["kernel_path"]])
 
+    def _owned(self, stages):
+        require(self.journal.lock is not None and self.journal.usable and self.journal.record["owner"] == owner())
+        require(self.journal.record["status"] == "running" and self.journal.record["stage"] in stages)
+        self._custody()
+
     def reobserve(self):
         return require_native_inventory(self.root, self.executables, self.inventory["bindings_sha256"])
+
+    @staticmethod
+    def _process_birth(pid):
+        try:
+            raw = Path("/proc/" + str(pid) + "/stat").read_text()
+            fields = raw[raw.rfind(")") + 2:].split()
+            return {"pid": pid, "birth": fields[19], "state": fields[0]}
+        except (FileNotFoundError, ProcessLookupError):
+            return None
+
+    @classmethod
+    def _reap_owned(cls, members):
+        # Earlier runtimes can conservatively treat an unreaped child zombie as
+        # a live marker owner. Reap only exact children observed in our group;
+        # kernel birth identity excludes a reused PID and waitpid excludes a
+        # process owned by another parent. Never enumerate unrelated children.
+        for member in members:
+            current = cls._process_birth(member["pid"])
+            if current is not None and current["birth"] == member["birth"] and current["state"] == "Z":
+                try:
+                    os.waitpid(member["pid"], os.WNOHANG)
+                except ChildProcessError:
+                    pass
 
     def stop_group(self, name):
         self._owned({"inspect", "maintenance", "migrate", "verify", "activate", "public_verify", "recover"})
@@ -147,12 +175,18 @@ class NativeActions:
         observed = cgroup_identity(self.bindings["installation"], name)
         require(observed == self.bindings["cgroups"][name])
         path = Path(observed["path"])
+        groups = [path, *[child for child in path.rglob("*") if child.is_dir()]]
+        require(len(groups) <= 256)
+        pids = {int(pid) for group in groups for pid in (group / "cgroup.procs").read_text().split()}
+        require(len(pids) <= 4096)
+        members = [member for pid in sorted(pids) if (member := self._process_birth(pid)) is not None]
         (path / "cgroup.kill").write_text("1")
         deadline = time.monotonic() + 15
         while dict(line.split() for line in (path / "cgroup.events").read_text().splitlines()).get("populated") != "0":
             require(time.monotonic() < deadline)
             time.sleep(.05)
         require(not (path / "cgroup.procs").read_text().strip())
+        self._reap_owned(members)
         return {"group_empty": True, "group_identity_sha256": hashlib.sha256(canonical(observed)).hexdigest()}
 
     def _environment(self, component):
@@ -166,7 +200,7 @@ class NativeActions:
                 runtime.mkdir(mode=0o700)
             directory_identity(runtime, private=True)
             environment.update({"GITGOOD_GIT": self.executables["git"], "GITGOOD_PYTHON": self.executables["python"], "PHX_SERVER": "true",
-                                "RELEASE_TMP": str(runtime)})
+                                "RELEASE_TMP": str(runtime), "ERL_CRASH_DUMP": str(runtime / ("erl-crash-" + str(uuid.uuid4()) + ".dump"))})
         return environment
 
     def _stage(self, directory, previous=False):

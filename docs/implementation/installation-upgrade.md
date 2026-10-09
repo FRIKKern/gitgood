@@ -30,8 +30,25 @@ Explicit previous-code recovery reclaims the same failed or uncertain operation,
 stops its complete owned groups before database-dependent observation, and requires
 the actual schema to equal the previous artifact's migration list. Incompatible or
 unavailable schema remains closed or in maintenance with a failed recovery stage;
-no down migration occurs. Automatic continuation of partially applied forward
-migrations and matching-artifact restoration remain unfinished in this library.
+no down migration occurs. Explicit same-intent forward repair independently
+rechecks the immutable candidate stage, private plan, current pointer and actual
+schema. The schema must contain the old migrations and be an exact prefix of the
+candidate's migrations. A durable repair event supersedes acknowledgements after
+maintenance while preserving every prior event; controlled migration, internal
+function, routing and public probes all repeat. A lost repair acknowledgement
+reopens the recorded pending migration instead of silently starting another
+operation. These forward paths have structural tests but await installed failure
+and interruption experiments. Matching-artifact restoration remains a separate
+offline recovery procedure.
+
+An initial same-schema fault experiment preserved the working runtime and pointer
+after a bad digest, then found an older runtime's process-present refusal during
+restart and an Erlang crash dump written inside staged code. That failed operation
+and private dump are retained. Fixed native environments now direct crash dumps
+to private runtime custody. Whole-group shutdown captures kernel birth identities
+and reaps only matching child zombies from that owned group, leaving unrelated or
+reused child identities untouched. An actual three-child Linux test covers that
+boundary. The corrected installed recovery still needs fresh verification.
 
 The frozen `fd9b909` installed supporting experiment exercised the fixed product
 probe and current-release libraries on the historical `1b0fe04` artifact. Thirteen

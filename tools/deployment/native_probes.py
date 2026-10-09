@@ -61,6 +61,9 @@ class NativeProbes:
 
     def _owned(self, stages=None):
         self.actions._owned(stages if stages is not None else {"inspect", "verify", "public_verify", "recover"})
+        self._current_credentials()
+
+    def _current_credentials(self):
         self.actions.reobserve()
         require(hashlib.sha256(private_bytes(self.directory / "credentials.json", 8192)).hexdigest() == self.credentials_sha256)
         require(executable_identity(self.ssh["path"]) == self.ssh)
@@ -79,8 +82,16 @@ class NativeProbes:
             error.close()
             return error.code, b""
 
-    def schema(self):
-        self._owned({"inspect", "maintenance", "migrate", "verify", "public_verify", "recover"})
+    def schema(self, *, observe_uncertain=False):
+        require(type(observe_uncertain) is bool)
+        if observe_uncertain:
+            # This fixed read-only query establishes actual schema before a
+            # durable forward-repair transition. It grants no lifecycle action.
+            self.actions._custody()
+            require(self.actions.journal.record["status"] in {"failed", "uncertain", "pending"})
+            self._current_credentials()
+        else:
+            self._owned({"inspect", "maintenance", "migrate", "verify", "public_verify", "recover"})
         environment = database_environment(self.actions.configuration["forge"]["DATABASE_URL"])
         result = subprocess.run([self.actions.executables["psql"], "--no-psqlrc", "--tuples-only", "--no-align", "--set=ON_ERROR_STOP=1", "--command", SCHEMA_SQL],
                                 env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)

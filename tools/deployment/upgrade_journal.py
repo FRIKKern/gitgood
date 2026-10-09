@@ -228,6 +228,15 @@ class UpgradeJournal:
                 require_receipt(evidence)
                 require(evidence.get("previous_identity_verified") is True and evidence.get("public_functional_probe") is True)
                 status = "recovered"
+            elif kind == "forward_repair_started":
+                require(status in {"failed", "uncertain"} and len(completed) >= 3 and len(completed) < len(STAGES))
+                require_receipt(evidence)
+                require(evidence.get("artifact_verified") is True and evidence.get("schema_observed") is True)
+                require(evidence.get("completed_stages") == 3 and type(evidence["completed_stages"]) is int)
+                require(event["stage"] == STAGES[2])
+                # Supersede acknowledgements after maintenance, without removing
+                # their events. Migration and all activation probes run afresh.
+                completed, stage, status = list(STAGES[:3]), STAGES[2], "pending"
             else:
                 raise UpgradeRefused("Unknown native upgrade event")
         require(value["stage"] == stage and value["status"] == status and value["completed"] == completed)
@@ -316,6 +325,17 @@ class UpgradeJournal:
         require(self.record["status"] in {"failed", "uncertain"})
         self.record.update(stage="recover", status="running")
         self._event("recovery_started", {})
+        self._save()
+
+    def forward_repair(self, evidence):
+        self._validate_evidence(evidence)
+        require_receipt(evidence)
+        require(self.record["status"] in {"failed", "uncertain"})
+        require(3 <= len(self.record["completed"]) < len(STAGES))
+        require(evidence.get("artifact_verified") is True and evidence.get("schema_observed") is True)
+        require(evidence.get("completed_stages") == 3 and type(evidence["completed_stages"]) is int)
+        self.record.update(completed=list(STAGES[:3]), stage=STAGES[2], status="pending")
+        self._event("forward_repair_started", evidence)
         self._save()
 
     def recovered(self, evidence):
