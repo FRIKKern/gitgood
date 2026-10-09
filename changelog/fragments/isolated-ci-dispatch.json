@@ -1,9 +1,9 @@
 {
   "id": "isolated-ci-dispatch",
-  "category": "Added",
-  "summary": "Add a branch-only dispatch probe and record measured guest isolation, unresolved runner startup and private diagnostic preservation; required checks remain pending actual execution.",
+  "category": "Changed",
+  "summary": "Route required planning and forge jobs to the measured isolated ephemeral Linux runner after real GitHub dispatch proof, preserving tests and explicitly requiring full production recovery.",
   "impact": "operator",
-  "references": ["docs/implementation/isolated-ci.md", ".github/workflows/ci-probe.yml"],
-  "journeys": [],
+  "references": ["docs/implementation/isolated-ci.md"],
+  "journeys": ["J16"],
   "withdrawn": false
 }

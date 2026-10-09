@@ -7,7 +7,8 @@ permissions:
   contents: read
 jobs:
   forge-and-web:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64, gitgood-isolated-v1]
+    timeout-minutes: 120
     services:
       postgres:
         image: postgres:18.4
@@ -23,6 +24,7 @@ jobs:
       PGPORT: '5432'
       PGUSER: gitgood
       PGPASSWORD: synthetic-db-password
+      GITGOOD_TEST_DATABASE_LOCALE: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124
@@ -97,7 +99,19 @@ jobs:
           cd apps/forge
           MIX_ENV=prod mix release
       - name: Verify copied production installation
-        run: npm run verify:production
+        run: |
+          set -euo pipefail
+          test "$(id -un)" = ci
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          group="/sys/fs/cgroup/gitgood-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test ! -e "$group"
+          sudo -n mkdir "$group" "$group/native" "$group/maintenance"
+          sudo -n chown "$(id -u):$(id -g)" "$group/cgroup.procs" "$group/native/cgroup.procs" "$group/native/cgroup.kill" "$group/maintenance/cgroup.procs" "$group/maintenance/cgroup.kill"
+          printf '%s\n' "$$" | sudo -n tee "$group/cgroup.procs" >/dev/null
+          GITGOOD_VERIFY_CGROUP="$group/native" GITGOOD_VERIFY_RECOVERY=true npm run verify:production
+          test "$(awk '$1 == "populated" {print $2}' "$group/native/cgroup.events")" = 0
+          test "$(awk '$1 == "populated" {print $2}' "$group/maintenance/cgroup.events")" = 0
         working-directory: apps/web
       - run: node scripts/verification-manifest.mjs
         if: always()
