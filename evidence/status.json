@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "2bc8de87aac918b950679a7030d7a333a0ee2825",
+  "headCommit": "4bfd35f64c8c8693b2c48f6a60c36c301e1bdf82",
   "specRevision": "sha256:dc7402370e1d4b91f00cb124e6acea2713625f430880514f2eefc19884190e5a",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-09T02:43:57.054Z",
+      "observedAt": "2026-10-09T03:46:53.965Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
@@ -140,5 +140,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T02:43:57.054Z"
+  "evaluatedAt": "2026-10-09T03:46:53.965Z"
 }
