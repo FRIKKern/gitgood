@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import time
+import uuid
 
 from native_inventory import cgroup_identity, directory_identity, private_bytes, require_native_inventory
 from inspect_native_artifact import inspect_native_artifact
@@ -136,8 +137,10 @@ class NativeActions:
         return require_native_inventory(self.root, self.executables, self.inventory["bindings_sha256"])
 
     def stop_group(self, name):
-        self._owned({"maintenance", "migrate", "verify", "activate", "public_verify", "recover"})
+        self._owned({"inspect", "maintenance", "migrate", "verify", "activate", "public_verify", "recover"})
         require(name in {"native", "web", "edge", "maintenance"})
+        if self.journal.record["stage"] == "inspect":
+            require(name == "maintenance")
         # Quiescence must remain possible when the database is unavailable. Exact
         # delegated kernel resource identity, rather than a new database query,
         # governs this narrowly scoped whole-group stop.
@@ -176,11 +179,13 @@ class NativeActions:
         group = self.bindings["cgroups"][name]
         require(cgroup_identity(self.bindings["installation"], name) == group)
         require(dict(line.split() for line in (Path(group["path"]) / "cgroup.events").read_text().splitlines()).get("populated") == "0")
-        log = self.journal.directory / (name + "-" + str(len(self.journal.record["events"])) + ".log")
+        log = self.journal.directory / (name + "-" + str(len(self.journal.record["events"])) + "-" + str(uuid.uuid4()) + ".log")
         descriptor = self.journal._private_open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         with os.fdopen(descriptor, "wb") as output:
-            return subprocess.Popen([self.executables["python"], "-I", str(stage["wrapper"]), group["path"], *arguments],
-                                    cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, umask=0o077)
+            process = subprocess.Popen([self.executables["python"], "-I", str(stage["wrapper"]), group["path"], *arguments],
+                                       cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, umask=0o077)
+            process.gitgood_log = log
+            return process
 
     def migrate(self, directory):
         self._owned({"migrate"})

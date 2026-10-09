@@ -103,6 +103,21 @@ configuration and recovery bundle through activation and subsequent verification
 
 ## Implementation sequence
 
+`native_probes.py` fixes the coordinator's probe contract to a private, independently
+hash-bound actor manifest, pinned SSH client/key custody, installation identity and
+one expected repository branch/commit. Reads do not follow HTTP redirects or inherit
+proxy/environment credentials. Schema observation uses the bound PostgreSQL client
+with the existing fixed read-only environment. Native/web readiness must identify
+the intended clean candidate and checks; functional probes require authenticated
+branch state, anonymous refusal and exact Git refs through actual HTTPS/SSH clients.
+Git probe descendants enter the separately owned maintenance group and that whole
+group stops after each client command. Distinct private command logs permit multiple
+fixed probes in one durable stage without replacing prior diagnostics. Inspection
+may stop only that client group, never the working native/web/edge groups. Ordinary
+receipts contain candidate/ref/check observations and digests, not credentials.
+Probe execution against installed artifacts and the complete coordinator remain
+under verification.
+
 `native_activation.py` supplies private current-release observation custody for
 the forthcoming coordinator. The installation history lock and its current owned
 public-verification/recovery journal govern the write. Candidate, archive digest,
