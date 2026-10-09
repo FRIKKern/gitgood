@@ -1,0 +1,9 @@
+{
+  "id": "isolated-ci-dispatch",
+  "category": "Added",
+  "summary": "Add a branch-only dispatch probe for disposable Ubuntu development CI; required product checks remain pending actual execution.",
+  "impact": "operator",
+  "references": ["docs/implementation/isolated-ci.md", ".github/workflows/ci-probe.yml"],
+  "journeys": [],
+  "withdrawn": false
+}

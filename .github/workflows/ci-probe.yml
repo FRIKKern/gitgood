@@ -1,0 +1,24 @@
+name: Verify isolated CI dispatch
+on:
+  push:
+    branches: [codex/isolated-ci]
+permissions:
+  contents: read
+jobs:
+  isolated-dispatch:
+    runs-on: [self-hosted, Linux, X64, gitgood-isolated-v1]
+    timeout-minutes: 10
+    steps:
+      - name: Verify fresh Linux guest and job dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$VERSION_ID" = 24.04
+          test "$(id -un)" = ci
+          test "$(uname -m)" = x86_64
+          test ! -d /home/gitgood
+          test ! -d /opt/gitgood
+          test ! -e /var/run/docker.sock || docker version --format '{{.Server.Version}}'
+          printf 'GitHub-dispatched job executed on isolated Ubuntu %s, kernel %s\n' "$VERSION_ID" "$(uname -r)"
