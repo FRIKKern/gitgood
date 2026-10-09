@@ -124,6 +124,7 @@ defmodule Gitgood.InstallationLease do
              :installation_process_present,
              :installation_marker_invalid,
              :installation_protocol_unestablished,
+             :installation_retiring,
              :installation_restore_incomplete
            ] ->
         {:error, reason}
@@ -138,6 +139,11 @@ defmodule Gitgood.InstallationLease do
     maintenance = Path.join(root, @maintenance_marker)
 
     cond do
+      mode in [:runtime, :backup, :migrate, :restore] and
+          File.lstat(Path.join(Path.dirname(root), ".gitgood-retirement-v1.json")) !=
+            {:error, :enoent} ->
+        {:error, :installation_retiring}
+
       mode != :restore and
           File.lstat(Path.join(root, ".gitgood-restore-incomplete-v1.json")) != {:error, :enoent} ->
         {:error, :installation_restore_incomplete}

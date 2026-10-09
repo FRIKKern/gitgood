@@ -100,6 +100,41 @@ must obey the installation lock and kernel custody; privileged external host or
 database administrators remain outside that boundary. No filesystem power-loss
 guarantee is established.
 
+`retirement_fence.py` publishes a private, durable same-intent admission fence in
+the installation root, outside the three removable stores. New runtime, backup,
+migration and restore lease acquisition refuses whenever that fence exists; owner
+death, malformed bytes and dangling aliases do not make admission available.
+Publication requires the retirement journal's running quiesce stage, exact root
+identity, enrolled kernel groups and driver membership. A same-intent retry syncs
+the existing fence again; another intent or an alias refuses without replacement.
+No automatic fence cancellation is provided. These admission checks apply to
+artifacts containing the new guard; a future coordinator must require and verify
+that capability before publishing intent against an installed release.
+
+`retirement_quiescence.py` then stops only the four enrolled edge/native/web/
+maintenance kernel groups and their descendants. Each stop revalidates the held
+journal and fence. Observation requires every original group empty; repeated
+same-stage shutdown is harmless and another stage refuses shutdown. Exact child
+birth observations limit zombie reaping to the caller's children. Database writers
+are a separate observation; empty runtime groups alone do not establish their
+absence. The durable admission fence remains after the journal owner dies.
+
+Four fence filesystem cases include lost sync replies, different intent, aliases,
+wrong stage and a real killed owner. Two additional backend cases use the actual
+PostgreSQL-backed installation lease to refuse runtime and every offline mode.
+A separate six-check kernel experiment allocated fresh delegated groups, enrolled
+real sleepers including a native descendant, stopped only the four bound groups,
+and kept an unplanned owned canary alive. All fixture stores and the fence were
+retained. Only the freshly allocated groups were removed after observed emptiness.
+Its preceding upgrade and artifact identities are inert fixtures; this experiment
+does not establish application restoration or full installed retirement.
+
+Because the fence also refuses ordinary backup admission, the existing packaged
+checkpoint cannot simply be called after fencing. The future fixed coordinator
+needs a snapshot observer under its continuously held driver/journal/kernel custody,
+plus an actual independently bound usable restoration, before admitting either
+removal action. Those observations and final retained-archive usability remain open.
+
 The initial local profile must distinguish installation-owned resources from
 shared database roles, clusters, service identities and upstream user credentials.
 Shared credentials cannot be revoked as installation cleanup. Retention must name
