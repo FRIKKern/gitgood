@@ -85,14 +85,19 @@ test('private discovery handles delayed replies, source failure, reconnect and a
       body: JSON.stringify({username: 'outsider', role: 'absent', expected_role: member.role})})
   }
   await page.goto('/')
+  const panel = page.getByRole('region', {name: 'Search and activity', exact: true})
+  // Finish the initial read before changing the source. Refetch while loading
+  // can reuse a request that started before the interception was installed.
+  await expect(panel.getByRole('link', {name: 'Repository created', exact: true}).first()).toBeVisible()
   let unavailable = true
   let replayed: Record<string, unknown> | null = null
   const access = (await (await page.request.get('/api/session')).json()).access_context
   await page.route('**/api/activity', route => unavailable ? route.fulfill({status: 503, contentType: 'application/json',
     headers: {'x-gitgood-access-context': access}, body: JSON.stringify({error: 'discovery_unavailable'})}) : replayed ?
       route.fulfill({status: 200, contentType: 'application/json', headers: {'x-gitgood-access-context': access}, body: JSON.stringify(replayed)}) : route.continue())
-  const panel = page.getByRole('region', {name: 'Search and activity', exact: true})
+  const failedRefresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/activity' && response.status() === 503)
   await panel.getByRole('button', {name: 'Refresh records', exact: true}).click()
+  await failedRefresh
   await expect(panel.getByRole('alert')).toContainText('Records unavailable')
   await expect(panel.getByRole('link', {name: 'Repository created', exact: true})).toHaveCount(0)
   unavailable = false

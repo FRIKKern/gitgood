@@ -1,4 +1,3 @@
-import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -81,6 +80,12 @@ class NativeOperatorStatusTest(unittest.TestCase):
         before = self.files()
         self.assertEqual(self.cli().returncode, 2)
         self.assertEqual(self.files(), before)
+        pointer = self.root / "current-release-v1.json"
+        pointer.chmod(0o600)
+        (self.root / "current-release-alias").hardlink_to(pointer)
+        before = self.files()
+        self.assertEqual(self.cli().returncode, 2)
+        self.assertEqual(self.files(), before)
 
     def test_concurrent_record_change_refuses_instead_of_reporting_a_mixed_snapshot(self):
         with self.fixture.claim() as journal:
@@ -97,3 +102,15 @@ class NativeOperatorStatusTest(unittest.TestCase):
                     read_status(self.root, self.fixture.installation)
             self.assertNotEqual((self.root / "retirement-journal-v1.json").read_bytes(), original)
             self.assertEqual(read_status(self.root, self.fixture.installation)["retirement"]["status"], "failed")
+
+    def test_activation_record_must_agree_with_terminal_upgrade_identity(self):
+        pointer = self.root / "current-release-v1.json"
+        original = pointer.read_bytes()
+        value = json.loads(original)
+        value.update(candidate="a" * 40, artifact_sha256="c" * 64)
+        pointer.write_bytes(canonical(value) + b"\n")
+        before = self.files()
+        self.assertEqual(self.cli().returncode, 2)
+        self.assertEqual(self.files(), before)
+        pointer.write_bytes(original)
+        self.assertEqual(self.cli().returncode, 0)

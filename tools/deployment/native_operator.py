@@ -52,6 +52,18 @@ def read_status(directory, installation):
         pointer = NativeActivation.validate(json.loads(private_bytes(pointer_path, 16384), object_pairs_hook=unique_object))
         require(pointer["installation"] == installation and pointer["bindings_sha256"] == index["bindings_sha256"])
         require(pointer["operation"] in {entry["operation"] for entry in entries})
+        terminal = upgrades["operations"][-1]["status"]
+        if terminal in {"complete", "recovered"}:
+            prefix = "new" if terminal == "complete" else "old"
+            require(pointer["operation"] == last["operation"])
+            require(pointer["candidate"] == last["intent"][prefix + "_candidate"] and
+                    pointer["artifact_sha256"] == last["intent"][prefix + "_artifact_sha256"])
+        elif pointer["operation"] == last["operation"]:
+            require(any(pointer["candidate"] == last["intent"][prefix + "_candidate"] and
+                        pointer["artifact_sha256"] == last["intent"][prefix + "_artifact_sha256"] for prefix in ["old", "new"]))
+        else:
+            require(len(entries) > 1 and pointer["operation"] == entries[-2]["operation"])
+            require(pointer["candidate"] == last["intent"]["old_candidate"] and pointer["artifact_sha256"] == last["intent"]["old_artifact_sha256"])
         activation = {key: pointer[key] for key in ["installation", "operation", "candidate", "artifact_sha256", "bindings_sha256", "schema"]}
         activation["record_sha256"] = before[pointer_path]["sha256"]
     retirement = None

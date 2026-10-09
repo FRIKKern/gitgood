@@ -37,7 +37,9 @@ python3 tools/deployment/native_operator.py status \
 
 Run as the installation owner on Linux. It verifies private records, reads the
 upgrade history, optional activation pointer and retirement journal, and refuses
-if their identities or bytes change during observation. A dead recorded owner
+if their identities or bytes change during observation. Activation metadata must
+also agree with the applicable completed/recovered upgrade intent; an ongoing
+upgrade permits only its bound previous or new identity. A dead recorded owner
 produces an uncertain observation without rewriting or reconciling the journal.
 An activation record reports retained metadata; it does not establish current
 readiness, actual artifact/store identity, archive usability or Cloud/provider
@@ -46,9 +48,9 @@ and lifecycle commands remain separate implementation work. Private-invalid,
 inconsistent or wrong-installation inputs refuse with a fixed error and no input
 or exception details.
 
-Four Linux checks passed, including a real killed journal owner, live-owner reads
-that leave every retained file unchanged, concurrent record changes and private
-input refusal. The complete operator suite passed 109 Linux checks with eight
+Five Linux checks passed, including a real killed journal owner, live-owner reads that leave
+every retained file unchanged, concurrent changes, private input refusal and
+inconsistent activation metadata. The final component operator suite passed 110 Linux checks with eight
 foreign-platform skips. A separate observation reads the retained historical
 installed upgrade and matches its independent configuration UUID without changing
 configuration. The first supporting producer used an incorrect full candidate
