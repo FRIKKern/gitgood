@@ -15,8 +15,10 @@ export default {
       try {
         const result=await fetch(new URL('/health/ready',api),{signal:AbortSignal.timeout(3000)})
         const forge=await result.json()
-        const ready=result.ok && !identity.dirty && forge.candidate===identity.candidate && forge.status==='ready'
-        return Response.json({service:'gitgood-web',status:ready?'ready':'unavailable',candidate:identity.candidate,forge_candidate:forge.candidate,dirty:identity.dirty},{status:ready?200:503,headers:{'cache-control':'no-store'}})
+        const mode=forge.operational_mode??'active'
+        const validMode=['active','recovery_verification'].includes(mode)
+        const ready=result.ok && !identity.dirty && forge.candidate===identity.candidate && forge.status==='ready' && validMode
+        return Response.json({service:'gitgood-web',status:ready?'ready':'unavailable',candidate:identity.candidate,forge_candidate:forge.candidate,dirty:identity.dirty,operational_mode:validMode?mode:'unknown'},{status:ready?200:503,headers:{'cache-control':'no-store'}})
       }catch{return Response.json({status:'unavailable',candidate:identity.candidate},{status:503,headers:{'cache-control':'no-store'}})}
     }
     const prepared=prepareClientAddress(request,proxyKey)

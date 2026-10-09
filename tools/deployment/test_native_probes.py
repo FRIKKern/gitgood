@@ -57,6 +57,16 @@ class ProbeCustodyTest(unittest.TestCase):
             self.value[field] = original
         self.assertEqual(self.create().credentials["username"], "owner")
 
+    def test_verification_readiness_cannot_be_used_for_private_or_public_activation(self):
+        probe = self.create()
+        response = {"status": "ready", "candidate": "b" * 40, "dirty": False,
+                    "operational_mode": "recovery_verification", "service": "gitgood"}
+        with patch.object(probe, "_owned"), patch.object(probe, "_request", return_value=(200, json.dumps(response).encode())) as request:
+            for public in [False, True]:
+                with self.assertRaises(UpgradeRefused):
+                    probe.readiness("b" * 40, public=public)
+            self.assertEqual(request.call_count, 2)
+
     def test_header_path_and_descriptor_command_injection_refuse(self):
         for field, value in [("session_token", "token\r\nInjected: value"), ("git_token", "space token"),
                              ("repository", "../other"), ("username", "actor@elsewhere"), ("branch", "main*"), ("branch", "main/../secret")]:

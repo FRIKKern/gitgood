@@ -1,5 +1,58 @@
 import Config
 
+recovery_verification =
+  case System.get_env("GITGOOD_RECOVERY_VERIFY_ONLY") do
+    value when value in [nil, "false"] -> false
+    "true" -> true
+    _ -> raise("Recovery verification startup refused")
+  end
+
+verification_operation = System.get_env("GITGOOD_RECOVERY_VERIFY_OPERATION")
+
+if recovery_verification do
+  operation_valid =
+    is_binary(verification_operation) and
+      Regex.match?(
+        ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        verification_operation
+      )
+
+  parse_verification_uri = fn value ->
+    try do
+      URI.parse(value)
+    rescue
+      ArgumentError -> raise("Recovery verification startup refused")
+    end
+  end
+
+  database = parse_verification_uri.(System.get_env("DATABASE_URL", ""))
+  origin = parse_verification_uri.(System.get_env("GITGOOD_PUBLIC_URL", ""))
+
+  target =
+    if operation_valid,
+      do: "/gitgood_retirement_restore_" <> String.replace(verification_operation, "-", ""),
+      else: nil
+
+  unless operation_valid and database.scheme in ["postgres", "postgresql"] and
+           database.host in ["127.0.0.1", "localhost"] and database.path == target and
+           is_integer(database.port) and database.port >= 1024 and database.port <= 65535 and
+           database.query == nil and database.fragment == nil and
+           origin.scheme == "https" and origin.host == "127.0.0.1" and
+           is_integer(origin.port) and origin.port >= 1024 and origin.port <= 65535 and
+           origin.userinfo == nil and origin.query == nil and origin.fragment == nil and
+           origin.path in [nil, "", "/"] and
+           System.get_env("GITGOOD_WEB_ORIGIN") == System.get_env("GITGOOD_PUBLIC_URL") and
+           System.get_env("PHX_HOST") == "127.0.0.1" and
+           System.get_env("GITGOOD_BARKPARK_ORIGIN") == nil,
+         do: raise("Recovery verification startup refused")
+
+  config :gitgood, :reconcile, false
+else
+  if verification_operation != nil, do: raise("Recovery verification startup refused")
+end
+
+config :gitgood, :recovery_verification, recovery_verification
+
 connection_key =
   case System.get_env("GITGOOD_CONNECTION_KEY") do
     nil ->

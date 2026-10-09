@@ -15,3 +15,7 @@ Accepted direction: [Native forge](0001-native-forge.md) and [autonomous progres
 | D09 | [Capacity and quality targets](D09.md) | Before M4 performance acceptance and M6 recovery acceptance; no pricing claims earlier. |
 
 Use [the decision template](TEMPLATE.md). Agents own decision resolution and engineering, verification, and operations progression. Record the acting agent and evidence; no human assignment or sign-off is required.
+
+[Isolated retirement verification](0011-isolated-retirement-verification.md) defines
+the temporary restored copy and continuous original custody boundary. Its design
+is accepted; implementation and installed verification remain open.

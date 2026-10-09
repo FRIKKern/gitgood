@@ -244,5 +244,18 @@ operator checks, with eight foreign-platform skips. The separate component
 archives remain scoped: twelve real authenticated-export/database checks, nine
 custody/snapshot checks with controlled boundaries, and five read-only status
 cases plus historical record observation. Combining these results does not
-establish functional restoration or complete installed retirement. Required
-copied-production CI on this combined revision remains pending.
+establish functional restoration or complete installed retirement. PR54 passed
+required CI on its exact tree before merging: 176 backend checks, nine database
+recovery, 115 Linux operators/eight foreign skips, nine web, 24 operations,
+eleven browser with no skips/flaky results, 22 copied-production, sixteen offline
+recovery and 33 planning. The copied-production restored-data receipt matches
+all six authenticated checkpoint/export fields. This remains component evidence;
+full installed retirement and current release acceptance remain open.
+
+The separate verification-runtime mode closes a prerequisite for actually
+starting a restored copy: automatic reconciliation is disabled and Barkpark I/O
+is refused, while explicit operation-derived local database/origin constraints
+and health identity distinguish it from active service. Ordinary activation
+probes refuse that mode. [Decision 0011](../decisions/0011-isolated-retirement-verification.md)
+defines the remaining fixed controller and independently retained targets;
+enabling the mode alone cannot authorize removal.

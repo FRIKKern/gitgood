@@ -10,6 +10,12 @@ defmodule Gitgood.BarkparkHTTP do
     do: request("POST_BYTES", path, token, payload, key)
 
   defp request(method, path, token, payload, key) do
+    if Application.get_env(:gitgood, :recovery_verification, false) == true,
+      do: {:error, :barkpark_unavailable},
+      else: request_enabled(method, path, token, payload, key)
+  end
+
+  defp request_enabled(method, path, token, payload, key) do
     origin = Application.get_env(:gitgood, :barkpark_origin)
     loopback? = Application.get_env(:gitgood, :barkpark_allow_loopback_http, false)
 
