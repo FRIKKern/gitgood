@@ -83,6 +83,13 @@ class UpgradeJournalTest(unittest.TestCase):
             wait=False)
         self.assertEqual(process.stdout.readline().strip(), "stage persisted")
         process.kill()  # Exact newly spawned fixture process, never a discovered foreign PID.
+        os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOWAIT)
+        before = (self.root / "upgrade-journal-v1.json").read_bytes()
+        observed = UpgradeJournal.read_status(self.root, self.operation, self.intent)
+        self.assertEqual(observed["status"], "uncertain")
+        self.assertEqual(observed["recorded_status"], "running")
+        self.assertFalse(observed["owner_alive"])
+        self.assertEqual((self.root / "upgrade-journal-v1.json").read_bytes(), before)
         process.communicate(timeout=10)
         with self.journal() as journal:
             self.assertEqual(journal.status()["status"], "uncertain")
@@ -139,6 +146,17 @@ class UpgradeJournalTest(unittest.TestCase):
                 self.assertEqual(status["status"], "running")
                 self.assertEqual(status["events"], 2)
             self.assertEqual((self.root / "upgrade-journal-v1.json").read_bytes(), before)
+
+    def test_previous_boot_identity_never_identifies_a_current_process_as_owner(self):
+        with self.journal() as journal:
+            journal.begin("inspect")
+        path = self.root / "upgrade-journal-v1.json"
+        record = json.loads(path.read_text())
+        record["owner"]["boot_id"] = str(uuid.uuid4())
+        path.write_text(json.dumps(record))
+        status = UpgradeJournal.read_status(self.root, self.operation, self.intent)
+        self.assertEqual(status["status"], "uncertain")
+        self.assertFalse(status["owner_alive"])
 
     def test_corrupted_stage_history_owner_or_failure_cannot_be_trusted(self):
         with self.journal() as journal:

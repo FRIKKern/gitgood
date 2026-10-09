@@ -36,6 +36,8 @@ Journal files use private ownership, reject symlinks/hardlinks/shared permission
 and persist by atomic replacement plus file/directory fsync. Loaded histories are
 replayed against the fixed protocol before their reported state is trusted.
 Read-only status polling does not claim the operation or append events. A lost
+owner is exposed as uncertain even before reclaiming its journal; PID, birth tick,
+boot identity and zombie state distinguish it from a current live owner. A lost
 write acknowledgement disables that owner's in-memory continuation; a new owner
 must inspect the durable state. Evidence fields admit bounded counts, booleans and
 digests rather than payloads or environment. Linux tests include a genuinely
@@ -44,6 +46,18 @@ interrupted recovery. Windows tests only establish early platform refusal; they
 do not establish Windows upgrade support. Full installed activation, resource
 inventory, supervised execution and a subsequent independent upgrade operation
 with retained history remain implementation work.
+
+`stage_native_artifact.py ARCHIVE SHA256 CANDIDATE PRIVATE_DIRECTORY OPERATION_UUID`
+implements private staging. It copies a bounded archive into a fresh request
+directory, verifies the digest and unchanged source metadata, and runs the inspector
+on that retained snapshot. It creates real directories/files before safe internal
+symlinks, records each file's hash and executable mode, and fsyncs the inventory
+and code tree before Linux atomic publication with no replacement. Existing targets
+and interrupted partial directories refuse; failed partial custody is retained for
+reconciliation. No installation stores or public route are changed. The real
+retained 9392a31 package staged successfully: 8667 files and 14 links passed
+independent inventory readback, with its original archive digest unchanged.
+This is staging proof for that historical artifact, not an installed upgrade.
 
 The supervisor receives only fixed lifecycle actions and exact owned resources.
 A user-supplied descriptor cannot introduce arbitrary host commands. Runtime

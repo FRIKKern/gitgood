@@ -44,7 +44,20 @@ def owner():
     value = Path("/proc/self/stat").read_text()
     birth = value[value.rfind(")") + 2:].split()[19]
     require(birth.isdecimal())
-    return {"uid": os.getuid(), "pid": os.getpid(), "birth": birth}
+    return {"uid": os.getuid(), "pid": os.getpid(), "birth": birth,
+            "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip()}
+
+
+def owner_alive(value):
+    if value["boot_id"] != Path("/proc/sys/kernel/random/boot_id").read_text().strip():
+        return False
+    try:
+        directory = Path("/proc", str(value["pid"]))
+        identity = (directory / "stat").read_text()
+        fields = identity[identity.rfind(")") + 2:].split()
+        return directory.stat().st_uid == value["uid"] and fields[19] == value["birth"] and fields[0] not in {"Z", "X"}
+    except (FileNotFoundError, ProcessLookupError):
+        return False
 
 
 STAGES = ("inspect", "stage", "maintenance", "migrate", "verify", "activate", "public_verify")
@@ -54,10 +67,11 @@ ERRORS = {"artifact_refused", "staging_failed", "stop_failed", "migration_failed
 
 
 def validate_owner(value):
-    require(isinstance(value, dict) and set(value) == {"uid", "pid", "birth"})
+    require(isinstance(value, dict) and set(value) == {"uid", "pid", "birth", "boot_id"})
     require(type(value["uid"]) is int and 0 <= value["uid"] < 2**32)
     require(type(value["pid"]) is int and 0 < value["pid"] < 2**32)
     require(isinstance(value["birth"], str) and re.fullmatch(r"[0-9]{1,20}", value["birth"]))
+    require(isinstance(value["boot_id"], str) and str(uuid.UUID(value["boot_id"])) == value["boot_id"])
 
 
 def validate_time(value):
@@ -331,7 +345,10 @@ class UpgradeJournal:
 
     def _status(self):
         failures = [event for event in self.record["events"] if event["kind"] == "failed"]
+        alive = owner_alive(self.record["owner"])
+        observed = "uncertain" if self.record["status"] == "running" and not alive else self.record["status"]
         return {"protocol": 1, "operation": self.operation, "stage": self.record["stage"],
-                "status": self.record["status"], "completed": list(self.record["completed"]),
+                "status": observed, "recorded_status": self.record["status"], "owner_alive": alive,
+                "completed": list(self.record["completed"]),
                 "intent_sha256": self.record["intent_sha256"], "events": len(self.record["events"]),
                 "last_failure": {"stage": failures[-1]["stage"], "code": failures[-1]["evidence"]["code"]} if failures else None}
