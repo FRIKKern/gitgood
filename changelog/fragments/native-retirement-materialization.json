@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-materialization",
+  "category": "Added",
+  "summary": "Materialize authenticated retirement Git, SSH and configuration into a separately sealed private target with retained TLS/key checks and fixed operational adaptations, preserving partial or replaced targets; functional restoration remains unfinished.",
+  "impact": "operator",
+  "references": ["apps/forge/priv/operations/retirement-restore-materialize.mjs", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}

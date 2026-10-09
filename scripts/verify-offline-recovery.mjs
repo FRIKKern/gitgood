@@ -176,6 +176,42 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   assert.equal(reobservedRestoredData.database_fingerprint,retirementRestoredData.database_fingerprint)
   await observeRestoreData('retirement-restore-data-populated-target',{},[1])
   assert.deepEqual(await observeTarget('retirement-restore-data-target-final'),restoreDataTarget)
+  const materializer=join(installedForge,'lib',libraries[0],'priv/operations/retirement-restore-materialize.mjs')
+  assert((await lstat(materializer)).isFile(),'Materializer must ship in the copied forge artifact')
+  const materializationParent=join(root,'retirement-materialization-targets');await mkdir(materializationParent,{mode:0o700})
+  const materializationRoot=join(materializationParent,restoreDataDatabase);await mkdir(materializationRoot,{mode:0o700})
+  const rootIdentity=await lstat(materializationRoot),originalConfig=await readConfiguration(configuration)
+  const originalPorts=[Number(originalConfig.forge.PORT),Number(originalConfig.web.PORT),Number(originalConfig.forge.GITGOOD_SSH_PORT),Number(originalConfig.forge.GITGOOD_SSH_PUBLIC_PORT),Number(new URL(originalConfig.forge.GITGOOD_PUBLIC_URL).port)]
+  const adaptedPorts=Array.from({length:30},(_,index)=>27000+index).filter(value=>!originalPorts.includes(value)).slice(0,5)
+  assert.equal(adaptedPorts.length,5)
+  const materializationRequest={protocol:1,operation:restoreDataOperation,installation:originalInstallation,candidate:backupReceipt.candidate,
+    ciphertext_sha256:backupReceipt.ciphertext_sha256,source:bundle,key_path:keyFile,scratch_directory:root,
+    target_database:restoreDataTarget,target_installation:randomUUID(),target_root:{path:materializationRoot,device:rootIdentity.dev,inode:rootIdentity.ino,uid:rootIdentity.uid},
+    ports:Object.fromEntries(['forge','web','native_ssh','https','ssh'].map((name,index)=>[name,adaptedPorts[index]]))}
+  const materializationRequestPath=join(root,'retirement-materialization-request-private.json')
+  const materialize=async(label,patch={},allowed=[0])=>{
+    const bytes=Buffer.from(JSON.stringify({...materializationRequest,...patch})+'\n')
+    await writeFile(materializationRequestPath,bytes,{mode:0o600})
+    await wait(launch(process.execPath,[materializer,materializationRequestPath,createHash('sha256').update(bytes).digest('hex')],restoreDataEnvironment,root,label),label,allowed)
+    return allowed[0]===0?JSON.parse((await readFile(join(root,'logs/'+label+'.log'),'utf8')).trim()):null
+  }
+  await materialize('retirement-materialization-wrong-root',{target_root:{...materializationRequest.target_root,inode:rootIdentity.ino+1}},[1])
+  assert.deepEqual(await readdir(materializationRoot),[])
+  const retirementMaterialization=await materialize('retirement-materialization')
+  assert.equal(retirementMaterialization.purpose,'retirement_restore_materialization');assert.equal(retirementMaterialization.status,'materialized')
+  for(const field of ['candidate','installation','ciphertext_sha256','recovery_point','resource_fingerprints','database_fingerprint'])
+    assert.deepEqual(retirementMaterialization[field],retirementCheckpoint[field])
+  assert.deepEqual(retirementMaterialization.target_database,restoreDataTarget)
+  assert.deepEqual(retirementMaterialization.target_root,materializationRequest.target_root)
+  const materializedConfig=await readConfiguration(join(materializationRoot,'configuration'))
+  assert.equal(materializedConfig.installation,materializationRequest.target_installation)
+  assert.equal(materializedConfig.forge.GITGOOD_BARKPARK_ORIGIN,undefined)
+  for(const field of ['SECRET_KEY_BASE','GITGOOD_PROXY_KEY','GITGOOD_CONNECTION_KEY'])assert.equal(materializedConfig.forge[field],originalConfig.forge[field])
+  assert((await readFile(join(materializationRoot,'ssh/ssh_host_ed25519_key'))).equals(await readFile(join(env.GITGOOD_SSH_HOST_KEY_DIRECTORY,'ssh_host_ed25519_key'))))
+  assert.equal(createHash('sha256').update(await readFile(join(materializationRoot,'configuration/installation.json'))).digest('hex'),retirementMaterialization.configuration_sha256)
+  await materialize('retirement-materialization-populated-root',{},[1])
+  assert.equal(createHash('sha256').update(await readFile(join(materializationRoot,'configuration/installation.json'))).digest('hex'),retirementMaterialization.configuration_sha256)
+  assert.deepEqual(await observeTarget('retirement-materialization-target-final'),restoreDataTarget)
   // Only this freshly created target is eligible for removal; ordinary DROP
   // refuses connected clients and never disconnects a foreign process.
   await run(process.env.GITGOOD_PSQL??'psql',['--no-psqlrc','--set','ON_ERROR_STOP=1','--command','DROP DATABASE "'+restoreDataDatabase+'"'],
@@ -273,7 +309,7 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const recoveryMs=performance.now()-pausedAt
   assert(recoveryMs<targetRtoMs)
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
-    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,retirement_restored_data:retirementRestoredData,restored_database:database,installation:recovered.installation,
+    backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,retirement_restored_data:retirementRestoredData,retirement_materialization:retirementMaterialization,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','migration and replacement runtime refuse a real surviving Git writer; schema/lock bytes retained and migration permits only after the complete owned group stops','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
@@ -283,7 +319,8 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
       'copied release export uses coordinated backup exclusion; packaged inspector validates the archive without database connection settings',
       'packaged retirement checkpoint binds installation/archive and live inventories; wrong UUID/digest and a real database-only change refuse without removing stores or archive',
       'packaged read-only snapshot observer matches the checkpoint; wrong UUID/digest and database-only changes refuse without acquiring a new offline lease or removing resources',
-      'packaged restored-data verifier imports the authenticated dump into an independently named target, matches schema/data/sequences/locale, reobserves it and refuses changed target identity or repeat import into populated data'],
+      'packaged restored-data verifier imports the authenticated dump into an independently named target, matches schema/data/sequences/locale, reobserves it and refuses changed target identity or repeat import into populated data',
+      'packaged materializer preserves authenticated Git/SSH/configuration contents in a sealed separate root, checks retained local TLS identity, adapts fixed paths/ports/hooks without external Source origin and refuses a wrong or occupied target'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}
   await writeFile(join(options.evidence,'offline-recovery-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   return receipt
