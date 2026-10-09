@@ -120,7 +120,7 @@ def start_edge(actions, mode):
     directory = actions.journal.directory / ("edge-" + str(len(actions.journal.record["events"])))
     directory.mkdir(mode=0o700)
     configuration = directory / "Caddyfile"
-    with configuration.open("x", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
+    with open(configuration, "x", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
         output.write(caddy_source(actions.root, actions.configuration, mode))
         output.flush()
         os.fsync(output.fileno())
@@ -130,12 +130,12 @@ def start_edge(actions, mode):
             "caddy": actions.bindings["executables"]["caddy"], "module_sha256": module_digest,
             "caddyfile_sha256": hashlib.sha256(private_bytes(configuration)).hexdigest()}
     path = directory / "edge-plan.json"
-    with path.open("xb", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
+    with open(path, "xb", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
         output.write(canonical(plan) + b"\n")
         output.flush()
         os.fsync(output.fileno())
     environment = {"PATH": "/usr/bin:/bin", "HOME": str(actions.root), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
-    with (directory / "guardian.log").open("xb", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
+    with open(directory / "guardian.log", "xb", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
         return subprocess.Popen([actions.executables["python"], "-I", str(module), str(path)],
                                 env=environment, cwd=directory, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT, umask=0o077)
 
@@ -209,7 +209,7 @@ async def supervise(plan, configuration, directory):
     loop = asyncio.get_running_loop()
     for number in [signal.SIGTERM, signal.SIGINT]:
         loop.add_signal_handler(number, stopped.set)
-    with (directory / "caddy.log").open("xb", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
+    with open(directory / "caddy.log", "xb", opener=lambda name, flags: os.open(name, flags, 0o600)) as output:
         process = await asyncio.create_subprocess_exec(command[0], "run", *command[1:], env=environment,
                                                        stdin=subprocess.DEVNULL, stdout=output, stderr=output)
         watcher = asyncio.create_task(process.wait())
