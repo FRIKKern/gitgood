@@ -1,0 +1,1 @@
+{"id":"ci-ssh-clients","category":"Fixed","summary":"Install and verify OpenSSH client tools in required Linux CI instead of assuming a prepopulated runner image; retain actual SSH authorization and transport checks.","impact":"operator","references":[".github/workflows/product.yml"],"journeys":["J16"],"withdrawn":false}
