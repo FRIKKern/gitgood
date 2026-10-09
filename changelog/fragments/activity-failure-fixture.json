@@ -1,0 +1,9 @@
+{
+  "id": "activity-failure-fixture",
+  "category": "Fixed",
+  "summary": "Wait for the successful activity baseline and observe the actual failed refresh before evaluating source-unavailable browser behavior, preserving the failed main-run evidence.",
+  "impact": "planning",
+  "references": ["apps/web/e2e/activity.spec.ts", "docs/decisions/0008-private-discovery.md"],
+  "journeys": ["J13"],
+  "withdrawn": false
+}
