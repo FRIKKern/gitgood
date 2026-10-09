@@ -1,23 +1,27 @@
 """Verify recovered database contents while retaining original writer custody."""
 import hashlib
 import json
+from pathlib import Path
 import re
 
 from retirement_snapshot import CORE, RetirementSnapshot
+from retirement_restore_plan import TARGET_KEYS, validate_full_restore_plan
 from upgrade_journal import canonical, require
-
-TARGET_KEYS = {"address", "cluster", "database", "database_oid", "encoding", "owner_oid", "port", "role_oid", "version"}
-
 
 class RetirementRestoreData:
     def __init__(self, journal, resource_plan, retention, expected_checkpoint, restoration, configuration_bytes):
         self.snapshot = RetirementSnapshot(journal, resource_plan, retention, expected_checkpoint, configuration_bytes)
         self.journal = journal
+        self.full_restoration = None
+        if isinstance(restoration, dict) and type(restoration.get("protocol")) is int and restoration["protocol"] == 2:
+            self.full_restoration = validate_full_restore_plan(journal, restoration)
+            restoration = self.full_restoration["data_plan"]
         require(isinstance(restoration, dict) and set(restoration) == {"protocol", "purpose", "operation", "installation", "target_database"})
         require(type(restoration["protocol"]) is int and restoration["protocol"] == 1)
         require(restoration["purpose"] == "retirement_restore_data_plan")
         require(restoration["operation"] == journal.operation and restoration["installation"] == journal.plan["installation"])
-        require(hashlib.sha256(canonical(restoration)).hexdigest() == journal.plan["restore_sha256"])
+        if self.full_restoration is None:
+            require(hashlib.sha256(canonical(restoration)).hexdigest() == journal.plan["restore_sha256"])
         target = restoration["target_database"]
         require(isinstance(target, dict) and set(target) == TARGET_KEYS)
         require(target["database"] == "gitgood_retirement_restore_" + journal.operation.replace("-", ""))
@@ -32,6 +36,13 @@ class RetirementRestoreData:
             require(target[name] == self.snapshot.database.expected[name])
         self.restoration = json.loads(canonical(restoration))
         self.target = self.restoration["target_database"]
+        if self.full_restoration is not None:
+            materialization = self.full_restoration["materialization"]
+            for field, name in [("source", "archive"), ("key_path", "key"), ("scratch_directory", "scratch")]:
+                require(materialization[field] == self.snapshot.retention[name]["path"])
+            root = materialization["target_root"]["path"]
+            for original in self.snapshot.request["roots"].values():
+                require(not Path(root).is_relative_to(Path(original)) and not Path(original).is_relative_to(Path(root)))
 
     def verify(self, phase):
         require(isinstance(phase, str) and phase in {"restore", "observe"})
@@ -39,7 +50,8 @@ class RetirementRestoreData:
         request.update(operation=self.journal.operation, phase=phase, target=self.target,
                        scratch_directory=self.snapshot.retention["scratch"]["path"])
         environment = {**self.snapshot.database.environment, "PGDATABASE": self.target["database"]}
-        observed = self.snapshot._run_packaged("retirement-restore-data.mjs", "restored-data", request, environment)
+        observed = self.snapshot._run_packaged("retirement-restore-data.mjs", "restored-data", request, environment,
+                                               restoration=self.full_restoration)
         require(isinstance(observed, dict) and set(observed) == {"protocol", "purpose", "status", "operation", "target_database", "phase", "checks", "limitations", *CORE})
         require(type(observed["protocol"]) is int and observed["protocol"] == 1)
         require(observed["purpose"] == "retirement_restore_data" and observed["status"] == "verified")
