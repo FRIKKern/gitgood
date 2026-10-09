@@ -47,13 +47,14 @@ test('installation export inspects real Git and a real database dump without cha
     const metadata={candidate,postgres:'18.4',recovery_point:new Date().toISOString(),migrations:[]}
     const roots={git,ssh,configuration,'database.dump':dump}
     await packRecovery({destination:source,key,metadata,roots})
-    const options={source,keyPath,scratchDirectory:scratch,expectedCandidate:candidate}
+    const options={source,keyPath,scratchDirectory:scratch,expectedCandidate:candidate,expectedInstallation:installation}
     await writeFile(join(scratch,'unrelated'),'retain unrelated private entry',{mode:0o600})
     const receipt=await inspectInstallationExport(options)
     assert.equal(receipt.repositories,1);assert.equal(receipt.tables,1);assert.equal(receipt.checks.length,4)
+    assert.equal(receipt.installation,installation)
     assert(!JSON.stringify(receipt).includes('private collaboration fixture'))
     assert.deepEqual(await fingerprintDatabase(),before);assert.equal(gitCall(['for-each-ref','--format=%(refname) %(objectname)']),refs)
-    for(const invalid of [{expectedCandidate:'b'.repeat(40)},{keyPath:join(root,'wrong-key')},{source:join(root,'corrupt')}]){
+    for(const invalid of [{expectedCandidate:'b'.repeat(40)},{expectedInstallation:randomUUID()},{expectedInstallation:'../foreign'},{keyPath:join(root,'wrong-key')},{source:join(root,'corrupt')}]){
       if(invalid.keyPath)await writeFile(invalid.keyPath,randomBytes(32),{mode:0o600})
       if(invalid.source){const bytes=await readFile(source);bytes[100]^=1;await writeFile(invalid.source,bytes,{mode:0o600})}
       await assert.rejects(inspectInstallationExport({...options,...invalid}))

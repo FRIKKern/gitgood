@@ -11,7 +11,7 @@ export async function verifyOfflineRecovery(options){
   assert.equal(process.platform,'linux')
   const started=performance.now(),targetRtoMs=15*60*1000
   const configuration=join(root,'operator-configuration'),keyFile=join(root,'recovery-key.bin'),bundle=join(root,'recovery.ggbackup')
-  await provisionConfiguration({directory:configuration,forge:env,web:webEnv,certificate,tlsKey,sourceCa:env.GITGOOD_BARKPARK_CA})
+  const originalInstallation=await provisionConfiguration({directory:configuration,forge:env,web:webEnv,certificate,tlsKey,sourceCa:env.GITGOOD_BARKPARK_CA})
   await writeFile(keyFile,randomBytes(32),{flag:'wx',mode:0o600})
   const backupEnv={...env,GITGOOD_RECOVERY_KEY_FILE:keyFile,GITGOOD_RECOVERY_CONFIGURATION:configuration,GITGOOD_RECOVERY_BUNDLE:bundle}
   await wait(launch(release,['eval','Gitgood.Release.backup()'],backupEnv,installedForge,'backup-running-refusal'),'backup-running-refusal',[1])
@@ -97,9 +97,10 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   assert((await lstat(inspector)).isFile(),'Inspector must be shipped in the copied forge artifact')
   const inspectionEnvironment={PATH:process.env.PATH}
   for(const name of ['GITGOOD_GIT','GITGOOD_PG_RESTORE'])if(process.env[name])inspectionEnvironment[name]=process.env[name]
-  await run(process.execPath,[inspector,bundle,keyFile,root,backupReceipt.candidate],inspectionEnvironment,root,'export-inspection')
+  await run(process.execPath,[inspector,bundle,keyFile,root,backupReceipt.candidate,originalInstallation],inspectionEnvironment,root,'export-inspection')
   const exportInspection=JSON.parse((await readFile(join(root,'logs/export-inspection.log'),'utf8')).trim())
   assert.equal(exportInspection.purpose,'installation_export')
+  assert.equal(exportInspection.installation,originalInstallation)
   assert.equal(exportInspection.candidate,backupReceipt.candidate)
   assert.equal(exportInspection.ciphertext_sha256,backupReceipt.ciphertext_sha256)
   assert.equal(exportInspection.checks.length,4)

@@ -1,0 +1,9 @@
+{
+  "id": "export-installation-binding",
+  "category": "Added",
+  "summary": "Bind authenticated native export inspection to an independently expected installation UUID and report that identity before retirement planning; removal remains unfinished.",
+  "impact": "operator",
+  "references": ["apps/forge/priv/operations/installation-export.mjs", "docs/implementation/installation-retirement.md", "docs/operations/export.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}

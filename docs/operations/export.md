@@ -23,7 +23,7 @@ Inspect an archive without starting Gitgood or connecting to PostgreSQL:
 ```sh
 node forge/lib/gitgood-*/priv/operations/installation-export.mjs \
   /private/export.ggbackup /private/archive-key.bin /private/inspection-scratch \
-  <exact-40-character-candidate>
+  <exact-40-character-candidate> <expected-installation-uuid>
 ```
 
 Use Node 22.23.3, Git and PostgreSQL 18.4 `pg_restore` on Linux x64. The scratch parent must

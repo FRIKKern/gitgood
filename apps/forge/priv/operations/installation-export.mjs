@@ -33,9 +33,10 @@ async function dumpInventory(path,version){
   return tables.sort()
 }
 
-export async function inspectInstallationExport({source,keyPath,scratchDirectory,expectedCandidate}){
+export async function inspectInstallationExport({source,keyPath,scratchDirectory,expectedCandidate,expectedInstallation}){
   check(process.platform==='linux'&&process.arch==='x64'&&process.version==='v22.23.3')
   check(typeof expectedCandidate==='string'&&/^[a-f0-9]{40}$/.test(expectedCandidate))
+  check(expectedInstallation===undefined||typeof expectedInstallation==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(expectedInstallation))
   const parent=resolve(scratchDirectory),stat=await lstat(parent)
   check(stat.isDirectory()&&(stat.mode&0o077)===0&&stat.uid===process.getuid()&&await realpath(parent)===parent)
   const key=await privateFile(keyPath,32);check(key.length===32)
@@ -44,6 +45,7 @@ export async function inspectInstallationExport({source,keyPath,scratchDirectory
     const unpacked=await unpackRecovery({source,key,target:join(scratch,'verified'),expectedCandidate})
     const configuration=join(unpacked.verified_directory,'configuration')
     const config=await readConfiguration(configuration)
+    check(expectedInstallation===undefined||config.installation===expectedInstallation)
     const descriptor=JSON.parse((await privateFile(join(configuration,'recovery.json'),16777216)).toString('utf8'))
     check(descriptor.protocol===1&&descriptor.installation===config.installation&&Array.isArray(descriptor.repositories))
     const repositories=await inspectRepositories(join(unpacked.verified_directory,'git'),descriptor.repositories.map(({storage_key,status})=>({storage_key,status})))
@@ -51,7 +53,7 @@ export async function inspectInstallationExport({source,keyPath,scratchDirectory
     check(Array.isArray(descriptor.database?.tables)&&descriptor.database.tables.length<=1000)
     const tables=await dumpInventory(join(unpacked.verified_directory,'database.dump'),unpacked.manifest.postgres)
     check(JSON.stringify(tables)===JSON.stringify(descriptor.database.tables.map(row=>row.table).sort()))
-    return {protocol:1,purpose:'installation_export',candidate:unpacked.manifest.candidate,
+    return {protocol:1,purpose:'installation_export',candidate:unpacked.manifest.candidate,installation:config.installation,
       ciphertext_sha256:unpacked.ciphertext_sha256,recovery_point:unpacked.manifest.recovery_point,
       formats:{code:'bare Git SHA-1 repositories',collaboration:'PostgreSQL custom-format dump',configuration:'private JSON and key material'},
       repositories:repositories.length,tables:tables.length,files:unpacked.manifest.entries.filter(entry=>entry.type==='file').length,
@@ -67,8 +69,8 @@ export async function inspectInstallationExport({source,keyPath,scratchDirectory
 
 if(process.argv[1]===fileURLToPath(import.meta.url)){
   try{
-    check(process.argv.length===6)
-    const [source,keyPath,scratchDirectory,expectedCandidate]=process.argv.slice(2)
-    console.log(JSON.stringify(await inspectInstallationExport({source,keyPath,scratchDirectory,expectedCandidate})))
+    check(process.argv.length===6||process.argv.length===7)
+    const [source,keyPath,scratchDirectory,expectedCandidate,expectedInstallation]=process.argv.slice(2)
+    console.log(JSON.stringify(await inspectInstallationExport({source,keyPath,scratchDirectory,expectedCandidate,expectedInstallation})))
   }catch(error){console.error(JSON.stringify({status:'refused',code:error instanceof RecoveryError?error.code:'export_invalid'}));process.exitCode=1}
 }
