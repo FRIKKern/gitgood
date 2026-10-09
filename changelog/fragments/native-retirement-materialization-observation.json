@@ -1,0 +1,14 @@
+{
+  "id": "native-retirement-materialization-observation",
+  "category": "Added",
+  "summary": "Observe an existing retirement target against its authenticated archive, adapted configuration and restored database without copying or rewriting target contents; partial, changed or replaced targets remain preserved and refuse continuation.",
+  "impact": "operator",
+  "references": [
+    "apps/forge/priv/operations/retirement-restore-materialize.mjs",
+    "docs/implementation/installation-retirement.md"
+  ],
+  "journeys": [
+    "J17"
+  ],
+  "withdrawn": false
+}

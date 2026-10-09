@@ -327,3 +327,30 @@ The fixed application controller, authenticated recovered access and transport
 probes, interrupted materialization reconciliation, final post-removal usability,
 cancellation and native Cloud lifecycle remain unfinished. This boundary cannot
 acknowledge `archive_verify` or authorize source removal by itself.
+
+### Existing materialized target observation
+
+The fixed materializer accepts a separate closed protocol2 request with
+`phase: observe`. It authenticates the original archive and independently bound
+restored database again, derives the same adapted private configuration/hooks in
+fresh scratch, and compares every existing target name, mode and byte. It copies
+or rewrites no target content. Protocol1 still requires an empty target and
+refuses repeat publication. Partial roots, unexpected files/runtime markers,
+changed configuration, wrong root/database identities and unsupported phases
+refuse without repairing or replacing their witnesses.
+
+Twelve actual archive/Git/PostgreSQL/TLS checks passed. An unchanged helper
+completed materialization through a controlled caller that held its result before
+acknowledgement; SIGKILL of that exact caller lost the acknowledgement. Repeated
+existing-target observation then passed with unchanged bytes, device/inode,
+owner, modes, links, sizes, mtime and ctime. Wrong identities, digest/phase,
+unexpected marker, altered configuration, missing file, same-name replacement
+and database change refused while preserving target state. The archive candidate
+remains an inert fixture; no application or original kernel/journal custody was
+verified in this experiment.
+
+Copied-production recovery now checks the shipped existing-target observer and
+its actual receipt, complete target preservation, unexpected-file preservation
+and phase refusal. Current candidate required CI remains pending. Post-runtime
+marker reconciliation, fixed functional controller, final post-removal usability
+and complete retirement remain unfinished.
