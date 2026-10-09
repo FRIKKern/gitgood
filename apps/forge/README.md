@@ -53,5 +53,7 @@ and retain corrections/withdrawals. See [release publication and recovery](../..
 
 Run mix precommit against isolated gitgood_test. The suite includes real Git storage, authorization, retry,
 reconciliation, process timeout, cancellation, concurrency, memory and output limits.
+
+Managed packing uses two threads so a host with many CPUs cannot exceed the existing worker memory ceiling just by creating thread stacks. Both HTTPS and SSH use this bound. The pack regression transfers a 5,000-file repository through the buffered and streaming workers and validates the received pack in a separate bare repository.
 The web suite additionally exercises trusted HTTPS clone/push/fetch, interrupted upload/retry, revocation,
 protected main and Git fsck. These checks establish development evidence, not release acceptance.

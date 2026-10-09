@@ -37,6 +37,8 @@ Configured SSH without a usable host key refuses startup. Loss of the daemon or 
 
 Connections (including unauthenticated negotiation): 16. Channels per connection: four. Shared transport slots and native command processes: four. Pending input before native startup: 1 MiB. Input and stdout per command: 32 MiB each; stderr: 64 KiB. Frames: 64 KiB. Native deadline: 60 seconds, port deadline: native deadline plus five seconds, channel deadline: 90 seconds. Negotiation and idle intervals are bounded. Child environment is stripped; Windows jobs or POSIX process groups clean up descendants, with per-process memory ceilings.
 
+Managed Git commands, including HTTPS and SSH packing, explicitly use `pack.threads=2`. Git's default CPU detection can see all physical-host CPUs despite a smaller deployment CPU allocation, and its packing thread stacks can exhaust the existing 512 MiB process limit. The thread limit overrides repository configuration while preserving process, memory, timeout and byte ceilings. It does not set limits on an external contributor's Git client.
+
 OTP channel sends apply flow control and a five-second send deadline. The receiver mailbox can buffer output up to the command output ceiling; this is a bounded buffer, not constant-memory streaming. These limits target the initial private pilot and are not a large-repository benchmark.
 
 No shell, PTY, SFTP, arbitrary command/environment, password authentication or TCP forwarding is granted. Command grammar accepts only canonical Git upload-pack/receive-pack repository paths. Current HTTPS restrictions also apply: protected main, no force rewrites/deletes, LFS or repository-supplied executable hooks. New immutable tags are supported for private releases; tag replacement/deletion is denied.

@@ -66,7 +66,9 @@ defmodule Gitgood.Git do
     end
   end
 
-  def command(args, opts \\ []), do: Gitgood.Command.run([executable() | args], opts)
+  def command_args(args), do: [executable(), "-c", "pack.threads=2" | args]
+
+  def command(args, opts \\ []), do: Gitgood.Command.run(command_args(args), opts)
 
   def run(args, opts \\ []) do
     case command(args, opts) do
