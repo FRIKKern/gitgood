@@ -405,8 +405,8 @@ required CI passed against the complete tracked tree of
 125 Linux operators/ten foreign skips,10 web,24 operations,11 browser without
 skips/flaky results,22 copied production,18 offline and33 planning. The five
 run/log records and61 uploaded files passed digest readback. PR59 merged into
-`06c0877bd1a796ebd7cd5687e776399c69c7555c`; its own main pipeline is under
-verification. A second independently installed fixture passed actual
+`06c0877bd1a796ebd7cd5687e776399c69c7555c`; its own main pipeline passed the
+same matrix, with five run/log records and61 uploaded files checked. A second independently installed fixture passed actual
 SIGKILL of the ready controller, preserving live target services and an
 unacknowledged archive stage. Product status reported dead-owner uncertainty;
 the new fixed owner stopped only sealed target groups, reobserved the original
@@ -464,11 +464,87 @@ its failed driver/log remain retained, separately from corrected v2.
 The clean installed application remains `ea3a2adbc2377138a66ea97fb90247509003fc9e`,
 artifact SHA256 `ebc5986d76a77a1b273ee3b6deea5a9a66483fc8b3b40651ce746f077db705a0`.
 Every executed draft operator file has independent bytes/SHA256 observation and
-matches the proposed operator source. The current129 Linux operator regressions
-pass with ten foreign skips; required CI for this new profile is pending. Same
+matches the proposed operator source. All24 executed files match committed Git
+blobs in `db3aefed4f37734a79c7441af2c691c68f778da9`. Its required CI passed180
+backend,9 database recovery,129 Linux operators/ten foreign skips,10 web,24
+operations,11 browser without skips/flaky results,22 copied production,18 offline
+and33 planning checks against the entire tracked head tree. Five run/log records
+and61 uploaded files passed checksum readback. PR60 merged in
+`9b6bf05a2ea40976e40713d3f3918f5b02fe85dd`; that main commit's own full pipeline
+passed the same matrix and five-plus61 file archive checks. Same
 physical host/kernel and fixture-driven initial enrollment remain explicit limits.
 Retained archive/key/probe credentials/private configuration/history/code/target
 database and stores/kernel groups/shared roles/provider resources are preserved;
 no cancellation, provider deallocation, managed Cloud or complete release follows.
 See
 [decision0012](../decisions/0012-post-removal-retained-usability.md).
+
+### Fixed native executor under verification
+
+`native_retirement.py` sequences the same fixed controllers and is exposed by
+`native_operator.py retire`. It reads five fixed private input files and an
+independent canonical plan SHA256. Their full bytes, ownership, single-link
+private modes, device/inode/digests and parent identity are observed around each
+stage. A changed, aliased or same-byte replacement input refuses. Plan/history
+files stay outside the original stores and recovery target. Command and callback
+fields are unsupported. The owner must already be in its exact enrolled driver
+group through the OS delegation boundary; this command cannot allocate/adopt a
+target database, kernel group, original installation or provider resource.
+
+The executor retains the installation lifecycle lock across the whole sequence.
+Archive/key/tool/code identities, current pointer and writer exclusion are
+reobserved before exact removal. Failed/uncertain database and store stages
+observe exact absence or matching remaining resources before fixed applied or
+unapplied reconciliation. Quiescence may repeat same-resource stops without
+claiming no partial stop occurred. Archive retry proves original snapshot
+preservation and uses only the existing target. When that target root is empty,
+a fixed data observation precedes any initial import retry; the actual packaged
+import helper independently refuses a populated, partial or replaced database.
+It never clears a target to make retry possible. Final retry uses the proved
+retained-usability controller. Failures retain the corresponding fixed stage code.
+
+A completed same-intent call returns previously recorded responsibility without
+opening the journal, mutating retained files or asserting fresh archive usability.
+The status command remains a separate read-only observation. Current component
+regressions pass135 Linux checks with eleven foreign skips, including real private
+inputs/PG identities/OS competing lock/CLI refusals. Their kernel, immutable code,
+archive and terminal success boundaries are controlled, so they do not establish
+full installed function. Actual CLI continuation passed five checks after prior
+fixture-driven archive acknowledgement: exact database/store removal, final
+independent actor/API/HTTPS/SSH function, target preservation and whole-group
+shutdown. Two same-intent terminal calls left all109 retained history files
+unchanged. Its126-file archive passed checksum and credential-exclusion readback.
+
+A third independently enrolled clean installation lost its exact-birth archive
+owner before the first import, with an empty target database/root and all four
+target groups empty. The actual CLI reclaimed uncertain responsibility, proved
+the unchanged original snapshot, refused data observation on the empty target,
+and invoked the fixed initial import exactly once. It then verified pre-removal
+function, removed the original database/stores and completed final retained
+function. Five installed CLI checks and two terminal calls passed; all100
+history files were unchanged by the terminal calls and all nine groups were
+empty. The122-file archive passed checksum and credential-exclusion checks.
+These cases retain their distinct scope: initial enrollment/export/checkpoint,
+allocation and the third installation's quiescence used fixed fixture libraries.
+A fourth fresh installation passed all five stages through the actual CLI from
+absent retirement journal/fence. No fixture driver called retirement stage
+controllers. The command published initial responsibility and fence, stopped
+original writers, proved actual pre-removal function, removed only the original
+database and sealed stores, and repeated final retained actor/API/HTTPS/SSH
+function. Exactly one import occurred; all nine original/target groups were empty
+and complete responsibility was published. Five CLI checks and two terminal
+calls passed. All94 history files stayed unchanged by those repeated calls.
+Its117-file archive passed checksum and credential-exclusion readback.
+Initial enrollment/export/checkpoint and target/plan allocation remain fixture
+driven; those commands, cancellation, managed Cloud and release acceptance remain
+unfinished. All three actual CLI cases executed the same25 independently hashed
+operator files with the clean application/artifact identified above. Required
+CI for the executor remains a separate current-tree integration gate. See
+[decision0013](../decisions/0013-fixed-native-retirement-executor.md).
+
+Interruption at an unacknowledged archive stage can require another same-intent
+invocation. In particular, loss after unapplied reconciliation but before stage
+begin can leave a pending stage with an already restored target. The fixed
+initial import refuses that populated target and retains failure; subsequent
+failed-stage retry observes the existing target rather than reimporting it.
+No single-invocation recovery at every instruction boundary is claimed.

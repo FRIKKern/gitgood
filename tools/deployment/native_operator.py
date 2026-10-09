@@ -87,18 +87,28 @@ def read_status(directory, installation):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Inspect retained native installation custody without changing it.")
+    parser = argparse.ArgumentParser(description="Inspect native custody or execute a fixed independently bound retirement.")
     commands = parser.add_subparsers(dest="command", required=True)
     status = commands.add_parser("status", help="Read upgrade, activation and retirement records.")
     status.add_argument("--history-directory", required=True)
     status.add_argument("--installation", required=True)
+    retirement = commands.add_parser("retire", help="Execute or reconcile fixed owned source retirement; retain recovery materials.")
+    retirement.add_argument("--history-directory", required=True)
+    retirement.add_argument("--plan-directory", required=True)
+    retirement.add_argument("--plan-sha256", required=True)
     arguments = parser.parse_args()
     try:
-        print(json.dumps(read_status(arguments.history_directory, arguments.installation), sort_keys=True))
+        if arguments.command == "status":
+            result = read_status(arguments.history_directory, arguments.installation)
+        else:
+            from native_retirement import NativeRetirement
+            result = NativeRetirement(arguments.history_directory, arguments.plan_directory, arguments.plan_sha256).run()
+        print(json.dumps(result, sort_keys=True))
         return 0
     except Exception:
         # Never print private input, credentials, paths or exception details.
-        print(json.dumps({"status": "refused", "code": "native_operator_status_invalid"}), file=sys.stderr)
+        code = "native_operator_status_invalid" if arguments.command == "status" else "native_operator_retirement_invalid"
+        print(json.dumps({"status": "refused", "code": code}), file=sys.stderr)
         return 2
 
 

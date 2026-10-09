@@ -4,7 +4,8 @@ import hashlib
 from retirement_probes import RetirementProbes
 from retirement_runtime import RetirementRuntime
 from retirement_snapshot import retained_file_identity
-from upgrade_journal import canonical, require
+from native_inventory import directory_identity
+from upgrade_journal import canonical, require, UpgradeRefused
 
 
 class RetirementRestoration:
@@ -49,12 +50,23 @@ class RetirementRestoration:
                  "target_materialization_sha256": hashlib.sha256(canonical(after)).hexdigest(), "target_runtime_marker_sha256": marker["sha256"]}
         return {**value, "receipt_sha256": hashlib.sha256(canonical(value)).hexdigest()}
 
-    def resume(self):
+    def resume(self, *, allow_initial_import=False):
         """Reconcile source preservation, then permit fixed existing-target retry."""
         runtime = self.runtime
+        require(type(allow_initial_import) is bool)
         require(runtime.journal.record["stage"] == "archive_verify" and runtime.journal.record["status"] in {"failed", "uncertain"})
         runtime.stop()
         evidence = runtime.snapshot.reconcile_unapplied(restoration=runtime.full)
         runtime.journal.reconcile(applied=False, evidence=evidence)
         runtime.journal.begin("archive_verify")
+        if allow_initial_import:
+            require(directory_identity(runtime.root, private=True) == runtime.target["target_root"])
+            if not list(runtime.root.iterdir()):
+                try:
+                    runtime.data.verify("observe")
+                except UpgradeRefused:
+                    # The fixed helper independently refuses a populated, partial,
+                    # replaced or wrong database before import. No cleanup/reset.
+                    # Invalid retained inputs also refuse again before mutation.
+                    self.restore_data()
         return self.verify()

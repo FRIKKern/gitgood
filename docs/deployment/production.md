@@ -43,8 +43,29 @@ upgrade permits only its bound previous or new identity. A dead recorded owner
 produces an uncertain observation without rewriting or reconciling the journal.
 An activation record reports retained metadata; it does not establish current
 readiness, actual artifact/store identity, archive usability or Cloud/provider
-inventory. The entry point currently exposes status only. Installation enrollment
-and lifecycle commands remain separate implementation work. Private-invalid,
+inventory. The entry point also has a fixed retirement command with actual
+disposable five-stage execution and pre-import owner-loss recovery evidence:
+
+```sh
+python3 tools/deployment/native_operator.py retire \
+  --history-directory /absolute/private/installation-history \
+  --plan-directory /absolute/private/retirement-inputs \
+  --plan-sha256 <independently-pinned-canonical-plan-sha256>
+```
+
+Execute through the OS supervisor inside the already enrolled original driver
+group. This command does not allocate/adopt installations, target databases,
+groups or provider resources. The private input directory contains exactly the
+five named inputs consumed by the command: `plan.json`, `resources.json`,
+`retention.json`, `checkpoint.json` and `full-restoration-plan.json`; other retained
+fixture material is not interpreted as commands. The independent plan digest
+binds all four other canonical input digests. Existing source/archive/target and
+actor bindings are required, and input file identities are checked around each
+stage. See [the execution design](../decisions/0013-fixed-native-retirement-executor.md)
+and [its current evidence](../implementation/installation-retirement.md).
+Completed same-intent retry reports historical completion without new usability
+authority or a journal rewrite. Enrollment, cancellation and other lifecycle
+commands remain separate implementation work. Private-invalid,
 inconsistent or wrong-installation inputs refuse with a fixed error and no input
 or exception details.
 
@@ -119,9 +140,12 @@ isolation prerequisite, not evidence that restoration succeeded. The complete
 fixed restoration controller passed actual installed pre-removal function,
 stopped-marker refusal and killed-controller recovery checks. Final retained
 usability after original deletion passed the fixed installed five-stage case with
-actual controller interruption and adversarial refusals; its new required CI and
-integration are under verification. The lifecycle CLI,
-cancellation and managed provider inventory remain separate work. See
+actual controller interruption and adversarial refusals; required CI and the
+merged main run passed. The fixed retirement CLI separately passed ordinary
+all-five-stage execution, destructive/final continuation and pre-import owner-loss
+recovery on actual disposable installations. Its required integration CI is
+pending. Enrollment/allocation CLI, cancellation and managed provider inventory
+remain separate work. See
 [the design decision](../decisions/0011-isolated-retirement-verification.md) and
 [the current evidence](../implementation/installation-retirement.md).
 
