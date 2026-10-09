@@ -1,7 +1,7 @@
 {
   "id": "export-installation-binding",
   "category": "Added",
-  "summary": "Bind authenticated native export inspection to an independently expected installation UUID and comparable Git/SSH/configuration inventory hashes before retirement planning; removal remains unfinished.",
+  "summary": "Bind authenticated native export inspection to an independently expected installation UUID and comparable file/database hashes, and add a lease-bound retirement checkpoint that refuses changed snapshots; removal remains unfinished.",
   "impact": "operator",
   "references": ["apps/forge/priv/operations/installation-export.mjs", "docs/implementation/installation-retirement.md", "docs/operations/export.md"],
   "journeys": ["J17"],

@@ -1,8 +1,10 @@
 defmodule Gitgood.OfflineRecovery do
   @moduledoc "Offline release commands; no listeners or mutation workers are started."
 
-  def run(mode) when mode in [:backup, :restore] do
-    Gitgood.InstallationLease.with_offline(mode, fn lease ->
+  def run(mode) when mode in [:backup, :restore, :checkpoint] do
+    lease_mode = if mode == :checkpoint, do: :backup, else: mode
+
+    Gitgood.InstallationLease.with_offline(lease_mode, fn lease ->
       {:ok, context} = Gitgood.InstallationLease.context(lease)
       config = Gitgood.Repo.config()
 

@@ -94,6 +94,16 @@ export async function snapshotInstallationRoots(roots){
   return resourceFingerprints(entries)
 }
 
+export function databaseFingerprint(database){
+  requireThat(database&&Object.keys(database).sort().join(',')==='profile,schema_sha256,sequences,tables','database_inventory_invalid')
+  requireThat(/^[a-f0-9]{64}$/.test(database.schema_sha256)&&Array.isArray(database.tables)&&Array.isArray(database.sequences),'database_inventory_invalid')
+  const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':
+    value&&typeof value==='object'?'{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}':JSON.stringify(value)
+  const bytes=Buffer.from(canonical(database))
+  requireThat(bytes.length<=MAX_MANIFEST,'database_inventory_invalid')
+  return createHash('sha256').update(bytes).digest('hex')
+}
+
 export async function packRecovery({destination,key,metadata,roots,beforePublish}){
   keyBytes(key);destination=resolve(destination)
   requireThat(!await exists(destination),'destination_exists')

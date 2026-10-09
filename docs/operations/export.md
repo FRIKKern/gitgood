@@ -30,7 +30,9 @@ Use Node 22.23.3, Git and PostgreSQL 18.4 `pg_restore` on Linux x64. The scratch
 be owned by the invoking identity, mode 0700 and free of symlink aliases. Inspection
 authenticates the entire archive, verifies every file hash, validates configuration,
 checks Git objects and exact recorded refs, and compares the dump table inventory with
-its recorded database fingerprint. It emits counts and checksums without private bodies
+its recorded database fingerprint. The receipt binds the expected installation UUID
+and reports comparable file inventories plus the authenticated database descriptor
+hash; a live fingerprint comparison requires writer exclusion. It emits counts and checksums without private bodies
 or credentials. Its new temporary directory is removed on success or failure. The
 archive, original stores and unrelated scratch entries remain intact.
 
@@ -51,3 +53,19 @@ Archive/removal needs an exact resource ownership inventory, retained archive/ke
 custody, service exclusion, credential cleanup and repeated-operation checks against
 disposable fixtures. Those removal and managed Cloud operations remain unfinished;
 this export command must not be interpreted as removal authorization or completion.
+
+Before retirement, compare the stopped installation with an existing export:
+
+```sh
+GITGOOD_RETIREMENT_INSTALLATION=<expected-installation-uuid> \
+GITGOOD_RETIREMENT_CIPHERTEXT_SHA256=<independently-retained-archive-sha256> \
+  forge/bin/gitgood eval 'Gitgood.Release.retirement_checkpoint()'
+```
+
+Use the same private configuration, external key and bundle settings as export.
+The command takes the existing backup lease, refuses live writers, authenticates
+the export and compares actual file/database fingerprints. The archive and its
+key must be outside the Git, SSH and configuration roots. A wrong UUID/digest or
+changed snapshot refuses without removing resources. The returned receipt is a
+point-in-time comparison: the lease ends on return. Usable restoration and a
+continuously owned, identity-bound removal procedure remain required.

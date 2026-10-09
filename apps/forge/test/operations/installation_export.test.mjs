@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {randomBytes,randomUUID} from 'node:crypto'
 import {spawnSync} from 'node:child_process'
-import {packRecovery,snapshotInstallationRoots} from '../../priv/operations/recovery-bundle.mjs'
+import {packRecovery,snapshotInstallationRoots,databaseFingerprint} from '../../priv/operations/recovery-bundle.mjs'
 import {provisionConfiguration} from '../../priv/operations/recovery-configuration.mjs'
 import {fingerprintDatabase,dumpDatabase,query} from '../../priv/operations/recovery-database.mjs'
 import {inspectInstallationExport} from '../../priv/operations/installation-export.mjs'
@@ -52,6 +52,7 @@ test('installation export inspects real Git and a real database dump without cha
     const receipt=await inspectInstallationExport(options)
     assert.equal(receipt.repositories,1);assert.equal(receipt.tables,1);assert.equal(receipt.checks.length,4)
     assert.equal(receipt.installation,installation)
+    assert.equal(receipt.database_fingerprint,databaseFingerprint(before))
     assert.deepEqual(receipt.resource_fingerprints,await snapshotInstallationRoots({git,ssh,configuration}))
     assert(!JSON.stringify(receipt).includes('private collaboration fixture'))
     assert.deepEqual(await fingerprintDatabase(),before);assert.equal(gitCall(['for-each-ref','--format=%(refname) %(objectname)']),refs)
@@ -60,6 +61,11 @@ test('installation export inspects real Git and a real database dump without cha
     assert.notEqual(changed.git,receipt.resource_fingerprints.git)
     assert.equal(changed.ssh,receipt.resource_fingerprints.ssh);assert.equal(changed.configuration,receipt.resource_fingerprints.configuration)
     await unlink(join(git,'changed-after-export'))
+    await query("UPDATE public.export_fixture SET value='collaboration changed after export' WHERE id=1")
+    assert.notEqual(databaseFingerprint(await fingerprintDatabase()),receipt.database_fingerprint)
+    assert.deepEqual(await snapshotInstallationRoots({git,ssh,configuration}),receipt.resource_fingerprints)
+    await query("UPDATE public.export_fixture SET value='private collaboration fixture' WHERE id=1")
+    assert.equal(databaseFingerprint(await fingerprintDatabase()),receipt.database_fingerprint)
     for(const invalid of [{expectedCandidate:'b'.repeat(40)},{expectedInstallation:randomUUID()},{expectedInstallation:'../foreign'},{keyPath:join(root,'wrong-key')},{source:join(root,'corrupt')}]){
       if(invalid.keyPath)await writeFile(invalid.keyPath,randomBytes(32),{mode:0o600})
       if(invalid.source){const bytes=await readFile(source);bytes[100]^=1;await writeFile(invalid.source,bytes,{mode:0o600})}
