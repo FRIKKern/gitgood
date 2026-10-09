@@ -182,3 +182,67 @@ resources. Destructive acceptance uses newly allocated disposable fixtures only.
 Managed Cloud deallocation requires its own verified provider inventory and action
 contract. No live installation, database, key or provider resource has been removed
 by the inspector change.
+
+`retirement-restore-data.mjs` verifies recovered contents in a separately allocated
+database whose name derives from the independently bound operation UUID. The owner
+allocates that target; the helper neither creates nor drops any database. Exact
+cluster, original target OID, role/owner, encoding, version and endpoint are required,
+and the archived original database name must differ. The original credentials bind
+the same local endpoint without appearing in its request or result.
+
+Restore mode requires an empty public schema, no other application schemas or
+clients, authenticated archive inspection and the original locale profile before
+single-transaction dump import. It then compares the actual schema, ordered row
+hashes, sequences and locale with the authenticated descriptor. Observe mode repeats
+these reads without import; restore mode refuses a populated target. Replacement
+identities and connected clients refuse, and failed or interrupted targets remain
+for explicit reconciliation. Only freshly allocated unpack directories are cleaned
+after the call. Interrupted child scratch requires retained inventory.
+
+Twelve real PostgreSQL18.4/export checks passed on fresh disposable resources: wrong
+installation/ciphertext/request/target identity, actual import and observation,
+populated-target refusal, changed data, a connected client left alive and an unchanged
+repeat, an actual same-name replacement with a different OID, and preserved
+populated replacement data. The first producer run used an incorrect fixture table name after import;
+its partial results remain preserved. A corrected producer allocated a new target
+and passed all ten initial checks. A third fresh producer added the actual
+replacement cases and passed all twelve. These archive candidate/TLS fields are inert. This proves
+recovered contents, not installed application startup, authenticated functional
+probes, kernel/journal custody or the full retirement flow. No restoration-success
+flag for journal acknowledgement is emitted. Copied-production verification adds
+the shipped helper and actual dump/target checks; required CI remains pending.
+
+`retirement_restore_data.py` binds that packaged helper to a closed, independently
+hashed restoration target plan. The operation-derived target name, original OID,
+cluster, role/owner, endpoint and source separation are sealed before admission;
+the controller never allocates or deletes a database. The plan occupies the
+journal's restoration-input digest and declares its data-verification purpose.
+It cannot substitute for a future complete application-restoration plan.
+
+Snapshot and restored-data verification share a fixed packaged-child runner. It
+holds the journal lock, rechecks fence/kernel custody during execution, and checks
+the retained archive/key/tools, original database identity and entire staged code
+before and after. The child's request/result and diagnostics stay private in
+retained history. Restore mode imports only into the sealed separate target;
+observe mode reads that same target without repeating import. Failure preserves
+the target and original stores for explicit reconciliation. Termination stops only
+the controller's child; interrupted helper descendants or scratch must remain
+visible to reconciliation and cannot be treated as successful restoration.
+
+Five new controller checks and four inherited snapshot checks passed with actual
+filesystem/journal locks, PostgreSQL identities and node children with controlled
+kernel/artifact/result boundaries. The complete operator suite passed 110 Linux
+checks with eight foreign-platform skips. These tests do not prove
+an authenticated export import or functional application startup; the separate
+twelve-check helper experiment establishes recovered-data behavior. Neither scope
+establishes complete installed retirement. The controller emits a recovered-data
+receipt without `restore_function_verified`, so archive-stage acknowledgement and
+removal still require actual application restoration under continuous custody.
+
+The combined data/custody/operator-status integration passed all 115 Linux
+operator checks, with eight foreign-platform skips. The separate component
+archives remain scoped: twelve real authenticated-export/database checks, nine
+custody/snapshot checks with controlled boundaries, and five read-only status
+cases plus historical record observation. Combining these results does not
+establish functional restoration or complete installed retirement. Required
+copied-production CI on this combined revision remains pending.

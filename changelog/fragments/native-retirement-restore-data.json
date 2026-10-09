@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-restore-data",
+  "category": "Added",
+  "summary": "Verify retained export contents through actual dump import into a separately identified disposable database, with matching schema, rows, sequences and locale and repeat-import refusal; complete installed retirement remains unfinished.",
+  "impact": "operator",
+  "references": ["apps/forge/priv/operations/retirement-restore-data.mjs", "scripts/verify-offline-recovery.mjs", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}

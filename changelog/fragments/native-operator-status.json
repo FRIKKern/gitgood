@@ -1,0 +1,9 @@
+{
+  "id": "native-operator-status",
+  "category": "Added",
+  "summary": "Expose a read-only native operator status command for retained upgrade, activation and retirement responsibility, preserving dead-owner uncertainty and refusing mixed or private-invalid records; live readiness and Cloud inventory remain separate checks.",
+  "impact": "operator",
+  "references": ["tools/deployment/native_operator.py", "docs/deployment/production.md"],
+  "journeys": ["J15", "J17"],
+  "withdrawn": false
+}
