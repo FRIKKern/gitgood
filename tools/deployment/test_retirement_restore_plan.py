@@ -88,6 +88,23 @@ class FullRestorationPlanTest(unittest.TestCase):
         with self.assertRaises(UpgradeRefused):
             self.sealed(changed)
 
+    def test_full_actor_version_binds_distinct_private_outsider_inputs(self):
+        changed = {**self.value, "protocol": 3, "outsider_probe_directory": {"path": "/retained/outsider-probes", "device": 17,
+                   "inode": 111, "uid": os.getuid()}, "outsider_probe_sha256": "e" * 64}
+        self.assertEqual(self.sealed(changed)["protocol"], 3)
+        for path in [self.value["probe_directory"]["path"], self.value["probe_directory"]["path"] + "/nested",
+                     self.value["materialization"]["target_root"]["path"] + "/outsider"]:
+            altered = copy.deepcopy(changed)
+            altered["outsider_probe_directory"]["path"] = path
+            with self.assertRaises(UpgradeRefused):
+                self.sealed(altered)
+        with self.assertRaises(UpgradeRefused):
+            self.sealed({**changed, "protocol": 2})
+        altered = {**changed, "outsider_probe_sha256": "f" * 64}
+        self.sealed(changed)
+        with self.assertRaises(UpgradeRefused):
+            validate_full_restore_plan(self.journal, altered)
+
     def test_resealed_private_identity_aliases_and_malformed_ports_refuse(self):
         changes = [("probe_directory", "path", self.value["materialization"]["target_root"]["path"] + "/probes"),
                    ("probe_directory", "path", "/retained/../foreign/probes"),

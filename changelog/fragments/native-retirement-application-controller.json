@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-application-controller",
+  "category": "Added",
+  "summary": "Add a draft fixed recovery application controller with independently bound actors, loopback routing, stopped-marker observation and source-preserving retry; installed functional verification remains pending.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_restoration.py", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}

@@ -1,8 +1,11 @@
 import {createReadStream, constants} from 'node:fs'
-import {open, lstat, realpath, readdir, mkdtemp, rm, cp, writeFile} from 'node:fs/promises'
+import {open, lstat, realpath, readdir, mkdtemp, rm, cp, writeFile, readFile} from 'node:fs/promises'
 import {createHash, X509Certificate, createPrivateKey, createPublicKey} from 'node:crypto'
 import {join, resolve, basename} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {hostname} from 'node:os'
+import {execFile} from 'node:child_process'
+import {promisify} from 'node:util'
 import {RecoveryError, unpackRecovery, snapshotInstallationRoots} from './recovery-bundle.mjs'
 import {privateFile, readConfiguration, validateConfiguration} from './recovery-configuration.mjs'
 import {inspectRepositories, rebindRepositories} from './recovery-git.mjs'
@@ -24,15 +27,44 @@ async function targetIdentity(value) {
   check(stat.isDirectory() && stat.dev===value.device && stat.ino===value.inode && stat.uid===value.uid && value.uid===process.getuid() && (stat.mode&0o777)===0o700)
 }
 
-async function validateCopiedTree(source,target) {
+async function runtimeMarker(request) {
+  const expected=request.runtime_marker,group=request.native_group
+  const marker=join(request.target_root.path,'git/.gitgood-runtime-v1.json')
+  check(expected && Object.keys(expected).sort().join(',')==='bytes,device,inode,mode,path,sha256,uid' && expected.path===marker)
+  for(const key of ['device','inode','uid','mode','bytes']) check(Number.isSafeInteger(expected[key])&&expected[key]>=0)
+  check(expected.uid===process.getuid() && expected.mode===0o600 && expected.bytes>0 && expected.bytes<=4096 && digest(expected.sha256))
+  const stat=await lstat(marker),raw=await privateFile(marker,4096)
+  check(stat.isFile()&&stat.nlink===1&&stat.dev===expected.device&&stat.ino===expected.inode&&stat.uid===expected.uid&&
+    (stat.mode&0o777)===expected.mode&&stat.size===expected.bytes&&createHash('sha256').update(raw).digest('hex')===expected.sha256)
+  const value=JSON.parse(raw.toString('utf8'))
+  check(value && Object.keys(value).sort().join(',')==='candidate,cgroup,created_at,host,mode,owner_births,owners,protocol')
+  check(value.protocol===1&&value.mode==='runtime'&&value.candidate===request.candidate&&value.host===hostname())
+  check(typeof value.created_at==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(value.created_at)&&Number.isFinite(Date.parse(value.created_at)))
+  const kernel='/gitgood-installation-'+request.installation+'/retirement-'+request.operation+'/'+request.target_installation+'/native'
+  check(value.cgroup===kernel&&group&&Object.keys(group).sort().join(',')==='delegated_uid,device,inode,kernel_path,path')
+  check(group.path==='/sys/fs/cgroup'+kernel&&group.kernel_path===kernel&&group.delegated_uid===process.getuid())
+  for(const key of ['device','inode','delegated_uid']) check(Number.isSafeInteger(group[key])&&group[key]>=0)
+  check(await realpath(group.path)===group.path)
+  const info=await lstat(group.path),mount=await lstat('/sys/fs/cgroup')
+  check(info.isDirectory()&&info.dev===mount.dev&&info.dev===group.device&&info.ino===group.inode&&[0,process.getuid()].includes(info.uid))
+  for(const name of ['cgroup.procs','cgroup.kill']) {const control=await lstat(join(group.path,name));check(control.isFile()&&control.uid===process.getuid())}
+  check(/(?:^|\n)populated 0(?:\n|$)/.test(await readFile(join(group.path,'cgroup.events'),'utf8'))&&!(await readFile(join(group.path,'cgroup.procs'),'utf8')).trim())
+  const {stdout}=await promisify(execFile)(process.env.GITGOOD_PYTHON??'/usr/bin/python3',
+    ['-I',fileURLToPath(new URL('./process_status.py',import.meta.url)),marker,'require-empty-cgroup'],{timeout:5000,maxBuffer:1024,windowsHide:true})
+  check(stdout.trim()==='clear')
+  return marker
+}
+
+async function validateCopiedTree(source,target,marker=null) {
   // Compare the entire target, including any unexpected runtime markers. The
   // normalized archive fingerprint alone intentionally excludes those markers.
   const left=await lstat(source),right=await lstat(target)
   check(await realpath(target)===target && right.uid===process.getuid())
   check(left.isDirectory()===right.isDirectory() && left.isFile()===right.isFile() && (right.mode&0o777)===(left.mode&0o777))
   if(left.isDirectory()) {
-    const names=(await readdir(source)).sort(); check(same(names,(await readdir(target)).sort()))
-    for(const name of names) await validateCopiedTree(join(source,name),join(target,name))
+    const names=(await readdir(source)).sort(),actual=(await readdir(target)).filter(name=>join(target,name)!==marker).sort()
+    check(same(names,actual))
+    for(const name of names) await validateCopiedTree(join(source,name),join(target,name),marker)
   } else {
     check(left.isFile() && right.nlink===1 && left.size===right.size && await hash(source)===await hash(target))
   }
@@ -43,8 +75,10 @@ async function validateCopiedTree(source,target) {
 export async function materializeRetirementRestore(request) {
   check(process.platform==='linux' && process.arch==='x64' && process.version==='v22.23.3')
   check(request && typeof request==='object')
-  const observing=request.protocol===2 && request.phase==='observe'
-  check(Object.keys(request).sort().join(',')===(observing ?
+  const afterRuntime=request.protocol===3&&request.phase==='observe'
+  const observing=(request.protocol===2 || afterRuntime)&&request.phase==='observe'
+  check(Object.keys(request).sort().join(',')===(afterRuntime ?
+    'candidate,ciphertext_sha256,installation,key_path,native_group,operation,phase,ports,protocol,runtime_marker,scratch_directory,source,target_database,target_installation,target_root' : observing ?
     'candidate,ciphertext_sha256,installation,key_path,operation,phase,ports,protocol,scratch_directory,source,target_database,target_installation,target_root' :
     'candidate,ciphertext_sha256,installation,key_path,operation,ports,protocol,scratch_directory,source,target_database,target_installation,target_root'))
   check((request.protocol===1 || observing) && uuid(request.operation) && uuid(request.installation) && uuid(request.target_installation) && request.target_installation!==request.installation)
@@ -56,6 +90,7 @@ export async function materializeRetirementRestore(request) {
   const target=request.target_root.path
   check(basename(target)==='gitgood_retirement_restore_'+request.operation.replaceAll('-',''))
   check(observing ? same((await readdir(target)).sort(),['configuration','git','ssh']) : (await readdir(target)).length===0)
+  const marker=afterRuntime?await runtimeMarker(request):null
   for(const path of [request.source,request.key_path]) check(typeof path==='string' && resolve(path)===path && !overlaps(target,path))
   check(typeof request.scratch_directory==='string' && resolve(request.scratch_directory)===request.scratch_directory &&
     request.scratch_directory!==target && !request.scratch_directory.startsWith(target+'/'))
@@ -114,7 +149,7 @@ export async function materializeRetirementRestore(request) {
     }
     await targetIdentity(request.target_root)
     check(same((await readdir(target)).sort(),['configuration','git','ssh']))
-    for(const name of ['git','ssh','configuration']) await validateCopiedTree(join(verified,name),join(target,name))
+    for(const name of ['git','ssh','configuration']) await validateCopiedTree(join(verified,name),join(target,name),marker)
     check(same(await inspectRepositories(join(target,'git'),descriptor.repositories.map(({storage_key,status})=>({storage_key,status}))),descriptor.repositories))
     const fingerprints=await snapshotInstallationRoots(roots(target))
     check(same(fingerprints,await snapshotInstallationRoots(roots(verified))))
@@ -125,9 +160,10 @@ export async function materializeRetirementRestore(request) {
       ciphertext_sha256:request.ciphertext_sha256,source:request.source,key_path:request.key_path,scratch_directory:request.scratch_directory,
       target:request.target_database,phase:'observe'})
     check(same(data,after))
+    if(afterRuntime) check(await runtimeMarker(request)===marker)
     await targetIdentity(request.target_root)
     await targetHandle.sync()
-    return {protocol:observing?2:1,purpose:'retirement_restore_materialization',status:observing?'observed':'materialized',...(observing?{phase:'observe'}:{}),operation:request.operation,
+    return {protocol:afterRuntime?3:observing?2:1,purpose:'retirement_restore_materialization',status:observing?'observed':'materialized',...(observing?{phase:'observe'}:{}),...(afterRuntime?{runtime_marker:request.runtime_marker,native_group:request.native_group}:{}),operation:request.operation,
       installation:request.installation,candidate:request.candidate,ciphertext_sha256:request.ciphertext_sha256,recovery_point:data.recovery_point,
       resource_fingerprints:data.resource_fingerprints,database_fingerprint:data.database_fingerprint,
       target_installation:request.target_installation,target_root:request.target_root,target_database:request.target_database,

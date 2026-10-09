@@ -354,3 +354,28 @@ its actual receipt, complete target preservation, unexpected-file preservation
 and phase refusal. Current candidate required CI remains pending. Post-runtime
 marker reconciliation, fixed functional controller, final post-removal usability
 and complete retirement remain unfinished.
+
+### Draft fixed application verification controller
+
+`RetirementRestoration` composes original custody with fixed temporary forge, web
+and loopback TLS/SSH launches. Full-plan protocol3 adds separately bound outsider
+actor inputs and an independent private Git witness. Verification requires exact
+recovery-mode readiness/schema, valid independent sessions, recovered private
+branches, anonymous/cross-team API refusal and actual permitted/denied HTTPS and
+SSH refs. Target processes stop as complete identity-bound groups before
+post-runtime materialization/database and original snapshot observations.
+
+A separately observed live runtime marker is retained and validated after stop
+through actual owner birth and empty native-group observations. Closed
+materializer protocol3 makes that one bound marker explicit; unexpected markers
+remain refused. An uncertain archive stage can stop only its sealed target
+groups, reobserve the original snapshot through the fixed read-only helper, and
+retry existing restored contents. No arbitrary callback or caller-supplied
+functional result is accepted by this controller.
+
+This is a draft awaiting installed execution.125 Linux operator checks, six
+current grouped-helper kernel checks and twelve existing-target observation
+checks do not establish the new application workflow. The component archive uses
+an inert archive candidate; actual installed artifact and independent actors are
+required next. Final retained usability after source removal, cancellation,
+complete retirement, managed Cloud and release acceptance remain unfinished.

@@ -74,9 +74,13 @@ def observe_target_group(installation, operation, target_installation, name):
 
 def validate_full_restore_plan(journal, value):
     require(sys.platform == "linux")
-    require(isinstance(value, dict) and set(value) == {"protocol", "purpose", "operation", "installation", "data_plan",
-            "materialization", "target_groups", "probe_directory", "probe_sha256", "outsider_token"})
-    require(type(value["protocol"]) is int and value["protocol"] == 2 and value["purpose"] == "retirement_functional_restore_plan")
+    require(isinstance(value, dict))
+    require(type(value.get("protocol")) is int and value["protocol"] in {2, 3})
+    keys = {"protocol", "purpose", "operation", "installation", "data_plan", "materialization", "target_groups",
+            "probe_directory", "probe_sha256", "outsider_token"}
+    if value["protocol"] == 3:
+        keys.update({"outsider_probe_directory", "outsider_probe_sha256"})
+    require(set(value) == keys and value["purpose"] == "retirement_functional_restore_plan")
     require(value["operation"] == journal.operation and value["installation"] == journal.plan["installation"])
     require(hashlib.sha256(canonical(value)).hexdigest() == journal.plan["restore_sha256"])
     data = value["data_plan"]
@@ -119,6 +123,11 @@ def validate_full_restore_plan(journal, value):
             require(type(group[key]) is int and 0 < group[key] < 2**63)
     _root(value["probe_directory"])
     _digest(value["probe_sha256"])
+    if value["protocol"] == 3:
+        _root(value["outsider_probe_directory"])
+        _digest(value["outsider_probe_sha256"])
+        left, right = Path(value["probe_directory"]["path"]), Path(value["outsider_probe_directory"]["path"])
+        require(not left.is_relative_to(right) and not right.is_relative_to(left))
     token = value["outsider_token"]
     require(isinstance(token, dict) and set(token) == FILE_KEYS)
     _path(token["path"])
@@ -129,4 +138,7 @@ def validate_full_restore_plan(journal, value):
     target = Path(materialization["target_root"]["path"])
     for path in [value["probe_directory"]["path"], token["path"], materialization["source"], materialization["key_path"]]:
         require(not Path(path).is_relative_to(target) and not target.is_relative_to(Path(path)))
+    if value["protocol"] == 3:
+        path = Path(value["outsider_probe_directory"]["path"])
+        require(not path.is_relative_to(target) and not target.is_relative_to(path))
     return json.loads(canonical(value))
