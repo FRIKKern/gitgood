@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "0b585d1be0c0921bd18226ab46bede10b233bfeb",
+  "headCommit": "daefab4bbbae54dc96f65b71830ff517d7cab263",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-09T06:46:12.956Z",
+      "observedAt": "2026-10-09T08:16:46.640Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
@@ -135,10 +135,10 @@
     {
       "id": "J17",
       "implementation": {
-        "state": "planned",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J17.md"
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/26452a842d526f9d3140dfa9099a2c62abda67ae/docs/operations/export.md"
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T06:46:12.956Z"
+  "evaluatedAt": "2026-10-09T08:16:46.640Z"
 }

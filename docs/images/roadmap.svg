@@ -24,7 +24,7 @@
 <rect x="36" y="170" width="364" height="77" rx="12" class="panel"/>
 <text x="52" y="198" font-size="15" class="strong" >Fully implemented</text>
 <text x="384" y="200" font-size="22" class="good strong" text-anchor="end">0/17</text>
-<text x="52" y="229" font-size="14" class="muted" >0 complete · 15 in progress</text>
+<text x="52" y="229" font-size="14" class="muted" >0 complete · 16 in progress</text>
 </g>
 <g data-metric="verification"><title>Verified: 0 confirmed · 17 unknown or stale</title>
 <rect x="412" y="170" width="364" height="77" rx="12" class="panel"/>
@@ -161,5 +161,5 @@
 <text x="36" y="1438" font-size="15" class="muted" >Equal columns ≠ equal durations. Bars show the plan, not verified completion.</text>
 <text x="36" y="1465" font-size="14" class="muted" >Research overlap requires capacity. Re-estimate calendar timing after M2 and M3.</text>
 <text x="36" y="1493" font-size="14" class="muted" >ledger: current   /   evidence: unconfigured   /   releases: unconfigured</text>
-<text x="36" y="1520" font-size="13" class="muted" >Snapshot 2026-10-09T06:46:12.956Z · 24h freshness window · static image</text>
+<text x="36" y="1520" font-size="13" class="muted" >Snapshot 2026-10-09T08:16:46.640Z · 24h freshness window · static image</text>
 </svg>

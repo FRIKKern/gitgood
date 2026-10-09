@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import {mkdir,readFile,writeFile,lstat} from 'node:fs/promises'
+import {mkdir,readFile,writeFile,lstat,readdir} from 'node:fs/promises'
 import {join} from 'node:path'
 import {randomBytes,createHash} from 'node:crypto'
 import {provisionConfiguration,readConfiguration} from '../apps/forge/priv/operations/recovery-configuration.mjs'
@@ -73,7 +73,7 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   }finally{if(held)await stop(held)}
   assert((await readFile(lock)).equals(interruptedLock),'Kernel termination must leave the real unpublished Git lock for recovery')
   const pausedAt=performance.now()
-  await run(release,['eval','Gitgood.Release.backup()'],backupEnv,installedForge,'backup')
+  await run(release,['eval','Gitgood.Release.export()'],backupEnv,installedForge,'backup')
   const backupLog=await readFile(join(root,'logs/backup.log'),'utf8')
   const backupReceipt=JSON.parse(backupLog.trim().split('\n').find(line=>line.startsWith('{')))
   assert.equal(backupReceipt.status,'complete')
@@ -82,6 +82,18 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   assert((await readFile(join(env.GITGOOD_STORAGE,recoveredLock.quarantine))).equals(interruptedLock))
   await assert.rejects(lstat(lock))
   assert.equal(createHash('sha256').update(await readFile(bundle)).digest('hex'),backupReceipt.ciphertext_sha256)
+  const libraries=(await readdir(join(installedForge,'lib'))).filter(name=>name.startsWith('gitgood-'))
+  assert.equal(libraries.length,1)
+  const inspector=join(installedForge,'lib',libraries[0],'priv/operations/installation-export.mjs')
+  assert((await lstat(inspector)).isFile(),'Inspector must be shipped in the copied forge artifact')
+  const inspectionEnvironment={PATH:process.env.PATH}
+  for(const name of ['GITGOOD_GIT','GITGOOD_PG_RESTORE'])if(process.env[name])inspectionEnvironment[name]=process.env[name]
+  await run(process.execPath,[inspector,bundle,keyFile,root,backupReceipt.candidate],inspectionEnvironment,root,'export-inspection')
+  const exportInspection=JSON.parse((await readFile(join(root,'logs/export-inspection.log'),'utf8')).trim())
+  assert.equal(exportInspection.purpose,'installation_export')
+  assert.equal(exportInspection.candidate,backupReceipt.candidate)
+  assert.equal(exportInspection.ciphertext_sha256,backupReceipt.ciphertext_sha256)
+  assert.equal(exportInspection.checks.length,4)
   const wrongLocaleDatabase='gitgood_wrong_locale_'+randomBytes(4).toString('hex')
   const wrongLocaleInstallation=join(root,'wrong-locale');await mkdir(wrongLocaleInstallation,{mode:0o700})
   await run(process.env.GITGOOD_CREATEDB??'createdb',['--template=template0','--encoding=UTF8','--locale=C',
@@ -175,13 +187,14 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const recoveryMs=performance.now()-pausedAt
   assert(recoveryMs<targetRtoMs)
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
-    backup:{...backupReceipt},restored_database:database,installation:recovered.installation,
+    backup:{...backupReceipt},export:exportInspection,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
       'real prepared Git transaction excluded while alive; killed lock quarantined byte-for-byte without publishing its ref',
       'restored session, proxy and source key custody','SSH host identity retained','unknown sealed request retained and observed without another write',
-      'private collaboration and asset access retained','outsider denied','authorized HTTPS and SSH refs, clone and new push with rebound hooks'],
+      'private collaboration and asset access retained','outsider denied','authorized HTTPS and SSH refs, clone and new push with rebound hooks',
+      'copied release export uses coordinated backup exclusion; packaged inspector validates the archive without database connection settings'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}
   await writeFile(join(options.evidence,'offline-recovery-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   return receipt

@@ -39,6 +39,14 @@ application behavior or measure recovery time. Follow the full restore procedure
 calling an archive usable for recovery. The bounded profile does not promise migration
 to an unrelated forge or lossless restoration on a different database/locale profile.
 
+The Linux copied-production recovery verifier executes the packaged release export
+entry point, checks the packaged inspector with no database connection settings, and
+then restores that same archive through the full existing functional recovery flow.
+The operation test additionally uses a real bare Git repository and PostgreSQL dump,
+retains unrelated scratch entries and compares live database fingerprints before/after
+successful and refused inspections. These are supporting checks for J17; archive/removal
+still needs the broader criteria below.
+
 Archive/removal needs an exact resource ownership inventory, retained archive/key
 custody, service exclusion, credential cleanup and repeated-operation checks against
 disposable fixtures. Those removal and managed Cloud operations remain unfinished;
