@@ -155,6 +155,181 @@ defmodule Gitgood.EvidenceTest do
     })
   end
 
+  test "NUL metadata and text artifacts are refused before database storage", c do
+    for params <- [
+          put_in(c.params, ["manifest", "commands"], ["command\0argument"]),
+          put_in(c.params, ["manifest", "environment"], %{"fixture\0key" => "value"}),
+          put_in(c.params, ["manifest", "producer"], "producer\0label"),
+          Map.put(c.params, "source_revision", "revision\0value"),
+          Map.put(c.params, "artifact", %{
+            "name" => "nul.txt",
+            "content" => "text\0value",
+            "sha256" => hash("text\0value")
+          })
+        ] do
+      assert {:error, :invalid_evidence} = attach(c, "nul-body", params)
+    end
+
+    assert Repo.aggregate(CriterionEvidence, :count) == 0
+    {:ok, first} = attach(c, "valid-nul-test-template")
+
+    endpoint =
+      "/api/repos/evidence-team/project/pulls/#{c.pull.public_id}/links/#{c.link["id"]}/evidence/#{first["id"]}/unavailable"
+
+    conn =
+      build_conn()
+      |> put_req_header("authorization", "Bearer " <> c.token)
+      |> put_req_header("idempotency-key", "nul-reason")
+
+    assert json_response(post(conn, endpoint, %{"reason" => "missing\0reason"}), 422)["error"] ==
+             "invalid_evidence"
+
+    assert Repo.aggregate(CriterionEvidenceEvent, :count) == 0
+  end
+
+  test "history pages retain every result without inheriting an older visible pass", c do
+    {:ok, first} = attach(c, "history-template")
+    template = Repo.get_by!(CriterionEvidence, public_id: first["id"])
+    seed_records(c, template, 39)
+    {:ok, final} = attach(c, "history-newest-failed", Map.put(c.params, "outcome", "failed"))
+    newest = Repo.get_by!(CriterionEvidence, public_id: final["id"])
+
+    assert {:ok, initial} = view(c)
+    assert length(initial["records"]) == 20
+    assert initial["history"]["total"] == 41
+    assert hd(initial["criteria"])["state"] == "failed"
+    assert hd(initial["records"])["id"] == newest.public_id
+    assert {:ok, older} = view(c, initial["history"]["next_cursor"])
+    assert length(older["records"]) == 20
+    assert hd(older["criteria"])["state"] == "failed"
+    assert Enum.all?(older["records"], &(&1["state"] == "passed"))
+    assert {:ok, oldest} = view(c, older["history"]["next_cursor"])
+    assert Enum.map(oldest["records"], & &1["id"]) == [first["id"]]
+    assert oldest["history"]["next_cursor"] == nil
+    assert hd(oldest["criteria"])["evidence_id"] == newest.public_id
+    ids = Enum.map(initial["records"] ++ older["records"] ++ oldest["records"], & &1["id"])
+    assert length(Enum.uniq(ids)) == 41
+    assert Repo.aggregate(CriterionEvidence, :count) == 41
+    assert Enum.all?(initial["records"], &(not Map.has_key?(&1["artifact"], "content")))
+
+    {:ok, second_link} =
+      SourceLinks.attach(
+        c.repository,
+        c.pull,
+        c.owner,
+        c.credential,
+        %{
+          "type" => "task",
+          "document_id" => "other-evidence-task",
+          "connection_generation" => c.connection["generation"]
+        },
+        "other-history-link"
+      )
+
+    assert {:error, :evidence_not_found} = view(%{c | link: second_link}, first["id"])
+  end
+
+  test "withdrawal event pages preserve old reasons and refuse cross-record cursors", c do
+    {:ok, first} = attach(c, "events-template")
+
+    assert {:ok, _} =
+             Evidence.unavailable(
+               c.repository,
+               c.pull,
+               c.owner,
+               c.credential,
+               c.link["id"],
+               first["id"],
+               "Original artifact missing",
+               "event-template"
+             )
+
+    row = Repo.get_by!(CriterionEvidence, public_id: first["id"])
+    event = Repo.one!(from(e in CriterionEvidenceEvent, where: e.evidence_id == ^row.id))
+    attrs = event |> Map.from_struct() |> Map.drop([:id, :__meta__])
+
+    Repo.insert_all(
+      CriterionEvidenceEvent,
+      for(
+        index <- 1..26,
+        do:
+          Map.merge(attrs, %{
+            reason: "Retained reason #{index}",
+            request_key: "history-event-#{index}",
+            request_digest:
+              Gitgood.Lease.digest([
+                "artifact_unavailable",
+                first["id"],
+                "Retained reason #{index}"
+              ])
+          })
+      )
+    )
+
+    assert {:ok, initial} = view(c)
+    record = hd(initial["records"])
+    assert record["state"] == "unavailable"
+    assert record["events_total"] == 27
+    assert length(record["events"]) == 25
+    assert hd(record["events"])["reason"] == "Original artifact missing"
+
+    endpoint =
+      "/api/repos/evidence-team/project/pulls/#{c.pull.public_id}/links/#{c.link["id"]}/evidence/#{first["id"]}/events"
+
+    query = "?connection_generation=" <> c.connection["generation"]
+    conn = build_conn() |> put_req_header("authorization", "Bearer " <> c.token)
+
+    remaining =
+      json_response(
+        get(conn, endpoint <> query <> "&cursor=" <> record["events_next_cursor"]),
+        200
+      )
+
+    assert Enum.map(remaining["events"], & &1["reason"]) == [
+             "Retained reason 25",
+             "Retained reason 26"
+           ]
+
+    assert remaining["next_cursor"] == nil
+    assert remaining["total"] == 27
+
+    {:ok, second} = attach(c, "different-events-template")
+
+    assert {:ok, _} =
+             Evidence.unavailable(
+               c.repository,
+               c.pull,
+               c.owner,
+               c.credential,
+               c.link["id"],
+               second["id"],
+               "Another record",
+               "other-event"
+             )
+
+    other = Repo.one!(from(e in CriterionEvidenceEvent, order_by: [desc: e.id], limit: 1))
+
+    assert json_response(
+             get(conn, endpoint <> query <> "&cursor=" <> Integer.to_string(other.id)),
+             422
+           )["error"] == "invalid_evidence_cursor"
+
+    assert json_response(get(conn, endpoint <> query <> "&cursor=-1"), 422)["error"] ==
+             "invalid_evidence_cursor"
+
+    reader = build_conn() |> put_req_header("authorization", "Bearer " <> c.reader_token)
+    reader_query = "?connection_generation=" <> c.reader_connection["generation"]
+    assert length(json_response(get(reader, endpoint <> reader_query), 200)["events"]) == 25
+    command(c, "doc-state 503", "DOC_STATE 503")
+
+    assert json_response(get(conn, endpoint <> query), 503)["error"] ==
+             "evidence_source_unavailable"
+
+    Repo.delete_all(from(m in Membership, where: m.user_id == ^c.owner.id))
+    assert json_response(get(conn, endpoint <> query), 404)["error"] == "evidence_not_found"
+    assert Repo.aggregate(CriterionEvidenceEvent, :count) == 28
+  end
+
   test "past fractional observation times are retained exactly while future times are refused",
        c do
     observation = DateTime.utc_now() |> DateTime.to_iso8601()
@@ -464,6 +639,35 @@ defmodule Gitgood.EvidenceTest do
         params || c.params,
         key
       )
+
+  defp view(c, cursor),
+    do:
+      Evidence.list(
+        c.repository,
+        c.pull,
+        c.owner,
+        c.credential,
+        c.link["id"],
+        c.connection["generation"],
+        cursor
+      )
+
+  defp seed_records(c, template, count) do
+    attrs = template |> Map.from_struct() |> Map.drop([:id, :__meta__])
+
+    Repo.insert_all(
+      CriterionEvidence,
+      for(
+        index <- 1..count,
+        do:
+          Map.merge(attrs, %{
+            public_id: Ecto.UUID.generate(),
+            creation_key: "seed-history-#{index}",
+            artifact_content: c.params["artifact"]["content"]
+          })
+      )
+    )
+  end
 
   defp download(c, id),
     do:

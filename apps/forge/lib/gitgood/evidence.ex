@@ -14,24 +14,31 @@ defmodule Gitgood.Evidence do
     SourceLinks
   }
 
-  def list(repository, pull, user, credential, link_id, connection_generation) do
+  @history_page 20
+  @event_page 25
+
+  def list(repository, pull, user, credential, link_id, connection_generation, cursor \\ nil) do
     with {:ok, source} <-
            SourceLinks.read(repository, pull, user, credential, link_id, connection_generation) do
       if source["source_state"] == "available" && is_list(source["criteria"]) do
         with {:ok, revisions} <- Pulls.revisions(repository, pull),
              {:ok, view} <-
                authorized(repository, pull, user, credential, source, fn ->
-                 rows = records(source["id"])
-                 events = events(rows)
-                 public = Enum.map(rows, &public(&1, source, revisions, events))
+                 {rows, next_cursor} = records(source["id"], cursor)
+                 latest = latest(source["id"])
+                 counts = event_counts(rows ++ latest)
+                 events = record_events(rows)
+                 public = Enum.map(rows, &public(&1, source, revisions, counts, events))
+                 newest = Map.new(latest, &{&1.criterion_index, &1})
 
                  criteria =
                    Enum.map(source["criteria"], fn criterion ->
-                     newest = Enum.find(public, &(&1["criterion_index"] == criterion["index"]))
+                     row = newest[criterion["index"]]
 
                      Map.merge(criterion, %{
-                       "state" => if(newest, do: newest["state"], else: "absent"),
-                       "evidence_id" => if(newest, do: newest["id"], else: nil)
+                       "state" =>
+                         if(row, do: state(row, source, revisions, counts), else: "absent"),
+                       "evidence_id" => if(row, do: row.public_id, else: nil)
                      })
                    end)
 
@@ -48,7 +55,15 @@ defmodule Gitgood.Evidence do
                    "target_sha" => revisions.target_sha,
                    "observed_at" => DateTime.to_iso8601(Accounts.now()),
                    "criteria" => criteria,
-                   "records" => public
+                   "records" => public,
+                   "history" => %{
+                     "total" =>
+                       Repo.aggregate(
+                         from(e in CriterionEvidence, where: e.source_link_id == ^source["id"]),
+                         :count
+                       ),
+                     "next_cursor" => next_cursor
+                   }
                  }
                end),
              do: {:ok, view}
@@ -65,6 +80,49 @@ defmodule Gitgood.Evidence do
              )
          }}
       end
+    end
+  end
+
+  def event_history(
+        repository,
+        pull,
+        user,
+        credential,
+        link_id,
+        evidence_id,
+        generation,
+        cursor \\ nil
+      ) do
+    with {:ok, source} <-
+           SourceLinks.read(repository, pull, user, credential, link_id, generation),
+         true <- source["source_state"] == "available" && is_list(source["criteria"]) do
+      authorized(repository, pull, user, credential, source, fn ->
+        row = find!(source["id"], evidence_id)
+        position = event_position!(row.id, cursor)
+
+        events =
+          Repo.all(
+            from(e in CriterionEvidenceEvent,
+              where: e.evidence_id == ^row.id and e.id > ^position,
+              order_by: [asc: e.id],
+              limit: ^(@event_page + 1)
+            )
+          )
+
+        page = Enum.take(events, @event_page)
+
+        %{
+          "source" =>
+            Map.take(source, ["id", "generation", "connection_generation", "source_state"]),
+          "events" => Enum.map(page, &public_event/1),
+          "total" => Map.get(event_counts([row]), row.id, 0),
+          "next_cursor" =>
+            if(length(events) > @event_page, do: Integer.to_string(List.last(page).id), else: nil)
+        }
+      end)
+    else
+      false -> {:error, :evidence_source_unavailable}
+      error -> error
     end
   end
 
@@ -216,7 +274,7 @@ defmodule Gitgood.Evidence do
          true <- source["source_state"] == "available" && is_list(source["criteria"]) do
       authorized(repository, pull, user, credential, source, fn ->
         row = find!(source["id"], evidence_id)
-        unless events([row]) == [], do: Repo.rollback(:evidence_artifact_unavailable)
+        if unavailable?(row), do: Repo.rollback(:evidence_artifact_unavailable)
 
         content =
           Repo.one(
@@ -238,7 +296,7 @@ defmodule Gitgood.Evidence do
   def guard_artifact(repository, pull, user, credential, source, evidence_id) do
     authorized(repository, pull, user, credential, source, fn ->
       row = find!(source["id"], evidence_id)
-      unless events([row]) == [], do: Repo.rollback(:evidence_artifact_unavailable)
+      if unavailable?(row), do: Repo.rollback(:evidence_artifact_unavailable)
       :current
     end)
   end
@@ -259,29 +317,116 @@ defmodule Gitgood.Evidence do
          else: (_ -> {:error, :evidence_requirement_changed})
   end
 
-  defp records(link),
-    do:
-      Repo.all(
-        from(e in CriterionEvidence,
-          where: e.source_link_id == ^link,
-          order_by: [desc: e.id],
-          limit: 1000
-        )
+  defp records(link, cursor) do
+    position = if is_nil(cursor), do: nil, else: find!(link, cursor).id
+
+    query =
+      from(e in CriterionEvidence,
+        where: e.source_link_id == ^link,
+        order_by: [desc: e.id],
+        limit: ^(@history_page + 1)
       )
 
-  defp events([]), do: []
+    query = if position, do: from(e in query, where: e.id < ^position), else: query
+    rows = Repo.all(query)
+    page = Enum.take(rows, @history_page)
+    {page, if(length(rows) > @history_page, do: List.last(page).public_id, else: nil)}
+  end
 
-  defp events(rows),
-    do:
+  defp latest(link) do
+    # Only binding/state fields are needed for current criteria; manifests and artifacts stay out.
+    Repo.all(
+      from(e in CriterionEvidence,
+        where: e.source_link_id == ^link,
+        distinct: e.criterion_index,
+        order_by: [asc: e.criterion_index, desc: e.id],
+        select:
+          struct(e, [
+            :id,
+            :public_id,
+            :criterion_index,
+            :criterion_sha256,
+            :link_generation,
+            :source_revision,
+            :source_sha,
+            :target_sha,
+            :outcome
+          ])
+      )
+    )
+  end
+
+  defp event_counts([]), do: %{}
+
+  defp event_counts(rows) do
+    ids = Enum.uniq(Enum.map(rows, & &1.id))
+
+    Map.new(
       Repo.all(
         from(e in CriterionEvidenceEvent,
-          where: e.evidence_id in ^Enum.map(rows, & &1.id),
-          order_by: [asc: e.id]
+          where: e.evidence_id in ^ids,
+          group_by: e.evidence_id,
+          select: {e.evidence_id, count(e.id)}
         )
       )
+    )
+  end
 
-  defp public(row, source, revisions, events) do
-    history = Enum.filter(events, &(&1.evidence_id == row.id))
+  defp unavailable?(row),
+    do: Repo.exists?(from(e in CriterionEvidenceEvent, where: e.evidence_id == ^row.id))
+
+  defp record_events([]), do: %{}
+
+  defp record_events(rows) do
+    ids = Enum.map(rows, & &1.id)
+
+    ranked =
+      from(e in CriterionEvidenceEvent,
+        where: e.evidence_id in ^ids,
+        windows: [record: [partition_by: e.evidence_id, order_by: e.id]],
+        select: %{
+          id: e.id,
+          evidence_id: e.evidence_id,
+          actor_id: e.actor_id,
+          kind: e.kind,
+          reason: e.reason,
+          inserted_at: e.inserted_at,
+          ordinal: over(row_number(), :record)
+        }
+      )
+
+    Repo.all(
+      from(e in subquery(ranked),
+        where: e.ordinal <= ^@event_page,
+        order_by: [asc: e.evidence_id, asc: e.id]
+      )
+    )
+    |> Enum.group_by(& &1.evidence_id)
+  end
+
+  defp event_position!(_, nil), do: 0
+
+  defp event_position!(evidence_id, cursor) when is_binary(cursor) and byte_size(cursor) <= 20 do
+    case Integer.parse(cursor) do
+      {position, ""} when position > 0 and position < 9_223_372_036_854_775_808 ->
+        unless Integer.to_string(position) == cursor &&
+                 Repo.exists?(
+                   from(e in CriterionEvidenceEvent,
+                     where: e.id == ^position and e.evidence_id == ^evidence_id
+                   )
+                 ),
+               do: Repo.rollback(:invalid_evidence_cursor)
+
+        position
+
+      _ ->
+        Repo.rollback(:invalid_evidence_cursor)
+    end
+  end
+
+  defp event_position!(_, _), do: Repo.rollback(:invalid_evidence_cursor)
+
+  defp state(row, source, revisions, counts) do
     criterion = Enum.find(source["criteria"], &(&1["index"] == row.criterion_index))
 
     stale =
@@ -289,12 +434,16 @@ defmodule Gitgood.Evidence do
         is_nil(criterion) || criterion["sha256"] != row.criterion_sha256 ||
         row.source_sha != revisions.source_sha || row.target_sha != revisions.target_sha
 
-    state =
-      cond do
-        history != [] -> "unavailable"
-        stale -> "stale"
-        true -> row.outcome
-      end
+    cond do
+      Map.get(counts, row.id, 0) > 0 -> "unavailable"
+      stale -> "stale"
+      true -> row.outcome
+    end
+  end
+
+  defp public(row, source, revisions, counts, events) do
+    history = Map.get(events, row.id, [])
+    total = Map.get(counts, row.id, 0)
 
     %{
       "id" => row.public_id,
@@ -304,7 +453,7 @@ defmodule Gitgood.Evidence do
       "source_sha" => row.source_sha,
       "target_sha" => row.target_sha,
       "outcome" => row.outcome,
-      "state" => state,
+      "state" => state(row, source, revisions, counts),
       "manifest" => row.manifest,
       "actor_id" => row.actor_id,
       "recorded_at" => DateTime.to_iso8601(row.inserted_at),
@@ -312,20 +461,22 @@ defmodule Gitgood.Evidence do
         "name" => row.artifact_name,
         "sha256" => row.artifact_sha256,
         "size" => row.artifact_size,
-        "available" => history == []
+        "available" => total == 0
       },
-      "events" =>
-        Enum.map(
-          history,
-          &%{
-            "kind" => &1.kind,
-            "reason" => &1.reason,
-            "actor_id" => &1.actor_id,
-            "recorded_at" => DateTime.to_iso8601(&1.inserted_at)
-          }
-        )
+      "events" => Enum.map(history, &public_event/1),
+      "events_total" => total,
+      "events_next_cursor" =>
+        if(total > length(history), do: Integer.to_string(List.last(history).id), else: nil)
     }
   end
+
+  defp public_event(event),
+    do: %{
+      "kind" => event.kind,
+      "reason" => event.reason,
+      "actor_id" => event.actor_id,
+      "recorded_at" => DateTime.to_iso8601(event.inserted_at)
+    }
 
   defp authorized(repository, pull, user, credential, source, action) do
     case SourceLinks.guard(
@@ -412,7 +563,7 @@ defmodule Gitgood.Evidence do
   defp text?(value, bound),
     do:
       is_binary(value) && byte_size(value) in 1..bound && String.valid?(value) &&
-        String.trim(value) != ""
+        not String.contains?(value, <<0>>) && String.trim(value) != ""
 
   defp sha?(value, size),
     do: is_binary(value) && byte_size(value) == size && Regex.match?(~r/\A[0-9a-f]+\z/, value)

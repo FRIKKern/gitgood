@@ -16,6 +16,8 @@ Native repository permission and current source permission are both required to 
 
 Within one criterion, the newest attached record governs the displayed result. A failed, inconclusive, stale or unavailable newer record cannot fall back to an older pass. An untested criterion is absent. Idempotent retries preserve the original receipt and cannot create another record or edit its provenance.
 
+The [bounded history contract](evidence-history.md) keeps the entire history while paging record and event reads. A selected older page does not change which result governs a criterion. Pagination is a resource boundary, not measured capacity.
+
 ## Acceptance still pending
 
 Implementation, database constraints, API permission/race checks, source and code revision fixtures, durable retry, unavailable-artifact handling, browser distinction of states and copied production verification must all be demonstrated before claiming J11 complete. These paragraphs define the intended behavior; they are not evidence that it works.

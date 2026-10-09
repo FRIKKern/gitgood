@@ -373,6 +373,32 @@ try {
   assert(evidenceRepo,'Native criterion evidence repository must persist')
   const evidencePath='/api/repos/'+evidenceRepo.team+'/'+evidenceRepo.name+'/pulls/'+criterionEvidence.pull_id+'/links/'+criterionEvidence.link.id+'/evidence'
   const evidenceQuery='?connection_generation='+sourceLinks.owner_connection_generation
+  const criterionHistory=JSON.parse(await readFile(join(sourceWeb,'test-results-production/criterion-history-receipt.json'),'utf8'))
+  const historyRepo=after.repositories.find(r=>r.id===criterionHistory.repository_id)
+  assert(historyRepo,'Paged evidence repository must persist')
+  const historyPath='/api/repos/'+historyRepo.team+'/'+historyRepo.name+'/pulls/'+criterionHistory.pull_id+'/links/'+criterionHistory.link_id+'/evidence'
+  for(const origin of [forgeUrl,webUrl]){
+    const first=await fetch(origin+historyPath+evidenceQuery,{headers:{authorization}})
+    assert.equal(first.status,200)
+    const current=await first.json()
+    assert.equal(current.history.total,21); assert.equal(current.records.length,20)
+    assert.equal(current.criteria[0].evidence_id,criterionHistory.latest_evidence_id)
+    assert.equal(current.criteria[0].state,'unavailable')
+    const latest=current.records[0]
+    assert.equal(latest.events_total,26); assert.equal(latest.events.length,25)
+    const older=await fetch(origin+historyPath+evidenceQuery+'&cursor='+current.history.next_cursor,{headers:{authorization}})
+    assert.equal(older.status,200)
+    const last=await older.json()
+    assert.deepEqual(last.records.map(record=>record.id),[criterionHistory.oldest_evidence_id])
+    assert.equal(last.criteria[0].state,'unavailable'); assert.equal(last.history.next_cursor,null)
+    const eventsPath=historyPath+'/'+criterionHistory.latest_evidence_id+'/events'
+    const events=await fetch(origin+eventsPath+evidenceQuery+'&cursor='+latest.events_next_cursor,{headers:{authorization}})
+    assert.equal(events.status,200)
+    const tail=await events.json()
+    assert.equal(tail.total,26); assert.deepEqual(tail.events.map(event=>event.reason),['Fixture unavailable 25'])
+    assert.equal(tail.next_cursor,null)
+    assert.equal((await fetch(origin+eventsPath+evidenceQuery,{headers:{authorization:outsiderAuth}})).status,404)
+  }
   for(const origin of [forgeUrl,webUrl]){
     const observed=await fetch(origin+evidencePath+evidenceQuery,{headers:{authorization}})
     assert.equal(observed.status,200)
@@ -469,11 +495,13 @@ try {
     clientAddress:clientAddressProof,offlineRecovery,
     criterionEvidence:{repository:criterionEvidence.repository_id,pull:criterionEvidence.pull_id,link:criterionEvidence.link.id,original:criterionEvidence.first_evidence.id,reassessed:criterionEvidence.reassessed,artifact_sha256:criterionEvidence.artifact_sha256},
     gitCompatibility:{repository:compatibilityRepo.id,source_sha:gitCompatibility.source_sha,tag_sha:gitCompatibility.tag_sha,child_sha:gitCompatibility.child_sha},
+    criterionHistory:{repository:historyRepo.id,oldest:criterionHistory.oldest_evidence_id,latest:criterionHistory.latest_evidence_id,records:21,events:26},
     sourceLink:{repository:sourceLinks.repository_id,pull:sourceLinks.pull_id,link:sourceLinks.link,source_actors:sourceLinks.source_actors,return_operation:sourceLinks.return_operation,return_destination:sourceLinks.return_destination},
     checks:['authenticated edge/socket login buckets, twenty-attempt boundary, spoofed fields and direct bypass refusal','source-free copied Elixir release','production-only web dependency install','production SSR and static assets','browser and real HTTPS/SSH/import/release/discovery end-to-end flows','session/database/Git persistence after process restart','import provenance/branches/tags persistence after restart','published release identity/changes/assets persistence and private BFF downloads after restart','withdrawal/correction trace and download refusal after restart','returned HTTPS clone URL','persisted SSH host/account identity and returned SSH clone URL','stable native activity identity/time/link after restart','membership audit persistence and revoked search denial after restart','opaque change destination and denied/missing privacy persist after restart','native link lifecycle/original receipts and encrypted viewer HTTPS source context persist after restart','durable return responsibility, observed outcome, original native request and owned source pointer persist without another write after restart','immutable criterion evidence, reassessment history, exact retry and checksum-protected artifact downloads persist after restart','missing storage rejects forge and web readiness','mismatched component identity rejects readiness'],
     browserTls:'Self-signed fixture bypass in browser only; real Git verifies its explicit CA',
     limitations:['No managed Cloud deployment','No replacement-host restore or storage power-loss proof']}
   receipt.checks.push('Git compatibility signed commit/tag identity and independently authorized child gitlink persist after restart')
+  receipt.checks.push('Paged evidence records, all withdrawal reasons, latest-result authority and event permissions persist after restart')
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})
   await writeFile(join(sourceWeb,'test-results-production/production-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   console.log('PASS production artifacts, full workflow, persistence and readiness rejection: '+identity.candidate)

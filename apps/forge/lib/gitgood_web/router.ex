@@ -59,6 +59,11 @@ defmodule GitgoodWeb.Router do
     get "/repos/:team/:name/pulls/:id/links/:link", SourceLinkController, :show
     post "/repos/:team/:name/pulls/:id/links/:link/remove", SourceLinkController, :remove
     get "/repos/:team/:name/pulls/:id/links/:link/evidence", EvidenceController, :index
+
+    get "/repos/:team/:name/pulls/:id/links/:link/evidence/:evidence/events",
+        EvidenceController,
+        :events
+
     post "/repos/:team/:name/pulls/:id/links/:link/evidence", EvidenceController, :attach
 
     get "/repos/:team/:name/pulls/:id/links/:link/evidence/:evidence/download",

@@ -11,7 +11,26 @@ defmodule GitgoodWeb.EvidenceController do
              conn.assigns.user,
              conn.assigns.credential,
              params["link"],
-             params["connection_generation"]
+             params["connection_generation"],
+             params["cursor"]
+           ) do
+        {:ok, view} -> conn |> protect(repository, pull, view["source"]) |> json(view)
+        error -> respond(conn, error)
+      end
+    end)
+  end
+
+  def events(conn, params) do
+    with_pull(conn, params, fn repository, pull ->
+      case Evidence.event_history(
+             repository,
+             pull,
+             conn.assigns.user,
+             conn.assigns.credential,
+             params["link"],
+             params["evidence"],
+             params["connection_generation"],
+             params["cursor"]
            ) do
         {:ok, view} -> conn |> protect(repository, pull, view["source"]) |> json(view)
         error -> respond(conn, error)
@@ -179,7 +198,8 @@ defmodule GitgoodWeb.EvidenceController do
         :authorization_changed ->
           403
 
-        reason when reason in [:invalid_evidence, :invalid_idempotency_key] ->
+        reason
+        when reason in [:invalid_evidence, :invalid_idempotency_key, :invalid_evidence_cursor] ->
           422
 
         reason

@@ -4,13 +4,15 @@ import {api, privateRequest, ApiError, type Session} from './api'
 import {accessStore} from './access-state'
 
 type Criterion = {index: number; text: string; sha256: string; state: string; evidence_id: string | null}
+type EvidenceEvent = {kind: string; reason: string; actor_id: number; recorded_at: string}
 type Record = {id: string; criterion_index: number; criterion_sha256: string; source_revision: string;
   source_sha: string; target_sha: string; outcome: string; state: string; actor_id: number; recorded_at: string;
   manifest: {commands: string[]; environment: {[key: string]: string}; producer: string; observed_at: string};
   artifact: {name: string; size: number; sha256: string; available: boolean};
-  events: {kind: string; reason: string; actor_id: number; recorded_at: string}[]}
+  events: EvidenceEvent[]; events_total: number; events_next_cursor: string | null}
 type View = {source: {id: string; generation: string; connection_generation?: string; source_state: string; revision?: string};
-  source_sha?: string; target_sha?: string; criteria: Criterion[]; records: Record[]; observed_at?: string; profile?: string}
+  source_sha?: string; target_sha?: string; criteria: Criterion[]; records: Record[]; observed_at?: string; profile?: string;
+  history?: {total: number; next_cursor: string | null}}
 const states: {[key: string]: string} = {passed: 'Passed · producer result', failed: 'Failed', inconclusive: 'Inconclusive',
   absent: 'Absent · no evidence', stale: 'Stale · reassessment needed', unavailable: 'Unavailable · artifact withdrawn'}
 const digest = async (bytes: ArrayBuffer) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), value => value.toString(16).padStart(2, '0')).join('')
@@ -21,8 +23,12 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
   const path = endpoint + '/' + link.id + '/evidence'
   const mounted = useRef(true)
   useEffect(() => {mounted.current = true; return () => {mounted.current = false}}, [])
-  const query = useQuery({queryKey: ['criterion-evidence', session.user.id, path, link.generation, generation],
-    queryFn: ({signal}) => api<View>(path + '?connection_generation=' + encodeURIComponent(generation), {signal}),
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null)
+  const [historyStack, setHistoryStack] = useState<(string | null)[]>([])
+  const [historyExpanded, setHistoryExpanded] = useState(false)
+  const query = useQuery({queryKey: ['criterion-evidence', session.user.id, path, link.generation, generation, historyCursor],
+    queryFn: ({signal}) => api<View>(path + '?connection_generation=' + encodeURIComponent(generation) +
+      (historyCursor ? '&cursor=' + encodeURIComponent(historyCursor) : ''), {signal}),
     refetchInterval: 5000, refetchIntervalInBackground: false, retry: false})
   const view = !query.isError && query.data?.source.generation === link.generation &&
     query.data.source.connection_generation === generation && query.data.source.source_state === 'available' ? query.data : undefined
@@ -60,6 +66,7 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
       if (file.size < 1 || file.size > 65536) throw new Error('Use a UTF-8 text artifact between 1 byte and 64 KiB.')
       const bytes = await file.arrayBuffer()
       const content = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(bytes)
+      if (content.includes('\0')) throw new Error('Use UTF-8 text without NUL bytes; binary artifacts are not supported.')
       const sha256 = await digest(bytes)
       if (!active()) return
       const environment = JSON.parse(String(fields.get('environment')))
@@ -96,13 +103,23 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
     <h3>Criterion evidence</h3>
     <p>Producer results are bound to this task revision and both Git commits. They do not change protected merge policy.</p>
     {message && <p role="status">{message}</p>}
+    {historyCursor && <button type="button" onClick={() => {setHistoryCursor(null); setHistoryStack([])}}>Show newest evidence</button>}
     {query.isError ? <p role="alert">Evidence could not be confirmed. <button onClick={() => void query.refetch()}>Refresh evidence</button></p> :
       query.isPending ? <p role="status">Loading evidence…</p> : !view ?
       <p>{query.data?.profile === 'unsupported_criteria' ? 'This source record has unsupported task criteria; evidence cannot be assessed.' : 'Source-bound evidence is hidden while your task access is unavailable. Native history is retained.'}</p> : <>
         <p>Task revision {view.source.revision} · observed {view.observed_at}</p>
         {!view.criteria.length && <p>This source record has no supported task acceptance criteria. Retained evidence history remains below.</p>}
         <ul>{view.criteria.map(criterion => <li key={criterion.index}><strong>{states[criterion.state] ?? criterion.state}</strong> — {criterion.text}</li>)}</ul>
-        <details><summary>Evidence history ({view.records.length})</summary>
+        <details open={historyExpanded} onToggle={event => setHistoryExpanded(event.currentTarget.open)}><summary>Evidence history ({view.history?.total ?? view.records.length})</summary>
+          <p>Current criterion states above always use the newest result across the whole history.</p>
+          {(historyStack.length > 0 || view.history?.next_cursor) && <nav aria-label="Evidence history pages">
+            <button type="button" disabled={historyStack.length === 0} onClick={() => {
+              setHistoryCursor(historyStack.at(-1) ?? null); setHistoryStack(historyStack.slice(0, -1))
+            }}>Newer evidence</button>
+            <button type="button" disabled={!view.history?.next_cursor} onClick={() => {
+              setHistoryStack([...historyStack, historyCursor]); setHistoryCursor(view.history?.next_cursor ?? null)
+            }}>Older evidence</button>
+          </nav>}
           {view.records.length === 0 ? <p>No attached results.</p> : view.records.map(record => <article key={record.id} className="review-event" aria-label="Evidence record">
             <h4>Criterion {record.criterion_index + 1} · {states[record.state] ?? record.state}</h4>
             <p>Original outcome: {record.outcome} · attached by native actor {record.actor_id} at {record.recorded_at}</p>
@@ -112,7 +129,7 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
             <pre>{record.manifest.commands.join('\n')}</pre><pre>{JSON.stringify(record.manifest.environment, null, 2)}</pre>
             <p>{record.artifact.name} · {record.artifact.size} bytes · SHA256 {record.artifact.sha256}</p>
             {record.artifact.available && <button type="button" onClick={() => void download(record)}>Download protected artifact</button>}
-            {record.events.map((event, index) => <p key={index}>{event.kind}: {event.reason} · actor {event.actor_id} · {event.recorded_at}</p>)}
+            <AvailabilityHistory record={record} endpoint={path} generation={generation} session={session}/>
             {writer && record.artifact.available && <form onSubmit={event => {
               event.preventDefault()
               void mutate(path + '/' + record.id + '/unavailable', JSON.stringify({reason: new FormData(event.currentTarget).get('reason')}))
@@ -131,6 +148,32 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
           <p>Include the runtime versions, actors, relevant configuration and reproducible observations in the artifact.</p>
           <button disabled={busy}>{busy ? 'Recording evidence…' : 'Attach immutable result'}</button>
         </form></details>}
+      </>}
+  </section>
+}
+
+function AvailabilityHistory({record, endpoint, generation, session}: {
+  record: Record; endpoint: string; generation: string; session: Session
+}) {
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [stack, setStack] = useState<(string | null)[]>([])
+  const query = useQuery({queryKey: ['criterion-evidence-events', session.user.id, endpoint, generation, record.id, cursor],
+    enabled: cursor !== null,
+    queryFn: ({signal}) => api<{events: EvidenceEvent[]; total: number; next_cursor: string | null}>(
+      endpoint + '/' + record.id + '/events?connection_generation=' + encodeURIComponent(generation) +
+      '&cursor=' + encodeURIComponent(cursor ?? ''), {signal}), retry: false, refetchInterval: 5000, refetchIntervalInBackground: false})
+  const current = cursor === null ? {events: record.events, total: record.events_total, next_cursor: record.events_next_cursor} :
+    !query.isError ? query.data : undefined
+  if (!record.events_total) return null
+  return <section aria-label="Artifact availability history">
+    <p>Availability events ({record.events_total})</p>
+    {cursor && <button type="button" onClick={() => {setCursor(stack.at(-1) ?? null); setStack(stack.slice(0, -1))}}>Earlier availability events</button>}
+    {query.isError && cursor ? <p role="alert">Availability history could not be confirmed. <button type="button" onClick={() => void query.refetch()}>Retry availability history</button></p> :
+      !current ? <p role="status">Loading availability history…</p> : <>
+        {current.events.map((event, index) => <p key={index}>{event.kind}: {event.reason} · actor {event.actor_id} · {event.recorded_at}</p>)}
+        {current.next_cursor && <button type="button" onClick={() => {
+          setStack([...stack, cursor]); setCursor(current.next_cursor)
+        }}>Later availability events</button>}
       </>}
   </section>
 }
