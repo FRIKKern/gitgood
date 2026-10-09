@@ -60,6 +60,24 @@ defmodule GitgoodWeb.Router do
     post "/repos/:team/:name/pulls/:id/links/:link/remove", SourceLinkController, :remove
     get "/repos/:team/:name/pulls/:id/links/:link/evidence", EvidenceController, :index
 
+    get "/repos/:team/:name/pulls/:id/links/:link/evidence/intents", EvidenceController, :intents
+
+    post "/repos/:team/:name/pulls/:id/links/:link/evidence/intents",
+         EvidenceController,
+         :prepare_intent
+
+    post "/repos/:team/:name/pulls/:id/links/:link/evidence/intents/:intent/retry",
+         EvidenceController,
+         :retry_intent
+
+    post "/repos/:team/:name/pulls/:id/links/:link/evidence/intents/:intent/retire",
+         EvidenceController,
+         :retire_intent
+
+    post "/repos/:team/:name/pulls/:id/links/:link/evidence/intents/:intent/acknowledge",
+         EvidenceController,
+         :acknowledge_intent
+
     get "/repos/:team/:name/pulls/:id/links/:link/evidence/:evidence/events",
         EvidenceController,
         :events

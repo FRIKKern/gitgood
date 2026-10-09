@@ -155,6 +155,161 @@ defmodule Gitgood.EvidenceTest do
     })
   end
 
+  test "durable preparation encrypts original bytes and survives a fresh session", c do
+    payload = %{"kind" => "attach", "body" => Jason.encode!(c.params)}
+    assert {:ok, saved} = prepare(c, payload, "durable-reload")
+    assert saved["state"] == "pending"
+    row = Repo.get_by!(Gitgood.EvidenceIntent, public_id: saved["id"])
+
+    cipher =
+      Repo.one(
+        from(i in Gitgood.EvidenceIntent, where: i.id == ^row.id, select: i.payload_cipher)
+      )
+
+    refute :binary.match(cipher, c.params["artifact"]["content"]) != :nomatch
+    assert Gitgood.EvidenceIntents.recoverable_request?(%{row | payload_cipher: cipher})
+
+    refute Gitgood.EvidenceIntents.recoverable_request?(%{
+             row
+             | payload_cipher: cipher,
+               actor_id: c.reader.id
+           })
+
+    assert {:ok, %{"intents" => [^saved]}} = pending(c)
+    assert {:ok, ^saved} = prepare(c, payload, "durable-reload")
+
+    assert {:error, :idempotency_conflict} =
+             prepare(
+               c,
+               Map.put(payload, "body", Jason.encode!(Map.put(c.params, "outcome", "failed"))),
+               "durable-reload"
+             )
+
+    assert {:error, :evidence_intent_pending} = prepare(c, payload, "durable-second")
+    {_, credential} = Accounts.issue(c.owner, "session")
+    fresh = %{c | credential: credential}
+    assert {:ok, receipt} = retry_intent(fresh, saved["id"])
+    assert receipt["recorded"] == true
+    assert {:ok, ^receipt} = retry_intent(fresh, saved["id"])
+    assert {:ok, %{"intents" => [%{"id" => id, "state" => "confirmed"}]}} = pending(fresh)
+    assert id == saved["id"]
+
+    assert {:ok, %{"acknowledged" => true}} =
+             Gitgood.EvidenceIntents.acknowledge(
+               c.repository,
+               c.pull,
+               c.owner,
+               credential,
+               c.link["id"],
+               id
+             )
+
+    assert {:ok, %{"intents" => []}} = pending(fresh)
+    assert Repo.aggregate(CriterionEvidence, :count) == 1
+    record = Repo.get_by!(CriterionEvidence, public_id: receipt["id"])
+    assert record.credential_id == credential.id
+    assert record.request_digest == Gitgood.Lease.digest(c.params)
+  end
+
+  test "durable replay resolves a pre-existing receipt during source outage", c do
+    payload = %{"kind" => "attach", "body" => Jason.encode!(c.params)}
+    {:ok, saved} = prepare(c, payload, "durable-lost-reply")
+    {:ok, original} = attach(c, "durable-lost-reply")
+    command(c, "doc-state 503", "DOC_STATE 503")
+    assert {:ok, result} = retry_intent(c, saved["id"])
+    assert result["id"] == original["id"]
+    assert Repo.aggregate(CriterionEvidence, :count) == 1
+    assert {:error, :evidence_source_unavailable} = download(c, original["id"])
+  end
+
+  test "opaque pending IDs are actor-only and current writer permission gates every transition",
+       c do
+    {:ok, saved} =
+      prepare(c, %{"kind" => "attach", "body" => Jason.encode!(c.params)}, "durable-actor")
+
+    other = %{c | owner: c.reader, credential: c.reader_credential}
+    assert {:error, :authorization_changed} = pending(other)
+
+    Repo.update_all(
+      from(m in Membership, where: m.user_id == ^c.reader.id and m.team == "evidence-team"),
+      set: [role: "writer"]
+    )
+
+    assert {:ok, %{"intents" => []}} = pending(other)
+    assert {:error, :evidence_not_found} = retry_intent(other, saved["id"])
+    assert {:error, :evidence_not_found} = retire_intent(other, saved["id"])
+    Repo.delete_all(from(m in Membership, where: m.user_id == ^c.owner.id))
+    assert {:error, :authorization_changed} = pending(c)
+    assert {:error, :authorization_changed} = retry_intent(c, saved["id"])
+    assert {:error, :authorization_changed} = retire_intent(c, saved["id"])
+    assert Repo.aggregate(CriterionEvidence, :count) == 0
+  end
+
+  test "stale unapplied requests preserve original identity and can be safely retired", c do
+    {:ok, saved} =
+      prepare(c, %{"kind" => "attach", "body" => Jason.encode!(c.params)}, "durable-stale")
+
+    command(c, "journal-owner-edit", "JOURNAL_OWNER_EDIT")
+    assert {:error, :evidence_requirement_changed} = retry_intent(c, saved["id"])
+    assert {:ok, %{"intents" => [^saved]}} = pending(c)
+    assert {:ok, %{"retired" => true}} = retire_intent(c, saved["id"])
+    assert {:error, :evidence_intent_retired} = retry_intent(c, saved["id"])
+    assert Repo.aggregate(CriterionEvidence, :count) == 0
+    {:ok, view} = view(c)
+    updated = Map.put(c.params, "source_revision", view["source"]["revision"])
+
+    {:ok, next} =
+      prepare(c, %{"kind" => "attach", "body" => Jason.encode!(updated)}, "durable-new-revision")
+
+    assert {:ok, %{"recorded" => true}} = retry_intent(c, next["id"])
+  end
+
+  test "retirement confirms an already applied request and retains protected history", c do
+    {:ok, saved} =
+      prepare(
+        c,
+        %{"kind" => "attach", "body" => Jason.encode!(c.params)},
+        "durable-retire-applied"
+      )
+
+    {:ok, original} = attach(c, "durable-retire-applied")
+    assert {:ok, result} = retire_intent(c, saved["id"])
+    assert result["id"] == original["id"]
+    assert result["recorded"] == true
+    assert {:ok, ^result} = retry_intent(c, saved["id"])
+    assert Repo.aggregate(CriterionEvidence, :count) == 1
+  end
+
+  test "tampered encrypted intent cannot apply or retire its original responsibility", c do
+    {:ok, saved} =
+      prepare(c, %{"kind" => "attach", "body" => Jason.encode!(c.params)}, "durable-tamper")
+
+    Repo.update_all(from(i in Gitgood.EvidenceIntent, where: i.public_id == ^saved["id"]),
+      set: [payload_cipher: :crypto.strong_rand_bytes(64)]
+    )
+
+    assert {:error, :evidence_intent_unavailable} = retry_intent(c, saved["id"])
+    assert {:error, :evidence_intent_unavailable} = retire_intent(c, saved["id"])
+    assert {:ok, %{"intents" => [^saved]}} = pending(c)
+    assert Repo.aggregate(CriterionEvidence, :count) == 0
+  end
+
+  test "withdrawal request resumes exactly once after losing its response", c do
+    {:ok, attached} = attach(c, "durable-withdraw-template")
+
+    payload = %{
+      "kind" => "unavailable",
+      "evidence_id" => attached["id"],
+      "body" => Jason.encode!(%{"reason" => "Original reason"})
+    }
+
+    {:ok, saved} = prepare(c, payload, "durable-withdraw")
+    assert {:ok, %{"artifact_unavailable_recorded" => true}} = retry_intent(c, saved["id"])
+    assert {:ok, %{"artifact_unavailable_recorded" => true}} = retry_intent(c, saved["id"])
+    assert Repo.aggregate(CriterionEvidenceEvent, :count) == 1
+    assert Repo.one(CriterionEvidenceEvent).reason == "Original reason"
+  end
+
   test "a stricter artifact profile retains exact legacy receipts and protected bytes", c do
     legacy_content = "Legacy text\0artifact\n"
 
@@ -665,6 +820,36 @@ defmodule Gitgood.EvidenceTest do
     Repo.delete_all(from m in Membership, where: m.user_id == ^c.owner.id)
     assert json_response(get(conn, endpoint <> connection), 404)["error"] == "evidence_not_found"
   end
+
+  defp prepare(c, payload, key),
+    do:
+      Gitgood.EvidenceIntents.prepare(
+        c.repository,
+        c.pull,
+        c.owner,
+        c.credential,
+        c.link["id"],
+        payload,
+        key
+      )
+
+  defp pending(c),
+    do: Gitgood.EvidenceIntents.pending(c.repository, c.pull, c.owner, c.credential, c.link["id"])
+
+  defp retry_intent(c, id),
+    do:
+      Gitgood.EvidenceIntents.retry(c.repository, c.pull, c.owner, c.credential, c.link["id"], id)
+
+  defp retire_intent(c, id),
+    do:
+      Gitgood.EvidenceIntents.retire(
+        c.repository,
+        c.pull,
+        c.owner,
+        c.credential,
+        c.link["id"],
+        id
+      )
 
   defp view(c),
     do:

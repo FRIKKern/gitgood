@@ -1,7 +1,105 @@
 defmodule GitgoodWeb.EvidenceController do
   use GitgoodWeb, :controller
-  alias Gitgood.{Evidence, Pulls, Repositories, SourceLinks}
+  alias Gitgood.{Evidence, EvidenceIntents, Pulls, Repositories, SourceLinks}
   alias GitgoodWeb.Auth
+
+  def intents(conn, params) do
+    with_pull(conn, params, fn repository, pull ->
+      respond(
+        conn,
+        EvidenceIntents.pending(
+          repository,
+          pull,
+          conn.assigns.user,
+          conn.assigns.credential,
+          params["link"]
+        )
+      )
+    end)
+  end
+
+  def prepare_intent(conn, params) do
+    with_pull(conn, params, fn repository, pull ->
+      respond(
+        conn,
+        EvidenceIntents.prepare(
+          repository,
+          pull,
+          conn.assigns.user,
+          conn.assigns.credential,
+          params["link"],
+          conn.body_params,
+          key(conn)
+        )
+      )
+    end)
+  end
+
+  def retry_intent(conn, params) do
+    with_pull(conn, params, fn repository, pull ->
+      case conn.body_params do
+        body when map_size(body) == 0 ->
+          respond(
+            conn,
+            EvidenceIntents.retry(
+              repository,
+              pull,
+              conn.assigns.user,
+              conn.assigns.credential,
+              params["link"],
+              params["intent"]
+            )
+          )
+
+        _ ->
+          respond(conn, {:error, :invalid_evidence})
+      end
+    end)
+  end
+
+  def retire_intent(conn, params) do
+    with_pull(conn, params, fn repository, pull ->
+      case conn.body_params do
+        body when map_size(body) == 0 ->
+          respond(
+            conn,
+            EvidenceIntents.retire(
+              repository,
+              pull,
+              conn.assigns.user,
+              conn.assigns.credential,
+              params["link"],
+              params["intent"]
+            )
+          )
+
+        _ ->
+          respond(conn, {:error, :invalid_evidence})
+      end
+    end)
+  end
+
+  def acknowledge_intent(conn, params) do
+    with_pull(conn, params, fn repository, pull ->
+      case conn.body_params do
+        body when map_size(body) == 0 ->
+          respond(
+            conn,
+            EvidenceIntents.acknowledge(
+              repository,
+              pull,
+              conn.assigns.user,
+              conn.assigns.credential,
+              params["link"],
+              params["intent"]
+            )
+          )
+
+        _ ->
+          respond(conn, {:error, :invalid_evidence})
+      end
+    end)
+  end
 
   def index(conn, params) do
     with_pull(conn, params, fn repository, pull ->
@@ -210,7 +308,9 @@ defmodule GitgoodWeb.EvidenceController do
                :evidence_artifact_unavailable,
                :evidence_limit,
                :source_link_changed,
-               :connection_changed
+               :connection_changed,
+               :evidence_intent_pending,
+               :evidence_intent_retired
              ] ->
           409
 

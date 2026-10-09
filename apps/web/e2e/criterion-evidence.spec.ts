@@ -74,16 +74,24 @@ test('criterion evidence binds real Git and source revisions, retains history an
   const artifact = Buffer.from('Reproducible browser evidence fixture\n')
   await panel.getByLabel('UTF-8 artifact · up to 64 KiB', {exact: true}).setInputFiles({name: 'browser-proof.txt', mimeType: 'text/plain', buffer: artifact})
   const requests: {key: string; body: any}[] = []
+  const applications: {path: string; body: any}[] = []
   let loseReply = true, malformedReceipt = true
-  await page.route('**/links/' + link.id + '/evidence', async route => {
+  await page.route('**/links/' + link.id + '/evidence/intents', async route => {
     if (route.request().method() === 'POST') {
-      requests.push({key: route.request().headers()['idempotency-key'], body: route.request().postDataJSON()})
+      const preparation = route.request().postDataJSON()
+      requests.push({key: route.request().headers()['idempotency-key'], body: JSON.parse(preparation.body)})
+    }
+    await route.continue()
+  })
+  await page.route('**/links/' + link.id + '/evidence/intents/*/retry', async route => {
+    if (route.request().method() === 'POST') {
+      applications.push({path: new URL(route.request().url()).pathname, body: route.request().postDataJSON()})
       if (loseReply) {loseReply = false; expect((await route.fetch()).status()).toBe(200); await route.abort(); return}
       if (malformedReceipt) {
         malformedReceipt = false
         const confirmed = await route.fetch()
         expect(confirmed.status()).toBe(200)
-        await route.fulfill({response: confirmed, body: JSON.stringify({id: 'invalid-receipt', recorded: true})})
+        await route.fulfill({response: confirmed, body: JSON.stringify({...(await confirmed.json()), id: 'invalid-receipt'})})
         return
       }
     }
@@ -92,26 +100,36 @@ test('criterion evidence binds real Git and source revisions, retains history an
   await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
   await expect(panel.getByRole('status')).toContainText('could not be confirmed')
   const originalObservation = requests[0].body.manifest.observed_at
+  await page.reload()
+  await page.getByRole('button', {name: 'Open source context', exact: true}).click()
+  await expect(panel.getByRole('button', {name: 'Retry original evidence request', exact: true})).toBeVisible()
   expect((await fetch(control + '/control/evidence-change', {method: 'POST',
     headers: {'content-type': 'application/json', authorization: 'Bearer synthetic-fixture-control'},
     body: JSON.stringify({revision: true, criterion: false})})).status).toBe(200)
   await page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname === new URL(endpoint).pathname)
   await expect(panel.getByRole('list').first()).toContainText('Stale · reassessment needed', {timeout: 15000})
-  await expect(panel.getByLabel('Observation time in UTC', {exact: true})).toHaveValue(originalObservation)
+  await panel.getByText('Attach evidence or reassess a result', {exact: true}).click()
   const originalRetry = panel.getByRole('button', {name: 'Retry original evidence request', exact: true})
   if (await originalRetry.count()) await originalRetry.click()
   else await panel.getByRole('button', {name: 'Attach immutable result', exact: true}).click()
   await expect(panel.getByRole('status')).toContainText('could not be confirmed')
   await expect(panel.getByRole('button', {name: 'Attach immutable result', exact: true})).toBeDisabled()
+  await page.goto('/')
+  await page.goto('/repos/team/' + name + '/pulls/' + pull.id)
+  await page.getByRole('button', {name: 'Open source context', exact: true}).click()
   await originalRetry.click()
   await expect(panel.getByRole('status')).toContainText('Request recorded')
-  expect(requests).toHaveLength(3)
-  expect(requests[1]).toEqual(requests[0])
-  expect(requests[2]).toEqual(requests[0])
+  expect(requests).toHaveLength(1)
+  expect(applications).toHaveLength(3)
+  expect(applications[0].body).toEqual({})
+  expect(applications[1]).toEqual(applications[0])
+  expect(applications[2]).toEqual(applications[0])
   let view = await (await fetch(endpoint + query, {headers: owner})).json()
   expect(view.records).toHaveLength(1)
   expect(view.criteria[0].state).toBe('stale')
   const first = view.records[0]
+  expect(first.manifest.observed_at).toBe(originalObservation)
+  expect(first.source_revision).toBe(requests[0].body.source_revision)
   await panel.getByText('Evidence history (1)', {exact: true}).click()
   const [download, downloadResponse] = await Promise.all([
     page.waitForEvent('download', {timeout: 15000}),
@@ -145,6 +163,31 @@ test('criterion evidence binds real Git and source revisions, retains history an
   expect((await fetch(endpoint + '/' + reassessed.id + '/unavailable', {method: 'POST', headers: {...owner, 'idempotency-key': name + '-unavailable'}, body: JSON.stringify({reason: 'Synthetic artifact withdrawal'})})).status).toBe(200)
   await expect(panel.getByRole('list').first()).toContainText('Unavailable · artifact withdrawn', {timeout: 15000})
   expect((await fetch(endpoint + '/' + reassessed.id + '/download' + query, {headers: owner})).status).toBe(409)
+  const prepared = await fetch(endpoint + '/intents', {method: 'POST',
+    headers: {...owner, 'idempotency-key': name + '-concurrent-intent'},
+    body: JSON.stringify({kind: 'attach', body: JSON.stringify({...reassessedBody, outcome: 'failed'})})})
+  expect(prepared.status).toBe(200)
+  const concurrentIntent = await prepared.json()
+  const retrySaved = () => fetch(endpoint + '/intents/' + concurrentIntent.id + '/retry', {
+    method: 'POST', headers: owner, body: '{}'})
+  const concurrentReplies = await Promise.all([retrySaved(), retrySaved()])
+  expect(concurrentReplies.map(response => response.status)).toEqual([200, 200])
+  const concurrentReceipts = await Promise.all(concurrentReplies.map(response => response.json()))
+  expect(concurrentReceipts[0]).toEqual(concurrentReceipts[1])
+  expect(concurrentReceipts[0].intent_id).toBe(concurrentIntent.id)
+  const retiredApplied = await fetch(endpoint + '/intents/' + concurrentIntent.id + '/retire', {
+    method: 'POST', headers: owner, body: '{}'})
+  expect(retiredApplied.status).toBe(200)
+  expect(await retiredApplied.json()).toEqual(concurrentReceipts[0])
+  const afterConcurrent = await (await fetch(endpoint + query, {headers: owner})).json()
+  expect(afterConcurrent.records).toHaveLength(5)
+  expect(afterConcurrent.records.filter((record: {id: string}) => record.id === concurrentReceipts[0].id)).toHaveLength(1)
+  expect((await fetch(endpoint + '/' + concurrentReceipts[0].id + '/unavailable', {
+    method: 'POST', headers: {...owner, 'idempotency-key': name + '-concurrent-unavailable'},
+    body: JSON.stringify({reason: 'Concurrent fixture artifact withdrawn'})})).status).toBe(200)
+  expect((await fetch(endpoint + '/intents/' + concurrentIntent.id + '/acknowledge', {
+    method: 'POST', headers: owner, body: '{}'})).status).toBe(200)
+  await expect(panel.getByRole('list').first()).toContainText('Unavailable · artifact withdrawn', {timeout: 15000})
   const readerConnection = await connect(reader, 'synthetic-outsider-credential', name + '-reader-denied')
   const denied = await (await fetch(endpoint + '?connection_generation=' + readerConnection.generation, {headers: reader})).json()
   expect(denied.source.source_state).toBe('denied')
@@ -155,11 +198,13 @@ test('criterion evidence binds real Git and source revisions, retains history an
   await page.screenshot({path: info.outputPath('criterion-evidence-mobile.png'), fullPage: true})
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   const receipt = {repository: name, repository_id: repositoryId, pull_id: pull.id, link, first_evidence: first,
-    original_request: requests[0], reassessed: reassessed.id, owner_connection_generation: connection.generation,
+    original_request: requests[0], opaque_retry_requests: applications, concurrent_intent: concurrentIntent,
+    concurrent_receipt: concurrentReceipts[0], reassessed: reassessed.id, owner_connection_generation: connection.generation,
     artifact_sha256: hash(artifact), checks: ['real native imported Git commits', 'upstream met does not create evidence',
-      'lost reply and malformed receipt retry exact original bytes and binding after source revision changes', 'checksum-verified private download',
+      'lost reply survives reload; malformed receipt survives navigation and component unmount; opaque retries retain exact encrypted original bytes and revision binding', 'checksum-verified private download',
       'new failed and inconclusive records override older pass', 'source revision makes result stale',
       'explicit reassessment retains history', 'unavailable artifact blocks current result and download',
+      'two real HTTP retries create one result; retirement confirms its original receipt without erasing history',
       'viewer source denial hides provenance and bytes', 'native outsider denied', 'mobile width'],
     limitations: ['Synthetic source wire; live task and full J11 acceptance need separate proof.']}
   await writeFile(info.outputPath('criterion-evidence-receipt.json'), JSON.stringify(receipt, null, 2) + '\n')

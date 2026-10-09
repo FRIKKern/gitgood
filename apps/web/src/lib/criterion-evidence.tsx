@@ -17,8 +17,8 @@ const states: {[key: string]: string} = {passed: 'Passed · producer result', fa
   absent: 'Absent · no evidence', stale: 'Stale · reassessment needed', unavailable: 'Unavailable · artifact withdrawn'}
 const digest = async (bytes: ArrayBuffer) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), value => value.toString(16).padStart(2, '0')).join('')
 
-export function CriterionEvidence({endpoint, link, generation, session, writer}: {
-  endpoint: string; link: {id: string; generation: string}; generation: string; session: Session; writer: boolean
+export function CriterionEvidence({endpoint, link, generation, session, writer, recoveryOnly = false}: {
+  endpoint: string; link: {id: string; generation: string}; generation: string; session: Session; writer: boolean; recoveryOnly?: boolean
 }) {
   const path = endpoint + '/' + link.id + '/evidence'
   const mounted = useRef(true)
@@ -27,20 +27,68 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
   const [historyStack, setHistoryStack] = useState<(string | null)[]>([])
   const [historyExpanded, setHistoryExpanded] = useState(false)
   const query = useQuery({queryKey: ['criterion-evidence', session.user.id, path, link.generation, generation, historyCursor],
+    enabled: !recoveryOnly,
     queryFn: ({signal}) => api<View>(path + '?connection_generation=' + encodeURIComponent(generation) +
       (historyCursor ? '&cursor=' + encodeURIComponent(historyCursor) : ''), {signal}),
     refetchInterval: 5000, refetchIntervalInBackground: false, retry: false})
   const view = !query.isError && query.data?.source.generation === link.generation &&
     query.data.source.connection_generation === generation && query.data.source.source_state === 'available' ? query.data : undefined
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('')
-  type Intent = {path: string; body: string; key: string}
+  type Intent = {path: string; body: string; key: string; id?: string}
   const intent = useRef<Intent | null>(null), inFlight = useRef(false), preparing = useRef(false)
   const [pending, setPending] = useState<Intent | null>(null)
+  const requests = useQuery({queryKey: ['evidence-intents', session.user.id, path], enabled: writer,
+    queryFn: ({signal}) => api<{intents: {id: string; state: string}[]}>(path + '/intents', {signal}),
+    retry: false, refetchInterval: 5000, refetchIntervalInBackground: false})
+  const durable = !requests.isError ? requests.data?.intents[0] : undefined
+  const unresolved = !!pending || !!durable || (writer && (requests.isPending || requests.isError))
+  const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(value)
+
+  async function nativeReceipt(id: string, active: () => boolean, retiring = false) {
+    const receipt = await privateRequest(path + '/intents/' + id + (retiring ? '/retire' : '/retry'), {
+      method: 'POST', body: '{}', headers: {'x-gitgood-csrf': session.csrf}}, async response => {
+      let receipt: {id?: unknown; intent_id?: unknown; recorded?: unknown; artifact_unavailable_recorded?: unknown; retired?: unknown; error?: unknown}
+      try {receipt = await response.json()}
+      catch {throw new ApiError(response.status, 'forge_response_unavailable')}
+      if (!response.ok) throw new ApiError(response.status, typeof receipt?.error === 'string' ? receipt.error : 'Request failed')
+      if (!receipt || !uuid(receipt.id) || receipt.intent_id !== id ||
+        [receipt.recorded === true, receipt.artifact_unavailable_recorded === true, retiring && receipt.retired === true].filter(Boolean).length !== 1)
+        throw new ApiError(response.status, 'evidence_receipt_unavailable')
+      return receipt
+    })
+    if (!active()) throw new ApiError(409, 'access_changed_refetch')
+    if (!receipt.retired) await privateRequest(path + '/intents/' + id + '/acknowledge', {
+      method: 'POST', body: '{}', headers: {'x-gitgood-csrf': session.csrf}}, async response => {
+      let acknowledged: {id?: unknown; acknowledged?: unknown; error?: unknown}
+      try {acknowledged = await response.json()} catch {throw new ApiError(response.status, 'forge_response_unavailable')}
+      if (!response.ok || acknowledged?.id !== id || acknowledged.acknowledged !== true)
+        throw new ApiError(response.status, 'evidence_receipt_unavailable')
+      return acknowledged
+    })
+    return receipt
+  }
+
+  async function recover(id: string, retiring = false) {
+    const store = accessStore(), ticket = store?.ticket()
+    const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
+    if (!active() || inFlight.current) return
+    inFlight.current = true; setBusy(true); setMessage('')
+    try {
+      const receipt = await nativeReceipt(id, active, retiring)
+      if (active()) {
+        intent.current = null; setPending(null)
+        setMessage(receipt.retired ? 'The original request was not applied and has been retired.' : 'Request recorded. Current evidence is shown below.')
+        await requests.refetch().catch(() => undefined)
+        await query.refetch().catch(() => undefined)
+      }
+    } catch {if (active()) setMessage('The request could not be confirmed. Retry the original request to confirm its outcome.')}
+    finally {inFlight.current = false; if (active()) setBusy(false)}
+  }
 
   async function mutate(destination: string, body: string) {
     const store = accessStore(), ticket = store?.ticket()
     const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
-    if (!active() || inFlight.current) return false
+    if (!active() || inFlight.current || (!intent.current && unresolved)) return false
     if (intent.current && (intent.current.body !== body || intent.current.path !== destination)) {
       setMessage('Confirm the original evidence request before starting another result or withdrawal.')
       return false
@@ -49,28 +97,30 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
     intent.current = requested; setPending(requested); inFlight.current = true
     setBusy(true); setMessage('')
     try {
-      await privateRequest(destination, {method: 'POST', body,
+      if (!requested.id) requested.id = await privateRequest(path + '/intents', {method: 'POST',
+        body: JSON.stringify(destination === path ? {kind: 'attach', body} :
+          {kind: 'unavailable', evidence_id: destination.slice(path.length + 1, -'/unavailable'.length), body}),
         headers: {'x-gitgood-csrf': session.csrf, 'idempotency-key': requested.key}}, async response => {
-        let receipt: {id?: unknown; recorded?: unknown; artifact_unavailable_recorded?: unknown; error?: unknown}
+        let receipt: {id?: unknown; state?: unknown; error?: unknown}
         try {receipt = await response.json()}
         catch {throw new ApiError(response.status, 'forge_response_unavailable')}
         if (!response.ok) throw new ApiError(response.status, typeof receipt?.error === 'string' ? receipt.error : 'Request failed')
-        const withdrawal = destination !== path
-        if (!receipt || typeof receipt.id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(receipt.id) ||
-          (withdrawal ? receipt.artifact_unavailable_recorded !== true || destination !== path + '/' + receipt.id + '/unavailable' : receipt.recorded !== true))
+        if (!receipt || !uuid(receipt.id) || !['pending', 'confirmed', 'acknowledged'].includes(String(receipt.state)))
           throw new ApiError(response.status, 'evidence_receipt_unavailable')
-        return receipt
+        return receipt.id
       })
+      await nativeReceipt(requested.id, active)
       if (active()) {
         intent.current = null; setPending(null)
         setMessage('Request recorded. Current evidence is shown below.')
         // A later read failure cannot make the confirmed write uncertain again.
+        await requests.refetch().catch(() => undefined)
         await query.refetch().catch(() => undefined)
       }
       return active()
     } catch (error) {
       if (active()) {
-        if (error instanceof ApiError && error.status === 422 && error.message === 'invalid_evidence') {
+        if (!requested.id && error instanceof ApiError && error.status === 422 && error.message === 'invalid_evidence') {
           intent.current = null; setPending(null)
           setMessage('The request was refused as invalid evidence. Correct the fields before submitting a new request.')
         } else setMessage('The request could not be confirmed. Retry the original request to confirm its outcome.')
@@ -82,7 +132,7 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
   async function attach(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = event.currentTarget
-    if (!view?.source.revision || !view.source_sha || !view.target_sha || inFlight.current || preparing.current || intent.current) return
+    if (!view?.source.revision || !view.source_sha || !view.target_sha || inFlight.current || preparing.current || intent.current || unresolved) return
     const store = accessStore(), ticket = store?.ticket()
     const active = () => mounted.current && !!store && !!ticket && store.valid(ticket)
     const fields = new FormData(form), index = Number(fields.get('criterion'))
@@ -127,14 +177,28 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
     } catch {if (active()) setMessage('Artifact could not be downloaded with current permissions and identity. Refresh its status.')}
   }
 
+  const recovery = <>
+    {writer && (pending || durable) && <div>
+      <p>The original request keeps its exact artifact, observation time and revision binding. Confirm it before reassessing against a newer revision.</p>
+      <button type="button" disabled={busy} onClick={() => {
+        const id = pending?.id ?? durable?.id
+        if (id) void recover(id)
+        else if (pending) void mutate(pending.path, pending.body)
+      }}>Retry original evidence request</button>
+      {(pending?.id || durable?.id) && <button type="button" disabled={busy} onClick={() => void recover((pending?.id ?? durable?.id)!, true)}>Resolve or retire original request</button>}
+    </div>}
+    {writer && requests.isError && <p role="alert">Saved evidence requests could not be confirmed. <button type="button" onClick={() => void requests.refetch()}>Refresh saved requests</button></p>}
+  </>
+  if (recoveryOnly) return writer && (pending || durable || requests.isError || message) ?
+    <section aria-label="Saved evidence requests" className="collaboration-panel">
+      <h3>Saved evidence requests</h3>{message && <p role="status">{message}</p>}{recovery}
+      <p>Only your saved request status is shown. Source-bound artifact and requirement details require current source access.</p>
+    </section> : null
+
   return <section aria-label="Criterion evidence" className="collaboration-panel evidence-panel">
     <h3>Criterion evidence</h3>
     <p>Producer results are bound to this task revision and both Git commits. They do not change protected merge policy.</p>
-    {message && <p role="status">{message}</p>}
-    {writer && pending && <div>
-      <p>The original request keeps its exact artifact, observation time and revision binding. Confirm it before reassessing against a newer revision.</p>
-      <button type="button" disabled={busy} onClick={() => void mutate(pending.path, pending.body)}>Retry original evidence request</button>
-    </div>}
+    {message && <p role="status">{message}</p>}{recovery}
     {historyCursor && <button type="button" onClick={() => {setHistoryCursor(null); setHistoryStack([])}}>Show newest evidence</button>}
     {query.isError ? <p role="alert">Evidence could not be confirmed. <button onClick={() => void query.refetch()}>Refresh evidence</button></p> :
       query.isPending ? <p role="status">Loading evidence…</p> : !view ?
@@ -166,10 +230,10 @@ export function CriterionEvidence({endpoint, link, generation, session, writer}:
               event.preventDefault()
               void mutate(path + '/' + record.id + '/unavailable', JSON.stringify({reason: new FormData(event.currentTarget).get('reason')}))
             }}><label>Reason artifact is unavailable<input name="reason" required maxLength={1000}/></label>
-              <button disabled={busy || !!pending}>Mark artifact unavailable</button></form>}
+              <button disabled={busy || unresolved}>Mark artifact unavailable</button></form>}
           </article>)}
         </details>
-        {writer && view.criteria.length > 0 && <details><summary>Attach evidence or reassess a result</summary><form onSubmit={event => void attach(event)}><fieldset disabled={busy || !!pending}>
+        {writer && view.criteria.length > 0 && <details><summary>Attach evidence or reassess a result</summary><form onSubmit={event => void attach(event)}><fieldset disabled={busy || unresolved}>
           <label>Criterion<select name="criterion" required>{view.criteria.map(criterion => <option key={criterion.index} value={criterion.index}>{criterion.index + 1}. {criterion.text}</option>)}</select></label>
           <label>Producer outcome<select name="outcome" defaultValue="inconclusive"><option value="passed">Passed</option><option value="failed">Failed</option><option value="inconclusive">Inconclusive</option></select></label>
           <label>Producer label<input name="producer" required maxLength={128}/></label>

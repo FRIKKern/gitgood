@@ -17,6 +17,55 @@ defmodule Gitgood.Evidence do
   @history_page 20
   @event_page 25
 
+  def validate_input(params), do: parameters(params)
+
+  def validate_reason(reason),
+    do: if(text?(reason, 1000), do: :ok, else: {:error, :invalid_evidence})
+
+  def resolve_request(repository, pull, user, credential, link_id, payload, key) do
+    writer(repository, pull, user, credential, fn ->
+      key = Lease.key!(key)
+      link = link!(pull, link_id)
+
+      case payload do
+        %{"kind" => "attach", "body" => body} ->
+          case Repo.get_by(CriterionEvidence,
+                 source_link_id: link.id,
+                 actor_id: user.id,
+                 creation_key: key
+               ) do
+            nil ->
+              :absent
+
+            row ->
+              if(row.request_digest == Lease.digest(Jason.decode!(body)),
+                do: receipt(row),
+                else: :conflict
+              )
+          end
+
+        %{"kind" => "unavailable", "evidence_id" => id, "body" => body} ->
+          row = Repo.get_by(CriterionEvidence, public_id: id, source_link_id: link.id)
+          digest = Lease.digest(["artifact_unavailable", id, Jason.decode!(body)["reason"]])
+
+          case row &&
+                 Repo.get_by(CriterionEvidenceEvent,
+                   evidence_id: row.id,
+                   actor_id: user.id,
+                   request_key: key
+                 ) do
+            nil ->
+              :absent
+
+            event ->
+              if event.request_digest == digest,
+                do: %{"id" => row.public_id, "artifact_unavailable_recorded" => true},
+                else: :conflict
+          end
+      end
+    end)
+  end
+
   def list(repository, pull, user, credential, link_id, connection_generation, cursor \\ nil) do
     with {:ok, source} <-
            SourceLinks.read(repository, pull, user, credential, link_id, connection_generation) do

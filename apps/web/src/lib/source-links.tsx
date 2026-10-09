@@ -113,7 +113,7 @@ function SourceLink({link, endpoint, connection, actor, session, writer, busy, r
     <SourceReturnPointers endpoint={endpoint} link={link} connectionGeneration={generation}
       sourcePaperAvailable={!!current && current.locator?.type === 'paper'} writer={writer}
       session={session} disabled={busy} />
-    {current?.locator?.type === 'task' && generation && <CriterionEvidence endpoint={endpoint}
-      link={link} generation={generation} session={session} writer={writer} />}
+    <CriterionEvidence endpoint={endpoint} link={link} generation={generation ?? ''}
+      session={session} writer={writer} recoveryOnly={current?.locator?.type !== 'task' || !generation}/>
   </article>
 }

@@ -383,6 +383,27 @@ defmodule Gitgood.InstallationLease do
                  payload_digest: digest
                })
              end
+           ),
+         true <-
+           recoverable_rows?(
+             state.connection,
+             """
+             SELECT public_id::text, repository_id, pull_request_id, source_link_id::text,
+               actor_id, creation_key, request_digest, payload_cipher
+             FROM evidence_intents
+             """,
+             fn [id, repository, pull, link, actor, key, digest, cipher] ->
+               Gitgood.EvidenceIntents.recoverable_request?(%Gitgood.EvidenceIntent{
+                 public_id: id,
+                 repository_id: repository,
+                 pull_request_id: pull,
+                 source_link_id: link,
+                 actor_id: actor,
+                 creation_key: key,
+                 request_digest: digest,
+                 payload_cipher: cipher
+               })
+             end
            ) do
       :ok
     else

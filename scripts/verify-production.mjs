@@ -260,6 +260,14 @@ try {
   const registered=await fetch(forgeUrl+'/api/ssh-keys',{method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':'production-restart-key'},body:JSON.stringify({label:'Restart proof',public_key:await readFile(clientKey+'.pub','utf8')})})
   assert.equal(registered.status,201)
   const sshBefore=await (await fetch(forgeUrl+'/api/ssh-keys',{headers:{authorization}})).json()
+  const evidenceRestartFixture=JSON.parse(await readFile(join(sourceWeb,'test-results-production/criterion-evidence-receipt.json'),'utf8'))
+  const pendingEvidencePath='/api/repos/team/'+evidenceRestartFixture.repository+'/pulls/'+evidenceRestartFixture.pull_id+'/links/'+evidenceRestartFixture.link.id+'/evidence'
+  const pendingPreparation=await fetch(forgeUrl+pendingEvidencePath+'/intents',{
+    method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':'production-pending-evidence-restart'},
+    body:JSON.stringify({kind:'attach',body:JSON.stringify(evidenceRestartFixture.original_request.body)})})
+  assert.equal(pendingPreparation.status,200)
+  const pendingEvidence={path:pendingEvidencePath,intent:await pendingPreparation.json()}
+  assert.equal(pendingEvidence.intent.state,'pending')
   await stop(web);web=null;await stop(backend);backend=null
   backend=startBackend();web=startWeb()
   await ready(forgeUrl);await ready(webUrl)
@@ -403,7 +411,7 @@ try {
     const observed=await fetch(origin+evidencePath+evidenceQuery,{headers:{authorization}})
     assert.equal(observed.status,200)
     const view=await observed.json()
-    assert.equal(view.records.length,4,'All original/reassessment results must persist')
+    assert.equal(view.records.length,5,'All original/reassessment/concurrent results must persist')
     assert.equal(view.criteria[0].state,'unavailable','Restart cannot substitute an older pass for a withdrawn latest artifact')
     assert.equal(view.criteria[1].state,'absent','Task met flags cannot create native evidence')
     const original=view.records.find(record=>record.id===criterionEvidence.first_evidence.id)
@@ -413,6 +421,24 @@ try {
     const replay=await fetch(origin+evidencePath,{method:'POST',headers:{authorization,'content-type':'application/json','idempotency-key':criterionEvidence.original_request.key},body:JSON.stringify(criterionEvidence.original_request.body)})
     assert.equal(replay.status,200)
     assert.deepEqual(await replay.json(),{id:original.id,recorded:true})
+    const intentId=criterionEvidence.opaque_retry_requests[0].path.split('/').at(-2)
+    const unresolved=await fetch(origin+evidencePath+'/intents',{headers:{authorization}})
+    assert.equal(unresolved.status,200)
+    assert.deepEqual(await unresolved.json(),{intents:[pendingEvidence.intent]},'Acknowledged browser result stays resolved while a separate original draft survives restart')
+    const unapplied=await fetch(origin+evidencePath+'/intents/'+pendingEvidence.intent.id+'/retry',{
+      method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
+    assert.equal(unapplied.status,409,'A restart cannot rebind an unapplied original draft to a newer source/connection revision')
+    assert(['evidence_requirement_changed','connection_changed','evidence_revision_changed','source_link_changed'].includes((await unapplied.json()).error))
+    const recovered=await fetch(origin+evidencePath+'/intents/'+intentId+'/retry',{
+      method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
+    assert.equal(recovered.status,200)
+    assert.deepEqual(await recovered.json(),{id:original.id,recorded:true,intent_id:intentId},'Original encrypted responsibility/receipt persists after runtime restart')
+    assert.equal((await fetch(origin+evidencePath+'/intents/'+intentId+'/retry',{
+      method:'POST',headers:{authorization:outsiderAuth,'content-type':'application/json'},body:'{}'})).status,404)
+    const concurrentReplay=await fetch(origin+evidencePath+'/intents/'+criterionEvidence.concurrent_intent.id+'/retry',{
+      method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
+    assert.equal(concurrentReplay.status,200)
+    assert.deepEqual(await concurrentReplay.json(),criterionEvidence.concurrent_receipt)
     const artifact=await fetch(origin+evidencePath+'/'+original.id+'/download'+evidenceQuery,{headers:{authorization}})
     assert.equal(artifact.status,200)
     assert.equal(artifact.headers.get('x-content-type-options'),'nosniff')
@@ -485,7 +511,7 @@ try {
       startRestored:async(forgeEnvironment,webEnvironment)=>{backend=startBackend(forgeEnvironment);web=launch(process.execPath,
         [join(installedWeb,'node_modules/srvx/bin/srvx.mjs'),'--prod','-s','dist/client','server.mjs'],webEnvironment,installedWeb,'restored-web')},
       authorization,outsiderAuth,forgeUrl,webUrl,sourceControl,sourceLinks,gitRepo,gitEnv,sshEnv,main,sshBefore,releaseAssetPath,released,
-      certificate,tlsKey:key,evidence:join(sourceWeb,'test-results-production')})
+      certificate,tlsKey:key,evidence:join(sourceWeb,'test-results-production'),pendingEvidence})
   }
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
     runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,importOperation:imported.operation_id,

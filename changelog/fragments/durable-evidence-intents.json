@@ -1,0 +1,9 @@
+{
+  "id": "durable-evidence-intents",
+  "category": "Fixed",
+  "summary": "Preserve exact evidence requests in encrypted native custody across reload, navigation and panel unmount, with actor-only recovery, separate receipt acknowledgement and safe retirement.",
+  "impact": "product",
+  "references": ["docs/implementation/criterion-evidence.md"],
+  "journeys": ["J11"],
+  "withdrawn": false
+}

@@ -7,7 +7,7 @@ import {provisionConfiguration,readConfiguration} from '../apps/forge/priv/opera
 export async function verifyOfflineRecovery(options){
   const {root,env,webEnv,release,installedForge,installedWeb,run,launch,wait,stop,ready,stopNative,startRestored,
     authorization,outsiderAuth,forgeUrl,webUrl,sourceControl,sourceLinks,gitRepo,gitEnv,sshEnv,main,sshBefore,
-    releaseAssetPath,released,certificate,tlsKey}=options
+    releaseAssetPath,released,certificate,tlsKey,pendingEvidence}=options
   assert.equal(process.platform,'linux')
   const started=performance.now(),targetRtoMs=15*60*1000
   const configuration=join(root,'operator-configuration'),keyFile=join(root,'recovery-key.bin'),bundle=join(root,'recovery.ggbackup')
@@ -138,6 +138,19 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   assert.equal(context.status,200);assert.equal((await context.json()).source_state,'available')
   const statsAfter=await (await fetch(sourceControl+'/journal/stats')).json()
   assert.equal(statsAfter.posts.length,statsBefore.posts.length,'Restoration must not duplicate the uncertain external mutation')
+  for(const origin of [forgeUrl,webUrl]){
+    const unresolved=await fetch(origin+pendingEvidence.path+'/intents',{headers:{authorization}})
+    assert.equal(unresolved.status,200)
+    assert.deepEqual(await unresolved.json(),{intents:[pendingEvidence.intent]},'Encrypted unapplied evidence responsibility survives complete restore')
+    const retried=await fetch(origin+pendingEvidence.path+'/intents/'+pendingEvidence.intent.id+'/retry',{
+      method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
+    assert.equal(retried.status,409)
+    assert(['evidence_requirement_changed','connection_changed','evidence_revision_changed','source_link_changed'].includes((await retried.json()).error))
+  }
+  const retirement=await fetch(forgeUrl+pendingEvidence.path+'/intents/'+pendingEvidence.intent.id+'/retire',{
+    method:'POST',headers:{authorization,'content-type':'application/json'},body:'{}'})
+  assert.equal(retirement.status,200)
+  assert.deepEqual(await retirement.json(),{id:pendingEvidence.intent.id,intent_id:pendingEvidence.intent.id,retired:true})
   assert.equal(statsAfter.documents['drafts.recovery-pending'].blocks.filter(block=>block.id==='gitgood-link-'+link.id).length,1)
   assert.deepEqual((await (await fetch(forgeUrl+'/api/ssh-keys',{headers:{authorization}})).json()).transport,sshBefore.transport)
   await run(process.env.GITGOOD_GIT??'git',['ls-remote',gitRepo.clone_url,'refs/heads/main'],gitEnv,root,'restored-https-read')
