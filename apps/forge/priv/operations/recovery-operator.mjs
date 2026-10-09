@@ -6,7 +6,8 @@ import {dirname,join,resolve,sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
-import {packRecovery,unpackRecovery,RecoveryError} from './recovery-bundle.mjs'
+import {packRecovery,unpackRecovery,RecoveryError,snapshotInstallationRoots,databaseFingerprint} from './recovery-bundle.mjs'
+import {inspectInstallationExport} from './installation-export.mjs'
 import {privateFile,readConfiguration,validateConfiguration,forgeKeys} from './recovery-configuration.mjs'
 import {assertLease,assertDatabaseTools,assertDatabaseProfile,fingerprintDatabase,dumpDatabase,restoreDatabase,query} from './recovery-database.mjs'
 import {inspectRepositories,rebindRepositories} from './recovery-git.mjs'
@@ -88,6 +89,30 @@ async function backup(context,options,key){
     return {...packed,interrupted_git_locks}
   }finally{await rm(scratch,{recursive:true,force:true})}
 }
+async function checkpoint(context,options){
+  check(equal(context.migrations,context.identity.migrations),'recovery_schema_incompatible')
+  check(typeof options.expectedInstallation==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(options.expectedInstallation),'retirement_binding_invalid')
+  check(typeof options.expectedCiphertext==='string'&&/^[a-f0-9]{64}$/.test(options.expectedCiphertext),'retirement_binding_invalid')
+  const configuration=resolve(options.configuration),config=await readConfiguration(configuration)
+  check(config.installation===options.expectedInstallation,'retirement_binding_invalid')
+  check(resolve(config.forge.GITGOOD_STORAGE)===resolve(context.root)&&resolve(config.forge.GITGOOD_SSH_HOST_KEY_DIRECTORY)===resolve(options.ssh))
+  for(const name of forgeKeys)check(config.forge[name]===process.env[name],'configuration_runtime_mismatch')
+  const roots={git:resolve(context.root),ssh:resolve(options.ssh),configuration},source=resolve(options.source),keyPath=resolve(options.key)
+  for(const path of [source,keyPath])check(!Object.values(roots).some(root=>path===root||path.startsWith(root+sep)),'retirement_binding_invalid')
+  const assertExcluded=async()=>{await assertLease(context);await assertRuntimeStopped(context)}
+  await assertExcluded()
+  const inspected=await inspectInstallationExport({source,keyPath,scratchDirectory:dirname(source),expectedCandidate:context.identity.candidate,expectedInstallation:options.expectedInstallation})
+  check(inspected.ciphertext_sha256===options.expectedCiphertext,'retirement_binding_invalid')
+  const files=await snapshotInstallationRoots(roots),database=databaseFingerprint(await fingerprintDatabase())
+  await assertExcluded()
+  check(equal(files,inspected.resource_fingerprints)&&database===inspected.database_fingerprint,'retirement_snapshot_changed')
+  check(await sha(source)===options.expectedCiphertext,'retirement_binding_invalid')
+  return {protocol:1,purpose:'retirement_checkpoint',candidate:context.identity.candidate,installation:config.installation,
+    ciphertext_sha256:inspected.ciphertext_sha256,recovery_point:inspected.recovery_point,
+    resource_fingerprints:files,database_fingerprint:database,
+    checks:['owned runtime and other database writers excluded','authenticated export identity bound independently','live file and database inventories match retained export'],
+    limitations:['This checkpoint establishes no functional restoration or removal.','Its installation lease ends when this command returns; removal requires a continuously held lifecycle owner and revalidation.','Shared roles, upstream credentials and provider resources have not been revoked.']}
+}
 async function copyExact(source,target){
   const stat=await lstat(source)
   check(stat.isDirectory()||stat.isFile(),'bundle_invalid')
@@ -155,10 +180,10 @@ async function restore(context,options,key){
   }finally{if(unpacked)await rm(verified,{recursive:true,force:true})}
 }
 export async function runRecovery(context,options){
-  check(options&&['backup','restore'].includes(options.mode)&&context.mode===options.mode)
+  check(options&&['backup','restore','checkpoint'].includes(options.mode)&&context.mode===(options.mode==='checkpoint'?'backup':options.mode))
   const key=await privateFile(options.key,32)
   check(key.length===32,'key_invalid')
-  try{await claim(context);return options.mode==='backup'?await backup(context,options,key):await restore(context,options,key)}
+  try{await claim(context);return options.mode==='backup'?await backup(context,options,key):options.mode==='checkpoint'?await checkpoint(context,options):await restore(context,options,key)}
   finally{key.fill(0)}
 }
 if(resolve(process.argv[1]??'')===fileURLToPath(import.meta.url)){
@@ -166,7 +191,8 @@ if(resolve(process.argv[1]??'')===fileURLToPath(import.meta.url)){
     const result=await runRecovery(JSON.parse(process.env.GITGOOD_RECOVERY_CONTEXT??''),{
       mode:process.argv[2],key:process.env.GITGOOD_RECOVERY_KEY_FILE,destination:process.env.GITGOOD_RECOVERY_BUNDLE,
       source:process.env.GITGOOD_RECOVERY_BUNDLE,configuration:process.env.GITGOOD_RECOVERY_CONFIGURATION,
-      ssh:process.env.GITGOOD_SSH_HOST_KEY_DIRECTORY,installation:process.env.GITGOOD_RECOVERY_INSTALLATION})
+      ssh:process.env.GITGOOD_SSH_HOST_KEY_DIRECTORY,installation:process.env.GITGOOD_RECOVERY_INSTALLATION,
+      expectedInstallation:process.env.GITGOOD_RETIREMENT_INSTALLATION,expectedCiphertext:process.env.GITGOOD_RETIREMENT_CIPHERTEXT_SHA256})
     process.stdout.write(JSON.stringify(result)+'\n')
   }catch(error){process.stdout.write(JSON.stringify({error:error instanceof RecoveryError?error.code:'recovery_failed'})+'\n');process.exitCode=1}
 }

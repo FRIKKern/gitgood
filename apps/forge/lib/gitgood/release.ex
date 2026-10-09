@@ -2,6 +2,7 @@ defmodule Gitgood.Release do
   @app :gitgood
   def backup, do: Gitgood.OfflineRecovery.run(:backup)
   def export, do: Gitgood.OfflineRecovery.run(:backup)
+  def retirement_checkpoint, do: Gitgood.OfflineRecovery.run(:checkpoint)
   def restore, do: Gitgood.OfflineRecovery.run(:restore)
 
   def migrate do
