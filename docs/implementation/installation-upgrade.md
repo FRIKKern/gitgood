@@ -103,6 +103,35 @@ configuration and recovery bundle through activation and subsequent verification
 
 ## Implementation sequence
 
+The read-only `native_inventory.py` component binds the initial local operator
+profile to an owned private installation root, exact configuration and Ed25519
+host-key digests, store directory device/inode identities, pinned runtime binary
+identities, and dedicated `gitgood-installation-UUID` native/web/edge/maintenance
+cgroups, with its supervisor in a separate driver group under the same delegated
+parent. The parent process-control file must be delegated too, so lifecycle children
+can move from the driver into their exact sibling group. Collection requires that
+actual driver membership. It also observes the PostgreSQL 18.4 cluster system identifier, database
+OID and database-owner role through one fixed read-only query. Re-observation
+must match the independently retained bindings digest. A copied directory with
+the same name or another database cannot silently replace the recorded target.
+
+This initial enrollment requires the configured database role to own the database
+and have permission to read `pg_control_system()`. PostgreSQL permits a specific
+EXECUTE grant; broad administrative access is not inferred or granted by the
+collector. See the official [control data functions](https://www.postgresql.org/docs/18/functions-info.html#FUNCTIONS-PG-CONTROL-DATA).
+The collector never logs connection credentials or expands the environment into
+receipts. It performs no migration, shutdown, routing or deletion. Observed
+resource identity is distinct from readiness, an active public release and
+replacement-host enrollment. The retained operator `2eb9d15` experiment used a
+fresh dedicated database and the copied `1b0fe04` native release: migration,
+bootstrap and native readiness passed before eight inventory/refusal checks.
+Changing the configured store refused; replacing the stopped storage directory
+changed its inode and refused the retained digest. The original directory and
+bindings were restored exactly. All five owned groups were empty after the
+driver exited, and fourteen private proof files passed digest readback. Earlier
+controller/delegation/address-format failures remain retained. This does not
+establish an active web/edge route or a full installed upgrade.
+
 1. Inspect an immutable native artifact against its independently supplied digest
    and candidate. Verify the forge/web build identities agree, required files and
    Linux x86-64 runtime exist, declared migrations and dependency/requirement
