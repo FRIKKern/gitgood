@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1984" viewBox="0 0 1200 1984" role="img" aria-labelledby="title desc">
 <title id="title">Gitgood — from private repository to complete forge</title>
-<desc id="desc">8 milestones and 17 scoped journeys. Implemented: 0 of 17 journeys. Verified: 0 confirmed · 17 unknown or stale. Released: 0 confirmed · 17 unknown or stale. Each journey shows implementation, verification, and release separately. Milestone exit gates are not inferred from journey counts. Unknown is not zero. Source freshness is evaluated at the recorded snapshot time.</desc>
+<desc id="desc">8 milestones and 17 scoped journeys. Implemented: 0 of 17 journeys. Verified: 0 of 17 journeys. Released: 0 confirmed · 17 unknown or stale. Each journey shows implementation, verification, and release separately. Milestone exit gates are not inferred from journey counts. Unknown is not zero. Source freshness is evaluated at the recorded snapshot time.</desc>
 <style>
     :root{color-scheme:light dark}
     text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#202c2a}
@@ -47,28 +47,28 @@
 <rect data-state="in_progress" x="346.94" y="255" width="15.53" height="12" rx="3" class="active"><title>J16: in_progress</title></rect>
 <rect data-state="in_progress" x="366.47" y="255" width="15.53" height="12" rx="3" class="active"><title>J17: in_progress</title></rect>
 </g>
-<g data-metric="verification"><title>Verified: 0 confirmed · 17 unknown or stale</title>
+<g data-metric="verification"><title>Verified: 0 of 17 journeys</title>
 <rect x="418" y="179" width="364" height="111" rx="14" class="panel"/>
 <text x="436" y="206" font-size="15" class="strong" >Verified</text>
-<text x="764" y="211" font-size="26" class="muted strong" text-anchor="end">?</text>
-<text x="436" y="235" font-size="14" class="muted" >Status source not connected</text>
-<rect data-state="unknown" x="436.00" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J01: unknown</title></rect>
-<rect data-state="unknown" x="455.53" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J02: unknown</title></rect>
-<rect data-state="unknown" x="475.06" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J03: unknown</title></rect>
-<rect data-state="unknown" x="494.59" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J04: unknown</title></rect>
-<rect data-state="unknown" x="514.12" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J05: unknown</title></rect>
-<rect data-state="unknown" x="533.65" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J06: unknown</title></rect>
-<rect data-state="unknown" x="553.18" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J07: unknown</title></rect>
-<rect data-state="unknown" x="572.71" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J08: unknown</title></rect>
-<rect data-state="unknown" x="592.24" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J09: unknown</title></rect>
-<rect data-state="unknown" x="611.76" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J10: unknown</title></rect>
-<rect data-state="unknown" x="631.29" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J11: unknown</title></rect>
-<rect data-state="unknown" x="650.82" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J12: unknown</title></rect>
-<rect data-state="unknown" x="670.35" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J13: unknown</title></rect>
-<rect data-state="unknown" x="689.88" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J14: unknown</title></rect>
-<rect data-state="unknown" x="709.41" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J15: unknown</title></rect>
-<rect data-state="unknown" x="728.94" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J16: unknown</title></rect>
-<rect data-state="unknown" x="748.47" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J17: unknown</title></rect>
+<text x="764" y="211" font-size="26" class="good strong" text-anchor="end">0 / 17</text>
+<text x="436" y="235" font-size="14" class="muted" >0 of 17 journeys</text>
+<rect data-state="absent" x="436.00" y="255" width="15.53" height="12" rx="3" class="track"><title>J01: absent</title></rect>
+<rect data-state="absent" x="455.53" y="255" width="15.53" height="12" rx="3" class="track"><title>J02: absent</title></rect>
+<rect data-state="absent" x="475.06" y="255" width="15.53" height="12" rx="3" class="track"><title>J03: absent</title></rect>
+<rect data-state="absent" x="494.59" y="255" width="15.53" height="12" rx="3" class="track"><title>J04: absent</title></rect>
+<rect data-state="absent" x="514.12" y="255" width="15.53" height="12" rx="3" class="track"><title>J05: absent</title></rect>
+<rect data-state="absent" x="533.65" y="255" width="15.53" height="12" rx="3" class="track"><title>J06: absent</title></rect>
+<rect data-state="absent" x="553.18" y="255" width="15.53" height="12" rx="3" class="track"><title>J07: absent</title></rect>
+<rect data-state="absent" x="572.71" y="255" width="15.53" height="12" rx="3" class="track"><title>J08: absent</title></rect>
+<rect data-state="absent" x="592.24" y="255" width="15.53" height="12" rx="3" class="track"><title>J09: absent</title></rect>
+<rect data-state="absent" x="611.76" y="255" width="15.53" height="12" rx="3" class="track"><title>J10: absent</title></rect>
+<rect data-state="inconclusive" x="631.29" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J11: inconclusive</title></rect>
+<rect data-state="absent" x="650.82" y="255" width="15.53" height="12" rx="3" class="track"><title>J12: absent</title></rect>
+<rect data-state="absent" x="670.35" y="255" width="15.53" height="12" rx="3" class="track"><title>J13: absent</title></rect>
+<rect data-state="absent" x="689.88" y="255" width="15.53" height="12" rx="3" class="track"><title>J14: absent</title></rect>
+<rect data-state="absent" x="709.41" y="255" width="15.53" height="12" rx="3" class="track"><title>J15: absent</title></rect>
+<rect data-state="absent" x="728.94" y="255" width="15.53" height="12" rx="3" class="track"><title>J16: absent</title></rect>
+<rect data-state="absent" x="748.47" y="255" width="15.53" height="12" rx="3" class="track"><title>J17: absent</title></rect>
 </g>
 <g data-metric="release"><title>Released: 0 confirmed · 17 unknown or stale</title>
 <rect x="800" y="179" width="364" height="111" rx="14" class="panel"/>
@@ -136,25 +136,25 @@
 <text x="493" y="781" font-size="12" class="muted mono" text-anchor="middle">I</text>
 <text x="527" y="781" font-size="12" class="muted mono" text-anchor="middle">V</text>
 <text x="561" y="781" font-size="12" class="muted mono" text-anchor="middle">R</text>
-<g data-journey="J01"><title>J01 Create a private repository. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J01"><title>J01 Create a private repository. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="811" font-size="13" class="muted mono" >J01</text>
 <text x="101" y="811" font-size="16" class="" >Create a private repository</text>
 <text x="493" y="811" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="811" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J02"><title>J02 Clone and push over HTTPS. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J02"><title>J02 Clone and push over HTTPS. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="845" font-size="13" class="muted mono" >J02</text>
 <text x="101" y="845" font-size="16" class="" >Clone and push over HTTPS</text>
 <text x="493" y="845" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="845" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J04"><title>J04 Browse code and commit history. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J04"><title>J04 Browse code and commit history. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="879" font-size="13" class="muted mono" >J04</text>
 <text x="101" y="879" font-size="16" class="" >Browse code and commit history</text>
 <text x="493" y="879" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="879" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
 <path d="M56 935h515" class="rule"/>
@@ -173,32 +173,32 @@
 <text x="1066" y="781" font-size="12" class="muted mono" text-anchor="middle">I</text>
 <text x="1100" y="781" font-size="12" class="muted mono" text-anchor="middle">V</text>
 <text x="1134" y="781" font-size="12" class="muted mono" text-anchor="middle">R</text>
-<g data-journey="J06"><title>J06 Review and update a pull request. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J06"><title>J06 Review and update a pull request. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="629" y="811" font-size="13" class="muted mono" >J06</text>
 <text x="674" y="811" font-size="16" class="" >Review and update a pull request</text>
 <text x="1066" y="811" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="1100" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="811" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="1134" y="811" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J07"><title>J07 Receive external check results. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J07"><title>J07 Receive external check results. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="629" y="845" font-size="13" class="muted mono" >J07</text>
 <text x="674" y="845" font-size="16" class="" >Receive external check results</text>
 <text x="1066" y="845" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="1100" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="845" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="1134" y="845" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J08"><title>J08 Merge under current policy. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J08"><title>J08 Merge under current policy. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="629" y="879" font-size="13" class="muted mono" >J08</text>
 <text x="674" y="879" font-size="16" class="" >Merge under current policy</text>
 <text x="1066" y="879" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="1100" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="879" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="1134" y="879" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J09"><title>J09 Recover an interrupted merge. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J09"><title>J09 Recover an interrupted merge. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="629" y="913" font-size="13" class="muted mono" >J09</text>
 <text x="674" y="913" font-size="16" class="" >Recover an interrupted merge</text>
 <text x="1066" y="913" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="1100" y="913" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="913" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="1134" y="913" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
 <path d="M629 935h515" class="rule"/>
@@ -217,32 +217,32 @@
 <text x="493" y="1163" font-size="12" class="muted mono" text-anchor="middle">I</text>
 <text x="527" y="1163" font-size="12" class="muted mono" text-anchor="middle">V</text>
 <text x="561" y="1163" font-size="12" class="muted mono" text-anchor="middle">R</text>
-<g data-journey="J03"><title>J03 Use and revoke SSH credentials. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J03"><title>J03 Use and revoke SSH credentials. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1193" font-size="13" class="muted mono" >J03</text>
 <text x="101" y="1193" font-size="16" class="" >Use and revoke SSH credentials</text>
 <text x="493" y="1193" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1193" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J05"><title>J05 Import a supported repository. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J05"><title>J05 Import a supported repository. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1227" font-size="13" class="muted mono" >J05</text>
 <text x="101" y="1227" font-size="16" class="" >Import a supported repository</text>
 <text x="493" y="1227" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1227" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J12"><title>J12 Publish a basic release. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J12"><title>J12 Publish a basic release. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1261" font-size="13" class="muted mono" >J12</text>
 <text x="101" y="1261" font-size="16" class="" >Publish a basic release</text>
 <text x="493" y="1261" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="1261" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1261" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1261" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J13"><title>J13 Search and follow activity. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J13"><title>J13 Search and follow activity. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1295" font-size="13" class="muted mono" >J13</text>
 <text x="101" y="1295" font-size="16" class="" >Search and follow activity</text>
 <text x="493" y="1295" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="1295" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1295" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1295" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
 <path d="M56 1317h515" class="rule"/>
@@ -261,18 +261,18 @@
 <text x="1066" y="1163" font-size="12" class="muted mono" text-anchor="middle">I</text>
 <text x="1100" y="1163" font-size="12" class="muted mono" text-anchor="middle">V</text>
 <text x="1134" y="1163" font-size="12" class="muted mono" text-anchor="middle">R</text>
-<g data-journey="J10"><title>J10 Connect tasks and specifications. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J10"><title>J10 Connect tasks and specifications. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="629" y="1193" font-size="13" class="muted mono" >J10</text>
 <text x="674" y="1193" font-size="16" class="" >Connect tasks and specifications</text>
 <text x="1066" y="1193" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="1100" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="1193" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="1134" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J11"><title>J11 Attach and reassess evidence. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J11"><title>J11 Attach and reassess evidence. Implemented: in_progress; Verified: inconclusive; Released: unknown</title>
 <text x="629" y="1227" font-size="13" class="muted mono" >J11</text>
 <text x="674" y="1227" font-size="16" class="" >Attach and reassess evidence</text>
 <text x="1066" y="1227" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="1100" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="1100" y="1227" font-size="18" class="warning symbol" text-anchor="middle">!</text>
 <text x="1134" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
 <path d="M629 1297h515" class="rule"/>
@@ -292,32 +292,32 @@
 <text x="493" y="1545" font-size="12" class="muted mono" text-anchor="middle">I</text>
 <text x="527" y="1545" font-size="12" class="muted mono" text-anchor="middle">V</text>
 <text x="561" y="1545" font-size="12" class="muted mono" text-anchor="middle">R</text>
-<g data-journey="J14"><title>J14 Install through Barkpark Cloud. Implemented: planned; Verified: unknown; Released: unknown</title>
+<g data-journey="J14"><title>J14 Install through Barkpark Cloud. Implemented: planned; Verified: absent; Released: unknown</title>
 <text x="56" y="1575" font-size="13" class="muted mono" >J14</text>
 <text x="101" y="1575" font-size="16" class="" >Install through Barkpark Cloud</text>
 <text x="493" y="1575" font-size="18" class="muted symbol" text-anchor="middle">○</text>
-<text x="527" y="1575" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1575" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1575" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J15"><title>J15 Upgrade and reject unhealthy releases. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J15"><title>J15 Upgrade and reject unhealthy releases. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1609" font-size="13" class="muted mono" >J15</text>
 <text x="101" y="1609" font-size="16" class="" >Upgrade and reject unhealthy releases</text>
 <text x="493" y="1609" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="1609" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1609" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1609" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J16"><title>J16 Restore onto a replacement host. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J16"><title>J16 Restore onto a replacement host. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1643" font-size="13" class="muted mono" >J16</text>
 <text x="101" y="1643" font-size="16" class="" >Restore onto a replacement host</text>
 <text x="493" y="1643" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="1643" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1643" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1643" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J17"><title>J17 Export archive and remove. Implemented: in_progress; Verified: unknown; Released: unknown</title>
+<g data-journey="J17"><title>J17 Export archive and remove. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1677" font-size="13" class="muted mono" >J17</text>
 <text x="101" y="1677" font-size="16" class="" >Export archive and remove</text>
 <text x="493" y="1677" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="527" y="1677" font-size="18" class="muted symbol" text-anchor="middle">?</text>
+<text x="527" y="1677" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1677" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
 <path d="M56 1699h515" class="rule"/>
@@ -346,7 +346,7 @@
 <text x="1164" y="1849" font-size="14" class="muted" text-anchor="end">✓ pass    ◐ active    ○ pending    × failed    ! inconclusive    ~ stale    ? unknown</text>
 <text x="36" y="1878" font-size="14" class="muted" >Journey status is not milestone completion. J04 continues through M4.</text>
 <text x="36" y="1906" font-size="11" class="muted label" >SOURCES</text>
-<text x="126" y="1906" font-size="14" class="muted" >ledger: current   /   evidence: unconfigured   /   releases: unconfigured</text>
-<text x="36" y="1933" font-size="14" class="muted" >Evaluated 2026-10-09T14:14:38.161Z · freshness window 24h</text>
+<text x="126" y="1906" font-size="14" class="muted" >ledger: current   /   evidence: current   /   releases: unconfigured</text>
+<text x="36" y="1933" font-size="14" class="muted" >Evaluated 2026-10-09T14:52:33.481Z · freshness window 24h</text>
 <text x="36" y="1960" font-size="13" class="muted" >Generated from canonical records · static snapshot · full criteria in docs/ROADMAP.md</text>
 </svg>
