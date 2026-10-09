@@ -71,8 +71,9 @@ class RetirementRestoreDataTest(unittest.TestCase):
             with self.assertRaises(UpgradeRefused):
                 self.action(journal).verify("restore")
             with patch("retirement_snapshot.subprocess.Popen") as launch:
-                with self.assertRaises(UpgradeRefused):
-                    self.action(journal).verify("invented")
+                for phase in ["invented", None, [], {}]:
+                    with self.assertRaises(UpgradeRefused):
+                        self.action(journal).verify(phase)
                 launch.assert_not_called()
 
     def test_changed_target_plan_refuses_before_any_child(self):
