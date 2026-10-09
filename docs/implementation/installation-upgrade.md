@@ -103,6 +103,19 @@ configuration and recovery bundle through activation and subsequent verification
 
 ## Implementation sequence
 
+`native_activation.py` supplies private current-release observation custody for
+the forthcoming coordinator. The installation history lock and its current owned
+public-verification/recovery journal govern the write. Candidate, archive digest,
+staged code inventory/directory identity, exact expected schema and a public probe
+receipt bind the record. Compare-and-swap against the independent previous record
+digest refuses stale or foreign responsibility. An exact repeated write is
+idempotent; file/directory fsync acknowledgement loss disables continuation from
+that in-memory owner while preserving the landed observation for reconciliation.
+Pointer files reject aliases, hardlinks and shared modes. The pointer does not
+perform probes, switch routing or complete the journal; its producer must supply
+actual observations. Structural custody checks use inert staged artifacts and
+receipts and establish no installed upgrade or live activation.
+
 `native_edge.py` adds a fixed guardian for the installation-owned edge group.
 The initial TLS profile uses retained certificate/key custody and distinct public
 HTTPS/SSH and loopback native/web/SSH ports. Maintenance returns HTTP 503 with a
