@@ -116,8 +116,14 @@ and writes before external I/O. Forge health reports
 refuses unknown modes. Ordinary native upgrade/activation probes refuse a
 verification copy even when its candidate and readiness match. The mode is an
 isolation prerequisite, not evidence that restoration succeeded. The complete
-fixed restoration controller, retained target lifecycle and installed retirement
-acceptance remain unfinished; see [the design decision](../decisions/0011-isolated-retirement-verification.md).
+fixed restoration controller passed actual installed pre-removal function,
+stopped-marker refusal and killed-controller recovery checks. Final retained
+usability after original deletion passed the fixed installed five-stage case with
+actual controller interruption and adversarial refusals; its new required CI and
+integration are under verification. The lifecycle CLI,
+cancellation and managed provider inventory remain separate work. See
+[the design decision](../decisions/0011-isolated-retirement-verification.md) and
+[the current evidence](../implementation/installation-retirement.md).
 
 Quiesce writes, drain and stop all old forge instances before migration/replacement. The operation/reconciler protocol currently assumes one deployed version against a repository's stores. Do not use the existing Cloud blue/green overlap without an explicit protocol compatibility proof. Start the matching candidate, reconcile unfinished operations, require both readiness probes, then route traffic. Rollback requires a schema-compatible previous artifact and matching stores; incompatible migrations need a tested recovery procedure.
 

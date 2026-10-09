@@ -19,8 +19,9 @@ from upgrade_journal import canonical, require, unique_object, validate_time
 
 
 class RetirementRuntime:
-    def __init__(self, journal, resource_plan, retention, checkpoint, restoration, configuration_bytes):
-        self.data = RetirementRestoreData(journal, resource_plan, retention, checkpoint, restoration, configuration_bytes)
+    def __init__(self, journal, resource_plan, retention, checkpoint, restoration, configuration_bytes, *, lifecycle_stage="archive_verify"):
+        self.data = RetirementRestoreData(journal, resource_plan, retention, checkpoint, restoration, configuration_bytes,
+                                          lifecycle_stage=lifecycle_stage)
         require(self.data.full_restoration is not None)
         self.snapshot, self.journal = self.data.snapshot, journal
         self.full = self.data.full_restoration
@@ -76,6 +77,7 @@ class RetirementRuntime:
         require(directory_identity(self.root, private=True) == self.target["target_root"])
         request = json.loads(canonical(self.target))
         existing = bool(list(self.root.iterdir()))
+        require(self.snapshot.lifecycle_stage == "archive_verify" or existing and marker is not None)
         require(existing or marker is None)
         if existing:
             request.update(protocol=3 if marker is not None else 2, phase="observe")

@@ -9,8 +9,9 @@ from retirement_restore_plan import TARGET_KEYS, validate_full_restore_plan
 from upgrade_journal import canonical, require
 
 class RetirementRestoreData:
-    def __init__(self, journal, resource_plan, retention, expected_checkpoint, restoration, configuration_bytes):
-        self.snapshot = RetirementSnapshot(journal, resource_plan, retention, expected_checkpoint, configuration_bytes)
+    def __init__(self, journal, resource_plan, retention, expected_checkpoint, restoration, configuration_bytes, *, lifecycle_stage="archive_verify"):
+        self.snapshot = RetirementSnapshot(journal, resource_plan, retention, expected_checkpoint, configuration_bytes,
+                                           lifecycle_stage=lifecycle_stage)
         self.journal = journal
         self.full_restoration = None
         if isinstance(restoration, dict) and type(restoration.get("protocol")) is int and restoration["protocol"] in {2, 3}:
@@ -49,6 +50,7 @@ class RetirementRestoreData:
 
     def verify(self, phase):
         require(isinstance(phase, str) and phase in {"restore", "observe"})
+        require(self.snapshot.lifecycle_stage == "archive_verify" or phase == "observe")
         request = {key: self.snapshot.request[key] for key in ["protocol", "installation", "candidate", "ciphertext_sha256", "source", "key_path"]}
         request.update(operation=self.journal.operation, phase=phase, target=self.target,
                        scratch_directory=self.snapshot.retention["scratch"]["path"])

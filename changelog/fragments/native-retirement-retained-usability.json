@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-retained-usability",
+  "category": "Added",
+  "summary": "Add fixed post-removal retained usability with exact source absence, private configuration custody and repeated authenticated recovery checks; actual five-stage installed removal, controller interruption, seven refusal cases and repeated status passed, while lifecycle CLI and managed Cloud remain unfinished.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_retention.py", "docs/decisions/0012-post-removal-retained-usability.md"],
+  "journeys": ["J17"],
+  "withdrawn": false
+}
