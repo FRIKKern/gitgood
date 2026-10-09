@@ -259,3 +259,44 @@ and health identity distinguish it from active service. Ordinary activation
 probes refuse that mode. [Decision 0011](../decisions/0011-isolated-retirement-verification.md)
 defines the remaining fixed controller and independently retained targets;
 enabling the mode alone cannot authorize removal.
+
+`retirement-restore-materialize.mjs` materializes the authenticated Git, SSH and
+configuration stores into a separately allocated, initially empty private root.
+Its name derives from the operation UUID; its original device/inode/owner are
+independently bound. The database must already match the authenticated export,
+with its exact target identity and no other connected clients. The helper
+reobserves those data before and after copying and never imports or deletes a
+database.
+
+The retained certificate must currently validate the loopback IP and match its
+private key. Five distinct ports must differ from the original profile. Fixed
+adaptations preserve session, proxy, connection and SSH secrets while rebinding
+the target installation UUID, local origin, database, storage paths, ports and
+shipped Git hooks. The external Barkpark origin is omitted from the temporary
+configuration; verification-mode flags remain a separate trusted launch input.
+
+Descriptor-anchored publication stays inside the original target directory and
+does not overwrite existing files. Every copied path, mode and byte is compared
+with the authenticated/adapted stage, synchronized, and checked through actual
+Git fsck/refs and final fingerprints. Occupied or replaced targets refuse.
+Failures preserve partial targets; only fresh unpack scratch from a normally
+completed invocation is cleaned. A killed process leaves its decrypted scratch
+private and retained for explicit reconciliation.
+
+Twelve checks passed with actual encrypted archives, PostgreSQL18.4 data, Git
+objects and valid TLS keys, including wrong root/database identity, port
+collision/original-port refusal, wrong certificate host, request-digest refusal,
+occupied/repeated target preservation, actual materialization, same-name root
+replacement, changed data and a connected client left alive. A separate four-check
+SIGKILL exercise after a nonempty Git-file copy retained the partial target and
+scratch, refused retry without changing those bytes, and preserved archive/key
+and database contents. An earlier directory-only interruption result is retained;
+a subsequent producer watched the wrong `HEAD` path and its failed result remains
+separate from the corrected fresh-target run.
+
+These archive candidates are inert fixtures. No application was launched, and
+neither experiment establishes continuous retirement journal/kernel custody,
+functional access/transport or complete retirement. The helper emits no
+`restore_function_verified` flag. Copied-production verification now invokes the
+shipped helper and checks original checkpoint bindings, retained secrets and
+occupied-target refusal; current required CI remains pending.
