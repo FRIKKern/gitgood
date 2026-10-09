@@ -60,6 +60,8 @@ export async function createPilotFixture(directory) {
   assert.equal((await bare(['diff', '--name-only', main, work])).stdout.trim().split('\n').length, 20)
   const diff = (await bare(['diff', '--no-ext-diff', '--no-textconv', '--no-renames', main, work])).stdout
   assert(Buffer.byteLength(diff) <= 262_144)
+  const sampleFile = Buffer.from((await bare(['show', main + ':' + name(0)])).stdout)
+  assert.equal(sha256(sampleFile), sha256(content(0, 1)))
   await bare(['bundle', 'create', bundle, '--branches'])
   await bare(['bundle', 'verify', bundle])
   const bytes = await readFile(bundle)
@@ -68,7 +70,8 @@ export async function createPilotFixture(directory) {
   const receipt = {schemaVersion: 1, profile: 'gitgood-pilot-v1', repository_format: 'sha1',
     git_version: (await command(['--version'])).stdout.trim(), main_sha: main, work_sha: work,
     files: 2000, file_bytes: 4096, directories: 20, main_commits: 500, work_commits: 510,
-    changed_files: 20, diff_bytes: Buffer.byteLength(diff), logical_tree_bytes: 2000 * 4096,
+    changed_files: 20, diff_bytes: Buffer.byteLength(diff), diff_sha256: sha256(diff), logical_tree_bytes: 2000 * 4096,
+    sample_file: {path: name(0), bytes: sampleFile.length, sha256: sha256(sampleFile)},
     bundle: {bytes: (await stat(bundle)).size, sha256: sha256(bytes)}, git_objects: objects,
     status: 'fixture identity checked; native import, latency and capacity remain unmeasured'}
   await writeFile(join(root, 'fixture-receipt.json'), JSON.stringify(receipt, null, 2) + '\n', {flag: 'wx', mode: 0o600})

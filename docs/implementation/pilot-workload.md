@@ -6,6 +6,8 @@ This is the first measurement profile for M4, recorded before running measuremen
 
 Use a disposable copied-production installation with PostgreSQL, native Gitgood, the production web service and the actual TLS edge. Preserve private data and runtime logs. A production fixture with tiny repositories does not establish these performance targets.
 
+The fixture generator records checksums for the sampled text and complete diff. `scripts/pilot-read-samples.mjs` observes the four warm read routes with eight independently authenticated native readers, verifies returned content, retains every raw timing and failure, and checks outsider denial during concurrent load. It uses normal certificate and hostname validation. Its fixed 1,500 ms target cannot be changed through a caller option. The accompanying actual TLS harness deliberately injects a 503, incorrect content, outsider access and duplicated actors to verify the observer. Harness success is not an actual Gitgood latency result.
+
 ## Repository and actors
 
 - One deterministic SHA1 repository: 2,000 UTF-8 files of exactly 4,096 bytes in 20 directories, 500 main commits, and 10 additional work-branch commits. Each later commit replaces two files with independently derived content. The final review spans 20 changed files. Record Git object, bundle, working-tree and bare-store sizes; compression is observed, never assumed.

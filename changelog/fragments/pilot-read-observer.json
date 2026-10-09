@@ -1,0 +1,9 @@
+{
+  "id": "pilot-read-observer",
+  "category": "Added",
+  "summary": "Add a checksum-bound warm-read observer with independent actors, retained failures and concurrent outsider checks; actual capacity measurements remain pending.",
+  "impact": "operator",
+  "references": ["scripts/pilot-read-samples.mjs", "scripts/pilot-read-samples.test.mjs", "docs/implementation/pilot-workload.md"],
+  "journeys": ["J04", "J05"],
+  "withdrawn": false
+}
