@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1984" viewBox="0 0 1200 1984" role="img" aria-labelledby="title desc">
 <title id="title">Gitgood — from private repository to complete forge</title>
-<desc id="desc">8 milestones and 17 scoped journeys. Implemented: 0 of 17 journeys. Verified: 0 of 17 journeys. Released: 0 confirmed · 17 unknown or stale. Each journey shows implementation, verification, and release separately. Milestone exit gates are not inferred from journey counts. Unknown is not zero. Source freshness is evaluated at the recorded snapshot time.</desc>
+<desc id="desc">8 milestones and 17 scoped journeys. Implemented: 0 of 17 journeys. Verified: 0 confirmed · 1 unknown or stale. Released: 0 confirmed · 17 unknown or stale. Each journey shows implementation, verification, and release separately. Milestone exit gates are not inferred from journey counts. Unknown is not zero. Source freshness is evaluated at the recorded snapshot time.</desc>
 <style>
     :root{color-scheme:light dark}
     text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#202c2a}
@@ -47,11 +47,11 @@
 <rect data-state="in_progress" x="346.94" y="255" width="15.53" height="12" rx="3" class="active"><title>J16: in_progress</title></rect>
 <rect data-state="in_progress" x="366.47" y="255" width="15.53" height="12" rx="3" class="active"><title>J17: in_progress</title></rect>
 </g>
-<g data-metric="verification"><title>Verified: 0 of 17 journeys</title>
+<g data-metric="verification"><title>Verified: 0 confirmed · 1 unknown or stale</title>
 <rect x="418" y="179" width="364" height="111" rx="14" class="panel"/>
 <text x="436" y="206" font-size="15" class="strong" >Verified</text>
-<text x="764" y="211" font-size="26" class="good strong" text-anchor="end">0 / 17</text>
-<text x="436" y="235" font-size="14" class="muted" >0 of 17 journeys</text>
+<text x="764" y="211" font-size="26" class="muted strong" text-anchor="end">?</text>
+<text x="436" y="235" font-size="14" class="muted" >0 confirmed · 1 unknown or stale</text>
 <rect data-state="absent" x="436.00" y="255" width="15.53" height="12" rx="3" class="track"><title>J01: absent</title></rect>
 <rect data-state="absent" x="455.53" y="255" width="15.53" height="12" rx="3" class="track"><title>J02: absent</title></rect>
 <rect data-state="absent" x="475.06" y="255" width="15.53" height="12" rx="3" class="track"><title>J03: absent</title></rect>
@@ -62,7 +62,7 @@
 <rect data-state="absent" x="572.71" y="255" width="15.53" height="12" rx="3" class="track"><title>J08: absent</title></rect>
 <rect data-state="absent" x="592.24" y="255" width="15.53" height="12" rx="3" class="track"><title>J09: absent</title></rect>
 <rect data-state="absent" x="611.76" y="255" width="15.53" height="12" rx="3" class="track"><title>J10: absent</title></rect>
-<rect data-state="inconclusive" x="631.29" y="255" width="15.53" height="12" rx="3" class="unknown"><title>J11: inconclusive</title></rect>
+<rect data-state="stale" x="631.29" y="255" width="15.53" height="12" rx="3" class="warning"><title>J11: stale</title></rect>
 <rect data-state="absent" x="650.82" y="255" width="15.53" height="12" rx="3" class="track"><title>J12: absent</title></rect>
 <rect data-state="absent" x="670.35" y="255" width="15.53" height="12" rx="3" class="track"><title>J13: absent</title></rect>
 <rect data-state="absent" x="689.88" y="255" width="15.53" height="12" rx="3" class="track"><title>J14: absent</title></rect>
@@ -268,11 +268,11 @@
 <text x="1100" y="1193" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="1134" y="1193" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
-<g data-journey="J11"><title>J11 Attach and reassess evidence. Implemented: in_progress; Verified: inconclusive; Released: unknown</title>
+<g data-journey="J11"><title>J11 Attach and reassess evidence. Implemented: in_progress; Verified: stale; Released: unknown</title>
 <text x="629" y="1227" font-size="13" class="muted mono" >J11</text>
 <text x="674" y="1227" font-size="16" class="" >Attach and reassess evidence</text>
 <text x="1066" y="1227" font-size="18" class="active symbol" text-anchor="middle">◐</text>
-<text x="1100" y="1227" font-size="18" class="warning symbol" text-anchor="middle">!</text>
+<text x="1100" y="1227" font-size="18" class="warning symbol" text-anchor="middle">~</text>
 <text x="1134" y="1227" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
 <path d="M629 1297h515" class="rule"/>
@@ -347,6 +347,6 @@
 <text x="36" y="1878" font-size="14" class="muted" >Journey status is not milestone completion. J04 continues through M4.</text>
 <text x="36" y="1906" font-size="11" class="muted label" >SOURCES</text>
 <text x="126" y="1906" font-size="14" class="muted" >ledger: current   /   evidence: current   /   releases: unconfigured</text>
-<text x="36" y="1933" font-size="14" class="muted" >Evaluated 2026-10-09T14:52:33.481Z · freshness window 24h</text>
+<text x="36" y="1933" font-size="14" class="muted" >Evaluated 2026-10-09T15:36:23.178Z · freshness window 24h</text>
 <text x="36" y="1960" font-size="13" class="muted" >Generated from canonical records · static snapshot · full criteria in docs/ROADMAP.md</text>
 </svg>

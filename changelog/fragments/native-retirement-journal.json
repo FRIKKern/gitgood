@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-journal",
+  "category": "Added",
+  "summary": "Retain fixed native retirement responsibility under the installation upgrade lock, with pinned intent, interrupted-owner reconciliation and explicit retained-resource observations; removal execution remains unfinished.",
+  "impact": "operator",
+  "references": ["tools/deployment/retirement_journal.py", "docs/implementation/installation-retirement.md"],
+  "journeys": ["J15", "J17"],
+  "withdrawn": false
+}
