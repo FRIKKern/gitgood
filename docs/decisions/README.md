@@ -41,3 +41,9 @@ recovery and forward-repair choices. Actual seven-stage execution, wrong-artifac
 refusal, compatible recovery and migration-owner loss/forward repair passed with
 later-session API/HTTPS/SSH function. A 322-file private archive passed readback;
 exact committed applicability and required integration CI remain separate gates.
+
+[Durable first-install owner bootstrap](0015-installation-owner-bootstrap.md)
+defines a separate fixed first-owner request, atomic creation receipt and
+historical replay without resetting credentials or changed memberships. Nine
+real-Postgres component checks passed; complete installation and packaged
+production execution remain separate work.

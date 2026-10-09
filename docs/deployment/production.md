@@ -120,6 +120,14 @@ Run release migrations before service startup:
 `bin/gitgood eval 'Gitgood.Release.migrate()'`.
 Bootstrap a local actor once with `GITGOOD_BOOTSTRAP_USERNAME`, `GITGOOD_BOOTSTRAP_TEAM`, `GITGOOD_BOOTSTRAP_ROLE` and `GITGOOD_BOOTSTRAP_PASSWORD`, then `bin/gitgood eval 'Gitgood.Release.bootstrap()'`; remove bootstrap variables afterward. Bootstrap user/membership creation is transactional. There is no production signup or managed identity provider yet.
 
+The separate first-owner `Gitgood.Release.bootstrap_owner()` entry accepts an
+independently digest-bound private installation/request identity and fixes the
+role to owner. Its singleton receipt permits exact historical replay without
+resetting credentials or restoring changed memberships. It refuses existing
+actor data before initial creation. See the [private input contract and current
+verification](../implementation/installation-owner-bootstrap.md); complete
+installation/enrollment remains separate work.
+
 On Linux, bootstrap starts the native application and must use the installation's
 pre-provisioned dedicated runtime cgroup through its supervisor or the packaged
 `priv/operations/runtime_cgroup.py` helper. Stop the complete group before another

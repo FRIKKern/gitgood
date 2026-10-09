@@ -46,4 +46,25 @@ defmodule Gitgood.Release do
         raise("Bootstrap failed; inspect the actor configuration without exposing its password")
     end
   end
+
+  def bootstrap_owner do
+    params = %{
+      "installation" => System.fetch_env!("GITGOOD_BOOTSTRAP_INSTALLATION"),
+      "request" => System.fetch_env!("GITGOOD_BOOTSTRAP_REQUEST"),
+      "username" => System.fetch_env!("GITGOOD_BOOTSTRAP_USERNAME"),
+      "team" => System.fetch_env!("GITGOOD_BOOTSTRAP_TEAM"),
+      "password" => System.fetch_env!("GITGOOD_BOOTSTRAP_PASSWORD")
+    }
+
+    expected = System.fetch_env!("GITGOOD_BOOTSTRAP_REQUEST_SHA256")
+    {:ok, _payload} = Gitgood.InstallationOwnerBootstrap.validate(params, expected)
+    {:ok, _} = Application.ensure_all_started(@app)
+
+    case Gitgood.InstallationOwnerBootstrap.create(params, expected) do
+      {:ok, receipt} -> IO.puts(Jason.encode!(receipt))
+      _ -> raise "Installation owner bootstrap refused"
+    end
+  rescue
+    _ -> raise "Installation owner bootstrap refused"
+  end
 end

@@ -1,0 +1,9 @@
+{
+  "id": "installation-owner-bootstrap",
+  "category": "Added",
+  "summary": "Add a digest-bound first-install owner bootstrap with atomic user/membership/receipt creation, serialized admission and exact historical replay that cannot reset credentials or restore changed access; complete installation and Cloud enrollment remain unfinished.",
+  "impact": "operator",
+  "references": ["docs/implementation/installation-owner-bootstrap.md", "docs/decisions/0015-installation-owner-bootstrap.md"],
+  "journeys": ["J14"],
+  "withdrawn": false
+}

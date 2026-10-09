@@ -7,11 +7,12 @@ import {provisionConfiguration,readConfiguration} from '../apps/forge/priv/opera
 export async function verifyOfflineRecovery(options){
   const {root,env,webEnv,release,installedForge,installedWeb,run,launch,wait,stop,ready,stopNative,startRestored,
     authorization,outsiderAuth,forgeUrl,webUrl,sourceControl,sourceLinks,gitRepo,gitEnv,sshEnv,main,sshBefore,
-    releaseAssetPath,released,certificate,tlsKey,pendingEvidence}=options
+    releaseAssetPath,released,certificate,tlsKey,pendingEvidence,bootstrapOwner,bootstrapInputs,replayBootstrap,ownerInventory}=options
   assert.equal(process.platform,'linux')
   const started=performance.now(),targetRtoMs=15*60*1000
   const configuration=join(root,'operator-configuration'),keyFile=join(root,'recovery-key.bin'),bundle=join(root,'recovery.ggbackup')
-  const originalInstallation=await provisionConfiguration({directory:configuration,forge:env,web:webEnv,certificate,tlsKey,sourceCa:env.GITGOOD_BARKPARK_CA})
+  assert.equal(bootstrapOwner.created.installation,bootstrapInputs.installation)
+  const originalInstallation=await provisionConfiguration({directory:configuration,forge:env,web:webEnv,certificate,tlsKey,sourceCa:env.GITGOOD_BARKPARK_CA,installation:bootstrapInputs.installation})
   await writeFile(keyFile,randomBytes(32),{flag:'wx',mode:0o600})
   const backupEnv={...env,GITGOOD_RECOVERY_KEY_FILE:keyFile,GITGOOD_RECOVERY_CONFIGURATION:configuration,GITGOOD_RECOVERY_BUNDLE:bundle}
   await wait(launch(release,['eval','Gitgood.Release.backup()'],backupEnv,installedForge,'backup-running-refusal'),'backup-running-refusal',[1])
@@ -332,11 +333,32 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   await run(process.env.GITGOOD_GIT??'git',['push','origin','HEAD:'+interruptedRef],gitEnv,clone,'restored-push')
   const branches=await (await fetch(forgeUrl+'/api/repos/'+gitRepo.team+'/'+gitRepo.name+'/branches',{headers:{authorization}})).json()
   assert(branches.branches.some(branch=>branch.name==='recovery-interrupted'))
+  // Reobserve the restored receipt through the packaged command under stopped
+  // runtime custody. Creation metadata is separate from the fresh function above.
+  await stopNative()
+  const ownerEnvironment={...process.env,PGDATABASE:database}
+  const restoredOwnerBefore=await ownerInventory('restored-owner-before-replay',ownerEnvironment)
+  const restoredOwner=await replayBootstrap({...process.env,...recovered.forge,PHX_SERVER:'false'},'restored-owner-recorded')
+  assert.deepEqual(restoredOwner,bootstrapOwner.recorded)
+  assert.deepEqual(await ownerInventory('restored-owner-after-replay',ownerEnvironment),restoredOwnerBefore)
+  await startRestored({...process.env,...recovered.forge,PHX_SERVER:'true'},{...process.env,...recovered.web})
+  assert.equal((await ready(forgeUrl)).candidate,backupReceipt.candidate)
+  assert.equal((await ready(webUrl)).candidate,backupReceipt.candidate)
+  const ownerBranches='/api/repos/'+gitRepo.team+'/'+gitRepo.name+'/branches'
+  const ownerResponse=await fetch(forgeUrl+ownerBranches,{headers:{authorization}})
+  assert.equal(ownerResponse.status,200)
+  assert((await ownerResponse.json()).branches.some(branch=>branch.name==='main'&&branch.sha===main.sha))
+  assert.equal((await fetch(forgeUrl+ownerBranches)).status,401)
+  for(const [label,url,configuration] of [['restored-owner-https-read',gitRepo.clone_url,gitEnv],['restored-owner-ssh-read',gitRepo.ssh_clone_url,sshEnv]]){
+    await run(process.env.GITGOOD_GIT??'git',['ls-remote',url,'refs/heads/main'],configuration,root,label)
+    assert((await readFile(join(root,'logs/'+label+'.log'),'utf8')).split(/\r?\n/).includes(main.sha+'\trefs/heads/main'))
+  }
   const recoveryMs=performance.now()-pausedAt
   assert(recoveryMs<targetRtoMs)
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
     backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,retirement_restored_data:retirementRestoredData,retirement_materialization:retirementMaterialization,retirement_materialization_observation:retirementMaterializationObservation,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
+    bootstrap_owner:{recorded:restoredOwner,owner_tables:restoredOwnerBefore,unchanged_after_replay:true},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','migration and replacement runtime refuse a real surviving Git writer; schema/lock bytes retained and migration permits only after the complete owned group stops','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
       'real prepared Git transaction excluded while alive; killed lock quarantined byte-for-byte without publishing its ref',
@@ -347,7 +369,8 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
       'packaged read-only snapshot observer matches the checkpoint; wrong UUID/digest and database-only changes refuse without acquiring a new offline lease or removing resources',
       'packaged restored-data verifier imports the authenticated dump into an independently named target, matches schema/data/sequences/locale, reobserves it and refuses changed target identity or repeat import into populated data',
       'packaged materializer preserves authenticated Git/SSH/configuration contents in a sealed separate root, checks retained local TLS identity, adapts fixed paths/ports/hooks without external Source origin and refuses a wrong or occupied target',
-      'packaged existing-target observation authenticates the archive and database again, checks the entire adapted tree without copying or rewriting target contents, preserves bytes/inodes/metadata, and refuses unexpected files or an unsupported phase'],
+      'packaged existing-target observation authenticates the archive and database again, checks the entire adapted tree without copying or rewriting target contents, preserves bytes/inodes/metadata, and refuses unexpected files or an unsupported phase',
+      'restored packaged owner receipt replays without changing exact owner tables; fresh matching readiness, authorized/anonymous-refused API and CA HTTPS/pinned SSH refs pass afterward'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}
   await writeFile(join(options.evidence,'offline-recovery-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   return receipt
