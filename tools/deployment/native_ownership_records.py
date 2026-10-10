@@ -125,6 +125,55 @@ class NativeOwnershipRecords:
             self._read(descriptor, entry.name)
         return {entry.name for entry in entries}
 
+    def inspect(self):
+        """Observe retained responsibility without creating, locking or repairing.
+
+        A complete record describes an earlier claim. This observation cannot
+        establish that its owner/backend exited or authorize a replacement.
+        """
+        storage_fd = directory_fd = None
+        try:
+            require(self.storage.resolve(strict=True) == self.storage)
+            storage_fd = os.open(self.storage, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+            require(self._identity(os.fstat(storage_fd)) == self.identity == self._identity(self.storage.lstat()))
+            name = '.gitgood-ownership-v2'
+            try:
+                directory_fd = os.open(name, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC, dir_fd=storage_fd)
+            except FileNotFoundError:
+                require(self.storage.resolve(strict=True) == self.storage)
+                require(self._identity(os.fstat(storage_fd)) == self.identity == self._identity(self.storage.lstat()))
+                try:
+                    os.stat(name, dir_fd=storage_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    return {'ownership_directory_present':False, 'records':[],
+                            'installation_readiness_established':False, 'replacement_admitted':False}
+                raise OwnershipRecordRefused('Native ownership directory changed')
+            directory_identity = self._identity(os.fstat(directory_fd))
+            self._check(storage_fd, directory_fd, directory_identity)
+            names = self._layout(directory_fd)
+            fields = ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink')
+            def fingerprint():
+                result = {}
+                for entry in names:
+                    info = os.stat(entry, dir_fd=directory_fd, follow_symlinks=False)
+                    result[entry] = tuple(getattr(info, field) for field in fields)
+                return result
+            before = fingerprint()
+            values = [self._read(directory_fd, entry) for entry in sorted(names)]
+            require(self._layout(directory_fd) == names and fingerprint() == before)
+            self._check(storage_fd, directory_fd, directory_identity)
+            require([self._read(directory_fd, entry) for entry in sorted(names)] == values)
+            require(self._layout(directory_fd) == names and fingerprint() == before)
+            self._check(storage_fd, directory_fd, directory_identity)
+            return {'ownership_directory_present':True, 'records':values,
+                    'installation_readiness_established':False, 'replacement_admitted':False}
+        except (OwnershipRecordRefused, GenerationRefused, DatabaseRefused, OSError, ValueError,
+                TypeError, KeyError, UnicodeError, RecursionError):
+            raise OwnershipRecordRefused('Native ownership inspection unavailable') from None
+        finally:
+            if directory_fd is not None: os.close(directory_fd)
+            if storage_fd is not None: os.close(storage_fd)
+
     def retain(self, record):
         storage_fd = directory_fd = None
         try:
