@@ -3,6 +3,11 @@
 Implementation work under decision 0018. Complete application startup, native
 leases, generation-aware markers and lifecycle admission remain unfinished.
 
+The [publication integration](native-ownership-publication.md) now includes marker
+custody, original backend/owner-socket observation and a protected fixed entry.
+Its actual service execution and prior-owner reconciliation remain unfinished;
+the native application gate remains closed.
+
 The preliminary `InstallationProfile` selector distinguishes the development
 profile from `systemd-v2`. Native selection requires Linux x86_64, the canonical
 installation storage path and a matching actual native or maintenance kernel
