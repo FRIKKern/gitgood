@@ -124,10 +124,13 @@ class ResourceGenerationRecordTest(unittest.TestCase):
             record[key] = value
             with self.subTest(key=key), self.assertRaises(GenerationRefused):
                 validate_generation(record)
-        record = copy.deepcopy(self.first)
-        record["scope"]["manager"]["mount_namespace"] = "mnt:[../other]"
-        with self.assertRaises(GenerationRefused):
-            validate_generation(record)
+        for field, value in [("mount_namespace", "mnt:[../other]"),
+                             ("mount_namespace", "mnt:[" + str(2**64) + "]"),
+                             ("cgroup_namespace", "cgroup:[" + str(2**64) + "]")]:
+            record = copy.deepcopy(self.first)
+            record["scope"]["manager"][field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(GenerationRefused):
+                validate_generation(record)
 
     def test_duplicate_fields_refuse_at_every_json_level(self):
         raw = canonical(self.first)

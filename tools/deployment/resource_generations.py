@@ -77,6 +77,7 @@ def validate_scope(scope):
     integer(int(manager["birth"]))
     for field, prefix in [("mount_namespace", "mnt"), ("cgroup_namespace", "cgroup")]:
         require(isinstance(manager[field], str) and re.fullmatch(prefix + r":\[[1-9][0-9]{0,19}\]", manager[field]))
+        integer(int(manager[field].partition("[")[2][:-1]))
     security = manager["security"]
     closed(security, ("gid", "supplementary_groups", "capabilities", "no_new_privileges"))
     integer(security["gid"], maximum=2**32 - 1)

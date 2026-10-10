@@ -29,6 +29,8 @@ All nested objects have closed field sets. Unknown fields, commands, credentials
 duplicate JSON properties, boolean numeric identities, malformed paths,
 privileged state, aliased groups and oversized payloads refuse. Constructors
 copy their input so subsequent caller edits cannot mutate the created record.
+Namespace identities use the same positive unsigned 64-bit bound as other
+kernel identities; a well-formed numeric string above that limit refuses.
 
 ## Chain behavior
 
@@ -54,11 +56,14 @@ The full ordinary-account Linux suite passed 225 checks with 12 expected
 foreign-platform skips, and all 33 planning checks passed. The private source
 archive contains eight immutable records, including the exact module, tests,
 actual-scope consumer receipt and logs. Its review SHA-256 is
-`5375e85c9523f2386421c207e748457308ea399e3b15a4d37883d72384a476ba`;
+`ef3b070060812d2bae98379a8d5a69dc44479d7aee011b237abec3659c0bdc85`;
 its digest-index SHA-256 is
-`d64ec612819671eada1a4a0e33753a088cdccdd4084e365797b460784543b8e8`.
+`e8e07a7996b1b4e483869ccd03b8c83e16c72c090175da148e3b145b364cfef5`.
 Every archived file passed digest readback. The review also binds the current
 29-record admission and five-record installed-source archives.
+This second archive binds the namespace-bound revision. The initial eight-record
+archive and its original producer/receipt remain retained under their earlier
+revision; they are not substituted for the revised source evidence.
 
 That exercise deliberately used a synthetic fixture-data digest. It observed
 no PostgreSQL, store, configuration or key installation binding. It validates
