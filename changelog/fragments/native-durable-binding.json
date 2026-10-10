@@ -1,0 +1,9 @@
+{
+  "id": "native-durable-binding",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Observe native persistent installation identity separately from kernel resource generations. Bind private directory, configuration/key, host and root-controlled executable identities to an actual ordinary PostgreSQL owner; reject administrative role privileges, memberships and changed observations. Writer exclusion, publication and lifecycle recovery remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-durable-bindings.md", "tools/deployment/native_durable_binding.py", "tools/deployment/native_durable_database.py"],
+  "withdrawn": false
+}
