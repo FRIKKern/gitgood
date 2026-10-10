@@ -1,0 +1,9 @@
+{
+  "id": "readme-changelog-summary",
+  "category": "Changed",
+  "summary": "Keep the pre-release README summary compact with pending changelog counts and category totals, while preserving every detailed entry and source reference in CHANGELOG.",
+  "impact": "planning",
+  "references": ["changelog/ROUTINE.md", "scripts/render.mjs"],
+  "journeys": [],
+  "withdrawn": false
+}

@@ -18,8 +18,15 @@ export function changelog(m) {
   let body='# Changelog\n\nGenerated from reviewed fragments and changelog/releases.json. This file does not publish an application release.\n\n## Unreleased\n\n'+(entries(pending)||'No pending entries.')+'\n'
   for (const r of releases) body+='\n## '+r.version+' — '+r.date+'\n\nSource commit: '+r.commit+'.\n\n'+entries(r.fragments.map(id=>m.fragments.find(f=>f.id===id)))+'\n'+(r.upgrade?'\nUpgrade: '+r.upgrade+'\n':'')
   const latest=releases[0]
+  const pendingCounts = ['Added','Changed','Fixed','Deprecated','Removed','Security']
+    .map(category=>({category,count:pending.filter(fragment=>fragment.category===category).length}))
+    .filter(({count})=>count>0)
+    .map(({category,count})=>count+' '+category.toLowerCase())
+    .join(', ')
   const highlights = latest
     ? "## What's new\n\n**"+latest.version+" — "+latest.date+".** "+latest.fragments.map(id=>m.fragments.find(f=>f.id===id)?.summary).filter(Boolean).slice(0,3).join(' ')+' See [release history](CHANGELOG.md).'
-    : "## What's new\n\n**Unreleased — development.** "+(pending.map(f=>f.summary).join(' ')||'Development work has not been released.')+' No Gitgood application release has been published.'
+    : "## What's new\n\n**Unreleased — development.** "+(pending.length
+      ? pending.length+' pending changelog '+(pending.length===1?'entry':'entries')+' ('+pendingCounts+'). See the [full development changelog](CHANGELOG.md#unreleased).'
+      : 'No pending changelog entries.')+' No Gitgood application release has been published.'
   return {body,highlights}
 }
