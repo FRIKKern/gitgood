@@ -1,5 +1,7 @@
 import Config
 
+config :gitgood, :supervision_profile, System.get_env("GITGOOD_SUPERVISION_PROFILE")
+
 recovery_verification =
   case System.get_env("GITGOOD_RECOVERY_VERIFY_ONLY") do
     value when value in [nil, "false"] -> false
