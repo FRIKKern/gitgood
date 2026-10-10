@@ -59,5 +59,34 @@ and row counts across replay and changed-input refusals. The offline verifier
 replays the same private request against the restored database, compares those
 tables again, then requires matching readiness, authorized and anonymous-refused
 API access, CA HTTPS Git and pinned SSH Git. These new packaged and restore checks
-are pending actual execution. Complete first installation, artifact compatibility
-and required CI remain separate gates; no J14 criterion is established here.
+passed for PR63 at b4ae9db, with its exact proposed tree executed at d9c0b30.
+Required CI passed 189 backend tests, 23 copied-production checks and 19
+offline-recovery checks; the change merged at fbc9bc9. These are supporting
+bootstrap and same-host restoration checks. Complete first installation and J14
+acceptance remain separate gates.
+
+## Read-only interrupted-request observation
+
+`Gitgood.Release.observe_bootstrap_owner()` accepts the same private inputs and
+independent digest. It starts only the temporary Ecto repository and required
+database dependencies. It does not start Gitgood's application supervisor,
+mutation workers, listeners or installation runtime lease. The database
+transaction explicitly uses READ COMMITTED and READ ONLY, then acquires the same
+transaction advisory lock as creation before observing committed state.
+
+An empty actor/receipt state returns `absent` with null actor/role fields. An exact
+committed request returns the original `recorded` metadata. Conflicts and existing
+unreceipted actors refuse. Observation does not create an owner or reset current
+access, and absence reserves nothing against subsequent writes. The future
+enrollment controller must still reconcile actual stage effects and prove current
+login and function.
+
+Four new real-Postgres checks passed, including observation blocked by an actual
+pending writer connection until commit. The full backend suite passed 193 tests
+and formatting. Eleven separate actual Mix release-entry calls passed absence,
+creation, observation, replay and digest/password/request/installation refusals,
+with exact owner-row preservation and no application runtime after observation.
+These are test-runtime calls. The new packaged observation/restored-observation
+checks remain under verification. The current
+copied-production profile will require 24 checks and offline recovery 20; those
+new checks are not claimed passed from PR63's earlier artifact.

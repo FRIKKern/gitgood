@@ -7,7 +7,7 @@ import {provisionConfiguration,readConfiguration} from '../apps/forge/priv/opera
 export async function verifyOfflineRecovery(options){
   const {root,env,webEnv,release,installedForge,installedWeb,run,launch,wait,stop,ready,stopNative,startRestored,
     authorization,outsiderAuth,forgeUrl,webUrl,sourceControl,sourceLinks,gitRepo,gitEnv,sshEnv,main,sshBefore,
-    releaseAssetPath,released,certificate,tlsKey,pendingEvidence,bootstrapOwner,bootstrapInputs,replayBootstrap,ownerInventory}=options
+    releaseAssetPath,released,certificate,tlsKey,pendingEvidence,bootstrapOwner,bootstrapInputs,replayBootstrap,observeBootstrap,ownerInventory}=options
   assert.equal(process.platform,'linux')
   const started=performance.now(),targetRtoMs=15*60*1000
   const configuration=join(root,'operator-configuration'),keyFile=join(root,'recovery-key.bin'),bundle=join(root,'recovery.ggbackup')
@@ -338,6 +338,9 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   await stopNative()
   const ownerEnvironment={...process.env,PGDATABASE:database}
   const restoredOwnerBefore=await ownerInventory('restored-owner-before-replay',ownerEnvironment)
+  const restoredObservedOwner=await observeBootstrap({...process.env,...recovered.forge,PHX_SERVER:'false'},'restored-owner-observed')
+  assert.deepEqual(restoredObservedOwner,bootstrapOwner.recorded)
+  assert.deepEqual(await ownerInventory('restored-owner-after-observation',ownerEnvironment),restoredOwnerBefore)
   const restoredOwner=await replayBootstrap({...process.env,...recovered.forge,PHX_SERVER:'false'},'restored-owner-recorded')
   assert.deepEqual(restoredOwner,bootstrapOwner.recorded)
   assert.deepEqual(await ownerInventory('restored-owner-after-replay',ownerEnvironment),restoredOwnerBefore)
@@ -358,7 +361,7 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
   const receipt={candidate:backupReceipt.candidate,recorded_at:new Date().toISOString(),profile:'same-host isolated database and installation, supporting proof',
     backup:{...backupReceipt},export:exportInspection,retirement_checkpoint:retirementCheckpoint,retirement_snapshot:retirementSnapshot,retirement_restored_data:retirementRestoredData,retirement_materialization:retirementMaterialization,retirement_materialization_observation:retirementMaterializationObservation,restored_database:database,installation:recovered.installation,
     targets:{rpo:'zero loss relative to the quiesced durable point',rto_ms:targetRtoMs},observed:{recovery_ms:recoveryMs,total_ms:performance.now()-started},
-    bootstrap_owner:{recorded:restoredOwner,owner_tables:restoredOwnerBefore,unchanged_after_replay:true},
+    bootstrap_owner:{recorded:restoredOwner,observed:restoredObservedOwner,owner_tables:restoredOwnerBefore,unchanged_after_replay:true,unchanged_after_observation:true,observation_application_runtime_not_started:true},
     checks:['running installation refuses backup','kernel cgroup empty before snapshot','migration and replacement runtime refuse a real surviving Git writer; schema/lock bytes retained and migration permits only after the complete owned group stops','exact database rows/sequences/schema and locale fingerprint',
       'real different-locale target refused before gate, database import or store installation',
       'real prepared Git transaction excluded while alive; killed lock quarantined byte-for-byte without publishing its ref',
@@ -370,7 +373,8 @@ child.stdin.write('start\\ncreate refs/heads/recovery-interrupted '+process.argv
       'packaged restored-data verifier imports the authenticated dump into an independently named target, matches schema/data/sequences/locale, reobserves it and refuses changed target identity or repeat import into populated data',
       'packaged materializer preserves authenticated Git/SSH/configuration contents in a sealed separate root, checks retained local TLS identity, adapts fixed paths/ports/hooks without external Source origin and refuses a wrong or occupied target',
       'packaged existing-target observation authenticates the archive and database again, checks the entire adapted tree without copying or rewriting target contents, preserves bytes/inodes/metadata, and refuses unexpected files or an unsupported phase',
-      'restored packaged owner receipt replays without changing exact owner tables; fresh matching readiness, authorized/anonymous-refused API and CA HTTPS/pinned SSH refs pass afterward'],
+      'restored packaged owner receipt replays without changing exact owner tables; fresh matching readiness, authorized/anonymous-refused API and CA HTTPS/pinned SSH refs pass afterward',
+      'restored read-only owner observation matches committed metadata without changing exact owner tables or starting application runtime'],
     limitations:['Same host; replacement-host exercise still required','No storage power-loss durability proof','No managed Cloud lifecycle']}
   await writeFile(join(options.evidence,'offline-recovery-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   return receipt

@@ -22,6 +22,42 @@ defmodule Gitgood.InstallationOwnerBootstrap do
     end
   end
 
+  def observe(params, expected_request_sha256) do
+    with {:ok, payload} <- validate(params, expected_request_sha256),
+         {:ok, secret} <- secret() do
+      commitment = :crypto.mac(:hmac, :sha256, secret, payload)
+
+      Repo.transaction(fn ->
+        Repo.query!("SET TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY")
+        Repo.query!("SELECT pg_advisory_xact_lock($1::int, $2::int)", [@namespace, 1])
+
+        case Repo.get(InstallationOwnerReceipt, 1) do
+          nil ->
+            if Repo.exists?(User) or Repo.exists?(Membership),
+              do: Repo.rollback(:installation_not_empty)
+
+            %{
+              protocol: 1,
+              purpose: "installation_owner_bootstrap",
+              outcome: "absent",
+              installation: params["installation"],
+              request: params["request"],
+              username: params["username"],
+              team: params["team"],
+              user_id: nil,
+              role_at_creation: nil,
+              limitations: [
+                "Read-only committed-state observation; no reservation, login, readiness or artifact verification."
+              ]
+            }
+
+          receipt ->
+            replay(receipt, params, commitment)
+        end
+      end)
+    end
+  end
+
   def validate(params, expected) when is_map(params) and is_binary(expected) do
     with true <- Enum.sort(Map.keys(params)) == Enum.sort(@fields),
          true <- Enum.all?(@fields, &(is_binary(params[&1]) and String.valid?(params[&1]))),

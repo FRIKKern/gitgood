@@ -1,0 +1,9 @@
+{
+  "id": "installation-owner-observation",
+  "category": "Added",
+  "summary": "Add a fixed read-only first-owner observation entry that distinguishes committed absence from exact recorded creation under the creation lock, preserves current access and starts only the temporary database repository; packaged enrollment remains under verification.",
+  "impact": "operator",
+  "references": ["docs/implementation/installation-owner-bootstrap.md", "docs/decisions/0015-installation-owner-bootstrap.md"],
+  "journeys": ["J14"],
+  "withdrawn": false
+}
