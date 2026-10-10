@@ -162,7 +162,8 @@ def observe_service(installation, unit_sha256, *, cpu_quota_us, memory_bytes):
         raise ServiceRefused("Native service scope unavailable or changed") from None
 
 
-def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes):
+def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, caller_group="driver"):
+    require(caller_group in {"driver", "native", "maintenance"})
     require(isinstance(installation, str) and str(uuid.UUID(installation)) == installation)
     require(isinstance(unit_sha256, str) and re.fullmatch(r"[0-9a-f]{64}", unit_sha256))
     require(type(cpu_quota_us) is int and 1000 <= cpu_quota_us <= 6400000)
@@ -226,9 +227,11 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes):
             require(stat.S_ISREG(value.st_mode) and value.st_uid == account.pw_uid and value.st_mode & 0o200 and not value.st_mode & 0o022)
     driver = relative + "/driver"
     manager = process_identity(int(properties["MainPID"]), account.pw_uid, account.pw_gid, driver)
-    caller = process_identity(os.getpid(), account.pw_uid, account.pw_gid, driver)
+    caller_relative = relative + "/" + caller_group
+    caller = process_identity(os.getpid(), account.pw_uid, account.pw_gid, caller_relative)
     require(manager["mount_namespace"] == caller["mount_namespace"] and manager["cgroup_namespace"] == caller["cgroup_namespace"])
-    require({manager["pid"], caller["pid"]}.issubset(members(parent / "driver")))
+    require(manager["pid"] in members(parent / "driver"))
+    require(caller["pid"] in members(parent / caller_group))
     require(process_identity(manager["pid"], account.pw_uid, account.pw_gid, driver) == manager)
     require(parse_properties(bounded_command(arguments)) == properties)
     require(root_file(definition, 16384)[0] == unit_before and root_file(systemctl, executable=True)[0] == executable)

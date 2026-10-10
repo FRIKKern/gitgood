@@ -1,0 +1,9 @@
+{
+  "id": "native-worker-admission",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Observe actual native and maintenance owners within independently sealed systemd service leaves, binding helper ancestry and process births without changing controller publication authority. Generation-aware application integration remains unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-worker-admission.md", "tools/deployment/native_worker_scope.py"],
+  "withdrawn": false
+}
