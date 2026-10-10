@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "d9118f06a86adade7fe2081726eaa5de6e6553ea",
+  "headCommit": "43201972ddf5e2462cf136727d5539c17d246f2b",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-10T02:08:12.561Z",
+      "observedAt": "2026-10-10T02:50:33.594Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "ok",
-      "observedAt": "2026-10-10T00:40:49.689Z",
+      "observedAt": "2026-10-10T02:50:33.945Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/v1/data/query/production/gitgood_verification",
       "receipts": [
         {
@@ -175,7 +175,7 @@
       "id": "J14",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/5960be0f38b0948e12645e3a83eca7e374273bd0/docs/implementation/installation-owner-bootstrap.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/43201972ddf5e2462cf136727d5539c17d246f2b/docs/implementation/native-initial-lifecycle.md"
       }
     },
     {
@@ -200,5 +200,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-10T02:08:12.561Z"
+  "evaluatedAt": "2026-10-10T02:50:33.945Z"
 }

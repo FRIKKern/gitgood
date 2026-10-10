@@ -140,12 +140,36 @@ database, stores, history and keys remain retained. Recovery now accepts that
 optional UUID only when it equals the enclosing installation identity. Ordinary
 restoration preserves it; retirement materialization rebinds it to the separately
 allocated target UUID. Legacy configurations without the field remain supported.
-Fresh packaged export, materialization and direct retirement verification remain
-required; changing the validator does not establish their success.
+A new clean artifact at `4320197` passed independent inspection with all sixteen
+migrations. A separate fresh installation passed eight actual CLI enrollment
+checks, then independent owner and outsider API, CA-verified HTTPS Git and pinned
+SSH witnesses passed six checks each. The outsider is an explicit synthetic actor
+created through packaged Accounts functions outside enrollment; this fixture does
+not establish customer account provisioning.
+
+The packaged export and checkpoint passed, and the actual `retire` CLI completed
+all five stages directly from the initial baseline. No upgrade index or operation
+was created. A separately allocated target restored exact data and configuration;
+independent actors and real HTTPS/SSH access passed before and after exact source
+database/store removal. Original initial record bytes/inodes remained unchanged,
+and all nine original/target groups stopped. Six terminal checks passed: status,
+unchanged retirement replay, wrong-plan refusal, retired-enrollment refusal,
+separate original/target UUIDs and literal credential privacy across 77 retained
+logs. Archives, keys, history, packaged code, target data and kernel/provider
+resources remain retained. This is same-host evidence, not replacement-host or
+managed Cloud acceptance.
+
+A third fresh fixture ran the unchanged enrollment CLI with an explicit
+fixture-only maintenance CPU limit. Its exact migration processes were paused
+and the controller killed after three of sixteen packaged migrations committed.
+Actual `enroll-resume` stopped the surviving owned processes, observed that exact
+prefix, reconciled incomplete migration and completed from the same prefix.
+Six checks passed through owner/access verification and the complete baseline;
+terminal replay preserved responsibility JSON/lock bytes and inodes. This proves
+partial migration recovery on the same boot, not reboot or storage power loss.
 
 Running or failed effects require stage-specific reconciliation; a response or
-receipt alone cannot silently replay them. Other interrupted stages, actual
-retirement directly from an initial baseline, persistent supervision,
+receipt alone cannot silently replay them. Other interrupted stages, persistent supervision,
 explicit reboot scope re-enrollment, host allocation/cancellation, managed Cloud
 and current complete J01/J02/J14 acceptance remain unfinished. The fixed CLI is a
 development operator interface. It provisions no host and establishes no product
