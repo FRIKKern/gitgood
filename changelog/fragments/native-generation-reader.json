@@ -1,0 +1,9 @@
+{
+  "id": "native-generation-reader",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Admit actual native and maintenance owners against completed resource generations through read-only custody and repeated persistent observations. Refuse unresolved, staged or changed history without granting a writer lease, lifecycle or readiness authority.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-generation-reader.md", "tools/deployment/native_generation_reader.py"],
+  "withdrawn": false
+}
