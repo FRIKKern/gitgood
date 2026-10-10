@@ -1,6 +1,7 @@
 # Initial native installation responsibility
 
-Status: implementation design in progress; no execution proof yet.
+Status: coordinator design in progress; journal/admission dependencies tested,
+installed enrollment execution unverified.
 
 The fixed upgrade commands start from an enrolled, working installation. Initial
 installation has no previous artifact, runtime marker or activation record. Codex
@@ -60,3 +61,10 @@ and current boot/namespaces without creating a runtime marker. An enrolled
 installation still requires its real marker. Admission reserves nothing against
 later writes by the same trusted actor; the coordinator and allocator retain
 their separate responsibilities.
+
+Private input custody binds a canonical enrollment request to its allocation and
+private bootstrap/plan objects. Input and archive bytes, inodes and owned directory
+identities are rechecked. It executes no commands, observes no fresh database or
+kernel capability, and claims no journal. Fixed stage actions must re-observe the
+actual resource and boot/namespace bindings before consequential work; private
+metadata alone cannot authorize adoption.

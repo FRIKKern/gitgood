@@ -1,0 +1,9 @@
+{
+  "id": "native-enrollment-inputs",
+  "category": "Added",
+  "summary": "Bind private first-install request, allocation and bootstrap/plan inputs to independent seals and exact retained file/directory identities, refusing command/role extensions and replaced custody without claiming a journal or executing installation actions.",
+  "impact": "operator",
+  "references": ["docs/implementation/native-enrollment-inputs.md", "docs/decisions/0016-native-initial-enrollment.md"],
+  "journeys": ["J14"],
+  "withdrawn": false
+}
