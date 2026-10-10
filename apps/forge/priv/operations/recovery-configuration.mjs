@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto'
 import {RecoveryError} from './recovery-bundle.mjs'
 
 export const forgeKeys=['DATABASE_URL','SECRET_KEY_BASE','PHX_HOST','GITGOOD_PUBLIC_URL','GITGOOD_WEB_ORIGIN','GITGOOD_PROXY_KEY',
-  'GITGOOD_CONNECTION_KEY','GITGOOD_BARKPARK_ORIGIN','GITGOOD_BARKPARK_CA','GITGOOD_STORAGE','PORT',
+  'GITGOOD_CONNECTION_KEY','GITGOOD_BARKPARK_ORIGIN','GITGOOD_BARKPARK_CA','GITGOOD_INSTALLATION_ID','GITGOOD_STORAGE','PORT',
   'GITGOOD_SSH_PORT','GITGOOD_SSH_HOST_KEY_DIRECTORY','GITGOOD_SSH_PUBLIC_HOST','GITGOOD_SSH_PUBLIC_PORT']
 const webKeys=['PORT','GITGOOD_API_URL','GITGOOD_PROXY_KEY','NODE_ENV']
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
@@ -13,6 +13,8 @@ const pick=(env,keys)=>Object.fromEntries(keys.filter(key=>env[key]!==undefined)
 export function validateConfiguration(config){
   check(config&&Object.keys(config).sort().join(',')==='edge,forge,installation,protocol,web')
   check(config.protocol===1&&typeof config.installation==='string'&&uuid.test(config.installation))
+  if(Object.hasOwn(config.forge??{},'GITGOOD_INSTALLATION_ID'))
+    check(config.forge.GITGOOD_INSTALLATION_ID===config.installation)
   for(const [env,keys] of [[config.forge,forgeKeys],[config.web,webKeys]]){
     check(env&&Object.getPrototypeOf(env)===Object.prototype&&Object.keys(env).every(key=>keys.includes(key)))
     check(Object.values(env).every(value=>typeof value==='string'&&value.length>0&&Buffer.byteLength(value)<=8192&&!value.includes('\0')))

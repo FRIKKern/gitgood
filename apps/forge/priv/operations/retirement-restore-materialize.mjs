@@ -119,6 +119,8 @@ export async function materializeRetirementRestore(request) {
     await rebindRepositories(join(verified,'git'),join(target,'git'),descriptor.repositories)
     const database=new URL(config.forge.DATABASE_URL); database.pathname='/'+request.target_database.database
     config.installation=request.target_installation
+    if(Object.hasOwn(config.forge,'GITGOOD_INSTALLATION_ID'))
+      config.forge.GITGOOD_INSTALLATION_ID=request.target_installation
     config.forge.DATABASE_URL=database.toString()
     config.forge.PHX_HOST='127.0.0.1'
     config.forge.GITGOOD_PUBLIC_URL='https://127.0.0.1:'+ports.https

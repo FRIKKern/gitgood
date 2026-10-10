@@ -1,0 +1,9 @@
+{
+  "id": "initial-recovery-identity",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Accept and preserve the exact first-install UUID in encrypted export and recovery configuration, reject mismatched identity before publication, and rebind it only for an independently allocated retirement verification target. Fresh packaged enrollment and direct five-stage retirement passed without any prior upgrade; terminal/refusal checks and 77-log credential checks passed. Actual partial migration recovery resumed after three of sixteen commits; current integration CI and broader lifecycle/Cloud acceptance remain separate.",
+  "journeys": ["J14", "J16", "J17"],
+  "references": ["docs/implementation/native-initial-lifecycle.md", "docs/implementation/installation-retirement.md"],
+  "withdrawn": false
+}

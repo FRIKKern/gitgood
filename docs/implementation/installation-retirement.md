@@ -6,6 +6,23 @@ the application candidate: two installations can run the same build. The inspect
 now reports the authenticated installation UUID and accepts an independent expected
 UUID; a different installation refuses while preserving the archive and stores.
 Copied-production verification binds the packaged inspector to its original UUID.
+Retirement can now reserve the separately sealed [initial baseline](native-initial-lifecycle.md)
+before any real upgrade. It requires that baseline's exact candidate, artifact,
+bindings and current-pointer digest; an unfinished or changed initial chain
+refuses. An actual fresh CLI installation using clean artifact `4320197` then
+completed all five retirement stages directly from that baseline, with no upgrade
+index or fabricated operation. Independent owner/outsider API and actual HTTPS/SSH
+access passed on the separately bound restored target before and after source
+removal. Initial record bytes/inodes remained unchanged and all nine groups stopped.
+Six follow-up status/replay/refusal/identity/privacy checks passed; 77 retained logs
+excluded actual credential literals and Basic-auth values. This is same-host
+supporting evidence; complete J17, replacement-host and managed Cloud acceptance
+remain separate. Recovery configuration
+accepts a retained `GITGOOD_INSTALLATION_ID` only when it equals the authenticated
+installation UUID. Materialization changes both identities to the independent
+target UUID; ordinary restoration preserves the original identity. A real export
+from the initial CLI exposed the previous validator refusal before any retirement
+intent or removal, and that stopped fixture remains retained.
 Authenticated inspection also reports normalized Git, SSH and configuration file
 inventory hashes. The read-only `snapshotInstallationRoots()` observer uses the
 same archive inventory format. A live Git-store change after export changes its

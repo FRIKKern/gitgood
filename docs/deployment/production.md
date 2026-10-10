@@ -26,6 +26,14 @@ Install the forge's entire `_build/prod/rel/gitgood` directory. Install web `dis
 
 ## Configuration and startup
 
+For an admitted empty Ubuntu 24.04 x86-64 scope, the fixed
+[initial lifecycle operator](../implementation/native-initial-lifecycle.md)
+provides `enroll` and explicit same-request `enroll-resume`. It independently
+checks private inputs, current resources and runtime versions, executes pinned
+artifacts and records a separate initial baseline. It allocates no host or
+database and installs no reboot supervisor. Keep the private bootstrap request
+outside the installation root; never supply passwords in command arguments.
+
 The initial operator entry point reads retained local custody without claiming a
 job or changing a file:
 

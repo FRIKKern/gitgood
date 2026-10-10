@@ -36,9 +36,10 @@ test('installation export inspects real Git and a real database dump without cha
     for(const path of [certificate,tlsKey])await writeFile(path,'synthetic private fixture',{mode:0o600})
     await writeFile(join(ssh,'ssh_host_ed25519_key'),'synthetic private host material',{mode:0o600})
     const proxy=randomBytes(32).toString('base64')
-    const installation=await provisionConfiguration({directory:configuration,certificate,tlsKey,
-      forge:{DATABASE_URL:'postgresql://fixture@127.0.0.1/'+database,SECRET_KEY_BASE:randomBytes(64).toString('base64'),PHX_HOST:'localhost',GITGOOD_PUBLIC_URL:'https://localhost',GITGOOD_WEB_ORIGIN:'https://localhost',GITGOOD_PROXY_KEY:proxy,GITGOOD_STORAGE:git,PORT:'49991',GITGOOD_SSH_PORT:'49992',GITGOOD_SSH_HOST_KEY_DIRECTORY:ssh,GITGOOD_SSH_PUBLIC_HOST:'localhost',GITGOOD_SSH_PUBLIC_PORT:'49992'},
-      web:{PORT:'49990',GITGOOD_API_URL:'http://127.0.0.1:49991',GITGOOD_PROXY_KEY:proxy,NODE_ENV:'production'}})
+    const installation=randomUUID()
+    assert.equal(await provisionConfiguration({directory:configuration,certificate,tlsKey,installation,
+      forge:{DATABASE_URL:'postgresql://fixture@127.0.0.1/'+database,GITGOOD_INSTALLATION_ID:installation,SECRET_KEY_BASE:randomBytes(64).toString('base64'),PHX_HOST:'localhost',GITGOOD_PUBLIC_URL:'https://localhost',GITGOOD_WEB_ORIGIN:'https://localhost',GITGOOD_PROXY_KEY:proxy,GITGOOD_STORAGE:git,PORT:'49991',GITGOOD_SSH_PORT:'49992',GITGOOD_SSH_HOST_KEY_DIRECTORY:ssh,GITGOOD_SSH_PUBLIC_HOST:'localhost',GITGOOD_SSH_PUBLIC_PORT:'49992'},
+      web:{PORT:'49990',GITGOOD_API_URL:'http://127.0.0.1:49991',GITGOOD_PROXY_KEY:proxy,NODE_ENV:'production'}}),installation)
     const before=await fingerprintDatabase(),descriptor={protocol:1,installation,database:structuredClone(before),repositories:[{storage_key,status:'ready',refs}],interrupted_git_locks:[]}
     await writeFile(join(configuration,'recovery.json'),JSON.stringify(descriptor),{mode:0o600})
     const dump=join(root,'database.dump');await dumpDatabase(dump)

@@ -49,6 +49,11 @@ application proof. PR64's required integration CI passed for 73530a2 with the
 exact proposed tree executed at f35bc24; the journal merged at a216d03.
 The complete enrollment controller remains a separate gate.
 
+The [initial lifecycle controller](native-initial-lifecycle.md) now joins this
+journal to fixed actual commands, immutable observations, explicit recovery and
+a baseline shared with upgrades and retirement. Its scope and installed evidence
+are recorded separately; the journal tests alone still establish no installation.
+
 The full isolated operator snapshot passed 169 tests: 157 Linux checks and
 12 expected foreign-platform skips. This includes both real database locale
 boundary tests against the retained disposable PostgreSQL18.4 cluster. No

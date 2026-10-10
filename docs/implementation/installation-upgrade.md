@@ -61,6 +61,17 @@ Existing resource, code, schema and probe checks remain in the fixed engine.
 Completed or recovered same-intent calls report historical responsibility without
 opening the journal or asserting new readiness.
 
+Fresh installations now have a separate [initial lifecycle](native-initial-lifecycle.md).
+A sealed complete initial journal, anchor, activation and seven stage observations
+admit the first real upgrade without inserting a fictitious earlier upgrade.
+Its old candidate/artifact and bindings must match that baseline; the initial
+operation UUID cannot be reused. Unsealed or changed initial records refuse.
+Actual initial `5960be0` to distinct `b4ded4a` same-schema upgrade passed all seven
+CLI stages and fresh public HTTPS/SSH function, while initial records retained
+their bytes/inodes. Its index contains exactly one real upgrade. Independent
+later runtime/status/replay checks passed. These development fixtures and their
+operator revisions remain separate from full J15/Cloud acceptance.
+
 Eight Linux command checks and one separate Windows early-refusal check passed.
 The complete Linux operator suite passed 143 checks with twelve foreign-profile
 skips. Private files, real OS locks and actual CLI refusals are exercised; kernel,

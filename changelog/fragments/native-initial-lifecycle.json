@@ -1,0 +1,9 @@
+{
+  "id": "native-initial-lifecycle",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Added fixed native enrollment/resume commands with installation-wide custody, actual resource/runtime checks, retained partial staging, packaged migration and owner observation, access probes and an initial baseline bound to every stage observation. Actual CLI staging and partial migration recovery, committed owner recovery, a first upgrade between distinct artifacts and direct initial retirement passed; current integration, other interrupted stages, supervision, allocation, Cloud and full journeys remain pending.",
+  "journeys": ["J14", "J15", "J17"],
+  "references": ["docs/implementation/native-initial-lifecycle.md", "docs/decisions/0017-native-initial-lifecycle.md"],
+  "withdrawn": false
+}

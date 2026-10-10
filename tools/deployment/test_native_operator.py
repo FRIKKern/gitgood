@@ -114,3 +114,15 @@ class NativeOperatorStatusTest(unittest.TestCase):
         self.assertEqual(self.files(), before)
         pointer.write_bytes(original)
         self.assertEqual(self.cli().returncode, 0)
+
+    def test_enrollment_refusal_reveals_no_private_input_path_and_changes_no_existing_history(self):
+        before = self.files()
+        for action in ["enroll", "enroll-resume"]:
+            result = subprocess.run([sys.executable,str(self.program),action,"--inputs-directory",
+                                    str(self.root / "private-bootstrap-material"),"--request-sha256","0" * 64],
+                                   stdin=subprocess.DEVNULL,capture_output=True,timeout=10)
+            self.assertEqual(result.returncode,2)
+            self.assertEqual(result.stdout,b"")
+            self.assertEqual(json.loads(result.stderr),{"status":"refused","code":"native_operator_enrollment_invalid"})
+            self.assertNotIn(b"private-bootstrap-material",result.stderr)
+            self.assertEqual(self.files(),before)

@@ -53,10 +53,20 @@ installation remain unfinished.
 [Initial native enrollment](0016-native-initial-enrollment.md) separates first
 installation responsibility from existing-installation upgrades. Its private
 journal passed fourteen scoped Linux component checks. The fixed coordinator,
-actual packaged stage effects, initial activation/history handoff, OS supervision,
+actual packaged stage effects and initial activation/baseline now have the
+installed evidence described below. Other interrupted stages, OS supervision,
 allocation and managed Cloud remain unfinished.
 
 [Fresh allocation admission](../implementation/initial-allocation-admission.md)
 observes a preallocated empty scope without fabricating a runtime marker. Seven
 component checks and eight actual delegated-host checks passed; reservation,
 installation commands, allocation and managed Cloud remain separate work.
+
+[Initial installation lifecycle](0017-native-initial-lifecycle.md) keeps the real
+first-install journal and baseline distinct from upgrades. The current suite
+passed 197 Linux checks with 12 expected skips. Actual enrollment/resume CLI
+staging recovery retained the original partial unchanged; committed owner
+recovery preserved all three owner tables. The initial baseline admitted one
+real upgrade between distinct clean artifacts, followed by fresh public Git and
+unchanged terminal replay. Final source binding and required integration checks
+remain separate gates; allocator, supervision and Cloud remain unfinished.
