@@ -28,7 +28,7 @@
 <rect x="36" y="179" width="364" height="111" rx="14" class="panel"/>
 <text x="54" y="206" font-size="15" class="strong" >Fully implemented</text>
 <text x="382" y="211" font-size="26" class="good strong" text-anchor="end">0 / 17</text>
-<text x="54" y="235" font-size="14" class="muted" >0 complete · 16 in progress</text>
+<text x="54" y="235" font-size="14" class="muted" >0 complete · 17 in progress</text>
 <rect data-state="in_progress" x="54.00" y="255" width="15.53" height="12" rx="3" class="active"><title>J01: in_progress</title></rect>
 <rect data-state="in_progress" x="73.53" y="255" width="15.53" height="12" rx="3" class="active"><title>J02: in_progress</title></rect>
 <rect data-state="in_progress" x="93.06" y="255" width="15.53" height="12" rx="3" class="active"><title>J03: in_progress</title></rect>
@@ -42,7 +42,7 @@
 <rect data-state="in_progress" x="249.29" y="255" width="15.53" height="12" rx="3" class="active"><title>J11: in_progress</title></rect>
 <rect data-state="in_progress" x="268.82" y="255" width="15.53" height="12" rx="3" class="active"><title>J12: in_progress</title></rect>
 <rect data-state="in_progress" x="288.35" y="255" width="15.53" height="12" rx="3" class="active"><title>J13: in_progress</title></rect>
-<rect data-state="planned" x="307.88" y="255" width="15.53" height="12" rx="3" class="track"><title>J14: planned</title></rect>
+<rect data-state="in_progress" x="307.88" y="255" width="15.53" height="12" rx="3" class="active"><title>J14: in_progress</title></rect>
 <rect data-state="in_progress" x="327.41" y="255" width="15.53" height="12" rx="3" class="active"><title>J15: in_progress</title></rect>
 <rect data-state="in_progress" x="346.94" y="255" width="15.53" height="12" rx="3" class="active"><title>J16: in_progress</title></rect>
 <rect data-state="in_progress" x="366.47" y="255" width="15.53" height="12" rx="3" class="active"><title>J17: in_progress</title></rect>
@@ -292,10 +292,10 @@
 <text x="493" y="1545" font-size="12" class="muted mono" text-anchor="middle">I</text>
 <text x="527" y="1545" font-size="12" class="muted mono" text-anchor="middle">V</text>
 <text x="561" y="1545" font-size="12" class="muted mono" text-anchor="middle">R</text>
-<g data-journey="J14"><title>J14 Install through Barkpark Cloud. Implemented: planned; Verified: absent; Released: unknown</title>
+<g data-journey="J14"><title>J14 Install through Barkpark Cloud. Implemented: in_progress; Verified: absent; Released: unknown</title>
 <text x="56" y="1575" font-size="13" class="muted mono" >J14</text>
 <text x="101" y="1575" font-size="16" class="" >Install through Barkpark Cloud</text>
-<text x="493" y="1575" font-size="18" class="muted symbol" text-anchor="middle">○</text>
+<text x="493" y="1575" font-size="18" class="active symbol" text-anchor="middle">◐</text>
 <text x="527" y="1575" font-size="18" class="muted symbol" text-anchor="middle">○</text>
 <text x="561" y="1575" font-size="18" class="muted symbol" text-anchor="middle">?</text>
 </g>
@@ -347,6 +347,6 @@
 <text x="36" y="1878" font-size="14" class="muted" >Journey status is not milestone completion. J04 continues through M4.</text>
 <text x="36" y="1906" font-size="11" class="muted label" >SOURCES</text>
 <text x="126" y="1906" font-size="14" class="muted" >ledger: current   /   evidence: current   /   releases: unconfigured</text>
-<text x="36" y="1933" font-size="14" class="muted" >Evaluated 2026-10-09T22:57:16.393Z · freshness window 24h</text>
+<text x="36" y="1933" font-size="14" class="muted" >Evaluated 2026-10-10T00:02:15.374Z · freshness window 24h</text>
 <text x="36" y="1960" font-size="13" class="muted" >Generated from canonical records · static snapshot · full criteria in docs/ROADMAP.md</text>
 </svg>
