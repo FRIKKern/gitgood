@@ -22,8 +22,11 @@ Four process-protocol tests cover early monitor refusal, lost original session,
 dead/aliased/unsupported helper inputs and invalid captured values. Their helpers
 are explicit GenServer stand-ins. All four pass in a standalone Elixir runner using
 Root's retained dependency copy without changing its permissions. Successful installed
-publication and attachment are not established by them. Full backend precommit
-and installed handoff execution remain pending.
+publication and attachment are not established by them. The full backend precommit
+passes 248 tests as the ordinary installation test user in an isolated source copy
+and a fresh database. All 336 backend and deployment source files match the tested
+copy byte for byte. Installed handoff execution and required GitHub CI on this
+branch remain pending.
 
 The application must ultimately execute this handoff before any pooled database,
 listener, reconciler or mutation worker starts, inside the permanent ownership tree
