@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo -n apt-get update
-          sudo -n apt-get install -y --no-install-recommends build-essential unzip openssh-client
+          sudo -n apt-get install -y --no-install-recommends build-essential unzip openssh-client systemd
           command -v cc
           command -v make
           command -v unzip

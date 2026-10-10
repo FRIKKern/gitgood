@@ -1,0 +1,9 @@
+{
+  "id": "native-systemd-ci-runtime",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Install the Ubuntu systemd runtime in isolated CI so native root-file custody and installed-version tests execute against actual protected executables instead of failing on missing files.",
+  "journeys": ["J14", "J16"],
+  "references": [".github/workflows/product.yml", "docs/implementation/native-generation-lease-guard.md"],
+  "withdrawn": false
+}
