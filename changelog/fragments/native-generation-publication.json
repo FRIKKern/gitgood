@@ -1,0 +1,9 @@
+{
+  "id": "native-generation-publication",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Publish stopped native resource generations under independently bound lifecycle custody and an actual database writer lease, with immutable transitions, atomic pointers, lost-acknowledgement recovery and exact predecessor preservation. Application lifecycle reconciliation, allocation and Cloud acceptance remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-generation-publication.md", "tools/deployment/generation_publication.py"],
+  "withdrawn": false
+}
