@@ -232,7 +232,8 @@ After reconciliation with merged main `af286e0`, the ordinary Linux operator
 suite passed 385 tests with 18 platform-specific skips; planning passed all 33
 tests. The earlier source passed 215 backend tests through isolated `mix precommit`,
 with all 308 tested files independently matched against the working source.
-The combined main-and-monitor backend check is recorded separately. The source
+The combined main-and-monitor `mix precommit` passed 224 tests, with all 316
+tested files independently matched against the current source. The source
 reconciliation adds the ownership components and a database-validation wrapper;
 the actual VM proof remains bound to its archived 56-file seed, not a full
 application artifact or the added, unwired components.
