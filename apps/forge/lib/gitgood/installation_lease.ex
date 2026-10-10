@@ -50,6 +50,14 @@ defmodule Gitgood.InstallationLease do
       do: raise("Offline maintenance requires stopped runtime")
 
     Application.load(:gitgood)
+
+    :ok =
+      Gitgood.InstallationProfile.ensure_development(
+        Application.get_env(:gitgood, :supervision_profile),
+        Application.fetch_env!(:gitgood, :storage_root),
+        mode
+      )
+
     {:ok, _} = Application.ensure_all_started(:postgrex)
     {:ok, _} = Application.ensure_all_started(:jason)
 
@@ -71,6 +79,19 @@ defmodule Gitgood.InstallationLease do
     root =
       Keyword.get_lazy(opts, :root, fn -> Application.fetch_env!(:gitgood, :storage_root) end)
 
+    case Gitgood.InstallationProfile.ensure_development(
+           Application.get_env(:gitgood, :supervision_profile),
+           root,
+           mode
+         ) do
+      :ok -> init_development(opts, mode, root)
+      {:error, reason} -> {:stop, reason}
+    end
+  rescue
+    _ -> {:stop, :installation_lease_unavailable}
+  end
+
+  defp init_development(opts, mode, root) do
     config = Keyword.get_lazy(opts, :connection, &Gitgood.Repo.config/0)
 
     options =

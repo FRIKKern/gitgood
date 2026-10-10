@@ -7,7 +7,20 @@ defmodule Gitgood.Application do
 
   @impl true
   def start(_type, _args) do
-    :ok = File.mkdir_p(Application.fetch_env!(:gitgood, :storage_root))
+    root = Application.fetch_env!(:gitgood, :storage_root)
+
+    with :ok <-
+           Gitgood.InstallationProfile.ensure_development(
+             Application.get_env(:gitgood, :supervision_profile),
+             root,
+             :runtime
+           ) do
+      start_development(root)
+    end
+  end
+
+  defp start_development(root) do
+    :ok = File.mkdir_p(root)
 
     children = [
       GitgoodWeb.Telemetry,

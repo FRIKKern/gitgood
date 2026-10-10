@@ -53,6 +53,13 @@ defmodule Gitgood.InstallationDatabaseSession do
   end
 
   @doc false
+  def validate_database(value) do
+    if valid_database?(value), do: :ok, else: {:error, :invalid_database}
+  rescue
+    _ -> {:error, :invalid_database}
+  end
+
+  @doc false
   def validate_observation(expected, observed) do
     if valid_database?(expected) and is_map(observed) and
          MapSet.new(Map.keys(observed)) == MapSet.new(~w(database backend_pid backend_birth held)) and
