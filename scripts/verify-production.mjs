@@ -1,12 +1,12 @@
 import {spawn} from 'node:child_process'
-import {mkdtemp,cp,mkdir,readFile,writeFile,rename} from 'node:fs/promises'
+import {mkdtemp,cp,mkdir,readFile,writeFile,rename,readdir} from 'node:fs/promises'
 import {createWriteStream} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname,join,resolve,sep} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {fileURLToPath,pathToFileURL} from 'node:url'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
-import {randomBytes,createHash} from 'node:crypto'
+import {randomBytes,randomUUID,createHash} from 'node:crypto'
 import {request as httpsRequest} from 'node:https'
 import {createHmac} from 'node:crypto'
 import {reserveEdgePort} from './verification-edge-port.mjs'
@@ -144,20 +144,56 @@ try {
     GITGOOD_PROXY_KEY:proxyKey,GITGOOD_BARKPARK_ORIGIN:sourceOrigin,GITGOOD_BARKPARK_CA:sourceCa,GITGOOD_CONNECTION_KEY:randomBytes(32).toString('base64'),
     SECRET_KEY_BASE:randomBytes(64).toString('base64'),PHX_HOST:'localhost',GITGOOD_PUBLIC_URL:publicUrl,GITGOOD_WEB_ORIGIN:publicUrl,GITGOOD_STORAGE:storage,PORT:String(forgePort),PHX_SERVER:'false',
     GITGOOD_SSH_PORT:String(sshPort),GITGOOD_SSH_HOST_KEY_DIRECTORY:sshHost,GITGOOD_SSH_PUBLIC_HOST:'localhost',GITGOOD_SSH_PUBLIC_PORT:String(sshPort)}
+  const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl,GITGOOD_PROXY_KEY:proxyKey}
+  const installationId=randomUUID()
+  if(!windows)assert.equal(await provisionConfiguration({directory:join(root,'diagnostic-configuration'),forge:env,web:webEnv,
+    certificate,tlsKey:key,sourceCa,installation:installationId}),installationId)
   await run(process.env.GITGOOD_CREATEDB??'createdb',['-h',process.env.PGHOST??'127.0.0.1','-p',process.env.PGPORT??'55432','-U',process.env.PGUSER??'gitgood',database],process.env,root,'database-create')
   await run(release,['eval','Gitgood.Release.migrate()'],env,installedForge,'migrate')
-  for(const [username,team,role] of [['owner','team','owner'],['reviewer','team','writer'],['reader','team','reader'],['outsider','elsewhere','owner']]) {
-    const configuration={...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'}
+  const bootstrapInputs={installation:installationId,request:randomUUID(),username:'owner',team:'team',password:'synthetic-password'}
+  await writeFile(join(root,'private-owner-bootstrap-inputs.json'),JSON.stringify(bootstrapInputs)+'\n',{flag:'wx',mode:0o600})
+  const ownerConfiguration=(base,input)=>({...base,...Object.fromEntries(Object.entries(input).map(([key,value])=>['GITGOOD_BOOTSTRAP_'+key.toUpperCase(),value])),
+    GITGOOD_BOOTSTRAP_REQUEST_SHA256:createHash('sha256').update(JSON.stringify(['gitgood-installation-owner-v1',input.installation,input.request,input.username,input.team,input.password])).digest('hex')})
+  async function bootstrap(configuration,entry,label,allowed=[0]){
     const group=process.env.GITGOOD_VERIFY_CGROUP
     if(!windows)assert(group,'Linux bootstrap verification requires its owned runtime cgroup')
-    const child=group?launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'priv/operations/runtime_cgroup.py'),group,release,'eval','Gitgood.Release.bootstrap()'],configuration,installedForge,'bootstrap'):
-      launch(release,['eval','Gitgood.Release.bootstrap()'],configuration,installedForge,'bootstrap')
+    const child=group?launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'priv/operations/runtime_cgroup.py'),group,release,'eval',entry],configuration,installedForge,label):
+      launch(release,['eval',entry],configuration,installedForge,label)
     if(group)child.runtimeCgroup=group
-    try{await wait(child,'bootstrap')}finally{if(group)await stop(child)}
+    try{await wait(child,label,allowed)}finally{if(group)await stop(child)}
   }
-  const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl,GITGOOD_PROXY_KEY:proxyKey}
-  if(!windows)await provisionConfiguration({directory:join(root,'diagnostic-configuration'),forge:env,web:webEnv,
-    certificate,tlsKey:key,sourceCa})
+  const libraries=(await readdir(join(installedForge,'lib'))).filter(name=>/^gitgood-/.test(name));assert.equal(libraries.length,1)
+  const databaseObserver=join(root,'owner-database-observer.mjs')
+  const countSql="SELECT json_build_object('users',(SELECT count(*) FROM users),'memberships',(SELECT count(*) FROM memberships),'installation_owner_bootstraps',(SELECT count(*) FROM installation_owner_bootstraps))"
+  await writeFile(databaseObserver,'import {fingerprintDatabase,query} from '+JSON.stringify(pathToFileURL(join(installedForge,'lib',libraries[0],'priv/operations/recovery-database.mjs')).href)+
+    ';console.log(JSON.stringify({...await fingerprintDatabase(),owner_counts:JSON.parse(await query('+JSON.stringify(countSql)+'))}))\n',{flag:'wx',mode:0o600})
+  async function ownerInventory(label,configuration={...process.env,PGDATABASE:database}){
+    await run(process.execPath,[databaseObserver],configuration,root,label)
+    const value=JSON.parse(await readFile(join(logs,label+'.log'),'utf8'))
+    return {tables:value.tables.filter(row=>['users','memberships','installation_owner_bootstraps'].includes(row.table)),counts:value.owner_counts}
+  }
+  const ownerReceipt=async label=>{
+    const raw=await readFile(join(logs,label+'.log'),'utf8');assert(!raw.includes(bootstrapInputs.password),'Bootstrap output must not contain its password')
+    const rows=raw.split(/\r?\n/).filter(line=>line.startsWith('{')).map(line=>JSON.parse(line));assert.equal(rows.length,1);return rows[0]
+  }
+  await bootstrap(ownerConfiguration(env,bootstrapInputs),'Gitgood.Release.bootstrap_owner()','bootstrap-owner-created')
+  const createdOwner=await ownerReceipt('bootstrap-owner-created');assert.equal(createdOwner.outcome,'created');assert.equal(createdOwner.installation,installationId)
+  const ownerRows=await ownerInventory('bootstrap-owner-before-replay');assert.equal(ownerRows.tables.length,3);assert(Object.values(ownerRows.counts).every(count=>count===1))
+  await bootstrap(ownerConfiguration(env,bootstrapInputs),'Gitgood.Release.bootstrap_owner()','bootstrap-owner-recorded')
+  const recordedOwner=await ownerReceipt('bootstrap-owner-recorded');assert.deepEqual(recordedOwner,{...createdOwner,outcome:'recorded'})
+  assert.deepEqual(await ownerInventory('bootstrap-owner-after-replay'),ownerRows)
+  for(const [label,patch] of [['password',{password:'different-private-bootstrap-password'}],['request',{request:randomUUID()}],['installation',{installation:randomUUID()}]]){
+    await bootstrap(ownerConfiguration(env,{...bootstrapInputs,...patch}),'Gitgood.Release.bootstrap_owner()','bootstrap-owner-refused-'+label,[1])
+    const raw=await readFile(join(logs,'bootstrap-owner-refused-'+label+'.log'),'utf8')
+    assert(raw.includes('Installation owner bootstrap refused')&&!raw.includes(bootstrapInputs.password)&&(!patch.password||!raw.includes(patch.password)))
+    assert.deepEqual(await ownerInventory('bootstrap-owner-after-refused-'+label),ownerRows)
+  }
+  const bootstrapOwner={created:createdOwner,recorded:recordedOwner,owner_tables:ownerRows,refused:['password','request','installation'],
+    limitations:['Creation receipt only; current account/API/Git function is verified separately below.']}
+  for(const [username,team,role] of [['reviewer','team','writer'],['reader','team','reader'],['outsider','elsewhere','owner']]) {
+    await bootstrap({...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'},
+      'Gitgood.Release.bootstrap()','bootstrap-'+username)
+  }
   const startBackend=(configuration={...env,PHX_SERVER:'true'})=>{
     const group=process.env.GITGOOD_VERIFY_CGROUP
     const child=group?launch(process.env.GITGOOD_PYTHON??'python3',['-I',join(sourceForge,'priv/operations/runtime_cgroup.py'),group,release,'start'],configuration,installedForge,'forge'):
@@ -534,14 +570,16 @@ try {
       startRestored:async(forgeEnvironment,webEnvironment)=>{backend=startBackend(forgeEnvironment);web=launch(process.execPath,
         [join(installedWeb,'node_modules/srvx/bin/srvx.mjs'),'--prod','-s','dist/client','server.mjs'],webEnvironment,installedWeb,'restored-web')},
       authorization,outsiderAuth,forgeUrl,webUrl,sourceControl,sourceLinks,gitRepo,gitEnv,sshEnv,main,sshBefore,releaseAssetPath,released,
-      certificate,tlsKey:key,evidence:join(sourceWeb,'test-results-production'),pendingEvidence})
+      certificate,tlsKey:key,evidence:join(sourceWeb,'test-results-production'),pendingEvidence,bootstrapOwner,bootstrapInputs,
+      replayBootstrap:async(configuration,label)=>{await bootstrap(ownerConfiguration(configuration,bootstrapInputs),'Gitgood.Release.bootstrap_owner()',label);return ownerReceipt(label)},
+      ownerInventory})
   }
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
     runtime:{node:process.version,forge:forgeReady.runtime},actors:['owner','reviewer','reader','outsider'],persistentRepositories:after.repositories.map(r=>r.id),main:main.sha,importOperation:imported.operation_id,
     release:{published:released.published.id,withdrawn:released.release_id,asset_sha256:released.published.asset.sha256},
     discovery:{record:discovery.record,membership_events:discovery.membership_events},
     nativeChange:{id:gitFlow.pullRequest,url:nativeChangeUrl},
-    clientAddress:clientAddressProof,offlineRecovery,
+    clientAddress:clientAddressProof,offlineRecovery,bootstrapOwner,
     criterionEvidence:{repository:criterionEvidence.repository_id,pull:criterionEvidence.pull_id,link:criterionEvidence.link.id,original:criterionEvidence.first_evidence.id,reassessed:criterionEvidence.reassessed,artifact_sha256:criterionEvidence.artifact_sha256},
     gitCompatibility:{repository:compatibilityRepo.id,source_sha:gitCompatibility.source_sha,tag_sha:gitCompatibility.tag_sha,child_sha:gitCompatibility.child_sha},
     criterionHistory:{repository:historyRepo.id,oldest:criterionHistory.oldest_evidence_id,latest:criterionHistory.latest_evidence_id,records:21,events:26},
@@ -556,6 +594,7 @@ try {
   assert(!(await readFile(join(logs,'caddy.log'),'utf8')).includes(proxyKey),'Completed Caddy runtime log must not contain the edge secret')
   receipt.edgeLogPrivacy=edgePrivacy
   receipt.checks.push('Actual Caddy failed requests and cancelled streams retain diagnostics without private headers')
+  receipt.checks.push('Packaged first-owner creation/replay/refusals preserve exact owner tables; authenticated browser and HTTPS/SSH function follows')
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})
   await writeFile(join(sourceWeb,'test-results-production/production-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   console.log('PASS production artifacts, full workflow, persistence and readiness rejection: '+identity.candidate)
