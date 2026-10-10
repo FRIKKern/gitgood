@@ -2,6 +2,11 @@
 
 This is a design contract, not a deployable package.
 
+The [proposed pilot target](pilot-target.md) selects a separate Hetzner project,
+an Ubuntu24.04 x86_64 CPX32 installation and an initial EUR60/month planning
+budget before VAT. Provider allocation and the supported native Cloud contract
+remain implementation dependencies.
+
 Gitgood owns its web/API release packaging, migrations, version/readiness endpoints, functional probes, and app-specific data requirements. Cloud owns generic validation, provisioning, inventory, routing, constrained lifecycle execution, and reporting.
 
 The [controlled native upgrade work](../docs/implementation/installation-upgrade.md)

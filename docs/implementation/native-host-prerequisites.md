@@ -3,8 +3,9 @@
 The current native development operator has actual same-boot installation,
 interruption, upgrade and retirement evidence. A persistent host needs additional
 ownership and recovery behavior before managed Cloud installation can be claimed.
-This document records the next implementation dependencies; it installs no
-supervisor and defines no accepted reboot protocol.
+This document records the remaining product dependencies. The accepted
+generation design and its verified components do not yet establish a complete
+installed supervisor or lifecycle recovery across reboot.
 
 The [systemd capability experiment](native-supervision-profile.md) has since
 passed eight actual service checks and four independent custody checks. An
@@ -12,15 +13,24 @@ ordinary account managed the delegated children, whole-unit stops cleared
 descendants, and manager loss triggered bounded restart. All five group inodes
 changed across starts at the same paths. The
 [supervision/generation decision](../decisions/0018-native-supervision-generations.md)
-is accepted for implementation; the product controller and generation protocol
-remain unfinished.
+is accepted for implementation. Generation records and publication now have
+component evidence; the product controller remains unfinished.
 
 The subsequent owned-VM experiment also passed eight actual kernel-reboot
 capability checks and four independent custody checks. It preserved synthetic
 durable data, machine identity and unit bytes while starting a new manager
 generation after reboot. This does not establish Gitgood lifecycle recovery.
-The [read-only service observer](native-service-admission.md) is now implemented;
-its actual product evidence and durable generation protocol remain separate gates.
+The [read-only service observer](native-service-admission.md),
+[durable bindings](native-durable-bindings.md),
+[generation custody](native-generation-custody.md),
+[atomic publication](native-generation-publication.md),
+[worker admission](native-worker-admission.md),
+[completed-generation reader](native-generation-reader.md), and
+[Elixir admission and held-session checks](native-elixir-generation-admission.md)
+now have recorded component evidence, including actual kernel-reboot exercises.
+The [periodic guard](native-generation-lease-guard.md) remains under actual-service
+verification. Application lease wiring, generation-aware markers, lifecycle
+admission and the fixed product controller remain required.
 
 ## Service ownership
 
@@ -55,8 +65,8 @@ digest across all operations. Initial inputs also bind the original boot and
 namespaces. A reboot can change those kernel identities while preserving the
 database and stores. A supervisor cannot silently substitute new values.
 
-Before implementation, specify durable installation identity separately from a
-current resource generation. A generation transition needs independent
+The accepted design separates durable installation identity from a current
+resource generation. The implemented publication component requires independent
 observation of the original database cluster, database/role OIDs, stores,
 configuration and keys, plus the new owned service subtree, boot and namespaces.
 Names, paths or a healthy endpoint cannot establish continuity by themselves.
@@ -80,10 +90,11 @@ controller loss, runtime descendant cleanup, unavailable database and bounded
 restart. Verify existing data, credentials and history survive, unsupported
 capabilities refuse early and unrelated processes remain untouched.
 
-Then exercise an actual reboot with changed kernel resource identities.
-Same-boot process termination or namespace recreation is separate evidence.
-Repeat installation-stage interruption and installed upgrade/retirement behavior
-under the resulting generation protocol before claiming reboot recovery.
+Actual reboot with changed kernel resource identities has been exercised for
+the linked components above. Same-boot process termination or namespace
+recreation remains separate evidence. Repeat installation-stage interruption
+and installed upgrade/retirement behavior under the resulting generation-aware
+application and controller before claiming complete product reboot recovery.
 
 Host allocation, reservation and cancellation need durable ownership and
 reconciliation before provider operations are connected. Establish deployed
