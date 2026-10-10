@@ -1,0 +1,9 @@
+{
+  "id": "native-selected-systemd-properties",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-selected-systemd-properties.md", "tools/deployment/native_systemd_properties.py"],
+  "withdrawn": false
+}

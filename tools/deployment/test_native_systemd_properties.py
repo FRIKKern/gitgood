@@ -119,21 +119,57 @@ class SystemdPropertiesTest(unittest.TestCase):
 
     def test_unit_schema_and_path_are_fixed_and_every_property_read_is_live(self):
         subject = self.subject()
-        subject._get_all = Mock(side_effect=lambda path,interface,signatures: {name:'observed' for name in signatures})
+        subject._read_property = Mock(return_value='observed')
         unit = 'gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
         first = subject.unit_properties(unit)
         self.assertEqual(len(first), 15)
         self.assertEqual(subject.unit_properties(unit), first)
-        self.assertEqual(subject._get_all.call_count, 4)
+        self.assertEqual(subject._read_property.call_count, 30)
+        self.assertEqual(subject.files.read.call_count, 4)
         expected_path = '/org/freedesktop/systemd1/unit/' + unit.replace('-', '_2d').replace('.', '_2e')
-        for call in subject._get_all.call_args_list:
+        for call in subject._read_property.call_args_list:
             self.assertEqual(call.args[0], expected_path)
             self.assertIn(call.args[1], ['org.freedesktop.systemd1.Unit', 'org.freedesktop.systemd1.Service'])
-        signatures = {name:signature for call in subject._get_all.call_args_list for name,signature in call.args[2].items()}
+        signatures = {call.args[2]:call.args[3] for call in subject._read_property.call_args_list}
         self.assertEqual(signatures['MainPID'], 'u')
         self.assertEqual(signatures['Delegate'], 'b')
         self.assertEqual(signatures['DelegateControllers'], 'as')
         self.assertEqual(signatures['DropInPaths'], 'as')
+
+    def test_selected_batch_reads_live_values_and_brackets_the_whole_result(self):
+        subject=self.subject()
+        properties=[('fixed','First','s'),('fixed','Second','s')]
+        self.assertEqual(subject._get_many('/fixed',properties),{'First':'255.4','Second':'255.4'})
+        self.assertEqual(subject._get_many('/fixed',properties),{'First':'255.4','Second':'255.4'})
+        self.assertEqual(subject.library.sd_bus_get_property.call_count,4)
+        self.assertEqual(subject.files.read.call_count,4)
+        self.assertEqual(subject.library.sd_bus_message_unref.call_count,4)
+
+    def test_selected_batch_changed_library_discards_all_values_and_cannot_resume(self):
+        subject=self.subject()
+        subject.files.read.side_effect=[(subject.original,b'library'),({'inode':18},b'library')]
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s'),('fixed','Second','s')])
+        self.assertEqual(subject.library.sd_bus_get_property.call_count,2)
+        self.assert_lost(subject)
+
+    def test_selected_batch_refuses_replacement_before_any_call_and_duplicate_names(self):
+        subject=self.subject()
+        subject.files.read.return_value=({'inode':18},b'library')
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s')])
+        subject.library.sd_bus_get_property.assert_not_called();self.assert_lost(subject)
+        subject=self.subject()
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s'),('other','First','s')])
+        subject.library.sd_bus_get_property.assert_not_called();self.assert_lost(subject)
+
+    def test_selected_batch_stops_at_first_bad_reply_without_returning_partial_result(self):
+        subject=self.subject()
+        original=subject.library.sd_bus_get_property.side_effect
+        calls=[]
+        def reply(*args):
+            calls.append(args[4]);return original(*args) if len(calls)==1 else -22
+        subject.library.sd_bus_get_property.side_effect=reply
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s'),('fixed','Second','s'),('fixed','Third','s')])
+        self.assertEqual(calls,[b'First',b'Second']);self.assert_lost(subject)
 
     def dictionary_subject(self, names, values=(), endings=()):
         subject = self.subject()

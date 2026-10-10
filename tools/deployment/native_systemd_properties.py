@@ -62,10 +62,20 @@ class ReadOnlySystemdProperties:
         return value.value.decode('ascii',errors='strict')
 
     def _get(self,path,interface,name,signature):
+        try:
+            require(self.usable)
+            require(self.files.read(self.path)[0]==self.original)
+            result=self._read_property(path,interface,name,signature)
+            require(self.files.read(self.path)[0]==self.original)
+            return result
+        except BaseException:
+            self.close();raise
+
+    def _read_property(self,path,interface,name,signature):
+        """Decode one live reply inside an already bracketed library observation."""
         message=ctypes.c_void_p()
         try:
             require(self.usable and signature in ['s','u','b','as'])
-            require(self.files.read(self.path)[0]==self.original)
             require(self.library.sd_bus_get_property(self.bus,b'org.freedesktop.systemd1',path.encode(),interface.encode(),name.encode(),None,ctypes.byref(message),signature.encode())==0)
             if signature=='s': result=self._string(message)
             elif signature in ['u','b']:
@@ -81,7 +91,6 @@ class ReadOnlySystemdProperties:
                 require(self.library.sd_bus_message_exit_container(message)>=0)
                 result=' '.join(values)
             require(self.library.sd_bus_message_at_end(message,0)==1)
-            require(self.files.read(self.path)[0]==self.original)
             return result
         except BaseException:
             self.close();raise
@@ -90,6 +99,21 @@ class ReadOnlySystemdProperties:
 
     def manager_version(self):
         return self._get('/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','Version','s')
+
+    def _get_many(self,path,properties):
+        """Read selected live properties; publish nothing until the batch closes."""
+        try:
+            require(self.usable and type(properties) is list and 0<len(properties)<=32)
+            require(all(type(item) is tuple and len(item)==3 for item in properties))
+            require(all(type(interface) is str and type(name) is str and signature in ['s','u','b','as']
+                        for interface,name,signature in properties))
+            require(len({name for _,name,_ in properties})==len(properties))
+            require(self.files.read(self.path)[0]==self.original)
+            result={name:self._read_property(path,interface,name,signature) for interface,name,signature in properties}
+            require(self.files.read(self.path)[0]==self.original)
+            return result
+        except BaseException:
+            self.close();raise
 
     def _get_all(self,path,interface,signatures):
         """Read one live interface reply; never cache manager or unit values."""
@@ -149,8 +173,8 @@ class ReadOnlySystemdProperties:
         path='/org/freedesktop/systemd1/unit/'+suffix
         unit_names=['Id','LoadState','ActiveState','SubState','FragmentPath','DropInPaths']
         service_names=['User','Group','MainPID','ControlGroup','Delegate','DelegateSubgroup','DelegateControllers','KillMode','Restart']
-        result={}
+        properties=[]
         for interface,names in [('Unit',unit_names),('Service',service_names)]:
-            signatures={name:{'MainPID':'u','Delegate':'b','DropInPaths':'as','DelegateControllers':'as'}.get(name,'s') for name in names}
-            result.update(self._get_all(path,'org.freedesktop.systemd1.'+interface,signatures))
-        return result
+            properties += [('org.freedesktop.systemd1.'+interface,name,
+                            {'MainPID':'u','Delegate':'b','DropInPaths':'as','DelegateControllers':'as'}.get(name,'s')) for name in names]
+        return self._get_many(path,properties)
