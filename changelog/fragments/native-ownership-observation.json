@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-observation",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Combine original generation, held database session and retained marker observations without replacement authority; batch live typed systemd properties while retaining strict bounds and permanent refusal. Protected helper attachment and current native VM timing remain unverified.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-observation.md", "tools/deployment/native_ownership_observation.py"],
+  "withdrawn": false
+}

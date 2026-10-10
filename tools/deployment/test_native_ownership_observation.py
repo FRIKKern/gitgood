@@ -1,0 +1,99 @@
+"""Service/session stand-ins; real filesystem and database/socket tests are separate."""
+import copy
+import os
+from pathlib import Path
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+import native_ownership_observation as observations
+from resource_generations import canonical
+from test_native_ownership_records import fixture
+
+
+class OwnershipObservationOrderingTest(unittest.TestCase):
+    def setUp(self):
+        self.record=fixture(os.getuid() if os.getuid()!=0 else 1000)
+        self.calls=[];self.closed=False
+        root=Path('/var/lib/gitgood/installations')/self.record['installation']
+        self.files={'installation.json':{'sha256':'f'*64}}
+        self.binding={'database':self.record['database_session']['database'],'configuration':self.files,
+            'resources':{'storage':{'path':str(root/'storage'),'device':1,'inode':2,'uid':self.record['scope']['uid']}}}
+        self.seal={'database':self.record['database_session']['database'],'executables':{'psql':'/trusted/psql'}}
+        self.captured={'admission':{'pointer':self.record['pointer'],'binding_sha256':self.record['binding_sha256'],
+            'worker_observation':{'worker':'native','owner':self.record['owner'],'service_scope':self.record['scope']}},**self.record['guard']}
+        def generation():
+            self.calls.append('generation');return {'current':True,**self.record['guard']}
+        self.guard=SimpleNamespace(snapshot={'binding':self.binding},check=generation)
+        self.authority={'protocol':2,'kind':'native_application_ownership_seal',
+            **{name:self.record[name] for name in ['installation','operation','candidate','binding_sha256']}}
+        def root_file(path,maximum):return {'path':str(path)},canonical(self.authority)
+        def session(*args,**kwargs):
+            self.calls.append('session')
+            self.assertEqual(kwargs['owner'],{name:self.record['owner'][name] for name in ['pid','birth','uid']})
+            return {'owner_connection_observed':True,'lease_acquired':False}
+        def custody_check():
+            self.calls.append('custody');return {'record_sha256':'a'*64,'marker_sha256':'b'*64}
+        def close():self.closed=True
+        self.custody=SimpleNamespace(check=custody_check,close=close)
+        mocks=[patch.object(observations,'root_file',side_effect=root_file),
+            patch.object(observations,'configuration',return_value=(self.files,'postgresql://private-fixture')),
+            patch.object(observations,'observe_held_session',side_effect=session),
+            patch.object(observations,'NativeOwnershipMarkerGuard',return_value=self.custody)]
+        for mocked in mocks:mocked.start();self.addCleanup(mocked.stop)
+
+    def attach(self):return observations.NativeOwnershipObservation(self.guard,self.captured,self.record,self.seal)
+
+    def test_original_context_and_session_bracket_marker_capture_and_checks(self):
+        subject=self.attach();self.addCleanup(subject.close)
+        self.assertEqual(self.calls,['generation','session','generation','generation','session','custody','generation','custody'])
+        self.calls.clear();value=subject.check()
+        self.assertEqual(self.calls,['generation','session','custody','generation','custody'])
+        self.assertTrue(value['ownership']['original_database_session_observed'])
+        self.assertTrue(value['ownership']['owner_socket_observed'])
+        for name in ['lease_acquired','replacement_admitted','installation_readiness_established','lifecycle_responsibility_admitted']:
+            self.assertFalse(value['ownership'][name])
+
+    def test_changed_original_capture_or_worker_refuses_before_session_or_custody(self):
+        for path,value in [('owner','foreign'),('worker','maintenance')]:
+            captured=copy.deepcopy(self.captured);captured['admission']['worker_observation'][path]=value
+            with self.assertRaises(ValueError):observations.NativeOwnershipObservation(self.guard,captured,self.record,self.seal)
+            self.assertEqual(self.calls,[])
+
+    def test_changed_root_candidate_or_operation_refuses_before_session_or_custody(self):
+        for name in ['candidate','operation','extra']:
+            authority={**self.authority,name:'changed'}
+            with patch.object(observations,'root_file',return_value=({'path':'/fixture'},canonical(authority))):
+                with self.assertRaises(ValueError):self.attach()
+            self.assertEqual(self.calls,[])
+
+    def test_original_root_seal_replacement_is_terminal_and_cannot_be_recaptured(self):
+        subject=self.attach();self.calls.clear()
+        with patch.object(observations,'root_file',return_value=({'path':'/changed'},canonical(self.authority))):
+            with self.assertRaises(ValueError):subject.check()
+        self.assertTrue(self.closed);self.assertTrue(subject.poisoned)
+        with self.assertRaises(ValueError):subject.check()
+        self.assertEqual(self.calls,[])
+
+    def test_original_backend_loss_or_borrowed_socket_stops_before_custody(self):
+        for changed in [{'owner_connection_observed':False,'lease_acquired':False},{'owner_connection_observed':True,'lease_acquired':True}]:
+            subject=self.attach();self.calls.clear()
+            with patch.object(observations,'observe_held_session',return_value=changed):
+                with self.assertRaises(ValueError):subject.check()
+            self.assertTrue(subject.poisoned);self.assertEqual(self.calls,['generation'])
+
+    def test_configuration_change_refuses_before_original_backend_observation(self):
+        subject=self.attach();self.calls.clear()
+        with patch.object(observations,'configuration',return_value=({},'postgresql://other')):
+            with self.assertRaises(ValueError):subject.check()
+        self.assertEqual(self.calls,['generation']);self.assertTrue(self.closed)
+
+    def test_marker_loss_is_terminal_without_repair_or_new_capture(self):
+        subject=self.attach();self.calls.clear()
+        with patch.object(self.custody,'check',side_effect=ValueError('changed custody')):
+            with self.assertRaises(ValueError):subject.check()
+        self.assertTrue(subject.poisoned);self.assertTrue(self.closed)
+        self.assertEqual(self.calls,['generation','session'])
+
+
+if __name__=='__main__':unittest.main()
