@@ -1,0 +1,9 @@
+{
+  "id": "native-writer-exclusion",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Hold fixed ordinary PostgreSQL writer exclusion under the native application's existing advisory key. Recheck exact backend birth, owner identity and granted lock; refuse unexpected clients or lost sessions and reap only the owned query child. Active generation publication and lifecycle reconciliation remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-writer-exclusion.md", "tools/deployment/native_writer_exclusion.py"],
+  "withdrawn": false
+}
