@@ -66,6 +66,16 @@ class RetirementJournal:
         return descriptor
 
     def _prior_upgrade(self):
+        from native_initial_baseline import has_initial, read_initial_baseline
+        index_path = self.directory / "upgrade-history-v1.json"
+        if not index_path.exists() and not index_path.is_symlink():
+            require(has_initial(self.directory))
+            baseline = read_initial_baseline(self.directory)
+            pointer = baseline["activation"]
+            current = private_bytes(self.directory / "current-release-v1.json", 16_384)
+            require(hashlib.sha256(current).hexdigest() == baseline["activation_sha256"] == self.plan["current_sha256"])
+            require(all(pointer[key] == self.plan[key] for key in ["installation", "candidate", "artifact_sha256", "bindings_sha256"]))
+            return
         index = json.loads(private_bytes(self.directory / "upgrade-history-v1.json", 524_288), object_pairs_hook=unique_object)
         require(isinstance(index.get("operations"), list) and index["operations"])
         last = index["operations"][-1]

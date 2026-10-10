@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "5960be0f38b0948e12645e3a83eca7e374273bd0",
+  "headCommit": "d9118f06a86adade7fe2081726eaa5de6e6553ea",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-10T00:19:43.192Z",
+      "observedAt": "2026-10-10T02:08:12.561Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
@@ -175,7 +175,7 @@
       "id": "J14",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/73530a2f8543f2e54751a1ddc42d0ed0ffb9245f/docs/implementation/initial-enrollment-journal.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/5960be0f38b0948e12645e3a83eca7e374273bd0/docs/implementation/installation-owner-bootstrap.md"
       }
     },
     {
@@ -200,5 +200,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-10T00:40:49.689Z"
+  "evaluatedAt": "2026-10-10T02:08:12.561Z"
 }

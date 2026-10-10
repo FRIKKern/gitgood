@@ -63,6 +63,11 @@ class UpgradeHistory:
             else:
                 require(entry["journal_sha256"] is None)
         require({p.name for p in self.operations.iterdir()} <= seen)
+        from native_initial_baseline import has_initial, read_initial_baseline, require_initial_upgrade
+        if has_initial(self.directory):
+            baseline = read_initial_baseline(self.directory)
+            require_initial_upgrade(baseline, entries[0]["intent"])
+            require(baseline["operation"] not in seen)
         return value
 
     def _save(self, value):
@@ -101,6 +106,15 @@ class UpgradeHistory:
             # after owner loss. Never start/recover an upgrade over that intent.
             retirement = self.directory / "retirement-journal-v1.json"
             require(not retirement.exists() and not retirement.is_symlink())
+            # Initial setup hands off a real baseline; it never fabricates an
+            # upgrade or erases its own responsibility to admit the first one.
+            from native_initial_baseline import has_initial, read_initial_baseline, require_initial_upgrade
+            if has_initial(self.directory):
+                baseline = read_initial_baseline(self.directory)
+                require(self.operation != baseline["operation"])
+                if not self.path.exists() and not self.path.is_symlink():
+                    require_initial_upgrade(baseline, self.intent)
+                    require(hashlib.sha256(self._read(self.directory / "current-release-v1.json", 16_384)).hexdigest() == baseline["activation_sha256"])
             if not self.operations.exists() and not self.operations.is_symlink():
                 self.operations.mkdir(mode=0o700)
                 self._sync(self.directory)

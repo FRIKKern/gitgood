@@ -117,13 +117,19 @@ def verification_caddy_source(root, configuration):
     return source.replace(site, site + "  bind 127.0.0.1\n", 1)
 
 
-def start_edge(actions, mode):
+def start_edge(actions, mode, *, initial=False):
     """Only the current durable owner can publish fixed maintenance/active routing."""
     require(sys.platform == "linux")
-    actions._owned({"maintenance", "migrate", "verify", "activate", "public_verify", "recover"})
+    require(type(initial) is bool)
+    if initial:
+        from native_enrollment_actions import NativeEnrollmentActions
+        require(isinstance(actions,NativeEnrollmentActions) and mode == "active")
+        actions._owned({"activate","enroll"})
+    else:
+        actions._owned({"maintenance", "migrate", "verify", "activate", "public_verify", "recover"})
     require(mode in {"maintenance", "active"})
     if mode == "active":
-        require(actions.journal.record["stage"] in {"activate", "public_verify", "recover"})
+        require(actions.journal.record["stage"] in ({"activate","enroll"} if initial else {"activate", "public_verify", "recover"}))
     actions.reobserve()
     group = actions.bindings["cgroups"]["edge"]
     require(cgroup_identity(actions.bindings["installation"], "edge") == group)

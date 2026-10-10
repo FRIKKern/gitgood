@@ -5,6 +5,10 @@ creating a journal or changing installation data. This is a dependency for the
 fixed coordinator. It does not establish fresh resource capability or installation
 acceptance.
 
+The [fixed initial lifecycle](native-initial-lifecycle.md) consumes these inputs
+through `enroll` and `enroll-resume`. Its actual resource observation, stage
+reconciliation, activation and baseline remain separate from this parser.
+
 `request.json` contains exactly `protocol: 1`, `purpose:
 "native_initial_enrollment"`, canonical operation UUID and the journal's closed
 `intent`. The independently expected digest is SHA256 of canonical compact

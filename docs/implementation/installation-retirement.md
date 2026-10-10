@@ -6,6 +6,11 @@ the application candidate: two installations can run the same build. The inspect
 now reports the authenticated installation UUID and accepts an independent expected
 UUID; a different installation refuses while preserving the archive and stores.
 Copied-production verification binds the packaged inspector to its original UUID.
+Retirement can now reserve the separately sealed [initial baseline](native-initial-lifecycle.md)
+before any real upgrade. It requires that baseline's exact candidate, artifact,
+bindings and current-pointer digest; an unfinished or changed initial chain
+refuses. This admission has component checks. Actual direct retirement from the
+new initial lifecycle remains separate installed evidence.
 Authenticated inspection also reports normalized Git, SSH and configuration file
 inventory hashes. The read-only `snapshotInstallationRoots()` observer uses the
 same archive inventory format. A live Git-store change after export changes its
