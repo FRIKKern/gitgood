@@ -227,3 +227,12 @@ This establishes the protected-service monitor and lease component behavior.
 The full Gitgood application artifact, ownership marker writer, lifecycle
 reconciliation, allocator, deployed authentication, Cloud deployment and complete
 journey acceptance remain required. These results change no readiness criterion.
+
+After reconciliation with merged main `af286e0`, the ordinary Linux operator
+suite passed 385 tests with 18 platform-specific skips; planning passed all 33
+tests. The earlier source passed 215 backend tests through isolated `mix precommit`,
+with all 308 tested files independently matched against the working source.
+The combined main-and-monitor backend check is recorded separately. The source
+reconciliation adds the ownership components and a database-validation wrapper;
+the actual VM proof remains bound to its archived 56-file seed, not a full
+application artifact or the added, unwired components.
