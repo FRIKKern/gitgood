@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "5f7386d9bc596586afd4ffbac1c4fdb8c790302f",
+  "headCommit": "13ba7acc146e73f2682b318f856bad34083e58fe",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-10T03:22:18.049Z",
+      "observedAt": "2026-10-10T03:57:54.047Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "ok",
-      "observedAt": "2026-10-10T03:22:52.048Z",
+      "observedAt": "2026-10-10T03:57:54.759Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/v1/data/query/production/gitgood_verification",
       "receipts": [
         {
@@ -175,7 +175,7 @@
       "id": "J14",
       "implementation": {
         "state": "in_progress",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/43201972ddf5e2462cf136727d5539c17d246f2b/docs/implementation/native-initial-lifecycle.md"
+        "reference": "https://github.com/FRIKKern/gitgood/blob/74277d94dda4c17f5c013b8f19a9a9a8c2f156d4/docs/implementation/native-initial-lifecycle.md"
       }
     },
     {
@@ -200,5 +200,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-10T03:22:52.048Z"
+  "evaluatedAt": "2026-10-10T03:57:54.759Z"
 }

@@ -1,0 +1,9 @@
+{
+  "id": "native-supervision-generations",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Record actual ordinary-user systemd delegation, whole-unit descendant cleanup and bounded manager-loss restart. Select a distinct resource-generation profile with immutable original lifecycle history and explicit continuity. The product supervisor, generation protocol, actual reboot, allocation and Cloud acceptance remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/decisions/0018-native-supervision-generations.md", "docs/implementation/native-supervision-profile.md"],
+  "withdrawn": false
+}

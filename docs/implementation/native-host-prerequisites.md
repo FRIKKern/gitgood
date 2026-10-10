@@ -6,6 +6,15 @@ ownership and recovery behavior before managed Cloud installation can be claimed
 This document records the next implementation dependencies; it installs no
 supervisor and defines no accepted reboot protocol.
 
+The [systemd capability experiment](native-supervision-profile.md) has since
+passed eight actual service checks and four independent custody checks. An
+ordinary account managed the delegated children, whole-unit stops cleared
+descendants, and manager loss triggered bounded restart. All five group inodes
+changed across starts at the same paths. The
+[supervision/generation decision](../decisions/0018-native-supervision-generations.md)
+is accepted for implementation; the product controller and generation protocol
+remain unfinished.
+
 ## Service ownership
 
 The verified fixture runs under WSL init. Its installed systemd binary is

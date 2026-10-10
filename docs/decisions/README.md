@@ -70,3 +70,10 @@ recovery preserved all three owner tables. The initial baseline admitted one
 real upgrade between distinct clean artifacts, followed by fresh public Git and
 unchanged terminal replay. Final source binding and required integration checks
 remain separate gates; allocator, supervision and Cloud remain unfinished.
+
+[Native service supervision and resource generations](0018-native-supervision-generations.md)
+selects a delegated ordinary-user systemd controller and a distinct protocol-2
+profile. Eight actual synthetic service checks and four custody checks passed;
+same-path group inodes changed across both restart transitions. Durable continuity,
+generation-aware lifecycle reconciliation, application leases, actual reboot
+and managed Cloud remain implementation and acceptance gates.
