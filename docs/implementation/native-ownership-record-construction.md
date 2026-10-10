@@ -39,6 +39,10 @@ establish record compatibility, not live service or database admission.
 
 The reference JSON fixture comes from the existing Python ownership-record fixture
 with fixed operation identifiers. All its service, process and database values are
-synthetic. Complete backend precommit, application startup integration, installed
-execution of this constructor and full journey acceptance remain required. Native
-startup is still refused before mutation.
+synthetic. Complete backend `mix precommit` now passes all 244 tests in an isolated
+source copy and fresh test database as the ordinary Linux test account. The project
+formatter removed one trailing blank line from the new module and its test; the
+committed files adopt those exact tested bytes. All 334 backend/operator source
+files must match that tested copy before retaining the result. Application startup
+integration, installed execution of this constructor and full journey acceptance
+remain required. Native startup is still refused before mutation.

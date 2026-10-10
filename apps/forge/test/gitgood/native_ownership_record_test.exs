@@ -193,4 +193,3 @@ defmodule Gitgood.NativeOwnershipRecordTest do
     refused(changed, session, seal)
   end
 end
-

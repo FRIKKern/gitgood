@@ -101,4 +101,3 @@ defmodule Gitgood.NativeOwnershipRecord do
   defp digest(value),
     do: :crypto.hash(:sha256, Publication.canonical(value)) |> Base.encode16(case: :lower)
 end
-
