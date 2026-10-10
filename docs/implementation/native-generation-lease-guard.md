@@ -237,3 +237,12 @@ tested files independently matched against the current source. The source
 reconciliation adds the ownership components and a database-validation wrapper;
 the actual VM proof remains bound to its archived 56-file seed, not a full
 application artifact or the added, unwired components.
+
+The isolated CI image does not contain the systemd executable or `systemctl` by
+default. The workflow installs the Ubuntu systemd package before operator checks,
+so root-file custody and installed-version tests execute against real protected
+files. The first required PR81 forge run failed these two tests because those
+files were absent; its other operator tests completed and its planning check
+passed. This dependency correction does not skip those tests or claim that a
+systemd manager is running inside the CI container. A fresh required CI run remains
+necessary for the corrected workflow.
