@@ -13,6 +13,11 @@ assembles the existing claim from captured context, session and controller-seal
 values. Its structural checks and cross-language compatibility are verified with
 synthetic observations; live admission and application integration remain required.
 
+The [ownership handoff](native-ownership-claim.md) connects the captured monitor,
+original lease, constructor, protected publisher and attachment in one attempt.
+Installed execution and startup integration remain unverified; the handoff must
+finish before application mutation workers start.
+
 The preliminary `InstallationProfile` selector distinguishes the development
 profile from `systemd-v2`. Native selection requires Linux x86_64, the canonical
 installation storage path and a matching actual native or maintenance kernel

@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-claim",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Connect captured native generation and original database lease to bounded record construction, protected publication and monitor attachment in one non-retrying application handoff. Helper loss or refusal prevents success; complete installed startup and controller reconciliation remain required.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-claim.md", "apps/forge/lib/gitgood/native_ownership_claim.ex"],
+  "withdrawn": false
+}
