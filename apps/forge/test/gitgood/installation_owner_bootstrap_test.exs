@@ -61,6 +61,130 @@ defmodule Gitgood.InstallationOwnerBootstrapTest do
     assert Repo.aggregate(User, :count) == 1 and Repo.aggregate(Membership, :count) == 1
   end
 
+  test "read-only observation distinguishes absent and committed without creating actors", %{
+    params: params
+  } do
+    before = {Repo.all(InstallationOwnerReceipt), Repo.all(User), Repo.all(Membership)}
+    assert {:ok, absent} = InstallationOwnerBootstrap.observe(params, expected(params))
+    assert absent.outcome == "absent" and absent.user_id == nil and absent.role_at_creation == nil
+    refute Jason.encode!(absent) =~ params["password"]
+    assert {Repo.all(InstallationOwnerReceipt), Repo.all(User), Repo.all(Membership)} == before
+
+    assert {:ok, initial} = InstallationOwnerBootstrap.create(params, expected(params))
+    before = {Repo.all(InstallationOwnerReceipt), Repo.all(User), Repo.all(Membership)}
+
+    for _ <- 1..3 do
+      assert {:ok, recorded} = InstallationOwnerBootstrap.observe(params, expected(params))
+      assert recorded == %{initial | outcome: "recorded"}
+      assert {Repo.all(InstallationOwnerReceipt), Repo.all(User), Repo.all(Membership)} == before
+    end
+  end
+
+  test "observation rejects conflicting or unsealed input and preserves current access", %{
+    params: params
+  } do
+    assert {:ok, initial} = InstallationOwnerBootstrap.create(params, expected(params))
+    Repo.update_all(User, set: [password_hash: <<0::256>>])
+    Repo.update_all(Membership, set: [role: "reader"])
+    before = {Repo.all(InstallationOwnerReceipt), Repo.all(User), Repo.all(Membership)}
+
+    assert {:ok, recorded} = InstallationOwnerBootstrap.observe(params, expected(params))
+    assert recorded == %{initial | outcome: "recorded"}
+
+    assert {:error, :invalid_bootstrap_request} =
+             InstallationOwnerBootstrap.observe(params, String.duplicate("0", 64))
+
+    for {field, value} <- [
+          {"password", "changed-private-password"},
+          {"request", Ecto.UUID.generate()},
+          {"installation", Ecto.UUID.generate()},
+          {"username", "other-owner"},
+          {"team", "other-team"}
+        ] do
+      changed = Map.put(params, field, value)
+
+      assert {:error, :bootstrap_request_conflict} =
+               InstallationOwnerBootstrap.observe(changed, expected(changed))
+    end
+
+    assert {Repo.all(InstallationOwnerReceipt), Repo.all(User), Repo.all(Membership)} == before
+    assert {:error, :unauthorized} = Accounts.authenticate(params["username"], params["password"])
+    assert Accounts.role(initial.user_id, params["team"]) == "reader"
+  end
+
+  test "observation cannot describe existing unreceipted actor data as empty", %{params: params} do
+    assert {:ok, user} =
+             Accounts.create_user("existing-observed-owner", "existing-private-password")
+
+    on_exit(fn -> Repo.delete_all(from u in User, where: u.id == ^user.id) end)
+    before = Repo.all(User)
+
+    assert {:error, :installation_not_empty} =
+             InstallationOwnerBootstrap.observe(params, expected(params))
+
+    assert Repo.all(User) == before and Repo.aggregate(InstallationOwnerReceipt, :count) == 0
+  end
+
+  test "observation waits for a real pending bootstrap transaction and sees its committed receipt",
+       %{params: params} do
+    parent = self()
+
+    writer =
+      Task.async(fn ->
+        Repo.transaction(fn ->
+          assert {:ok, initial} = InstallationOwnerBootstrap.create(params, expected(params))
+          writer_connection = Repo.query!("SELECT pg_backend_pid()").rows |> hd() |> hd()
+          send(parent, {:bootstrap_pending, self(), writer_connection, initial})
+
+          receive do
+            :commit -> initial
+          after
+            10_000 -> Repo.rollback(:fixture_commit_missing)
+          end
+        end)
+      end)
+
+    assert_receive {:bootstrap_pending, writer_pid, writer_connection, initial}, 10_000
+
+    observer =
+      Task.async(fn ->
+        Repo.checkout(fn ->
+          connection = Repo.query!("SELECT pg_backend_pid()").rows |> hd() |> hd()
+          send(parent, {:observer_connection, connection})
+          InstallationOwnerBootstrap.observe(params, expected(params))
+        end)
+      end)
+
+    assert_receive {:observer_connection, observer_connection}, 10_000
+    deadline = System.monotonic_time(:millisecond) + 5_000
+    wait_for_bootstrap_lock(observer_connection, writer_connection, deadline)
+    send(writer_pid, :commit)
+    assert {:ok, ^initial} = Task.await(writer, 10_000)
+    assert {:ok, recorded} = Task.await(observer, 10_000)
+    assert recorded == %{initial | outcome: "recorded"}
+
+    assert Repo.aggregate(InstallationOwnerReceipt, :count) == 1 and
+             Repo.aggregate(User, :count) == 1
+  end
+
+  defp wait_for_bootstrap_lock(observer, writer, deadline) do
+    result =
+      Repo.query!(
+        "SELECT wait_event_type='Lock' AND wait_event='advisory' AND $2::int=ANY(pg_blocking_pids(pid)) FROM pg_stat_activity WHERE pid=$1::int",
+        [observer, writer]
+      )
+
+    case result.rows do
+      [[true]] ->
+        :ok
+
+      _ ->
+        assert System.monotonic_time(:millisecond) < deadline
+        Process.sleep(10)
+        wait_for_bootstrap_lock(observer, writer, deadline)
+    end
+  end
+
   test "lost response repeats exact receipt without changing credentials or ownership", %{
     params: params
   } do

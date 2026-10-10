@@ -45,8 +45,10 @@ exact committed applicability and required integration CI remain separate gates.
 [Durable first-install owner bootstrap](0015-installation-owner-bootstrap.md)
 defines a separate fixed first-owner request, atomic creation receipt and
 historical replay without resetting credentials or changed memberships. Nine
-real-Postgres component checks passed; complete installation and packaged
-production execution remain separate work.
+real-Postgres component checks passed; PR63's packaged bootstrap and restored
+replay also passed 23 production/19 offline checks. Read-only observation passed
+four additional database checks; its separate packaged checks and complete
+installation remain unfinished.
 
 [Initial native enrollment](0016-native-initial-enrollment.md) separates first
 installation responsibility from existing-installation upgrades. Its private

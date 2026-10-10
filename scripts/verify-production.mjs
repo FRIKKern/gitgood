@@ -176,19 +176,31 @@ try {
     const raw=await readFile(join(logs,label+'.log'),'utf8');assert(!raw.includes(bootstrapInputs.password),'Bootstrap output must not contain its password')
     const rows=raw.split(/\r?\n/).filter(line=>line.startsWith('{')).map(line=>JSON.parse(line));assert.equal(rows.length,1);return rows[0]
   }
+  const observerEntry='Gitgood.Release.observe_bootstrap_owner(); if Process.whereis(Gitgood.Supervisor) || Process.whereis(Gitgood.InstallationLease), do: raise("Owner observer started application runtime")'
+  const observeOwner=async(configuration,label)=>{await bootstrap(ownerConfiguration(configuration,bootstrapInputs),observerEntry,label);return ownerReceipt(label)}
+  const emptyOwnerRows=await ownerInventory('bootstrap-owner-before-observation');assert(Object.values(emptyOwnerRows.counts).every(count=>count===0))
+  const absentOwner=await observeOwner(env,'bootstrap-owner-observed-absent');assert.equal(absentOwner.outcome,'absent');assert.equal(absentOwner.user_id,null);assert.equal(absentOwner.role_at_creation,null)
+  assert.deepEqual(await ownerInventory('bootstrap-owner-after-absent-observation'),emptyOwnerRows)
   await bootstrap(ownerConfiguration(env,bootstrapInputs),'Gitgood.Release.bootstrap_owner()','bootstrap-owner-created')
   const createdOwner=await ownerReceipt('bootstrap-owner-created');assert.equal(createdOwner.outcome,'created');assert.equal(createdOwner.installation,installationId)
   const ownerRows=await ownerInventory('bootstrap-owner-before-replay');assert.equal(ownerRows.tables.length,3);assert(Object.values(ownerRows.counts).every(count=>count===1))
   await bootstrap(ownerConfiguration(env,bootstrapInputs),'Gitgood.Release.bootstrap_owner()','bootstrap-owner-recorded')
   const recordedOwner=await ownerReceipt('bootstrap-owner-recorded');assert.deepEqual(recordedOwner,{...createdOwner,outcome:'recorded'})
   assert.deepEqual(await ownerInventory('bootstrap-owner-after-replay'),ownerRows)
+  const observedOwner=await observeOwner(env,'bootstrap-owner-observed-recorded');assert.deepEqual(observedOwner,recordedOwner)
+  assert.deepEqual(await ownerInventory('bootstrap-owner-after-recorded-observation'),ownerRows)
   for(const [label,patch] of [['password',{password:'different-private-bootstrap-password'}],['request',{request:randomUUID()}],['installation',{installation:randomUUID()}]]){
     await bootstrap(ownerConfiguration(env,{...bootstrapInputs,...patch}),'Gitgood.Release.bootstrap_owner()','bootstrap-owner-refused-'+label,[1])
     const raw=await readFile(join(logs,'bootstrap-owner-refused-'+label+'.log'),'utf8')
     assert(raw.includes('Installation owner bootstrap refused')&&!raw.includes(bootstrapInputs.password)&&(!patch.password||!raw.includes(patch.password)))
     assert.deepEqual(await ownerInventory('bootstrap-owner-after-refused-'+label),ownerRows)
+    await bootstrap(ownerConfiguration(env,{...bootstrapInputs,...patch}),observerEntry,'bootstrap-owner-observation-refused-'+label,[1])
+    const observedRaw=await readFile(join(logs,'bootstrap-owner-observation-refused-'+label+'.log'),'utf8')
+    assert(observedRaw.includes('Installation owner bootstrap refused')&&!observedRaw.includes(bootstrapInputs.password)&&(!patch.password||!observedRaw.includes(patch.password)))
+    assert.deepEqual(await ownerInventory('bootstrap-owner-after-observation-refused-'+label),ownerRows)
   }
   const bootstrapOwner={created:createdOwner,recorded:recordedOwner,owner_tables:ownerRows,refused:['password','request','installation'],
+    observation:{absent:absentOwner,recorded:observedOwner,unchanged:true,application_runtime_not_started:true,refused:['password','request','installation']},
     limitations:['Creation receipt only; current account/API/Git function is verified separately below.']}
   for(const [username,team,role] of [['reviewer','team','writer'],['reader','team','reader'],['outsider','elsewhere','owner']]) {
     await bootstrap({...env,GITGOOD_BOOTSTRAP_USERNAME:username,GITGOOD_BOOTSTRAP_TEAM:team,GITGOOD_BOOTSTRAP_ROLE:role,GITGOOD_BOOTSTRAP_PASSWORD:'synthetic-password'},
@@ -572,6 +584,7 @@ try {
       authorization,outsiderAuth,forgeUrl,webUrl,sourceControl,sourceLinks,gitRepo,gitEnv,sshEnv,main,sshBefore,releaseAssetPath,released,
       certificate,tlsKey:key,evidence:join(sourceWeb,'test-results-production'),pendingEvidence,bootstrapOwner,bootstrapInputs,
       replayBootstrap:async(configuration,label)=>{await bootstrap(ownerConfiguration(configuration,bootstrapInputs),'Gitgood.Release.bootstrap_owner()',label);return ownerReceipt(label)},
+      observeBootstrap:observeOwner,
       ownerInventory})
   }
   const receipt={candidate:identity.candidate,identity,recordedAt:new Date().toISOString(),installation:root,database,
@@ -595,6 +608,7 @@ try {
   receipt.edgeLogPrivacy=edgePrivacy
   receipt.checks.push('Actual Caddy failed requests and cancelled streams retain diagnostics without private headers')
   receipt.checks.push('Packaged first-owner creation/replay/refusals preserve exact owner tables; authenticated browser and HTTPS/SSH function follows')
+  receipt.checks.push('Packaged read-only owner observation distinguishes absent/committed, refuses changed inputs, preserves exact tables and starts no application supervisor or runtime lease')
   await mkdir(join(sourceWeb,'test-results-production'),{recursive:true})
   await writeFile(join(sourceWeb,'test-results-production/production-receipt.json'),JSON.stringify(receipt,null,2)+'\n')
   console.log('PASS production artifacts, full workflow, persistence and readiness rejection: '+identity.candidate)

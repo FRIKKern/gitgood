@@ -29,3 +29,11 @@ or establish J14 acceptance. It adds one schema migration; compatibility and
 restoration must be verified for the resulting artifact before installation.
 Required checks include exact lost-response replay, input conflict, existing-data
 refusal, transaction rollback and competing initial requests on actual Postgres.
+
+Interrupted execution also needs a separate read-only observation. Its entry uses
+only a temporary database repository, a READ COMMITTED/READ ONLY transaction and
+the same creation lock. It reports committed absence or exact recorded creation
+without starting application services, creating an actor or restoring changed
+access. Existing unreceipted actor data and mismatched requests refuse. The
+controller must not interpret absence as a reservation or historical metadata as
+current authorization.

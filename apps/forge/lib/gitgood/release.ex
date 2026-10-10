@@ -48,6 +48,14 @@ defmodule Gitgood.Release do
   end
 
   def bootstrap_owner do
+    owner_bootstrap(:create)
+  end
+
+  def observe_bootstrap_owner do
+    owner_bootstrap(:observe)
+  end
+
+  defp owner_bootstrap(action) do
     params = %{
       "installation" => System.fetch_env!("GITGOOD_BOOTSTRAP_INSTALLATION"),
       "request" => System.fetch_env!("GITGOOD_BOOTSTRAP_REQUEST"),
@@ -58,9 +66,25 @@ defmodule Gitgood.Release do
 
     expected = System.fetch_env!("GITGOOD_BOOTSTRAP_REQUEST_SHA256")
     {:ok, _payload} = Gitgood.InstallationOwnerBootstrap.validate(params, expected)
-    {:ok, _} = Application.ensure_all_started(@app)
 
-    case Gitgood.InstallationOwnerBootstrap.create(params, expected) do
+    result =
+      case action do
+        :create ->
+          {:ok, _} = Application.ensure_all_started(@app)
+          Gitgood.InstallationOwnerBootstrap.create(params, expected)
+
+        :observe ->
+          Application.load(@app)
+
+          {:ok, observed, _} =
+            Ecto.Migrator.with_repo(Gitgood.Repo, fn _ ->
+              Gitgood.InstallationOwnerBootstrap.observe(params, expected)
+            end)
+
+          observed
+      end
+
+    case result do
       {:ok, receipt} -> IO.puts(Jason.encode!(receipt))
       _ -> raise "Installation owner bootstrap refused"
     end
