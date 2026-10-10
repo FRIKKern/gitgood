@@ -1,0 +1,9 @@
+{
+  "id": "native-elixir-generation-admission",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add bounded Elixir admission through a fixed Root-installed generation observer and read-only identity checks on an already held Postgrex installation lease. Application leases and generation-aware markers remain separate integration work.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-elixir-generation-admission.md", "apps/forge/lib/gitgood/installation_generation_admission.ex", "apps/forge/lib/gitgood/installation_database_session.ex"],
+  "withdrawn": false
+}
