@@ -4,10 +4,31 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from native_service_scope import PROPERTIES, ServiceRefused, bounded_command, observe_service, parse_properties
+from native_service_scope import PROPERTIES, ServiceRefused, bounded_command, observe_service, parse_properties, process_security
 
 
 class ServiceAdmissionBoundaryTest(unittest.TestCase):
+    security = "Gid:\t1000 1000 1000 1000\nGroups:\t1000\n" + "\n".join(name + ":\t0000000000000000" for name in ["CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb"]) + "\nNoNewPrivs:\t1\n"
+
+    def test_root_other_or_mixed_group_credentials_are_not_ordinary(self):
+        self.assertEqual(process_security(self.security, 1000)["gid"], 1000)
+        for status, gid in [(self.security, 0), (self.security.replace("Groups:\t1000", "Groups:\t1000 0"), 1000),
+                            (self.security.replace("Groups:\t1000", "Groups:\t1000 27"), 1000),
+                            (self.security.replace("Gid:\t1000 1000 1000 1000", "Gid:\t1000 0 1000 1000"), 1000)]:
+            with self.subTest(gid=gid), self.assertRaises(ServiceRefused):
+                process_security(status, gid)
+
+    def test_any_retained_capability_refuses_including_bounding_and_ambient(self):
+        for name in ["CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb"]:
+            with self.subTest(name=name), self.assertRaises(ServiceRefused):
+                process_security(self.security.replace(name + ":\t0000000000000000", name + ":\t0000000000000001"), 1000)
+
+    def test_missing_or_duplicate_privilege_state_and_disabled_no_new_privileges_refuse(self):
+        for status in [self.security.replace("NoNewPrivs:\t1", "NoNewPrivs:\t0"), self.security.replace("NoNewPrivs:\t1\n", ""),
+                       self.security + "NoNewPrivs:\t1\n", self.security.replace("CapAmb:\t0000000000000000", "CapAmb:\tunknown")]:
+            with self.subTest(status=status), self.assertRaises(ServiceRefused):
+                process_security(status, 1000)
+
     def test_malformed_installation_refuses_before_any_host_or_manager_access(self):
         for installation in [None, [], "", "../other", "00000000000040008000000000000001", "00000000-0000-4000-8000-00000000000A"]:
             with self.subTest(installation=installation), patch("native_service_scope.pwd.getpwnam") as account, patch("native_service_scope.bounded_command") as command:

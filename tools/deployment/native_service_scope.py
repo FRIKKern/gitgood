@@ -99,7 +99,24 @@ def parse_properties(raw):
     return result
 
 
-def process_identity(pid, uid, group):
+def process_security(status, gid):
+    require(type(gid) is int and 0 < gid < 2**32)
+    def field(name):
+        values = [line.partition(":")[2].split() for line in status.splitlines() if line.startswith(name + ":")]
+        require(len(values) == 1)
+        return values[0]
+    require(field("Gid") == [str(gid)] * 4)
+    groups = field("Groups")
+    require(len(groups) <= 64 and all(re.fullmatch(r"[0-9]{1,10}", group) for group in groups))
+    require(set(int(group) for group in groups) <= {gid})
+    capabilities = ("CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb")
+    require(all(field(name) == ["0000000000000000"] for name in capabilities))
+    require(field("NoNewPrivs") == ["1"])
+    return {"gid": gid, "supplementary_groups": sorted(set(int(group) for group in groups)),
+            "capabilities": {name: 0 for name in capabilities}, "no_new_privileges": True}
+
+
+def process_identity(pid, uid, gid, group):
     require(type(pid) is int and 0 < pid < 2147483648)
     path = Path("/proc") / str(pid)
     raw = read_bytes(path / "stat").decode("ascii")
@@ -112,7 +129,7 @@ def process_identity(pid, uid, group):
         if field == "Uid":
             require(values[0][0] == str(uid))
     require(read_bytes(path / "cgroup").decode("ascii").splitlines() == ["0::" + group])
-    return {"pid": pid, "birth": parts[19], "uid": uid,
+    return {"pid": pid, "birth": parts[19], "uid": uid, "security": process_security(status, gid),
             "mount_namespace": os.readlink(path / "ns/mnt"),
             "cgroup_namespace": os.readlink(path / "ns/cgroup")}
 
@@ -157,7 +174,7 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes):
     require(read_bytes("/proc/self/uid_map", 256).decode("ascii").split() == initial_mapping)
     account_name = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode("ascii").lower().rstrip("=")
     account = pwd.getpwnam(account_name)
-    require(account.pw_uid == os.getuid() == os.geteuid() and account.pw_gid == os.getgid() == os.getegid())
+    require(account.pw_uid == os.getuid() == os.geteuid() and account.pw_gid > 0 and account.pw_gid == os.getgid() == os.getegid())
     boot = read_bytes("/proc/sys/kernel/random/boot_id", 64).decode("ascii").strip()
     require(str(uuid.UUID(boot)) == boot)
     _, release = root_file(Path("/etc/os-release").resolve(strict=True), 4096)
@@ -208,11 +225,11 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes):
             value = (path / control).lstat()
             require(stat.S_ISREG(value.st_mode) and value.st_uid == account.pw_uid and value.st_mode & 0o200 and not value.st_mode & 0o022)
     driver = relative + "/driver"
-    manager = process_identity(int(properties["MainPID"]), account.pw_uid, driver)
-    caller = process_identity(os.getpid(), account.pw_uid, driver)
+    manager = process_identity(int(properties["MainPID"]), account.pw_uid, account.pw_gid, driver)
+    caller = process_identity(os.getpid(), account.pw_uid, account.pw_gid, driver)
     require(manager["mount_namespace"] == caller["mount_namespace"] and manager["cgroup_namespace"] == caller["cgroup_namespace"])
     require({manager["pid"], caller["pid"]}.issubset(members(parent / "driver")))
-    require(process_identity(manager["pid"], account.pw_uid, driver) == manager)
+    require(process_identity(manager["pid"], account.pw_uid, account.pw_gid, driver) == manager)
     require(parse_properties(bounded_command(arguments)) == properties)
     require(root_file(definition, 16384)[0] == unit_before and root_file(systemctl, executable=True)[0] == executable)
     require(group_identity(parent, account.pw_uid) == parent_before)
