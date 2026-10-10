@@ -61,6 +61,94 @@ def root_file(path, maximum=16777216, *, executable=False):
             "bytes": before.st_size, "sha256": hashlib.sha256(raw).hexdigest()}, raw
 
 
+class _CapturedRootFiles:
+    """One observer's content validation, bound to unchanging root file metadata.
+
+    No live manager reply is cached. Installed CLI version depends on the same
+    validated executable. Any replacement or metadata change poisons this object.
+    """
+    def __init__(self):
+        self.files = {}
+        self.version = None
+        self.frozen = False
+        self.usable = True
+        self.systemd = None
+
+    def systemd_properties(self):
+        try:
+            require(self.usable)
+            if self.systemd is None:
+                require(not self.frozen)
+                from native_systemd_properties import ReadOnlySystemdProperties
+                self.systemd = ReadOnlySystemdProperties()
+            require(self.systemd.usable)
+            return self.systemd
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self):
+        self.usable = False
+        if self.systemd is not None:
+            self.systemd.close()
+
+    @staticmethod
+    def _fingerprint(path, maximum, executable):
+        path = Path(path)
+        require(path.is_absolute() and path.resolve(strict=True) == path)
+        parents = []
+        for parent in path.parents:
+            info = parent.lstat()
+            require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022)
+            parents.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_mode))
+        info = path.lstat()
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1)
+        require(not info.st_mode & 0o022 and 0 < info.st_size <= maximum)
+        require(not executable or info.st_mode & 0o111)
+        fields = ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink')
+        return tuple(getattr(info, field) for field in fields), tuple(parents)
+
+    def read(self, path, maximum=16777216, *, executable=False):
+        try:
+            require(self.usable)
+            path = Path(path)
+            fingerprint = self._fingerprint(path, maximum, executable)
+            contract = (maximum, executable)
+            if path not in self.files:
+                require(not self.frozen and len(self.files) < 4)
+                value = root_file(path, maximum, executable=executable)
+                identity = value[0]
+                require((identity['device'], identity['inode'], identity['bytes']) == fingerprint[0][:3])
+                require(self._fingerprint(path, maximum, executable) == fingerprint)
+                self.files[path] = (contract, fingerprint, value)
+            original_contract, original, value = self.files[path]
+            require(contract == original_contract and fingerprint == original)
+            return dict(value[0]), value[1]
+        except BaseException:
+            self.usable = False
+            raise
+
+    def installed_version(self, path):
+        try:
+            self.read(path, executable=True)
+            if self.version is None:
+                require(not self.frozen)
+                version = bounded_command([str(path), '--version'])
+                require(re.match(rb'systemd 255(?:\s|\.)', version))
+                self.read(path, executable=True)
+                self.version = version
+            return self.version
+        except BaseException:
+            self.usable = False
+            raise
+
+    def freeze(self):
+        require(self.usable and len(self.files) == 4 and self.version is not None)
+        for path, (contract, _, _) in self.files.items():
+            self.read(path, contract[0], executable=contract[1])
+        self.frozen = True
+
+
 def bounded_command(arguments, timeout=5, maximum=16384):
     environment = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C", "LC_ALL": "C",
                    "SYSTEMD_COLORS": "0", "SYSTEMD_PAGER": "cat"}
@@ -134,9 +222,18 @@ def process_identity(pid, uid, gid, group):
             "cgroup_namespace": os.readlink(path / "ns/cgroup")}
 
 
-def group_identity(path, uid):
+def group_identity(path, uid, *, _parent=None):
     path = Path(path)
-    require(path.resolve(strict=True) == path)
+    if _parent is None:
+        require(path.resolve(strict=True) == path)
+    else:
+        # The service parent is fully canonicalized before and after its fixed
+        # leaves. Rewalking every root prefix for every leaf adds no authority.
+        require(str(path.parent) == _parent['path'] and path.name in GROUPS)
+        parent = path.parent.lstat()
+        require(stat.S_ISDIR(parent.st_mode) and not parent.st_mode & 0o022)
+        require((parent.st_dev, parent.st_ino, parent.st_uid) ==
+                (_parent['device'], _parent['inode'], _parent['uid']))
     value = path.lstat()
     require(stat.S_ISDIR(value.st_mode) and value.st_uid == uid and not value.st_mode & 0o022)
     return {"path": str(path), "device": value.st_dev, "inode": value.st_ino, "uid": uid}
@@ -162,7 +259,7 @@ def observe_service(installation, unit_sha256, *, cpu_quota_us, memory_bytes):
         raise ServiceRefused("Native service scope unavailable or changed") from None
 
 
-def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, caller_group="driver"):
+def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, caller_group="driver", _root_files=None):
     require(caller_group in {"driver", "native", "maintenance"})
     require(isinstance(installation, str) and str(uuid.UUID(installation)) == installation)
     require(isinstance(unit_sha256, str) and re.fullmatch(r"[0-9a-f]{64}", unit_sha256))
@@ -178,12 +275,13 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, c
     require(account.pw_uid == os.getuid() == os.geteuid() and account.pw_gid > 0 and account.pw_gid == os.getgid() == os.getegid())
     boot = read_bytes("/proc/sys/kernel/random/boot_id", 64).decode("ascii").strip()
     require(str(uuid.UUID(boot)) == boot)
-    _, release = root_file(Path("/etc/os-release").resolve(strict=True), 4096)
+    read_root = root_file if _root_files is None else _root_files.read
+    _, release = read_root(Path("/etc/os-release").resolve(strict=True), 4096)
     require(b'ID=ubuntu\n' in release and b'VERSION_ID="24.04"\n' in release)
     require(Path("/proc/1").stat().st_uid == 0 and read_bytes("/proc/1/comm", 64) == b"systemd\n")
     # Linux denies ordinary users /proc/1/exe. Authenticate the manager through
     # its root-controlled system bus path and verify the installed binary.
-    root_file(Path("/usr/lib/systemd/systemd").resolve(strict=True), executable=True)
+    read_root(Path("/usr/lib/systemd/systemd").resolve(strict=True), executable=True)
     bus = Path("/run/dbus/system_bus_socket")
     require(bus.resolve(strict=True) == bus)
     for parent in bus.parents:
@@ -192,16 +290,23 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, c
     value = bus.lstat()
     require(stat.S_ISSOCK(value.st_mode) and value.st_uid == 0)
     systemctl = Path("/usr/bin/systemctl")
-    executable, _ = root_file(systemctl, executable=True)
-    require(re.match(rb"systemd 255(?:\s|\.)", bounded_command([str(systemctl), "--version"])))
-    require(re.match(rb"255(?:\s|\.)", bounded_command([str(systemctl), "--system", "--no-pager", "show", "--property=Version", "--value"])))
+    executable, _ = read_root(systemctl, executable=True)
+    installed = (bounded_command([str(systemctl), '--version']) if _root_files is None
+                 else _root_files.installed_version(systemctl))
+    require(re.match(rb"systemd 255(?:\s|\.)", installed))
+    properties_reader = None if _root_files is None else _root_files.systemd_properties()
+    manager_version = (bounded_command([str(systemctl), "--system", "--no-pager", "show", "--property=Version", "--value"])
+                       if properties_reader is None else properties_reader.manager_version().encode('ascii'))
+    require(re.match(rb"255(?:\s|\.)", manager_version))
     unit = "gitgood-installation-" + installation + ".service"
     definition = Path("/etc/systemd/system") / unit
-    unit_before, _ = root_file(definition, 16384)
+    unit_before, _ = read_root(definition, 16384)
     require(unit_before["sha256"] == unit_sha256)
     arguments = [str(systemctl), "--system", "--no-pager", "show", unit,
                  "--property=" + ",".join(PROPERTIES)]
-    properties = parse_properties(bounded_command(arguments))
+    properties = (parse_properties(bounded_command(arguments)) if properties_reader is None
+                  else properties_reader.unit_properties(unit))
+    require(set(properties) == set(PROPERTIES))
     expected = {"Id": unit, "LoadState": "loaded", "ActiveState": "active", "SubState": "running",
                 "User": account_name, "Group": account_name, "Delegate": "yes", "DelegateSubgroup": "driver",
                 "FragmentPath": str(definition), "DropInPaths": "", "KillMode": "control-group", "Restart": "on-failure"}
@@ -221,7 +326,7 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, c
     groups = {}
     for name in GROUPS:
         path = parent / name
-        groups[name] = group_identity(path, account.pw_uid)
+        groups[name] = group_identity(path, account.pw_uid, _parent=parent_before)
         for control in ("cgroup.procs", "cgroup.kill", "cgroup.subtree_control"):
             value = (path / control).lstat()
             require(stat.S_ISREG(value.st_mode) and value.st_uid == account.pw_uid and value.st_mode & 0o200 and not value.st_mode & 0o022)
@@ -233,10 +338,12 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, c
     require(manager["pid"] in members(parent / "driver"))
     require(caller["pid"] in members(parent / caller_group))
     require(process_identity(manager["pid"], account.pw_uid, account.pw_gid, driver) == manager)
-    require(parse_properties(bounded_command(arguments)) == properties)
-    require(root_file(definition, 16384)[0] == unit_before and root_file(systemctl, executable=True)[0] == executable)
+    repeated = (parse_properties(bounded_command(arguments)) if properties_reader is None
+                else properties_reader.unit_properties(unit))
+    require(repeated == properties)
+    require(read_root(definition, 16384)[0] == unit_before and read_root(systemctl, executable=True)[0] == executable)
     require(group_identity(parent, account.pw_uid) == parent_before)
-    require(all(group_identity(parent / name, account.pw_uid) == value for name, value in groups.items()))
+    require(all(group_identity(parent / name, account.pw_uid, _parent=parent_before) == value for name, value in groups.items()))
     require(read_bytes("/proc/sys/kernel/random/boot_id", 64).decode("ascii").strip() == boot)
     return {"protocol": 2, "profile": "systemd", "installation": installation, "boot_id": boot,
             "uid": account.pw_uid, "gid": account.pw_gid, "unit": unit, "unit_definition": unit_before,

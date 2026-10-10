@@ -41,7 +41,7 @@ def _ancestry(owner, scope, worker):
     return identities
 
 
-def observe_worker(installation, unit_sha256, *, worker, owner_pid, cpu_quota_us, memory_bytes):
+def observe_worker(installation, unit_sha256, *, worker, owner_pid, cpu_quota_us, memory_bytes, _root_files=None):
     """Observe fixed worker roles without allowing a worker to publish a generation.
 
     The independently sealed unit digest and limits remain required. The actual
@@ -52,10 +52,12 @@ def observe_worker(installation, unit_sha256, *, worker, owner_pid, cpu_quota_us
     try:
         require(type(worker) is str and worker in {"native", "maintenance"})
         require(type(owner_pid) is int and 1 < owner_pid < 2147483648)
-        scope = _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, caller_group=worker)
+        options = {'caller_group':worker}
+        if _root_files is not None: options['_root_files'] = _root_files
+        scope = _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, **options)
         require(owner_pid != scope["manager"]["pid"])
         chain = _ancestry(owner_pid, scope, worker)
-        require(_observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, caller_group=worker) == scope)
+        require(_observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, **options) == scope)
         require(_ancestry(owner_pid, scope, worker) == chain)
         return {"service_scope": scope, "worker": worker, "owner": chain[-1], "caller": chain[0],
                 "generation_publication_established": False, "installation_readiness_established": False}
