@@ -8,6 +8,11 @@ custody, original backend/owner-socket observation and a protected fixed entry.
 Its actual service execution and prior-owner reconciliation remain unfinished;
 the native application gate remains closed.
 
+The [application record constructor](native-ownership-record-construction.md)
+assembles the existing claim from captured context, session and controller-seal
+values. Its structural checks and cross-language compatibility are verified with
+synthetic observations; live admission and application integration remain required.
+
 The preliminary `InstallationProfile` selector distinguishes the development
 profile from `systemd-v2`. Native selection requires Linux x86_64, the canonical
 installation storage path and a matching actual native or maintenance kernel
