@@ -78,6 +78,16 @@ closed requests, candidate/operation mismatch, changed owner, prior responsibili
 borrowed backend refusal, and preserved effects after session loss. Actual protected
 entry execution, Root controller seal creation and native BEAM linkage remain required.
 
+`Gitgood.NativeOwnershipPublication` calls only the fixed protected entry through
+isolated Python with bytecode writes disabled. It clears inherited environment
+variables, bounds the request to 32 KiB, the response to 4 KiB and execution to
+60 seconds, and rechecks protected executable/entry custody after completion.
+It binds the request to the actual BEAM PID and accepts only a closed canonical
+response with the same operation and SHA-256 of the canonical record. Six focused
+Elixir tests cover Python-compatible sorted ASCII JSON (including surrogate pairs),
+malformed or oversized requests, owner binding, changed response identities and
+rejection of additional authority. These tests do not execute an installed entry.
+
 The current fixed admission allows an initial ownership claim or its identical live
 retry. Any other retained ownership record refuses. This is an incomplete integration
 stage, not the final replacement policy. Controller reconciliation must independently

@@ -2,7 +2,7 @@
   "id": "native-ownership-publication",
   "category": "Added",
   "impact": "operator",
-  "summary": "Add durable non-replacing ownership markers, original held-backend and owner-socket observations, and a protected fixed publication entry with independently sealed candidate/operation admission. Interrupted effects remain retained; prior-owner reconciliation and complete native application integration remain unfinished.",
+  "summary": "Add durable non-replacing ownership markers, original held-backend and owner-socket observations, a protected fixed publication entry and a bounded Elixir caller with independently sealed candidate/operation admission. Interrupted effects remain retained; prior-owner reconciliation and complete native application integration remain unfinished.",
   "journeys": ["J14", "J15", "J16", "J17"],
   "references": ["docs/implementation/native-ownership-publication.md", "tools/deployment/native_ownership_markers.py", "tools/deployment/native_ownership_publication_entry.py"],
   "withdrawn": false
