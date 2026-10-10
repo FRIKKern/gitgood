@@ -82,3 +82,45 @@ The current product's protocol-1 inventory and history remain unchanged.
 The [supervision/generation decision](../decisions/0018-native-supervision-generations.md)
 specifies the next implementation. Its generation protocol and native controller
 still require code and actual installation evidence.
+
+## Separate actual kernel reboot experiment
+
+A subsequent owned VM passed eight capability checks and four independent
+custody checks. It ran QEMU 8.2.2 as host UID 1000 inside its exact owned group,
+limited to two CPUs and 3 GiB with no swap. The guest had two vCPUs and 2 GiB;
+it exposed no network interface or host directory. No global host reboot,
+package upgrade, imported WSL distribution or provider operation was used.
+
+The pinned Ubuntu image was 625,612,288 bytes with SHA-256
+`6a81c37564db9b1ee84e141922625e1d7c5b389b99bb3c572e0243607d5bb4d2`.
+Its digest matched the dated canonical Ubuntu HTTPS checksum inventory; no
+detached-signature verification is claimed. Kernel and initrd extraction used
+private raw copies and read-only filesystem inspection, with no physical or
+loop devices. The original vendor base stayed unchanged.
+
+The guest used kernel `6.8.0-142-generic` and systemd
+`255.4-1ubuntu8.17`. Its actual kernel boot changed from
+`84f1bc4f-94a9-408f-b684-5812f93502cb` to
+`4dcd9c92-b629-41d4-b290-71264dd10583`, while the host boot stayed unchanged.
+The ordinary manager automatically started generation 2. Six actual manager,
+worker and separate-session descendant births were independently observed on
+both boots. Synthetic durable bytes/inode, machine identity and unit
+definition bytes/inode were unchanged. All five groups used the same paths;
+the new kernel produced new resource identities.
+
+The fixed guest control channel requested only observation, reboot and poweroff.
+The VM exited normally after poweroff. Independent post-exit custody verified
+all four retained fresh VM fixtures were empty and their private disks and
+diagnostics remained intact. The first three attempts failed in the harness
+before a complete reboot proof; none was relabelled successful.
+
+The private 21-record source/receipt archive passed digest readback and matched
+the original guest seed and Source receipt. Its review SHA-256 is
+`36298f6bb6bf59e31cc3756a738632c3a63abbcb5356062c4a7d76ae583c1900`;
+its index SHA-256 is
+`d54d765672a44e8f29c2f36f40dabdb7a81bfaaf48994f1ee908cef0c56f9361`.
+
+This experiment executed no Gitgood product files or database. It proves the
+selected host's reboot capabilities and synthetic persistence. Product service
+admission, durable generation continuity, writer exclusion and full lifecycle
+recovery require their own source-bound evidence.

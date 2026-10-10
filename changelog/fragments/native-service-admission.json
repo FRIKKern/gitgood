@@ -1,0 +1,9 @@
+{
+  "id": "native-service-admission",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add read-only admission for a separately allocated ordinary-user systemd service, with pinned unit identity, actual manager and delegated cgroups, bounded resource checks and a credential-free manager query. Require empty capability sets, no extra groups and NoNewPrivileges. Durable generations, product supervision and full lifecycle or Cloud acceptance remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-service-admission.md", "tools/deployment/native_service_scope.py"],
+  "withdrawn": false
+}

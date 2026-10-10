@@ -15,6 +15,13 @@ changed across starts at the same paths. The
 is accepted for implementation; the product controller and generation protocol
 remain unfinished.
 
+The subsequent owned-VM experiment also passed eight actual kernel-reboot
+capability checks and four independent custody checks. It preserved synthetic
+durable data, machine identity and unit bytes while starting a new manager
+generation after reboot. This does not establish Gitgood lifecycle recovery.
+The [read-only service observer](native-service-admission.md) is now implemented;
+its actual product evidence and durable generation protocol remain separate gates.
+
 ## Service ownership
 
 The verified fixture runs under WSL init. Its installed systemd binary is
