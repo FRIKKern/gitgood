@@ -1,0 +1,9 @@
+{
+  "id": "initial-allocation-admission",
+  "category": "Added",
+  "summary": "Observe an already allocated empty native host with supported OS/database checks, exact private resources, empty stores and process groups, database-object refusal and boot/namespace binding; allocation and installation remain separate responsibilities.",
+  "impact": "operator",
+  "references": ["docs/implementation/initial-allocation-admission.md", "docs/decisions/0016-native-initial-enrollment.md"],
+  "journeys": ["J14"],
+  "withdrawn": false
+}

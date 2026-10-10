@@ -53,3 +53,8 @@ installation responsibility from existing-installation upgrades. Its private
 journal passed fourteen scoped Linux component checks. The fixed coordinator,
 actual packaged stage effects, initial activation/history handoff, OS supervision,
 allocation and managed Cloud remain unfinished.
+
+[Fresh allocation admission](../implementation/initial-allocation-admission.md)
+observes a preallocated empty scope without fabricating a runtime marker. Seven
+component checks and eight actual delegated-host checks passed; reservation,
+installation commands, allocation and managed Cloud remain separate work.
