@@ -1,0 +1,9 @@
+{
+  "id": "native-generation-records",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Define closed native resource-generation records with exact predecessor digests, unchanged durable identity and validated ordinary service scope. Reject foreign or reused links, privileged state, aliased groups and malformed payloads. Durable continuity, publication and lifecycle recovery remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-generation-records.md", "tools/deployment/resource_generations.py"],
+  "withdrawn": false
+}
