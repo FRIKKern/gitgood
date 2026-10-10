@@ -133,6 +133,16 @@ of live runtime logs with immutable records. A child-source quoting failure
 stopped before initial inputs or application effects; its original script and
 diagnostics remain retained. No failed run is treated as passing.
 
+An actual fresh first-install export refused before retirement responsibility
+or removal: its configuration retained `GITGOOD_INSTALLATION_ID`, which the
+recovery configuration validator did not accept. The failed fixture, original
+database, stores, history and keys remain retained. Recovery now accepts that
+optional UUID only when it equals the enclosing installation identity. Ordinary
+restoration preserves it; retirement materialization rebinds it to the separately
+allocated target UUID. Legacy configurations without the field remain supported.
+Fresh packaged export, materialization and direct retirement verification remain
+required; changing the validator does not establish their success.
+
 Running or failed effects require stage-specific reconciliation; a response or
 receipt alone cannot silently replay them. Other interrupted stages, actual
 retirement directly from an initial baseline, persistent supervision,

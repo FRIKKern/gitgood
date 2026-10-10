@@ -146,6 +146,7 @@ try {
     GITGOOD_SSH_PORT:String(sshPort),GITGOOD_SSH_HOST_KEY_DIRECTORY:sshHost,GITGOOD_SSH_PUBLIC_HOST:'localhost',GITGOOD_SSH_PUBLIC_PORT:String(sshPort)}
   const webEnv={...process.env,NODE_ENV:'production',PORT:String(webPort),GITGOOD_API_URL:forgeUrl,GITGOOD_PROXY_KEY:proxyKey}
   const installationId=randomUUID()
+  env.GITGOOD_INSTALLATION_ID=installationId
   if(!windows)assert.equal(await provisionConfiguration({directory:join(root,'diagnostic-configuration'),forge:env,web:webEnv,
     certificate,tlsKey:key,sourceCa,installation:installationId}),installationId)
   await run(process.env.GITGOOD_CREATEDB??'createdb',['-h',process.env.PGHOST??'127.0.0.1','-p',process.env.PGPORT??'55432','-U',process.env.PGUSER??'gitgood',database],process.env,root,'database-create')

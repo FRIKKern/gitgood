@@ -10,7 +10,12 @@ Retirement can now reserve the separately sealed [initial baseline](native-initi
 before any real upgrade. It requires that baseline's exact candidate, artifact,
 bindings and current-pointer digest; an unfinished or changed initial chain
 refuses. This admission has component checks. Actual direct retirement from the
-new initial lifecycle remains separate installed evidence.
+new initial lifecycle remains separate installed evidence. Recovery configuration
+accepts a retained `GITGOOD_INSTALLATION_ID` only when it equals the authenticated
+installation UUID. Materialization changes both identities to the independent
+target UUID; ordinary restoration preserves the original identity. A real export
+from the initial CLI exposed the previous validator refusal before any retirement
+intent or removal, and that stopped fixture remains retained.
 Authenticated inspection also reports normalized Git, SSH and configuration file
 inventory hashes. The read-only `snapshotInstallationRoots()` observer uses the
 same archive inventory format. A live Git-store change after export changes its

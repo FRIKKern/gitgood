@@ -1,0 +1,9 @@
+{
+  "id": "initial-recovery-identity",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Accept and preserve the exact first-install UUID in encrypted export and recovery configuration, reject mismatched identity before publication, and rebind it only for an independently allocated retirement verification target. A real first-install export exposed the former configuration refusal; fresh packaged retirement verification remains required.",
+  "journeys": ["J14", "J16", "J17"],
+  "references": ["docs/implementation/native-initial-lifecycle.md", "docs/implementation/installation-retirement.md"],
+  "withdrawn": false
+}
