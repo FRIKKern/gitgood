@@ -45,8 +45,9 @@ synthetic effect, explicit reconciliation, changed requests, malformed private
 payload refusal, namespace-aware liveness, lock/record replacement, failed atomic
 publication, symlink/hardlink/shared-directory refusal, lost durable-write acknowledgement and unchanged terminal/status
 reads. This is journal/OS boundary proof, not migration, bootstrap or installed
-application proof. Required integration CI and the complete enrollment controller
-remain separate gates.
+application proof. PR64's required integration CI passed for 73530a2 with the
+exact proposed tree executed at f35bc24; the journal merged at a216d03.
+The complete enrollment controller remains a separate gate.
 
 The full isolated operator snapshot passed 169 tests: 157 Linux checks and
 12 expected foreign-platform skips. This includes both real database locale
