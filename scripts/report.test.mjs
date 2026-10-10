@@ -130,6 +130,31 @@ test('release notes select included fragments and omit withdrawals',()=>{
   assert.equal(out.body,changelog(m).body)
 })
 
+test('unreleased README remains compact as detailed changelog history grows',()=>{
+  const m=clone()
+  m.fragments=Array.from({length:200},(_,i)=>({id:'fixture-'+i,category:i%2?'Fixed':'Added',summary:'Detailed change '+i+'. '+('Context '.repeat(80)),references:['PRODUCT.md'],withdrawn:false}))
+  m.fragments.push({id:'withdrawn-fixture',category:'Security',summary:'Withdrawn change',references:['PRODUCT.md'],withdrawn:true})
+  const out=changelog(m)
+  assert.match(out.highlights,/200 pending changelog entries \(100 added, 100 fixed\)/)
+  assert.match(out.highlights,/CHANGELOG\.md#unreleased/)
+  assert.match(out.highlights,/No Gitgood application release has been published/)
+  assert.ok(out.highlights.length<400)
+  assert.ok(!out.highlights.includes('Detailed change'))
+  assert.ok(!out.highlights.includes('security'))
+  for(let i=0;i<200;i++) assert.ok(out.body.includes('Detailed change '+i+'. '))
+  assert.ok(!out.body.includes('Withdrawn change'))
+})
+
+test('unreleased summary handles one or zero entries without implying a release',()=>{
+  const m=clone()
+  assert.match(changelog(m).highlights,/1 pending changelog entry \(1 added\)/)
+  m.fragments[0].withdrawn=true
+  const out=changelog(m)
+  assert.match(out.highlights,/No pending changelog entries/)
+  assert.match(out.highlights,/No Gitgood application release has been published/)
+  assert.ok(!out.highlights.includes('Fixture planning entry'))
+})
+
 test('Gantt spans use milestone IDs and stay distinct from completion',()=>{
   const m=clone()
   m.milestones.supportTracks=[{id:'R1',title:'Early experiment',surface:'Disposable fixtures',start:'M0',end:'M1',kind:'research',note:'Proposed overlap'}]
