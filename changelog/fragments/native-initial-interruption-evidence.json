@@ -1,0 +1,9 @@
+{
+  "id": "native-initial-interruption-evidence",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Record actual current-CLI recovery after selected owner loss in all seven initial installation stages, lost terminal baseline handoff, and packaged installation with an ordinary database-owner role. Preserve failed harness attempts and private recovery materials; identify systemd delegation and explicit reboot resource generations as the next host dependencies. These same-boot fixtures do not establish managed Cloud or complete journey/release acceptance.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-initial-lifecycle.md", "docs/implementation/native-host-prerequisites.md"],
+  "withdrawn": false
+}
