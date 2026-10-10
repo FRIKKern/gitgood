@@ -113,7 +113,8 @@ def cgroup_identity(installation, name):
             "device": value.st_dev, "inode": value.st_ino, "delegated_uid": os.getuid()}
 
 
-def capture_native_inventory(root, executables):
+def capture_native_resources(root, executables):
+    """Observe owned allocation resources without requiring a running release."""
     require(sys.platform == "linux" and platform.machine() == "x86_64")
     root = Path(root)
     resources = {"root": directory_identity(root, private=True)}
@@ -145,17 +146,21 @@ def capture_native_inventory(root, executables):
     binaries = {name: executable_identity(path) for name, path in executables.items()}
     groups = {name: cgroup_identity(installation, name) for name in ["native", "web", "edge", "maintenance", "driver"]}
     require(Path("/proc/self/cgroup").read_text().splitlines() == ["0::" + groups["driver"]["kernel_path"]])
-    runtime = json.loads(private_bytes(root / "storage/.gitgood-runtime-v1.json", 8192), object_pairs_hook=unique_object)
-    require(type(runtime.get("protocol")) is int and runtime["protocol"] == 1 and runtime.get("mode") == "runtime" and runtime.get("host") == socket.gethostname())
-    require(runtime.get("cgroup") == groups["native"]["kernel_path"])
-    require(isinstance(runtime.get("candidate"), str) and re.fullmatch(r"[0-9a-f]{40}", runtime["candidate"]))
     database = observe_database(binaries["psql"]["path"], forge.get("DATABASE_URL"))
     bindings = {"protocol": 1, "installation": installation, "host": socket.gethostname(), "uid": os.getuid(),
                 "platform": "linux-x86_64", "resources": resources, "configuration_sha256": private_files,
                 "ssh_host_key_sha256": host_keys, "executables": binaries, "cgroups": groups, "database": database}
     return {"protocol": 1, "installation": installation, "bindings": bindings,
-            "bindings_sha256": hashlib.sha256(canonical(bindings)).hexdigest(),
-            "observed_runtime_candidate": runtime["candidate"],
+            "bindings_sha256": hashlib.sha256(canonical(bindings)).hexdigest()}
+
+
+def capture_native_inventory(root, executables):
+    observed = capture_native_resources(root, executables)
+    runtime = json.loads(private_bytes(Path(root) / "storage/.gitgood-runtime-v1.json", 8192), object_pairs_hook=unique_object)
+    require(type(runtime.get("protocol")) is int and runtime["protocol"] == 1 and runtime.get("mode") == "runtime" and runtime.get("host") == socket.gethostname())
+    require(runtime.get("cgroup") == observed["bindings"]["cgroups"]["native"]["kernel_path"])
+    require(isinstance(runtime.get("candidate"), str) and re.fullmatch(r"[0-9a-f]{40}", runtime["candidate"]))
+    return {**observed, "observed_runtime_candidate": runtime["candidate"],
             "limitations": ["Observation does not establish artifact readiness, active routing or an installed upgrade.",
                             "Initial local PostgreSQL18.4 profile requires database ownership and permission to read pg_control_system().",
                             "These same-host resource bindings are distinct from replacement-host resource enrollment."]}

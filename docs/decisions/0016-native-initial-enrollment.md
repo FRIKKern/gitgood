@@ -50,3 +50,13 @@ Complete enrollment still requires actual packaged commands, first-owner replay,
 TLS/API/HTTPS/SSH function, activation/handoff, interruption at consequential
 boundaries and reboot/supervisor exercises. Root allocation, cancellation,
 managed Barkpark Cloud deployment and complete J14 acceptance remain unfinished.
+
+Read-only allocation admission is a separate dependency. It accepts an already
+allocated private root containing exactly configuration, storage, SSH host keys,
+history and staging. Storage/history/staging must be empty, application database
+objects absent, the four application/maintenance process groups empty and the
+controller already in its delegated driver group. It binds the exact resources
+and current boot/namespaces without creating a runtime marker. An enrolled
+installation still requires its real marker. Admission reserves nothing against
+later writes by the same trusted actor; the coordinator and allocator retain
+their separate responsibilities.
