@@ -16,6 +16,9 @@ defmodule Gitgood.InstallationGenerationMonitor do
   def ownership_context(pid), do: GenServer.call(pid, :ownership_context)
   def current(pid), do: GenServer.call(pid, :current)
 
+  def attach_ownership(pid, record, receipt),
+    do: GenServer.call(pid, {:attach_ownership, record, receipt}, 5_000)
+
   @impl true
   def init(options) do
     with {:unix, :linux} <- :os.type(),
@@ -52,6 +55,8 @@ defmodule Gitgood.InstallationGenerationMonitor do
              admission: value["admission"],
              guard: value["guard"],
              buffer: pending,
+             ownership: nil,
+             ownership_pending: nil,
              observed_at: now()
            }}
         else
@@ -204,12 +209,96 @@ defmodule Gitgood.InstallationGenerationMonitor do
     end
   end
 
+  @doc false
+  def ownership_token(record, receipt, owner) do
+    alias Gitgood.NativeOwnershipPublication, as: Publication
+
+    with {:ok, _, digest} <- Publication.request(record, owner),
+         :ok <- Publication.validate_reply(receipt, record["operation"], digest),
+         true <- Regex.match?(@uuid, record["operation"]) do
+      {:ok,
+       %{
+         "operation" => record["operation"],
+         "record_sha256" => digest,
+         "marker_sha256" => receipt["marker_sha256"],
+         "ownership_marker_observed" => true,
+         "original_database_session_observed" => true,
+         "owner_socket_observed" => true,
+         "lease_acquired" => false,
+         "replacement_admitted" => false,
+         "installation_readiness_established" => false,
+         "lifecycle_responsibility_admitted" => false
+       }}
+    else
+      _ -> :error
+    end
+  rescue
+    _ -> :error
+  end
+
+  defp stream_lines(buffer, state, count \\ 0) do
+    if byte_size(buffer) > @maximum or count > 64 do
+      :error
+    else
+      case :binary.split(buffer, "\n") do
+        [line, rest] ->
+          with {:ok, value} <- Jason.decode(line),
+               true <- line == Gitgood.NativeOwnershipPublication.canonical(value),
+               {:ok, next} <- consume_frame(value, state),
+               do: stream_lines(rest, next, count + 1)
+
+        [_] ->
+          {:ok, buffer, state, count}
+      end
+    end
+  rescue
+    _ -> :error
+  end
+
+  defp consume_frame(value, state) do
+    ownership = Map.get(state, :ownership)
+    pending = Map.get(state, :ownership_pending)
+
+    cond do
+      value["status"] == "ownership_attached" and not is_nil(pending) and is_nil(ownership) ->
+        with true <-
+               MapSet.new(Map.keys(value)) == MapSet.new(~w(protocol status guard ownership)),
+             true <- value["protocol"] === 2 and value["guard"] === state.guard,
+             true <- value["ownership"] === pending.expected do
+          {:ok,
+           Map.merge(state, %{
+             ownership: pending.expected,
+             ownership_pending: nil,
+             ownership_reply: pending.from
+           })}
+        else
+          _ -> :error
+        end
+
+      is_nil(ownership) ->
+        with :ok <- validate_current(value, state.guard), do: {:ok, state}
+
+      true ->
+        with true <-
+               MapSet.new(Map.keys(value)) == MapSet.new(~w(protocol status guard ownership)),
+             true <- value["protocol"] === 2 and value["status"] === "current",
+             true <- value["guard"] === state.guard and value["ownership"] === ownership do
+          {:ok, state}
+        else
+          _ -> :error
+        end
+    end
+  end
+
   @impl true
   def handle_info({port, {:data, bytes}}, %{port: port} = state) do
     with true <- now() - state.observed_at < @freshness,
-         {:ok, rest, count} <- lines(state.buffer <> bytes, state.guard) do
+         {:ok, rest, next, count} <- stream_lines(state.buffer <> bytes, state) do
+      if reply = Map.get(next, :ownership_reply), do: GenServer.reply(reply, :ok)
+      next = Map.delete(next, :ownership_reply)
+
       {:noreply,
-       %{state | buffer: rest, observed_at: if(count > 0, do: now(), else: state.observed_at)}}
+       %{next | buffer: rest, observed_at: if(count > 0, do: now(), else: state.observed_at)}}
     else
       _ -> {:stop, :installation_generation_lost, state}
     end
@@ -227,7 +316,44 @@ defmodule Gitgood.InstallationGenerationMonitor do
     end
   end
 
+  def handle_info({:ownership_deadline, reference}, state) do
+    case Map.get(state, :ownership_pending) do
+      %{reference: ^reference} -> {:stop, :installation_generation_lost, state}
+      _ -> {:noreply, state}
+    end
+  end
+
   @impl true
+  def handle_call({:attach_ownership, record, receipt}, from, state) do
+    with true <- now() - state.observed_at < @freshness,
+         true <- is_nil(Map.get(state, :ownership)) and is_nil(Map.get(state, :ownership_pending)),
+         {:ok, expected} <- ownership_token(record, receipt, String.to_integer(System.pid())),
+         true <- record["guard"] === state.guard,
+         true <- record["pointer"] === state.admission["pointer"],
+         true <- record["binding_sha256"] === state.admission["binding_sha256"],
+         true <- record["owner"] === get_in(state.admission, ["worker_observation", "owner"]),
+         true <-
+           record["scope"] === get_in(state.admission, ["worker_observation", "service_scope"]),
+         request <-
+           Gitgood.NativeOwnershipPublication.canonical(%{
+             "protocol" => 2,
+             "action" => "attach_ownership",
+             "record" => record
+           }) <> "\n",
+         true <- byte_size(request) <= 20_000,
+         true <- Port.command(state.port, request) do
+      reference = make_ref()
+      Process.send_after(self(), {:ownership_deadline, reference}, @freshness)
+
+      {:noreply,
+       Map.put(state, :ownership_pending, %{from: from, expected: expected, reference: reference})}
+    else
+      _ -> {:stop, :installation_generation_lost, {:error, :installation_generation_lost}, state}
+    end
+  rescue
+    _ -> {:stop, :installation_generation_lost, {:error, :installation_generation_lost}, state}
+  end
+
   def handle_call(:admission, _, state) do
     if now() - state.observed_at < @freshness,
       do: {:reply, {:ok, state.admission}, state},

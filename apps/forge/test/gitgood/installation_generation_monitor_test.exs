@@ -10,6 +10,7 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
   end
 
   defp current, do: %{"protocol" => 2, "status" => "current", "guard" => guard()}
+  defp frame(value), do: Gitgood.NativeOwnershipPublication.canonical(value) <> "\n"
 
   defp state(age \\ 0) do
     %{
@@ -75,7 +76,7 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
 
   test "a partial frame cannot renew heartbeat freshness" do
     original = state()
-    bytes = Jason.encode!(current())
+    bytes = Gitgood.NativeOwnershipPublication.canonical(current())
     assert {:noreply, partial} = Monitor.handle_info({:fixture_port, {:data, bytes}}, original)
     assert partial.observed_at == original.observed_at
     assert {:noreply, complete} = Monitor.handle_info({:fixture_port, {:data, "\n"}}, partial)
@@ -187,5 +188,125 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
              root: "/var/lib/gitgood/installations/00000000-0000-4000-8000-000000000001/storage",
              mode: :unknown
            ) == {:error, :installation_generation_unavailable}
+  end
+
+  defp ownership do
+    %{
+      "operation" => "00000000-0000-4000-8000-000000000002",
+      "record_sha256" => String.duplicate("d", 64),
+      "marker_sha256" => String.duplicate("e", 64),
+      "ownership_marker_observed" => true,
+      "original_database_session_observed" => true,
+      "owner_socket_observed" => true,
+      "lease_acquired" => false,
+      "replacement_admitted" => false,
+      "installation_readiness_established" => false,
+      "lifecycle_responsibility_admitted" => false
+    }
+  end
+
+  test "attachment acknowledgement establishes only the expected ownership token" do
+    tag = make_ref()
+    pending = %{from: {self(), tag}, expected: ownership(), reference: make_ref()}
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending})
+
+    attached = %{
+      "protocol" => 2,
+      "status" => "ownership_attached",
+      "guard" => guard(),
+      "ownership" => ownership()
+    }
+
+    assert {:noreply, next} =
+             Monitor.handle_info({:fixture_port, {:data, frame(attached)}}, original)
+
+    assert_receive {^tag, :ok}
+    assert next.ownership == ownership()
+    assert next.ownership_pending == nil
+
+    assert {:noreply, _} =
+             Monitor.handle_info(
+               {:fixture_port, {:data, frame(Map.put(current(), "ownership", ownership()))}},
+               next
+             )
+  end
+
+  test "attached stream cannot downgrade or change original ownership" do
+    original = Map.merge(state(), %{ownership: ownership(), ownership_pending: nil})
+
+    for value <- [
+          current(),
+          Map.put(current(), "ownership", %{}),
+          Map.put(current(), "ownership", Map.put(ownership(), "lease_acquired", true)),
+          Map.put(
+            current(),
+            "ownership",
+            Map.put(ownership(), "marker_sha256", String.duplicate("f", 64))
+          )
+        ] do
+      assert Monitor.handle_info({:fixture_port, {:data, frame(value)}}, original) ==
+               {:stop, :installation_generation_lost, original}
+    end
+  end
+
+  test "partial acknowledgement does not renew freshness or acknowledge attachment" do
+    tag = make_ref()
+    pending = %{from: {self(), tag}, expected: ownership(), reference: make_ref()}
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending})
+
+    value = %{
+      "protocol" => 2,
+      "status" => "ownership_attached",
+      "guard" => guard(),
+      "ownership" => ownership()
+    }
+
+    bytes = Gitgood.NativeOwnershipPublication.canonical(value)
+    assert {:noreply, next} = Monitor.handle_info({:fixture_port, {:data, bytes}}, original)
+    assert next.observed_at == original.observed_at
+    refute_received {^tag, :ok}
+    assert next.ownership == nil
+  end
+
+  test "malformed trailing frame prevents acknowledgement of the complete batch" do
+    tag = make_ref()
+    pending = %{from: {self(), tag}, expected: ownership(), reference: make_ref()}
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending})
+
+    value = %{
+      "protocol" => 2,
+      "status" => "ownership_attached",
+      "guard" => guard(),
+      "ownership" => ownership()
+    }
+
+    assert Monitor.handle_info({:fixture_port, {:data, frame(value) <> "invalid\n"}}, original) ==
+             {:stop, :installation_generation_lost, original}
+
+    refute_received {^tag, :ok}
+  end
+
+  test "attachment has its own deadline and cannot be prolonged by generation heartbeats" do
+    reference = make_ref()
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: %{reference: reference}})
+
+    assert Monitor.handle_info({:ownership_deadline, reference}, original) ==
+             {:stop, :installation_generation_lost, original}
+
+    attached = Map.put(original, :ownership_pending, nil)
+    assert Monitor.handle_info({:ownership_deadline, reference}, attached) == {:noreply, attached}
+  end
+
+  test "ownership frames reject duplicate JSON keys and noncanonical encoding" do
+    original = state()
+    bytes = frame(current())
+
+    for changed <- [
+          String.replace(bytes, "\"protocol\":2", "\"protocol\":2,\"protocol\":2"),
+          String.replace(bytes, ":", ": ", global: false)
+        ] do
+      assert Monitor.handle_info({:fixture_port, {:data, changed}}, original) ==
+               {:stop, :installation_generation_lost, original}
+    end
   end
 end

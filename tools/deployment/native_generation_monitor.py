@@ -1,5 +1,7 @@
 """Fixed bounded observation stream; no database lease or lifecycle effects."""
 import json
+import os
+import selectors
 from pathlib import Path
 import sys
 import time
@@ -7,6 +9,7 @@ import time
 from native_durable_database import DatabaseRefused, unique, validate_database
 from native_generation_reader import NativeGenerationReader
 from native_generation_lease_guard import NativeGenerationLeaseGuard
+from native_monitor_ownership_attachment import MonitorOwnershipAttachment
 from native_service_scope import root_file
 from resource_generations import GenerationRefused, canonical, identifier
 
@@ -61,6 +64,8 @@ def send(value):
 
 def main():
     guard = None
+    attachment = None
+    selector = None
     try:
         require(len(sys.argv) == 1)
         raw = sys.stdin.buffer.readline(4097)
@@ -79,15 +84,31 @@ def main():
                  'lifecycle_responsibility_admitted':False}
         token = {name:captured[name] for name in ['scope_sha256','history_sha256','persistent_files_sha256']}
         send({'protocol':2,'status':'admitted','admission':value,'guard':token})
+        attachment = MonitorOwnershipAttachment(guard,captured,seal)
+        selector = selectors.DefaultSelector()
+        os.set_blocking(sys.stdin.fileno(),False)
+        selector.register(sys.stdin.fileno(),selectors.EVENT_READ)
         next_check = time.monotonic()
         while True:
-            time.sleep(max(0, next_check - time.monotonic()))
+            events = selector.select(max(0,next_check-time.monotonic()))
+            if events:
+                require(root_file(Path(identity['path']),16_384)==(identity,sealed))
+                attached = attachment.feed(os.read(sys.stdin.fileno(),attachment.maximum+1))
+                if attached is not None:
+                    require(attached['current']['current'] is True)
+                    require({name:attached['current'][name] for name in token}==token)
+                    require(root_file(Path(identity['path']),16_384)==(identity,sealed))
+                    send({'protocol':2,'status':'ownership_attached','guard':token,'ownership':attached['ownership']})
+                continue
             next_check = time.monotonic() + 1
             require(root_file(Path(identity['path']), 16_384) == (identity, sealed))
-            current = guard.check()
+            observed = attachment.check()
+            current = observed['current']
             require(current['current'] is True and {name:current[name] for name in token} == token)
             require(root_file(Path(identity['path']), 16_384) == (identity, sealed))
-            send({'protocol':2,'status':'current','guard':token})
+            frame = {'protocol':2,'status':'current','guard':token}
+            if 'ownership' in observed:frame['ownership']=observed['ownership']
+            send(frame)
     except Exception:
         try:
             send({'protocol':2,'status':'refused'})
@@ -95,6 +116,10 @@ def main():
             pass
         return 1
     finally:
+        if selector is not None:
+            selector.close()
+        if attachment is not None:
+            attachment.close()
         if guard is not None:
             try:
                 guard.close()
