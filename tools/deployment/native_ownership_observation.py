@@ -15,6 +15,7 @@ class NativeOwnershipObservation:
     def __init__(self, generation_guard, captured, record, generation_seal):
         self.custody = None
         self.poisoned = False
+        self._initial = None
         try:
             validate_record(record)
             self.record = json.loads(canonical(record))
@@ -40,12 +41,10 @@ class NativeOwnershipObservation:
             require(type(authority['protocol']) is int and authority['protocol']==2)
             require(authority['kind']=='native_application_ownership_seal')
             require(all(authority[name]==record[name] for name in ['installation','operation','candidate','binding_sha256']))
-            self._generation();self._session();self._generation()
             storage = binding['resources']['storage']
             require(storage['path']==str(self.root/'storage'))
-            self.custody = NativeOwnershipMarkerGuard(storage['path'],record['installation'],
-                {name:storage[name] for name in ['device','inode','uid']},record)
-            self.check()
+            self.storage = json.loads(canonical(storage))
+            self._initial = self._observe(initial=True)
         except Exception:
             self.close()
             raise ValueError('Native ownership observation unavailable') from None
@@ -67,10 +66,14 @@ class NativeOwnershipObservation:
         require(observed['owner_connection_observed'] and observed['lease_acquired'] is False)
         require(configuration(self.root,self.record['installation'],self.record['scope']['uid'])==(files,url))
 
-    def check(self):
+    def _observe(self, *, initial=False):
         try:
-            require(not self.poisoned and self.custody is not None)
+            require(not self.poisoned)
+            require(self.custody is None if initial else self.custody is not None)
             self._generation();self._session()
+            if initial:
+                self.custody = NativeOwnershipMarkerGuard(self.storage['path'],self.record['installation'],
+                    {name:self.storage[name] for name in ['device','inode','uid']},self.record)
             custody = self.custody.check()
             current = self._generation()
             require(self.custody.check()==custody)
@@ -83,8 +86,24 @@ class NativeOwnershipObservation:
             self.close()
             raise ValueError('Native ownership observation lost') from None
 
+    def take_initial(self):
+        """Consume the just-completed bracket once; subsequent heartbeats reobserve."""
+        try:
+            require(not self.poisoned and self._initial is not None)
+            value = self._initial
+            self._initial = None
+            return json.loads(canonical(value))
+        except Exception:
+            self.close()
+            raise ValueError('Native initial ownership observation unavailable') from None
+
+    def check(self):
+        self._initial = None
+        return self._observe()
+
     def close(self):
         self.poisoned = True
+        self._initial = None
         if self.custody is not None:
             custody,self.custody = self.custody,None
             custody.close()

@@ -43,3 +43,9 @@ check completed. The precise attachment failure remains under investigation.
 The failed guest disk, seed, source, observations and private diagnostics are
 retained; its original machine group is empty and its QEMU process is gone.
 These observations do not establish installed timing or application acceptance.
+
+A later passive BEAM receive trace retained an ownership-deadline expiry after
+3,032 ms, with generation heartbeat age 2,598 ms. The initial ownership path is
+being repaired by sharing its completed observation bracket with its immediate
+acknowledgement. The selected D-Bus reader and all freshness/resource limits are
+unchanged. This trace is separate from a passing installed ownership proof.

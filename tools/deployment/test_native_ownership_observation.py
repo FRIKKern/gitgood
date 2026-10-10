@@ -46,7 +46,7 @@ class OwnershipObservationOrderingTest(unittest.TestCase):
 
     def test_original_context_and_session_bracket_marker_capture_and_checks(self):
         subject=self.attach();self.addCleanup(subject.close)
-        self.assertEqual(self.calls,['generation','session','generation','generation','session','custody','generation','custody'])
+        self.assertEqual(self.calls,['generation','session','custody','generation','custody'])
         self.calls.clear();value=subject.check()
         self.assertEqual(self.calls,['generation','session','custody','generation','custody'])
         self.assertTrue(value['ownership']['original_database_session_observed'])
@@ -94,6 +94,52 @@ class OwnershipObservationOrderingTest(unittest.TestCase):
             with self.assertRaises(ValueError):subject.check()
         self.assertTrue(subject.poisoned);self.assertTrue(self.closed)
         self.assertEqual(self.calls,['generation','session'])
+
+    def test_initial_result_is_consumed_once_and_does_not_replace_fresh_checks(self):
+        subject=self.attach();self.addCleanup(subject.close)
+        self.calls.clear()
+        initial=subject.take_initial()
+        self.assertEqual(self.calls,[])
+        initial['ownership']['owner_socket_observed']=False
+        self.assertTrue(subject.check()['ownership']['owner_socket_observed'])
+        self.assertEqual(self.calls,['generation','session','custody','generation','custody'])
+        self.calls.clear()
+        with self.assertRaises(ValueError):subject.take_initial()
+        self.assertTrue(subject.poisoned);self.assertTrue(self.closed)
+        with self.assertRaises(ValueError):subject.check()
+        self.assertEqual(self.calls,[])
+
+    def test_failed_original_session_prevents_initial_marker_open(self):
+        with patch.object(observations,'NativeOwnershipMarkerGuard') as factory:
+            with patch.object(observations,'observe_held_session',return_value={'owner_connection_observed':False,'lease_acquired':False}):
+                with self.assertRaises(ValueError):self.attach()
+            factory.assert_not_called()
+        self.assertEqual(self.calls,['generation'])
+
+    def test_fresh_check_invalidates_unconsumed_initial_result(self):
+        subject=self.attach();self.addCleanup(subject.close)
+        subject.check();self.calls.clear()
+        with self.assertRaises(ValueError):subject.take_initial()
+        self.assertEqual(self.calls,[])
+        self.assertTrue(subject.poisoned);self.assertTrue(self.closed)
+
+    def test_generation_loss_after_initial_marker_capture_refuses_and_closes(self):
+        values=[{'current':True,**self.record['guard']},{'current':False,**self.record['guard']}]
+        def generation():
+            self.calls.append('generation');return values.pop(0)
+        with patch.object(self.guard,'check',side_effect=generation):
+            with self.assertRaises(ValueError):self.attach()
+        self.assertTrue(self.closed)
+        self.assertEqual(self.calls,['generation','session','custody','generation'])
+
+    def test_marker_change_across_initial_final_generation_refuses_without_token(self):
+        values=[{'record_sha256':'a'*64,'marker_sha256':'b'*64},{'record_sha256':'a'*64,'marker_sha256':'c'*64}]
+        def custody():
+            self.calls.append('custody');return values.pop(0)
+        with patch.object(self.custody,'check',side_effect=custody):
+            with self.assertRaises(ValueError):self.attach()
+        self.assertTrue(self.closed)
+        self.assertEqual(self.calls,['generation','session','custody','generation','custody'])
 
 
 if __name__=='__main__':unittest.main()

@@ -11,7 +11,8 @@ class MonitorOwnershipAttachmentTest(unittest.TestCase):
         self.guard=SimpleNamespace(check=Mock(return_value={'current':True}),close=Mock())
         self.captured={'original':'capture'};self.seal={'original':'seal'}
         self.subject=MonitorOwnershipAttachment(self.guard,self.captured,self.seal)
-        self.observer=SimpleNamespace(check=Mock(return_value={'current':{'current':True},'ownership':{'original':True}}),close=Mock())
+        value={'current':{'current':True},'ownership':{'original':True}}
+        self.observer=SimpleNamespace(take_initial=Mock(return_value=value),check=Mock(return_value=value),close=Mock())
         self.factory=patch('native_monitor_ownership_attachment.NativeOwnershipObservation',return_value=self.observer).start()
         self.addCleanup(patch.stopall);self.addCleanup(self.subject.close)
         self.message=canonical({'protocol':2,'action':'attach_ownership','record':{'fixture':'record'}})+b'\n'
@@ -21,7 +22,10 @@ class MonitorOwnershipAttachmentTest(unittest.TestCase):
         self.assertEqual(self.subject.check(),{'current':{'current':True}})
         result=self.subject.feed(self.message[12:])
         self.factory.assert_called_once_with(self.guard,self.captured,{'fixture':'record'},self.seal)
+        self.observer.take_initial.assert_called_once_with()
+        self.observer.check.assert_not_called()
         self.assertEqual(result,self.subject.check())
+        self.observer.check.assert_called_once_with()
         self.guard.close.assert_not_called()
 
     def test_second_attachment_or_trailing_frame_permanently_refuses(self):

@@ -36,7 +36,7 @@ class MonitorOwnershipAttachment:
                 raise ValueError('Ownership attachment unavailable')
             self.observer = NativeOwnershipObservation(self.guard, self.captured, value['record'], self.seal)
             self.buffer = b''
-            return self.observer.check()
+            return self.observer.take_initial()
         except Exception:
             self.close()
             raise ValueError('Ownership attachment unavailable') from None

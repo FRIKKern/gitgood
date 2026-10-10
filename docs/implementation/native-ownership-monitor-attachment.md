@@ -62,3 +62,22 @@ The cause is unresolved. A fresh fixture adds bounded, passive BEAM receive
 tracing while preserving the protected entry, production source and all resource
 and freshness limits. This is investigation, not a passing installed-helper
 result. Complete native application startup remains unavailable.
+
+The retained receive trace identifies the independent ownership deadline as the
+terminal message: it fired 3,032 ms after the attachment request while the last
+generation heartbeat was 2,598 ms old. No attachment acknowledgement arrived.
+This establishes acknowledgement deadline expiry; it does not measure individual
+Python calls. The prior initial path repeated six generation checks and three
+held-session observations across construction and the immediate feed response.
+
+Initial observation now performs one complete bracket: original generation and
+held session before marker opening, marker custody, original generation again,
+and unchanged marker custody before returning. The initial result is consumed
+exactly once by that same attachment call, without another whole observation.
+Any later fresh check or close invalidates an unconsumed initial result. Every
+subsequent heartbeat still performs its full generation/session/marker bracket.
+No deadline, resource limit, lease, replacement or readiness authority changes.
+Nineteen focused tests pass, including generation loss after capture, failed
+session before marker opening, marker change across the final generation check
+and refusal of reused initial results. These use explicit observation stand-ins;
+the repaired installed attachment still needs a fresh original-entry VM proof.
