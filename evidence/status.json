@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "1bb762e001bc93a011376ee4ebb245384842b47f",
+  "headCommit": "b4ae9dbce1347b5311448dfe28a45745cd3e1e19",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-09T22:57:05.388Z",
+      "observedAt": "2026-10-10T00:02:15.374Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
@@ -174,8 +174,8 @@
     {
       "id": "J14",
       "implementation": {
-        "state": "planned",
-        "reference": "https://github.com/FRIKKern/gitgood/blob/8cd5ab50e342e753f62c287e00485739483402d3/docs/journeys/J14.md"
+        "state": "in_progress",
+        "reference": "https://github.com/FRIKKern/gitgood/blob/b4ae9dbce1347b5311448dfe28a45745cd3e1e19/docs/implementation/installation-owner-bootstrap.md"
       }
     },
     {
@@ -200,5 +200,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-09T22:57:16.393Z"
+  "evaluatedAt": "2026-10-10T00:02:15.374Z"
 }

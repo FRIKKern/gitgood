@@ -47,3 +47,9 @@ defines a separate fixed first-owner request, atomic creation receipt and
 historical replay without resetting credentials or changed memberships. Nine
 real-Postgres component checks passed; complete installation and packaged
 production execution remain separate work.
+
+[Initial native enrollment](0016-native-initial-enrollment.md) separates first
+installation responsibility from existing-installation upgrades. Its private
+journal passed fourteen scoped Linux component checks. The fixed coordinator,
+actual packaged stage effects, initial activation/history handoff, OS supervision,
+allocation and managed Cloud remain unfinished.

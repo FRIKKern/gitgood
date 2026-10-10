@@ -1,0 +1,9 @@
+{
+  "id": "initial-enrollment-journal",
+  "category": "Added",
+  "summary": "Add a private first-install responsibility journal with fixed stages, namespace-aware ownership, sealed requests, interrupted-effect reconciliation and unchanged terminal replay; allocation, installation commands and managed Cloud enrollment remain unfinished.",
+  "impact": "operator",
+  "references": ["docs/implementation/initial-enrollment-journal.md", "docs/decisions/0016-native-initial-enrollment.md"],
+  "journeys": ["J14"],
+  "withdrawn": false
+}
