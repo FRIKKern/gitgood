@@ -1,0 +1,9 @@
+{
+  "id": "native-generation-custody",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Retain exact native generation records under the independently bound installation lifecycle lock. Preserve interrupted temporary files and original records across retries; reject replaced custody, foreign chains and generation-ID reuse. Active publication, database writer exclusion and lifecycle reconciliation remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-generation-custody.md", "tools/deployment/generation_custody.py"],
+  "withdrawn": false
+}
