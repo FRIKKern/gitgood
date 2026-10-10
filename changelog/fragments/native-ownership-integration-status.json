@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-integration-status",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-monitor-attachment.md", "docs/implementation/native-selected-systemd-properties.md"],
+  "withdrawn": false
+}

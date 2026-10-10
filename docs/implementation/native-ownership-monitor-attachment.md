@@ -51,3 +51,14 @@ Actual protected entry attachment, loss of marker/backend/owner socket, whole-BE
 termination, original descendants quiescence, prior-owner reconciliation and
 controller admission remain required. The earlier VM proof runs against its own
 frozen source candidate and cannot verify this later attachment implementation.
+
+An original-entry VM against `af30180` subsequently reached five fresh generation
+heartbeats for each worker role. Its initial publication caller received a
+retained receipt, but the attachment call terminated with
+`installation_generation_lost`; the fixture timed out awaiting its ownership
+response. Attachment and owned heartbeats did not pass. Its original scope is
+independently empty and QEMU is gone, with failed disk and diagnostics retained.
+The cause is unresolved. A fresh fixture adds bounded, passive BEAM receive
+tracing while preserving the protected entry, production source and all resource
+and freshness limits. This is investigation, not a passing installed-helper
+result. Complete native application startup remains unavailable.

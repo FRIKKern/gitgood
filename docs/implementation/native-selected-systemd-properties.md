@@ -32,3 +32,14 @@ platform-specific skips. Its private receipt records every current deployment
 Python source checksum. All 33 planning checks passed. Backend source is unchanged
 from the ownership-attachment candidate; these results do not establish installed
 timing, publication, ownership attachment or complete journey acceptance.
+
+The subsequent original-entry VM used frozen candidate `af30180`, the unchanged
+30-second startup and three-second freshness limits, and the same bounded service
+resources. Both native and maintenance owners reported five distinct increasing
+heartbeats after actual generation admission. The native publication caller
+received a retained receipt, then lost its generation monitor during ownership
+attachment. No owned heartbeat, identical ownership retry or ownership reboot
+check completed. The precise attachment failure remains under investigation.
+The failed guest disk, seed, source, observations and private diagnostics are
+retained; its original machine group is empty and its QEMU process is gone.
+These observations do not establish installed timing or application acceptance.
