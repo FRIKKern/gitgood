@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "baseline": "planning-2026-10-07",
-  "headCommit": "43201972ddf5e2462cf136727d5539c17d246f2b",
+  "headCommit": "5f7386d9bc596586afd4ffbac1c4fdb8c790302f",
   "specRevision": "sha256:38d17015f90852d119aef6cd5875d73c2c0e29d74373bd6913ca8e251854c149",
   "maxAgeHours": 24,
   "sources": {
     "ledger": {
       "status": "ok",
-      "observedAt": "2026-10-10T02:50:33.594Z",
+      "observedAt": "2026-10-10T03:22:18.049Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio"
     },
     "evidence": {
       "status": "ok",
-      "observedAt": "2026-10-10T02:50:33.945Z",
+      "observedAt": "2026-10-10T03:22:52.048Z",
       "reference": "https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/v1/data/query/production/gitgood_verification",
       "receipts": [
         {
@@ -200,5 +200,5 @@
       }
     }
   ],
-  "evaluatedAt": "2026-10-10T02:50:33.945Z"
+  "evaluatedAt": "2026-10-10T03:22:52.048Z"
 }

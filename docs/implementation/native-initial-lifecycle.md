@@ -168,9 +168,73 @@ Six checks passed through owner/access verification and the complete baseline;
 terminal replay preserved responsibility JSON/lock bytes and inodes. This proves
 partial migration recovery on the same boot, not reboot or storage power loss.
 
-Running or failed effects require stage-specific reconciliation; a response or
-receipt alone cannot silently replay them. Other interrupted stages, persistent supervision,
-explicit reboot scope re-enrollment, host allocation/cancellation, managed Cloud
-and current complete J01/J02/J14 acceptance remain unfinished. The fixed CLI is a
-development operator interface. It provisions no host and establishes no product
-release; final integration CI remains separate.
+## Current packaged interruption matrix
+
+Seven independent fixtures now exercise the unchanged shipped CLI and the same
+clean `4320197` artifact. Each selected stage interruption and actual
+`enroll-resume` passed six checks. Every fixture retained its original request,
+operation and completed observations, sealed all seven stages, reported zero
+upgrades and preserved responsibility JSON/lock bytes and inodes on exact
+terminal replay. The exact original groups were then stopped; database, stores,
+configuration, keys, history, packaged code and group directories remain retained.
+
+| Stage | Actual interruption | Observed recovery |
+|---|---|---|
+| Inspect | Kill the exact running controller before inspection acknowledgement. | Read-only inspection reconciles the same stage as applied. |
+| Stage | Kill while the archive contains a nonempty strict prefix of its pinned bytes. | Reconcile missing publication, retain the original partial's bytes/inodes and stage the pinned archive afresh. |
+| Migrate | Pause exact maintenance processes and kill the controller after three of sixteen migrations commit. | Stop surviving owned processes, observe that prefix and finish from exactly those three commits. |
+| Bootstrap | Stop the controller while packaged owner creation runs; kill after all three owner tables commit. | Observe the recorded owner without another creation stage; all three tables remain byte-identical. |
+| Verify | Kill after native processes start, before verification acknowledgement. | Stop original runtime descendants and repeat verification with fresh readiness and access checks. |
+| Activate | Kill after the first current-release pointer publishes, before acknowledgement. | Stop original runtime groups, repeat access checks and preserve the existing pointer's bytes/inode. |
+| Enroll | Kill the running enrollment stage before its acknowledgement. | Stop original runtime groups and complete enrollment with a fresh access probe. |
+
+A separate eighth fixture lost the controller after all seven observations and
+the terminal journal, before baseline publication. Six checks passed: read-only
+status reported awaiting handoff; actual terminal resume published the missing
+baseline without another claim or epoch. Journal, anchor, observations, pointer
+and locks retained their bytes/inodes. Terminal replay established historical
+metadata completion, not a new live-readiness observation.
+
+A separate installation used an ordinary PostgreSQL login role with no
+superuser, create-database, create-role, replication, bypass-RLS or explicit
+role-membership privileges. In that new disposable database only, the harness
+removed PUBLIC execution of `pg_control_system()` and granted that specific
+function to the application role without grant option. Eight actual CLI
+enrollment checks and six privilege/custody checks passed. All sixteen migrations
+completed and all 105 public application relations belonged to that role.
+Seventeen retained logs excluded the tested literal private credentials. This
+loopback trust fixture proves actual privilege boundaries; deployed password/TLS
+authentication remains a separate test.
+
+The private archive `initial-stage-recovery-source-5f7386d` contains 53 records
+plus its digest index. It binds all 65 operator files, the 37 files used by every
+actual fixture and all 257 app files. The archived review SHA-256 is
+`bf669aa145fc12312360697885c18a9fb52965a4df1c9c3860de821d54444fdc`;
+the digest-index SHA-256 is
+`ef63ff5d88ddd67566d0d49891ba1bf33c1988b82d2e92f21c2d613562897682`.
+Producer and verifier are the Codex primary agent on `Gitgood-Verify-2404`:
+the root harness provisions and signals exact owned fixtures, while UID 1000
+runs the unchanged CLI. Private inputs, databases, credentials, TLS/SSH keys and
+encrypted archives remain outside the exported metadata archive.
+
+Original failed harness attempts remain retained: a startup process exited
+during identity enumeration, the first role fixture assumed PUBLIC function
+execution was absent, another compared PostgreSQL OID JSON strings numerically,
+and an ordinary-UID log verifier could not read root-private logs. Fresh fixtures
+or a separately named verifier resolved each issue. No failed attempt was
+relabelled passing, and root-private log ownership remained intact.
+
+[PR 68](https://github.com/FRIKKern/gitgood/pull/68) integrated the first-install
+recovery fix and native lifecycle. Every required CI step passed on
+`debb4de`; its tested synthetic tree equals merged main `5f7386d`. Five CI
+records and 61 artifact files passed private digest readback. Main CI and any
+later revision remain independent gates.
+
+Running or failed effects still require stage-specific reconciliation; a
+response or receipt alone cannot silently replay them. The matrix proves one
+selected owner-loss scenario per stage on the same boot. It does not cover every
+failure boundary or storage power loss. Persistent supervision, explicit reboot
+resource generations, host allocation/cancellation, managed Cloud and current
+complete J01/J02/J14 acceptance remain unfinished. See the
+[native host prerequisites](native-host-prerequisites.md). The fixed CLI
+provisions no host and establishes no product release.
