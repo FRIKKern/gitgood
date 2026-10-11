@@ -1,0 +1,132 @@
+# Loaded by the clean packaged release's `eval` command. Only this fixture app
+# is started: Gitgood.Application still refuses native product startup.
+defmodule GitgoodOwnedProof.Witness do
+  use GenServer
+
+  def start_link(options), do: GenServer.start_link(__MODULE__, options)
+
+  @impl true
+  def init(options) do
+    send(self(), :observe)
+    {:ok, %{directory: options[:directory], observed: nil, count: 0, deadline: now() + 20_000}}
+  end
+
+  @impl true
+  def handle_info(:observe, state) do
+    true = now() < state.deadline
+
+    {Gitgood.NativeOwnershipStartup, startup, _, _} =
+      List.keyfind(Supervisor.which_children(Gitgood.Supervisor), Gitgood.NativeOwnershipStartup, 0)
+
+    :ok = Gitgood.NativeOwnershipStartup.current(startup)
+    owner = :sys.get_state(startup)
+    monitor = :sys.get_state(owner.monitor)
+    true = is_map(monitor.ownership) and is_nil(monitor.ownership_pending)
+    true = now() - monitor.observed_at < 3_000
+    # The first sample can be the ownership_attached acknowledgement. Treat it
+    # as a baseline; only subsequent changed timestamps prove current frames.
+    count =
+      if not is_nil(state.observed) and monitor.observed_at != state.observed,
+        do: state.count + 1,
+        else: state.count
+
+    if count >= 5 do
+      # A real BEAM-owned subprocess in a separate session ignores TERM. Its
+      # cgroup custody is checked by the root observer before the loss action.
+      # Fork before setsid: the port process itself may already be a process
+      # group leader, and closing the port must not terminate this descendant.
+      program = """
+      import os, signal, time
+      child = os.fork()
+      if child:
+          os.waitpid(child, 0)
+      else:
+          os.setsid()
+          signal.signal(signal.SIGTERM, signal.SIG_IGN)
+          signal.signal(signal.SIGHUP, signal.SIG_IGN)
+          print(os.getpid(), flush=True)
+          time.sleep(300)
+      """
+
+      port =
+        Port.open({:spawn_executable, "/usr/bin/python3.12"}, [
+          :binary,
+          :exit_status,
+          {:args, ["-I", "-S", "-c", program]}
+        ])
+
+      descendant =
+        receive do
+          {^port, {:data, raw}} -> raw |> String.trim() |> String.to_integer()
+        after
+          3_000 -> raise "fixture descendant unavailable"
+        end
+
+      {:os_pid, helper} = Port.info(monitor.port, :os_pid)
+      {:ok, session} = Gitgood.NativeDatabaseLease.snapshot(owner.lease)
+      true = session == owner.ownership.record["database_session"]
+      :ok = Gitgood.NativeOwnershipStartup.current(startup)
+
+      write!(state.directory, "attached.json", %{
+        protocol: 1,
+        scope: "publication-only-component",
+        native_application_acceptance: false,
+        beam_pid: String.to_integer(System.pid()),
+        helper_pid: helper,
+        descendant_pid: descendant,
+        distinct_attached_heartbeat_samples: count,
+        record: owner.ownership.record,
+        publication: owner.ownership.receipt
+      })
+
+      {:noreply, Map.put(state, :descendant_port, port)}
+    else
+      Process.send_after(self(), :observe, 100)
+      {:noreply, %{state | count: count, observed: monitor.observed_at}}
+    end
+  end
+
+  # Any unexpected fixture/helper event fails the permanent fixture application.
+  def handle_info(_, state), do: {:stop, :fixture_witness_lost, state}
+
+  defp now, do: System.monotonic_time(:millisecond)
+
+  defp write!(directory, name, value) do
+    temporary = Path.join(directory, name <> ".partial")
+    File.write!(temporary, Jason.encode!(value), [:exclusive])
+    File.chmod!(temporary, 0o600)
+    File.rename!(temporary, Path.join(directory, name))
+  end
+end
+
+defmodule GitgoodOwnedProof.Application do
+  use Application
+
+  @impl true
+  def start(_, _) do
+    Gitgood.NativeOwnershipSupervisor.start_native_link(
+      System.fetch_env!("GITGOOD_STORAGE"),
+      :runtime,
+      [{GitgoodOwnedProof.Witness, directory: System.fetch_env!("GITGOOD_OWNED_PROOF_DIRECTORY")}]
+    )
+  end
+end
+
+true = Gitgood.Build.valid?()
+false = Enum.any?(Application.started_applications(), fn {name, _, _} -> name == :gitgood end)
+{:ok, _} = Application.ensure_all_started(:postgrex)
+{:ok, _} = Application.ensure_all_started(:jason)
+
+:ok = Application.load({:application, :gitgood_owned_proof, [
+  description: ~c"Isolated native ownership component proof",
+  vsn: ~c"1",
+  modules: [GitgoodOwnedProof.Application, GitgoodOwnedProof.Witness],
+  registered: [],
+  applications: [:kernel, :stdlib, :elixir, :logger, :postgrex, :jason],
+  mod: {GitgoodOwnedProof.Application, []}
+]})
+
+# A failed original monitor, lease, fence or startup root terminates this BEAM.
+# The ordinary manager does not signal the BEAM during the loss observation.
+:ok = Application.start(:gitgood_owned_proof, :permanent)
+Process.sleep(:infinity)

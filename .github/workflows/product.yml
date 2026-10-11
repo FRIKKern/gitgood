@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo -n apt-get update
-          sudo -n apt-get install -y --no-install-recommends build-essential unzip openssh-client systemd
+          sudo -n apt-get install -y --no-install-recommends build-essential unzip openssh-client systemd patchelf
           command -v cc
           command -v make
           command -v unzip
@@ -171,6 +171,24 @@ jobs:
           node scripts/stamp-build.mjs
           cd apps/forge
           MIX_ENV=prod mix release
+      - name: Verify protected native ownership on actual systemd
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          "$GITGOOD_PYTHON" -B tools/ci/native-owned-test.py
+          sudo -n env \
+            "GITHUB_ACTIONS=$GITHUB_ACTIONS" \
+            "RUNNER_ENVIRONMENT=$RUNNER_ENVIRONMENT" \
+            "PGHOST=$PGHOST" "PGPORT=$PGPORT" \
+            "PGUSER=$PGUSER" "PGPASSWORD=$PGPASSWORD" \
+            "$GITGOOD_PYTHON" -B tools/ci/native-owned-proof.py \
+              --workspace "$GITHUB_WORKSPACE" \
+              --release "$GITHUB_WORKSPACE/apps/forge/_build/prod/rel/gitgood" \
+              --postgres "$GITHUB_WORKSPACE/.gitgood/postgres-18.4" \
+              --node "$(command -v node)" \
+              --caddy "$GITGOOD_CADDY" \
+              --candidate "$GITHUB_SHA" \
+              --output "$GITHUB_WORKSPACE/.gitgood/native-owned-proof"
       - name: Verify copied production installation
         run: |
           set -euo pipefail
@@ -205,4 +223,5 @@ jobs:
             apps/web/test-results/
             apps/web/test-results-production/
             apps/forge/.gitgood/verification/
+            .gitgood/native-owned-proof/receipt.json
           retention-days: 7
