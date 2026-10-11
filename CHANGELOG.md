@@ -144,6 +144,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Capture the original held native database lease's Linux process identity and combine same-boot kernel/SQL absence observations without signals or replacement authority; complete native recovery remains required.
   Sources: [details 1](docs/implementation/native-kernel-backend.md), [details 2](tools/deployment/native_kernel_backend.py)
 
+- Retain original protocol-2 lifecycle responsibility through immutable stage snapshots, explicit uncertainty and bounded publication recovery under the original OS lock.
+  Sources: [details 1](docs/implementation/native-lifecycle-responsibility.md), [details 2](tools/deployment/native_lifecycle_responsibility.py)
+
 - Introduce fixed TLS maintenance and bounded SSH routing under the installation-owned edge group; complete upgrade activation remains under verification.
   Sources: [details 1](tools/deployment/native_edge.py), [details 2](tools/deployment/test_native_edge.py), [details 3](docs/implementation/installation-upgrade.md)
 

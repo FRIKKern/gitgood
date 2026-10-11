@@ -37,6 +37,12 @@ within the sealed purpose cannot replace its inputs. Cross-purpose commands
 refuse. These are fresh protocol-2 formats; existing protocol-1 commands and
 journals are not adopted or converted by this reader.
 
+The separate [lifecycle responsibility store](native-lifecycle-responsibility.md)
+retains original protocol-2 requests and stage history under held OS custody.
+It grants no effects, is not connected to this reader or controller dispatch,
+and does not relax the existing generation publisher/worker-reader refusal of
+unknown lifecycle history. Their integration remains required.
+
 The fixed private directory is
 `/var/lib/gitgood/operation-inputs/INSTALLATION/OPERATION`, outside the installation
 resources. Protected Root parents and the sealed original directory device,

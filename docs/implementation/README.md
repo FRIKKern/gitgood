@@ -83,6 +83,10 @@ This work connects application processes to their actual host, database and serv
 
 ## Verification environment
 
+Keep interrupted installation steps and their original inputs traceable through
+[lifecycle responsibility](native-lifecycle-responsibility.md). Its retained
+records distinguish an unfinished step from one that has been observed complete.
+
 | Read about… | Document |
 |---|---|
 | The isolated Linux environment used by CI | [Development CI](isolated-ci.md) |
