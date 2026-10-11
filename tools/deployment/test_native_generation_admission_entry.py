@@ -7,7 +7,7 @@ class ImportCustody(unittest.TestCase):
  def setUp(self):
   self.temporary=tempfile.TemporaryDirectory();self.addCleanup(self.temporary.cleanup)
   self.root=Path(self.temporary.name)
-  for name in ['native_generation_admission_entry.py','native_generation_admission.py','native_generation_reader.py','native_service_scope.py']:
+  for name in module.REQUIRED_MODULES:
    (self.root/name).write_text('raise AssertionError("must never be imported")\n');(self.root/name).chmod(0o644)
  def observe(self,path):
   info=os.lstat(path)
@@ -25,6 +25,9 @@ class ImportCustody(unittest.TestCase):
   with patch.object(Path,'lstat',autospec=True,side_effect=observation),self.assertRaises(ValueError):module.trusted_modules(self.root)
  def test_missing_dependency_refuses(self):
   (self.root/'native_generation_reader.py').unlink()
+  with patch.object(Path,'lstat',autospec=True,side_effect=self.observe),self.assertRaises(ValueError):module.trusted_modules(self.root)
+ def test_missing_lifecycle_peer_refuses_before_any_module_execution(self):
+  (self.root/'native_lifecycle_worker_inputs.py').unlink()
   with patch.object(Path,'lstat',autospec=True,side_effect=self.observe),self.assertRaises(ValueError):module.trusted_modules(self.root)
  def test_cache_directory_refuses(self):
   (self.root/'__pycache__').mkdir()

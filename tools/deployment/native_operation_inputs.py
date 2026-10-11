@@ -1,5 +1,6 @@
 """Protected original protocol-2 inputs; no lifecycle lock, generation or effects."""
 import hashlib
+import itertools
 import json
 import os
 from pathlib import Path
@@ -144,7 +145,7 @@ class _PrivateInputSet:
             self.directory_original = directory_identity(info, uid, gid)
             require({'device': info.st_dev, 'inode': info.st_ino, 'uid': info.st_uid} == expected)
             require(directory_identity(self.directory.lstat(), uid, gid) == self.directory_original)
-            require(set(os.listdir(self.directory_fd)) == set(self.files))
+            require(set(self._names()) == set(self.files))
             self.raw, self.original = {}, {}
             for name, maximum in self.policy.items():
                 require(file_identity(os.stat(name, dir_fd=self.directory_fd, follow_symlinks=False), uid, gid, maximum))
@@ -176,7 +177,7 @@ class _PrivateInputSet:
             require(self.directory.resolve(strict=True) == self.directory)
             require(directory_identity(os.fstat(self.directory_fd), self.uid, self.gid) == self.directory_original)
             require(directory_identity(self.directory.lstat(), self.uid, self.gid) == self.directory_original)
-            require(set(os.listdir(self.directory_fd)) == set(self.files))
+            require(set(self._names()) == set(self.files))
             for name, maximum in self.policy.items():
                 require(file_identity(os.fstat(self.descriptors[name]), self.uid, self.gid, maximum) == self.original[name])
                 require(file_identity(os.stat(name, dir_fd=self.directory_fd, follow_symlinks=False),
@@ -196,6 +197,12 @@ class _PrivateInputSet:
             os.close(self.directory_fd)
             self.directory_fd = None
         # Preserve every input and Root seal, including after partial failure.
+
+    def _names(self):
+        with os.scandir(self.directory_fd) as entries:
+            names = [entry.name for entry in itertools.islice(entries, len(self.policy)+1)]
+        require(len(names) <= len(self.policy))
+        return names
 
 
 class NativeOperationInputs:

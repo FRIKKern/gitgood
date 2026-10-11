@@ -5,6 +5,25 @@ from pathlib import Path
 import stat
 import sys
 
+REQUIRED_MODULES = frozenset({
+    'enrollment_journal.py', 'generation_custody.py', 'generation_publication.py',
+    'inspect_native_artifact.py', 'native_actions.py', 'native_backend_observation.py',
+    'native_backend_observation_entry.py', 'native_backend_scope.py', 'native_command_wire.py',
+    'native_controller_scope.py', 'native_durable_binding.py', 'native_durable_database.py',
+    'native_generation_admission.py', 'native_generation_admission_entry.py',
+    'native_generation_lease_guard.py', 'native_generation_monitor.py',
+    'native_generation_monitor_entry.py', 'native_generation_reader.py', 'native_inventory.py',
+    'native_kernel_backend.py', 'native_lifecycle_generation_reader.py',
+    'native_lifecycle_history.py', 'native_lifecycle_responsibility.py',
+    'native_lifecycle_worker_inputs.py', 'native_monitor_ownership_attachment.py',
+    'native_operation_inputs.py', 'native_ownership_database.py', 'native_ownership_marker_guard.py',
+    'native_ownership_markers.py', 'native_ownership_observation.py',
+    'native_ownership_publication.py', 'native_ownership_publication_entry.py',
+    'native_ownership_records.py', 'native_prior_backend.py', 'native_service_scope.py',
+    'native_systemd_properties.py', 'native_worker_scope.py', 'native_writer_exclusion.py',
+    'resource_generations.py', 'stage_native_artifact.py', 'upgrade_journal.py',
+})
+
 
 def trusted_modules(directory):
     paths = list(itertools.islice(directory.iterdir(), 129))
@@ -19,8 +38,7 @@ def trusted_modules(directory):
                 path.suffix not in {".py", ".ex", ".exs"}):
             raise ValueError("Installed admission modules unavailable")
         names.add(path.name)
-    if not {"native_generation_admission_entry.py", "native_generation_admission.py",
-            "native_generation_reader.py", "native_service_scope.py"} <= names:
+    if not REQUIRED_MODULES <= names:
         raise ValueError("Installed admission modules unavailable")
 
 

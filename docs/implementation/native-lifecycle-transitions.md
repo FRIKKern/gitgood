@@ -45,10 +45,11 @@ hash reconciles an uncertain product effect. The protected controller must still
 observe original sealed inputs and reconcile the actual stage against stores,
 schema, artifacts and routing before acting.
 
-The existing worker reader deliberately still refuses lifecycle history. Its
-stage-specific admission, generation-aware runtime/maintenance handoffs, fixed
-controller dispatch and complete installation/upgrade/reboot journeys remain
-required. This integration does not grant runtime readiness or claim deployment.
+The default worker reader still refuses lifecycle history. The explicit
+[lifecycle worker reader](native-lifecycle-worker-admission.md) now checks fixed
+recorded stage windows and original protected inputs. Generation-aware handoffs,
+fixed controller dispatch and complete installation/upgrade/reboot journeys
+remain required. This integration does not grant readiness or claim deployment.
 
 Verification must cover complete read-only custody, historical references,
 terminal and unfinished operations, wrong/future references, partial refusal,

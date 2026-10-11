@@ -72,6 +72,7 @@ class NativeGenerationLeaseGuard:
     def __init__(self, reader, *, worker, owner_pid):
         require(type(worker) is str and worker in {'native','maintenance'})
         require(type(owner_pid) is int and 1 < owner_pid < 2**31)
+        require(getattr(reader, 'worker', worker) == worker)
         self.reader = reader
         self.worker, self.owner_pid = worker, owner_pid
         self.started = self.usable = False
@@ -83,6 +84,7 @@ class NativeGenerationLeaseGuard:
         self.root_files.close()
         self.executable_files.close()
         self.reader.custody.__exit__(None, None, None)
+        self.reader.close()
 
     def _current_worker(self):
         # The two observations in check bracket file custody and ancestry.
@@ -153,7 +155,7 @@ class NativeGenerationLeaseGuard:
             require(persistent_fingerprint(self.snapshot['binding']) == self.files)
             return {'current':True, 'scope_sha256':sha(self.observed),
                     'history_sha256':sha(self.snapshot), 'persistent_files_sha256':sha(self.files)}
-        except (PublicationRefused, BindingRefused, DatabaseRefused, ServiceRefused,
+        except (PublicationRefused, GenerationAdmissionRefused, BindingRefused, DatabaseRefused, ServiceRefused,
                 CustodyRefused, GenerationRefused, OSError, ValueError, TypeError,
                 KeyError, UnicodeError, RecursionError, subprocess.SubprocessError):
             self.close()

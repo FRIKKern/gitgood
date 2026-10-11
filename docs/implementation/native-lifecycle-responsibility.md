@@ -24,7 +24,8 @@ establish protected inputs, persistent continuity, current service ownership,
 actual OS/database fencing and reconciliation of previous descendants. Existing
 generation publication validates and retains explicit snapshot references through
 [lifecycle transitions](native-lifecycle-transitions.md). Unknown history still
-refuses, and worker admission remains closed until stage-specific integration.
+refuses. The explicit [worker admission](native-lifecycle-worker-admission.md)
+checks recorded stage windows without granting lifecycle effects or readiness.
 
 Required verification includes ordered stages, retained original inputs, competing
 process refusal, changed/forked ownership, replaced locks/directories, interrupted
