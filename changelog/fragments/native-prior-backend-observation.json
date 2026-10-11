@@ -1,0 +1,9 @@
+{
+  "id": "native-prior-backend-observation",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Observe the exact original native PostgreSQL backend's absence without signalling reused PIDs, adopting a new holder or granting replacement authority; complete controller reconciliation remains required.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-prior-backend-observation.md", "tools/deployment/native_prior_backend.py", "tools/deployment/native_ownership_database.py"],
+  "withdrawn": false
+}
