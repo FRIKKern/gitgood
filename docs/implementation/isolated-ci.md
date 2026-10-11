@@ -8,6 +8,8 @@ Planning and forge workflows use disposable GitHub-hosted `ubuntu-24.04` machine
 
 The forge job still builds checksum-pinned PostgreSQL 18.4 under its canonical owned workspace, runs as a non-root account, and verifies complete database, process-interruption, copied-installation and recovery behavior. Its dedicated cgroup v2 children and empty-group checks remain required. Runner migration does not waive failed checks or establish a production release.
 
+The hosted image's shared tool cache does not establish the native executable-permission boundary. After selecting pinned Node, record its file metadata and copy the identical binary into a private job-owned runtime directory. Check the copy with the unchanged native executable validator and use it for subsequent Node commands. Do not loosen production validation or change the shared cache's permissions. The first hosted runs at `a26fbce` and `735b8b4` passed backend checks but failed native preflight while inspecting cached Node; retain those failed runs as the reason for this preparation step.
+
 Standard hosted runner minutes are free for public repositories according to [GitHub's billing documentation](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Account-level restrictions and finite runner disk space still require an actual run. Keep verification artifacts bounded and retain them for seven days; the hosted VM is disposable after the job. The local VM/evidence retirement audit is a separate task and publication itself does not reclaim local disk space.
 
 ## Purpose and acceptance

@@ -266,7 +266,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Added permission-filtered native search and activity, opaque collaboration links, shared browser access invalidation and audited owner controls for team membership; corrected merge crash proof to bind the clean source candidate and requirement.
   Sources: [details 1](docs/implementation/activity.md), [details 2](docs/decisions/0008-private-discovery.md)
 
-- Authorize public source development and move planning and forge verification to disposable GitHub-hosted Ubuntu 24.04 runners. Preserve pinned native dependencies, non-root workspace ownership, cgroup exclusion and recovery checks; retire the local dispatch probe and document private vulnerability reporting without adding a software license.
+- Authorize public source development and move planning and forge verification to disposable GitHub-hosted Ubuntu 24.04 runners. Preserve pinned native dependencies, non-root workspace ownership, cgroup exclusion and recovery checks; prepare an identical job-owned Node binary with native-safe permissions, retire the local dispatch probe and document private vulnerability reporting without adding a software license.
   Sources: [details 1](docs/decisions/D01.md), [details 2](docs/implementation/isolated-ci.md), [details 3](.github/workflows/product.yml), [details 4](.github/workflows/verify.yml), [details 5](SECURITY.md)
 
 - Redesigned the README roadmap with journey-level status, milestone dependencies and exit criteria, separate progress summaries, and light/dark palettes.
