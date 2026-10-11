@@ -16,6 +16,8 @@ Select fragments from the actual included revisions, including backports and che
 
 The local generator derives CHANGELOG.md and README highlights from fragments and release manifests. It does not publish a release. Retain each fragment's version mapping; duplicate IDs or multiple assignments fail checks. Never label an unreleased claim shipped.
 
+The README carries only a compact development or release summary. Keep detailed entries in the generated changelog, grouped by category; do not append every fragment to the front page. Write each fragment's first sentence for someone trying to understand what changed. Put proof counts, process identities, and reproduction detail in the referenced implementation document instead.
+
 Cloud shows the release actually running, not the latest available release.
 
 ## Corrections and sensitive changes

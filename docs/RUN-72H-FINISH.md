@@ -1,5 +1,7 @@
 # Native foundation run — 8 October 2026
 
+> **Historical evidence — 8 October 2026.** Results, remaining scope, source-configuration statements and estimates below describe the candidates from this run. Later work may supersede those limitations. Use the [current progress snapshot](STATUS.md), [implementation index](implementation/README.md) and [live delivery ledger](https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio) for present context; do not apply these receipts to a newer candidate.
+
 The bounded [72-hour plan](RUN-72H.md), including the first-day slice, produced the private create/clone/push/browse and review/check/protected-merge foundation, deterministic concurrency/recovery proof and a copied production-artifact experiment. Delivery finished ahead of the allocation; elapsed time is not an acceptance criterion. This is an implementation/evidence record, not a product release or replacement live task board.
 
 ## Delivered and integrated

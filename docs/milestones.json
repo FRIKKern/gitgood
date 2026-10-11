@@ -109,7 +109,7 @@
       "start": "M0",
       "end": "M7",
       "kind": "continuous",
-      "note": "Checks and upkeep at every stage. Live evidence collection and unattended scheduling remain implementation work."
+      "note": "Checks and upkeep at every stage. Scoped source collectors are configured; complete journey verification and unattended scheduling remain unfinished."
     }
   ]
 }
