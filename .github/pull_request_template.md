@@ -8,7 +8,7 @@ Commands, environment, code/spec revision, and evidence references. Distinguish 
 
 ## Compatibility and documentation
 
-Affected contracts, migration/rollback implications, and canonical docs updated; explain if none.
+Affected contracts, migration/rollback implications, and canonical docs updated; explain if none. Link the human explanation and directory index for new capabilities or documents. Keep historical results scoped to their recorded candidate.
 
 ## Changelog
 

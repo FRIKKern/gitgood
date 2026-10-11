@@ -205,10 +205,18 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
     }
   end
 
+  defp pending(tag, deadline \\ System.monotonic_time(:millisecond) + 3_000) do
+    %{
+      from: {self(), tag},
+      expected: ownership(),
+      reference: make_ref(),
+      deadline: deadline
+    }
+  end
+
   test "attachment acknowledgement establishes only the expected ownership token" do
     tag = make_ref()
-    pending = %{from: {self(), tag}, expected: ownership(), reference: make_ref()}
-    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending})
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending(tag)})
 
     attached = %{
       "protocol" => 2,
@@ -251,8 +259,7 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
 
   test "partial acknowledgement does not renew freshness or acknowledge attachment" do
     tag = make_ref()
-    pending = %{from: {self(), tag}, expected: ownership(), reference: make_ref()}
-    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending})
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending(tag)})
 
     value = %{
       "protocol" => 2,
@@ -270,8 +277,7 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
 
   test "malformed trailing frame prevents acknowledgement of the complete batch" do
     tag = make_ref()
-    pending = %{from: {self(), tag}, expected: ownership(), reference: make_ref()}
-    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending})
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending(tag)})
 
     value = %{
       "protocol" => 2,
@@ -282,6 +288,47 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
 
     assert Monitor.handle_info({:fixture_port, {:data, frame(value) <> "invalid\n"}}, original) ==
              {:stop, :installation_generation_lost, original}
+
+    refute_received {^tag, :ok}
+  end
+
+  test "expired attachment cannot acknowledge before its timer message is handled" do
+    tag = make_ref()
+    expired = pending(tag, System.monotonic_time(:millisecond) - 1)
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: expired})
+
+    attached = %{
+      "protocol" => 2,
+      "status" => "ownership_attached",
+      "guard" => guard(),
+      "ownership" => ownership()
+    }
+
+    for bytes <- [frame(attached), frame(current()) <> frame(attached)] do
+      assert Monitor.handle_info({:fixture_port, {:data, bytes}}, original) ==
+               {:stop, :installation_generation_lost, original}
+
+      refute_received {^tag, :ok}
+    end
+  end
+
+  test "partial acknowledgement completed after its attachment deadline is refused" do
+    tag = make_ref()
+    original = Map.merge(state(), %{ownership: nil, ownership_pending: pending(tag)})
+
+    attached = %{
+      "protocol" => 2,
+      "status" => "ownership_attached",
+      "guard" => guard(),
+      "ownership" => ownership()
+    }
+
+    bytes = Gitgood.NativeOwnershipPublication.canonical(attached)
+    assert {:noreply, partial} = Monitor.handle_info({:fixture_port, {:data, bytes}}, original)
+    expired = put_in(partial.ownership_pending.deadline, System.monotonic_time(:millisecond) - 1)
+
+    assert Monitor.handle_info({:fixture_port, {:data, "\n"}}, expired) ==
+             {:stop, :installation_generation_lost, expired}
 
     refute_received {^tag, :ok}
   end

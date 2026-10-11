@@ -1,24 +1,47 @@
-# Execution plan
+# Delivery sequence
 
-## Immediate sequence
+[Documentation](README.md) · [Progress snapshot](STATUS.md) · [Roadmap](ROADMAP.md)
 
-The [first 24-hour run plan](RUN-24H.md) time-boxes the environment, experiments, running foundation and private-repository slice. Its hours are allocations for an implementation run, not milestone delivery-date promises or completed tasks.
+This page explains the route to a complete first release. Live assignments, blockers, and task state belong in the [private delivery ledger](https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio). Use the [progress snapshot](STATUS.md) to inspect its last recorded assessment; this sequence is not a second task board.
 
-The [72-hour run plan](RUN-72H.md) includes that first day, then targets review/check/merge foundations, concurrency/restart proof and clean-target packaging, with an eight-hour final verification reserve. Completion remains criterion-based.
+## What we are building on
 
-1. Follow [autonomous progression](../AUTONOMY.md). Owner/private visibility and delegated agent authority are recorded in D01. Use PRODUCT.md as the execution baseline; resolve remaining decisions with evidence while private development proceeds.
-2. Resolve identity/data ownership and write the first permission scenarios.
-3. Scaffold app/API and isolated Postgres with pinned runtimes.
-4. Establish the real request boundary, local setup, CI, and evidence contracts.
-5. Implement private repository create, HTTPS clone/push, and commit browsing for two users.
-6. Repeat from a clean environment; then estimate review/merge work from observed effort.
-7. Prove review, protected merge, and interruption recovery.
-8. Complete scoped Git/Barkpark workflows.
-9. Prove Cloud lifecycle and enter a bounded pilot.
+The repository contains the local forge, web interface, Git transports, collaboration workflows, and deployment/recovery components. Their [implementation references](implementation/README.md) explain what each component does and how it has been exercised. The presence of code or a passing component check does not establish a complete installation or an accepted user journey.
 
-No task below is automatically complete because its planning document or script exists. Assignments and work status belong in the [configured private Barkpark ledger](TRACKING.md); task completion alone does not establish verification or release.
+`main` is the integrated baseline. Read an open PR as proposed work until it merges and its required checks pass. A result recorded for another candidate must be reassessed before it can support the current one.
 
-## Setup work packages
+## The remaining delivery path
+
+| Step | Outcome a person should be able to observe | What proves it |
+|---|---|---|
+| Complete native installation and recovery | Start a clean host, run the packaged forge, resume interrupted work, and restore onto a replacement host. | Real installed services, interruption tests, artifact identity, and full lifecycle evidence. See [native lifecycle](implementation/native-initial-lifecycle.md) and [operations](operations/README.md). |
+| Close the whole product workflows | A team creates a repository, pushes code, reviews and merges a change, connects its work, and publishes a release. | Every criterion in the [required journeys](../JOURNEYS.md), including permission denial and failure paths, against the candidate. |
+| Finish evidence and release reporting | Readers can distinguish current, failed, missing, and outdated proof, and see which artifact was released. | Complete evidence attachment/access/reassessment and publication-source integration. See [tracking limits](TRACKING.md). |
+| Connect Barkpark Cloud | Install and operate Gitgood through a supported Cloud contract with independently owned resources. | Clean deployment, upgrade refusal and recovery, coordinated backup, export, and removal through the [Cloud boundary](../deploy/README.md). |
+| Run the bounded pilot and release | A small private team can do its daily work and recover its data using documented procedures. | The [pilot workload](implementation/pilot-workload.md), all required journey evidence, compatible immutable artifacts, and [release criteria](../QUALITY.md#release-gate). |
+
+These are connected outcomes, not five new milestones. [M0–M7](ROADMAP.md) remain the canonical milestone order. Independent implementation and experiments may overlap; acceptance still follows each milestone's dependencies and exit criteria. No elapsed-hour estimate establishes completion.
+
+## How work progresses
+
+1. Choose a ready outcome from the ledger and identify the affected journey.
+2. Implement it in an isolated worktree; update the relevant contract and human explanation.
+3. Verify normal use, permission boundaries, and relevant interruption/recovery behavior.
+4. Record the candidate, result, limitations, and supporting evidence; pass the required checks on the proposed revision.
+5. Merge, reassess the integrated result, and advance only the criteria that the evidence establishes.
+
+Agents carry this loop forward under [AUTONOMY.md](../AUTONOMY.md), without a human acceptance queue. Reports should say what changed for a user, what is proven, what remains blocked, and the next observable result.
+
+## Earlier planning records
+
+The [24-hour plan](RUN-24H.md), [72-hour plan](RUN-72H.md), and [foundation run report](RUN-72H-FINISH.md) preserve the original run's assumptions and results. Their elapsed-hour allocations and then-current limitations are historical; use the ledger and current specifications to direct new work.
+
+## Original setup work packages
+
+These baseline IDs are retained for the reporting, maintenance, and changelog contracts that reference them. They define acceptance conditions; they are not a live completion checklist.
+
+<details>
+<summary>Show S01–S17 foundation criteria</summary>
 
 | ID | Deliverable | Depends on | Acceptance |
 |---|---|---|---|
@@ -40,14 +63,4 @@ No task below is automatically complete because its planning document or script 
 | S16 | Maintenance | S08/S09 | Named owner; source integration, stale-input and refresh-failure handling demonstrated |
 | S17 | Changelog | S08/S09 | Reviewed fragments, digest/release selection, README, publication/retry behavior |
 
-## Roles
-
-Agents take engineering delivery, verification, and Cloud operations responsibilities as work becomes ready. Record the acting agent and evidence for each gate. Missing human staffing is not a blocker; progress follows AUTONOMY.md and QUALITY.md. User updates provide oversight without creating an approval queue.
-
-## Reporting
-
-At meaningful changes and milestone boundaries, report what is implemented, what is verified, what is shipped, blockers, evidence age, and the next acceptance condition. Re-estimate after M2 and M3. Do not manufacture a calendar schedule before those experiments.
-
-## Completion
-
-Use milestone and journey definitions, not task counts. A release needs current evidence, compatible artifacts, operational procedures, and verified pilot workflows. Agents evaluate these criteria and continue without human sign-off.
+</details>
