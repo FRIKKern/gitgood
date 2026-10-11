@@ -54,6 +54,39 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version-file: .node-version
+      - name: Prepare private Node runtime for native verification
+        run: |
+          set -euo pipefail
+          umask 077
+          version="$(cat .node-version)"
+          [[ "$version" =~ ^22\.[0-9]+\.[0-9]+$ ]]
+          selected_node="$(realpath "$(command -v node)")"
+          test "$selected_node" = "$(realpath "$RUNNER_TOOL_CACHE")/node/$version/x64/bin/node"
+          stat -c 'Selected Node: %n mode=%a uid=%u bytes=%s' "$selected_node"
+          test "$("$selected_node" --version)" = "v$version"
+          parent="$GITHUB_WORKSPACE/.gitgood"
+          test ! -L "$parent"
+          if test -e "$parent"; then
+            test -d "$parent"
+            test "$(stat -c %u "$parent")" = "$(id -u)"
+          else
+            mkdir -m 0700 "$parent"
+          fi
+          test "$(realpath "$parent")" = "$parent"
+          runtime="$parent/ci-node"
+          test ! -e "$runtime"
+          test ! -L "$runtime"
+          mkdir -m 0700 "$runtime" "$runtime/bin"
+          test "$(realpath "$runtime")" = "$runtime"
+          test "$(stat -c %u "$runtime")" = "$(id -u)"
+          source_sha="$(sha256sum "$selected_node" | cut -d ' ' -f 1)"
+          install -m 0755 "$selected_node" "$runtime/bin/node"
+          cmp -- "$selected_node" "$runtime/bin/node"
+          test "$(sha256sum "$selected_node" | cut -d ' ' -f 1)" = "$source_sha"
+          test "$(sha256sum "$runtime/bin/node" | cut -d ' ' -f 1)" = "$source_sha"
+          test "$("$runtime/bin/node" --version)" = "v$version"
+          "$GITGOOD_PYTHON" -c 'import json, sys; sys.path.insert(0, "tools/deployment"); from native_inventory import executable_identity; print(json.dumps(executable_identity(sys.argv[1]), sort_keys=True))' "$runtime/bin/node"
+          printf '%s\n' "$runtime/bin" >> "$GITHUB_PATH"
       - name: Build pinned native PostgreSQL server and recovery clients
         run: |
           set -euo pipefail
