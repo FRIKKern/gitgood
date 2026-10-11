@@ -53,7 +53,7 @@ the separate actual PostgreSQL proof supplies that component evidence.
 
 Seven real PostgreSQL/kernel checks pass with two actual ordinary-role BEAM
 lease owners. A Root fixture independently observes the actual listener's
-boot/PID namespace, account and pinned PostgreSQL executable. Each owner's
+boot/PID/time namespaces, zero clock offsets, account and pinned PostgreSQL executable. Each owner's
 original socket/held session/kernel birth is captured while live; live absence
 refuses; normal owner exit establishes both SQL and kernel absence. A second
 holder of the same advisory key remains untouched while the first original is
@@ -65,6 +65,19 @@ facts and then runs the proof as the ordinary actor, without widening fixture
 permissions. The existing stopped VM's original group/process absence is
 verified before this proof. Actual PID reuse, installed identity custody and
 complete native recovery remain unverified.
+
+Two further actual child time-namespace checks pass. Both preserve the original
+PID namespace and original host clock while entering a new time namespace. A
+zero-offset namespace and a namespace with 60-second offsets both refuse before
+SQL observation. In the latter, the still-live original parent reads with a
+6,000-tick shifted start time, demonstrating why comparing birth ticks without
+clock admission would be unsafe. No original process is signalled; the parent
+birth and host offsets remain unchanged after both children exit.
+
+All 483 ordinary Linux operator tests pass with 18 platform-specific skips,
+including 29 focused kernel/session regressions. All 115 tracked deployment
+source digests match before and after the full suite. The 35 planning tests pass;
+required CI and full installed application/controller acceptance remain pending.
 
 Kernel field meanings come from the official
 [procfs documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html).
