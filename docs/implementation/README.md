@@ -80,5 +80,6 @@ This work connects application processes to their actual host, database and serv
 |---|---|
 | The isolated Linux environment used by CI | [Development CI](isolated-ci.md) |
 | Measuring a realistic private-team workload | [Pilot workload](pilot-workload.md) |
+| Cleaning disposable retirement test databases within separate time bounds | [Retirement fixture cleanup](native-retirement-fixture-cleanup.md) |
 
 Start ordinary development checks through the [development guide](../DEVELOPMENT.md). Detailed fixtures may need dedicated databases, private inputs or disposable hosts; use each document's stated environment and preserve candidate identities when interpreting its results.

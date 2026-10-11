@@ -42,7 +42,12 @@ class NativeRetirementInputTest(unittest.TestCase):
         target_database = observe_database(database.psql, url)
         def cleanup_target():
             self.assertEqual(observe_database(database.psql, url), target_database)
-            database._tool("dropdb", [name])
+            # Administrative fixture cleanup is not the input-refusal operation.
+            # Keep the production retirement command's 10s statement/5s lock
+            # bounds and this helper's 15s child bound; never force live sessions.
+            cleanup_environment = {**database.environment,
+                "PGOPTIONS": "-c statement_timeout=10000 -c lock_timeout=5000 -c search_path=pg_catalog"}
+            database._tool("dropdb", [name], cleanup_environment)
         self.addCleanup(cleanup_target)
         target = fixture.base / name
         target.mkdir(mode=0o700)

@@ -361,6 +361,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Build digest-pinned PostgreSQL 18.4 server and recovery clients in the isolated Ubuntu runner, preserving exact recovery versions and the same-OS database locale profile.
   Sources: [details 1](tools/ci/install-postgres-18.4.sh), [details 2](.github/workflows/product.yml)
 
+- Bound disposable retirement input-fixture cleanup with the existing production database-removal limits while preserving identity checks, no-force behavior and product deadlines.
+  Sources: [details 1](docs/implementation/native-retirement-fixture-cleanup.md), [details 2](tools/deployment/test_native_retirement.py)
+
 - Install the Ubuntu systemd runtime in isolated CI so native root-file custody and installed-version tests execute against actual protected executables instead of failing on missing files.
   Sources: [details 1](.github/workflows/product.yml), [details 2](docs/implementation/native-generation-lease-guard.md)
 
