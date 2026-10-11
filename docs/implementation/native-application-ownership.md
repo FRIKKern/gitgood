@@ -9,8 +9,8 @@ Its actual service execution and prior-owner reconciliation remain unfinished;
 the native application gate remains closed.
 
 The [application record constructor](native-ownership-record-construction.md)
-assembles the existing claim from captured context, session and controller-seal
-values. Its structural checks and cross-language compatibility are verified with
+assembles the protocol-3 claim from captured context, original SQL and kernel
+identities, and controller-seal values. Its structural checks and cross-language compatibility are verified with
 synthetic observations; live admission and application integration remain required.
 
 The [ownership handoff](native-ownership-claim.md) connects the captured monitor,

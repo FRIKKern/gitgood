@@ -223,6 +223,10 @@ defmodule Gitgood.InstallationGenerationMonitor do
          "marker_sha256" => receipt["marker_sha256"],
          "ownership_marker_observed" => true,
          "original_database_session_observed" => true,
+         "original_backend_kernel_observed" => true,
+         "kernel_record_sha256" =>
+           :crypto.hash(:sha256, Publication.canonical(record["backend_kernel"]))
+           |> Base.encode16(case: :lower),
          "owner_socket_observed" => true,
          "lease_acquired" => false,
          "replacement_admitted" => false,

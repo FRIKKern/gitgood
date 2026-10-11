@@ -10,7 +10,7 @@ defmodule Gitgood.NativeOwnershipRecord do
   # The protected publisher independently verifies the actual Root seal,
   # generation, original owner/socket/session and storage before any retention.
   # In particular, a map passed as `seal` does not establish Root custody.
-  def build(context, session, seal, mode) do
+  def build(context, session, backend_kernel, seal, mode) do
     owner_pid = String.to_integer(System.pid())
 
     with true <- closed?(context, [:admission, :guard]),
@@ -18,7 +18,7 @@ defmodule Gitgood.NativeOwnershipRecord do
          true <-
            closed?(seal, ~w(protocol kind installation operation candidate binding_sha256)),
          true <-
-           seal["protocol"] === 2 and seal["kind"] === "native_application_ownership_seal",
+           seal["protocol"] === 3 and seal["kind"] === "native_application_ownership_seal",
          true <- matches?(@uuid, seal["installation"]) and matches?(@uuid, seal["operation"]),
          true <-
            matches?(@candidate, seal["candidate"]) and matches?(@digest, seal["binding_sha256"]),
@@ -36,6 +36,7 @@ defmodule Gitgood.NativeOwnershipRecord do
              context.admission["pointer"]["operation"]
            ],
          true <- valid_session?(session, context.admission["database"]),
+         :ok <- Publication.validate_backend_kernel(backend_kernel, context.admission, session),
          observation <- context.admission["worker_observation"],
          true <- owner_scope_matches?(observation),
          true <- closed?(context.guard, ~w(scope_sha256 history_sha256 persistent_files_sha256)),
@@ -48,7 +49,7 @@ defmodule Gitgood.NativeOwnershipRecord do
                "worker" => worker
              }),
          record <- %{
-           "protocol" => 2,
+           "protocol" => 3,
            "kind" => "native_application_ownership",
            "installation" => seal["installation"],
            "operation" => seal["operation"],
@@ -59,6 +60,7 @@ defmodule Gitgood.NativeOwnershipRecord do
            "scope" => observation["service_scope"],
            "owner" => observation["owner"],
            "database_session" => session,
+           "backend_kernel" => backend_kernel,
            "guard" => context.guard
          },
          {:ok, _, _} <- Publication.request(record, owner_pid) do

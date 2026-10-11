@@ -5,7 +5,7 @@ defmodule Gitgood.NativeOwnershipPublication do
   @python "/usr/bin/python3.12"
   @entry "/opt/gitgood/native/v2/native_ownership_publication_entry.py"
   @backend_entry "/opt/gitgood/native/v2/native_backend_observation_entry.py"
-  @fields ~w(protocol kind installation operation candidate mode binding_sha256 pointer scope owner database_session guard)
+  @fields ~w(protocol kind installation operation candidate mode binding_sha256 pointer scope owner database_session guard backend_kernel)
   @reply_fields ~w(protocol status ownership_marker_retained operation marker_sha256 record_sha256 installation_readiness_established replacement_admitted writer_exclusion_established lifecycle_responsibility_admitted)
   @timeout 60_000
   @failure {:error, :native_ownership_publication_unavailable}
@@ -57,8 +57,6 @@ defmodule Gitgood.NativeOwnershipPublication do
   @doc false
   def validate_backend_reply(value, admission, session) do
     observation = admission["worker_observation"]
-    kernel = value["kernel_record"]
-    scope = kernel["server_scope"]
 
     with true <-
            closed?(
@@ -81,7 +79,22 @@ defmodule Gitgood.NativeOwnershipPublication do
              ~w(ownership_retained writer_exclusion_established installation_readiness_established replacement_admitted),
              &(value[&1] === false)
            ),
-         true <- closed?(kernel, ~w(protocol kind server_scope database_session kernel_birth)),
+         :ok <- validate_backend_kernel(value["kernel_record"], admission, session),
+         true <- byte_size(canonical(value)) <= 4_096 do
+      :ok
+    else
+      _ -> :error
+    end
+  rescue
+    _ -> :error
+  end
+
+  @doc false
+  def validate_backend_kernel(kernel, admission, session) do
+    scope = kernel["server_scope"]
+    observation = admission["worker_observation"]
+
+    with true <- closed?(kernel, ~w(protocol kind server_scope database_session kernel_birth)),
          true <- kernel["protocol"] === 2 and kernel["kind"] === "native_backend_kernel_identity",
          true <-
            kernel["database_session"] === session and
@@ -99,8 +112,7 @@ defmodule Gitgood.NativeOwnershipPublication do
          true <-
            is_binary(scope["time_namespace"]) and
              Regex.match?(~r/\Atime:\[[1-9][0-9]{0,19}\]\z/, scope["time_namespace"]),
-         true <- is_integer(scope["postgres_uid"]) and scope["postgres_uid"] in 1..4_294_967_295,
-         true <- byte_size(canonical(value)) <= 4_096 do
+         true <- is_integer(scope["postgres_uid"]) and scope["postgres_uid"] in 1..4_294_967_295 do
       :ok
     else
       _ -> :error
@@ -141,12 +153,21 @@ defmodule Gitgood.NativeOwnershipPublication do
   @doc false
   def request(record, owner_pid) do
     with true <- is_map(record) and MapSet.new(Map.keys(record)) == MapSet.new(@fields),
-         true <- record["protocol"] === 2 and record["kind"] === "native_application_ownership",
+         true <- record["protocol"] === 3 and record["kind"] === "native_application_ownership",
          true <- is_integer(owner_pid) and owner_pid > 1 and record["owner"]["pid"] === owner_pid,
          true <- record["mode"] in ~w(runtime backup restore migrate),
+         :ok <-
+           validate_backend_kernel(
+             record["backend_kernel"],
+             %{
+               "database" => record["database_session"]["database"],
+               "worker_observation" => %{"service_scope" => record["scope"]}
+             },
+             record["database_session"]
+           ),
          bytes <- canonical(record),
          true <- byte_size(bytes) <= 16_384,
-         request <- canonical(%{"protocol" => 2, "record" => record}),
+         request <- canonical(%{"protocol" => 3, "record" => record}),
          true <- byte_size(request) <= 32_768 do
       digest = :crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower)
       {:ok, request <> "\n", digest}
@@ -160,7 +181,7 @@ defmodule Gitgood.NativeOwnershipPublication do
   @doc false
   def validate_reply(value, operation, digest) do
     if is_map(value) and MapSet.new(Map.keys(value)) == MapSet.new(@reply_fields) and
-         value["protocol"] === 2 and value["status"] === "retained" and
+         value["protocol"] === 3 and value["status"] === "retained" and
          value["ownership_marker_retained"] === true and value["operation"] === operation and
          value["record_sha256"] === digest and digest?(digest) and
          digest?(value["marker_sha256"]) and

@@ -13,12 +13,17 @@ operation, candidate and binding; its original bytes and identity bracket every
 generation observation.
 
 Each check observes the original generation, verifies the held database session
-and its actual owner's kernel socket, checks retained marker custody, observes the
+and its actual owner's kernel socket while bracketing the retained backend process
+birth, checks retained marker custody, observes the
 original generation again, and checks marker custody again. Private configuration
 must remain identical before and after the read-only database query. Failure closes
 the marker guard's own descriptors and permanently poisons this observer. The
 caller owns the generation guard and must close it when the enclosing helper
 fails. No uncertain files are repaired or removed.
+
+The [current protocol-3 ownership contract](native-kernel-ownership.md) requires
+the independently protected server scope and includes its kernel record digest
+in the immutable monitor token. Legacy SQL-only records cannot attach.
 
 Seven tests use explicit stand-ins to verify ordering and refusal boundaries:
 changed original worker/owner, changed seal operation/candidate, replaced Root

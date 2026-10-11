@@ -76,6 +76,7 @@ This work connects application processes to their actual host, database and serv
 | Requiring the original PostgreSQL process to disappear under the same host scope | [Kernel backend identity and absence](native-kernel-backend.md) |
 | Reading fixed local commands from the admitted Linux account | [Controller command framing](native-command-wire.md) |
 | Binding the original database lease to its protected kernel observation | [Backend observation bridge](native-backend-observation.md) |
+| Retaining and monitoring the original backend process with ownership | [Kernel identity in ownership](native-kernel-ownership.md) |
 
 ## Verification environment
 

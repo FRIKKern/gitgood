@@ -24,7 +24,7 @@ def fixture(uid=None):
         scope['parent']['uid'] = uid
         for value in scope['groups'].values(): value['uid'] = uid
     owner = {**copy.deepcopy(scope['manager']), 'pid':2001, 'birth':'30001'}
-    record = {'protocol':2, 'kind':'native_application_ownership', 'installation':scope['installation'],
+    record = {'protocol':3, 'kind':'native_application_ownership', 'installation':scope['installation'],
               'operation':str(uuid.uuid4()), 'candidate':'a'*40, 'mode':'runtime', 'binding_sha256':'b'*64,
               'pointer':{'protocol':2, 'installation':scope['installation'], 'operation':str(uuid.uuid4()),
                          'generation_sha256':'c'*64, 'transition_sha256':'d'*64},
@@ -32,10 +32,29 @@ def fixture(uid=None):
               'database_session':{'database':copy.deepcopy(GOOD), 'backend_pid':2222, 'backend_birth':'1770000000000000'},
               'guard':{'scope_sha256':hashlib.sha256(canonical({'scope':scope,'owner':owner,'worker':'native'})).hexdigest(),
                        'history_sha256':'e'*64, 'persistent_files_sha256':'f'*64}}
+    record['backend_kernel']={'protocol':2,'kind':'native_backend_kernel_identity',
+        'database_session':copy.deepcopy(record['database_session']),'kernel_birth':'450',
+        'server_scope':{'boot_id':scope['boot_id'],'pid_namespace':'pid:[12345]',
+                        'time_namespace':'time:[4441]','postgres_uid':1001}}
     return record
 
 
 class OwnershipRecordShapeTest(unittest.TestCase):
+    def test_legacy_missing_kernel_identity_is_history_only(self):
+        value=fixture();value.pop('backend_kernel');value['protocol']=2
+        with self.assertRaises(records.OwnershipRecordRefused):records.validate_record(value)
+        self.assertEqual(records.validate_record(value,allow_legacy=True),value)
+        for changed in [{**value,'backend_kernel':fixture()['backend_kernel']},{**fixture(),'protocol':2}]:
+            with self.assertRaises(Exception):records.validate_record(changed,allow_legacy=True)
+
+    def test_kernel_identity_must_match_original_sql_snapshot_and_service_boot(self):
+        for path,value in [(['kernel_birth'],'0'),(['protocol'],True),(['database_session','backend_pid'],2223),
+                           (['server_scope','boot_id'],'11111111-1111-4111-8111-111111111111'),
+                           (['server_scope','postgres_uid'],True),(['extra'],True)]:
+            record=fixture();target=record['backend_kernel']
+            for key in path[:-1]:target=target[key]
+            target[path[-1]]=value
+            with self.subTest(path=path),self.assertRaises(Exception):records.validate_record(record)
     def test_complete_closed_record_validates_without_mutation(self):
         value = fixture(); before = copy.deepcopy(value)
         self.assertEqual(records.validate_record(value), before)
@@ -74,6 +93,21 @@ class OwnershipRecordCustodyTest(unittest.TestCase):
 
     def snapshot(self):
         return {path.name:(path.lstat().st_ino,path.lstat().st_nlink,path.read_bytes()) for path in self.directory.iterdir()}
+
+    def test_legacy_retained_history_is_preserved_and_cannot_be_reclaimed_as_live(self):
+        legacy=copy.deepcopy(self.record);legacy.pop('backend_kernel');legacy['protocol']=2
+        self.directory.mkdir(mode=0o700);self.target.write_bytes(canonical(legacy));self.target.chmod(0o600)
+        before=self.snapshot()
+        self.assertEqual(self.subject.inspect()['records'],[legacy])
+        with self.assertRaises(records.OwnershipRecordRefused):self.subject.retain(legacy)
+        with self.assertRaises(records.OwnershipRecordRefused):self.subject.retain(self.record)
+        self.assertEqual(self.snapshot(),before)
+
+    def test_changed_kernel_birth_for_original_operation_is_never_overwritten(self):
+        self.subject.retain(self.record);before=self.snapshot()
+        changed=copy.deepcopy(self.record);changed['backend_kernel']['kernel_birth']='451'
+        with self.assertRaises(records.OwnershipRecordRefused):self.subject.retain(changed)
+        self.assertEqual(self.snapshot(),before)
 
     def test_inspection_of_absence_creates_nothing_and_grants_no_replacement(self):
         before = self.storage.stat()

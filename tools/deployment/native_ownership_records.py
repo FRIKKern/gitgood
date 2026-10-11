@@ -15,6 +15,7 @@ import sys
 import uuid
 
 from native_durable_database import DatabaseRefused, unique, validate_database
+from native_kernel_backend import _validate_record as validate_kernel_record
 from resource_generations import (GenerationRefused, canonical, closed, digest,
                                   identifier, integer, validate_scope)
 
@@ -28,10 +29,12 @@ def require(value):
         raise OwnershipRecordRefused('Native ownership record unavailable')
 
 
-def validate_record(record):
-    closed(record, ('protocol', 'kind', 'installation', 'operation', 'candidate',
-                    'mode', 'binding_sha256', 'pointer', 'scope', 'owner', 'database_session', 'guard'))
-    require(type(record['protocol']) is int and record['protocol'] == 2)
+def validate_record(record, *, allow_legacy=False):
+    require(type(record) is dict and type(record.get('protocol')) is int)
+    require(record['protocol']==3 or (allow_legacy is True and record['protocol']==2))
+    fields=('protocol', 'kind', 'installation', 'operation', 'candidate',
+            'mode', 'binding_sha256', 'pointer', 'scope', 'owner', 'database_session', 'guard')
+    closed(record, fields + (('backend_kernel',) if record['protocol']==3 else ()))
     require(record['kind'] == 'native_application_ownership')
     identifier(record['installation']); identifier(record['operation'])
     require(record['operation'] != record['installation'])
@@ -66,6 +69,11 @@ def validate_record(record):
     integer(database.get('port'), 1, 65535)
     validate_database(database, {'PGDATABASE':database['database'], 'PGUSER':database['role'],
                                  'PGPORT':str(database['port'])})
+    if record['protocol']==3:
+        kernel=record['backend_kernel']
+        require(type(kernel) is dict and type(kernel.get('server_scope')) is dict)
+        validate_kernel_record(kernel,session,database,kernel['server_scope'])
+        require(kernel['server_scope']['boot_id']==scope['boot_id'])
     guard = record['guard']
     closed(guard, ('scope_sha256','history_sha256','persistent_files_sha256'))
     for value in guard.values(): digest(value)
@@ -110,7 +118,9 @@ class NativeOwnershipRecords:
         named = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
         require(all(getattr(after,key) == getattr(named,key) for key in fields))
         value = json.loads(raw, object_pairs_hook=unique)
-        validate_record(value)
+        # Legacy claims stay observable as immutable history. No writer or live
+        # guard admits their missing kernel identity; never synthesize one.
+        validate_record(value,allow_legacy=True)
         require(raw == canonical(value) and name == value['operation'] + '.json')
         require(value['installation'] == self.installation and value['scope']['uid'] == self.identity['uid'])
         return value

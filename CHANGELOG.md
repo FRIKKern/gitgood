@@ -296,6 +296,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record actual current-CLI recovery after selected owner loss in all seven initial installation stages, lost terminal baseline handoff, and packaged installation with an ordinary database-owner role. Preserve failed harness attempts and private recovery materials; identify systemd delegation and explicit reboot resource generations as the next host dependencies. These same-boot fixtures do not establish managed Cloud or complete journey/release acceptance.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/native-host-prerequisites.md)
 
+- Require original SQL and kernel backend identity in new native ownership claims and monitoring; preserve older records as history and refuse their live readmission. Installed startup and controller recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-kernel-ownership.md), [details 2](apps/forge/lib/gitgood/native_ownership_claim.ex), [details 3](tools/deployment/native_ownership_records.py)
+
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
   Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)
 

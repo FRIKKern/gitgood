@@ -31,7 +31,7 @@ def main():
         return publication_main()
     except Exception:
         try:
-            os.write(1,b'{"protocol":2,"status":"refused"}\n')
+            os.write(1,b'{"protocol":3,"status":"refused"}\n')
         except OSError:
             pass
         return 1

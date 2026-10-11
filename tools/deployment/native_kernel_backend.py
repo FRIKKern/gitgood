@@ -5,6 +5,7 @@ and account. A supplied scope or retained record is not allocator authority.
 This module does not signal processes, acquire leases or authorize replacement.
 """
 import copy
+import hashlib
 import os
 import re
 import sys
@@ -15,6 +16,7 @@ from native_inventory import database_environment
 from native_ownership_database import observe_held_session, validate_session
 from native_prior_backend import observe_prior_backend_absence
 from upgrade_journal import UpgradeRefused
+from resource_generations import canonical
 
 
 def require(value):
@@ -123,6 +125,29 @@ def capture_backend_kernel_identity(psql, database_url, snapshot, expected_datab
         _check_scope(server_scope)
         return copy.deepcopy({'protocol': 2, 'kind': 'native_backend_kernel_identity',
                               'server_scope': server_scope, 'database_session': snapshot, 'kernel_birth': first})
+    except (DatabaseRefused, UpgradeRefused, OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
+        raise DatabaseRefused('Original native database kernel identity unavailable') from None
+
+
+def observe_held_backend_kernel_identity(psql, database_url, record, expected_database, server_scope, *, owner=None):
+    """Check the retained birth around a fresh original SQL/socket/lease read.
+
+    Never recapture or adopt a current birth. The exact retained kernel process
+    must be live before and after the held-session observation.
+    """
+    try:
+        snapshot=record['database_session']
+        validate_database(expected_database,database_environment(database_url))
+        _validate_record(record,snapshot,expected_database,server_scope)
+        _check_scope(server_scope)
+        require(_capture_process(snapshot['backend_pid'],server_scope)==record['kernel_birth'])
+        observed=observe_held_session(psql,database_url,snapshot,expected_database,owner=owner)
+        require(observed['owner_connection_observed'] is True and observed['lease_acquired'] is False)
+        require(_capture_process(snapshot['backend_pid'],server_scope)==record['kernel_birth'])
+        _check_scope(server_scope)
+        return {'original_backend_kernel_observed':True,
+                'kernel_record_sha256':hashlib.sha256(canonical(record)).hexdigest(),
+                'owner_connection_observed':True,'lease_acquired':False,'replacement_admitted':False}
     except (DatabaseRefused, UpgradeRefused, OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
         raise DatabaseRefused('Original native database kernel identity unavailable') from None
 

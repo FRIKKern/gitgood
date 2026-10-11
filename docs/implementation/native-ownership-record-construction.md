@@ -1,9 +1,9 @@
 # Native ownership record construction
 
 Implementation under [decision 0018](../decisions/0018-native-supervision-generations.md).
-`Gitgood.NativeOwnershipRecord.build/4` constructs the existing closed ownership
+`Gitgood.NativeOwnershipRecord.build/5` constructs the protocol-3 closed ownership
 record from a generation monitor's context, an original database-session snapshot,
-a controller seal and one fixed runtime or maintenance mode. It performs no
+an original backend kernel record, a controller seal and one fixed runtime or maintenance mode. It performs no
 filesystem write, database query, lease acquisition or publication.
 
 The constructor binds the record to the actual calling BEAM PID. Installation,
@@ -26,9 +26,13 @@ not establish Root custody, and a snapshot does not prove a live backend. The
 [protected publication entry](native-ownership-publication.md) must independently
 verify its actual Root seal, original generation, owner/socket/session and storage
 before retention. The constructor grants no replacement, readiness or lifecycle
-authority. It does not relax the initial-only publication policy.
+authority. It does not relax the initial-only publication policy. The mandatory
+kernel record must preserve the SQL snapshot and service boot. See the current
+[kernel ownership format and evidence](native-kernel-ownership.md); legacy
+ownership records are inspection-only and are not rewritten.
 
-Eight focused Elixir tests pass against synthetic service/database observations.
+The following results are retained evidence for the earlier SQL-only format;
+they do not verify the current revision. Eight focused Elixir tests passed against synthetic service/database observations.
 They cover runtime and all three maintenance modes, borrowed or changed owner
 identities, seal mismatch, malformed session identities, guard mismatch, added
 authority and size refusal. A separate experiment invokes the actual constructor

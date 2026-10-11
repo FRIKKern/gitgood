@@ -1,0 +1,9 @@
+{
+  "id": "native-kernel-ownership",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Require original SQL and kernel backend identity in new native ownership claims and monitoring; preserve older records as history and refuse their live readmission. Installed startup and controller recovery remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-kernel-ownership.md", "apps/forge/lib/gitgood/native_ownership_claim.ex", "tools/deployment/native_ownership_records.py"],
+  "withdrawn": false
+}
