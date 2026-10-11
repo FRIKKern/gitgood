@@ -1,0 +1,9 @@
+{
+  "id": "human-readable-repository",
+  "category": "Changed",
+  "summary": "Reorganized the repository around a short README, a readable delivery overview, local setup, a code map, and grouped documentation. Added a dated progress view and navigation checks; historical reports and detailed evidence remain accessible without dominating the front page.",
+  "impact": "planning",
+  "references": ["README.md", "docs/README.md", "docs/DEVELOPMENT.md", "docs/CODEBASE.md", "docs/STATUS.md", "CONTRIBUTING.md", "deploy/README.md", "docs/decisions/D06.md", "scripts/render.mjs"],
+  "journeys": [],
+  "withdrawn": false
+}
