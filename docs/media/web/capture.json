@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "kind": "frontend-with-synthetic-api",
+  "capturedAt": "2026-10-11T10:12:19.196Z",
+  "sourceCommit": "ed05c6777fa79a2a72969a3bc794385688da99a8",
+  "sourceState": "Working tree captured; sources identifies normalized UTF-8/LF source content, sourceCommit is its base.",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "browser": "msedge",
+  "limitations": "API fixtures supply all data. No backend, Git, authentication or merge acceptance is established.",
+  "sourceHashFormat": "sha256-utf8-lf",
+  "sources": {
+    "apps/web/package-lock.json": "6d7e4c6be878a1506f99bc6875221b159c24bc10047cdf6fd104d91df17cc12a",
+    "apps/web/package.json": "b996d5d2c814ff64cc8ef1d5dbb6ce0be3a1c7595f55acc8dc736cac733a0cfb",
+    "apps/web/src/lib/access-boundary.tsx": "979bcb85deef49ca2167b98fc3c484db2abdbbc1451aa645812dd8de93c8a6e8",
+    "apps/web/src/lib/access-state.ts": "5197b3e3c9a4a4803492499373b0b8b5f2bbcd327d4a5066b831a0f2113ca05f",
+    "apps/web/src/lib/api.ts": "0cf67cf5a320e7191f64d0d1b1032efffaa4e8749293068f2c3cb2fe2761732a",
+    "apps/web/src/lib/barkpark-account.tsx": "9f51cbd671963dd1a3afd4f4ccd8c763d1c320caacf4d5069e5160d2dffa63e1",
+    "apps/web/src/lib/collaboration.tsx": "b6c38ef3a34d2cb0bf336dab1887665cbfcbd75702c76d5086c08b1eed5a04b0",
+    "apps/web/src/lib/criterion-evidence.tsx": "e109431c571777844bc78e25aa068a62f19403091e2f9dbd58c481002c62f2d2",
+    "apps/web/src/lib/discovery.tsx": "4a765d72b76a2ea431f88f7c54bdd24b8c07ef0abb3c6044a401c9756edc207a",
+    "apps/web/src/lib/releases.tsx": "5088bdc0bd0e303e52179a4fb0c4e5c82ba1a840522734bbbae624a496138628",
+    "apps/web/src/lib/repository-import.tsx": "cabfc18aa8858b04b05fc71afd805e137cbddc244d4191ffe9769606f13bfd66",
+    "apps/web/src/lib/source-links.tsx": "99009c166af1078088a815dad19a80883f609d49cf027b792399f935e67871c7",
+    "apps/web/src/lib/source-return-pointers.tsx": "198e545a3e3bcdfb9b61aa0702380591d680d60a684273e98a0e933708c1b596",
+    "apps/web/src/lib/ssh-access.tsx": "314b754efd7055bdeafb8e7c2f52f745b3a2b8a7913057043456d86263ef729a",
+    "apps/web/src/lib/team-members.tsx": "ffa2b3349cc9069f75cc9613e6c6786c918e082edffe6ac72f199fd7951e8a26",
+    "apps/web/src/routeTree.gen.ts": "024b2be2a43ff1ea9b9d68dcc1539203939655fee294e53a2b3f488ed11036c3",
+    "apps/web/src/router.tsx": "f42cfc0f249c456721625916ce5b5863b4b93f35e665b93555785bcb1a5e3194",
+    "apps/web/src/routes/__root.tsx": "bc263b67b0dbad1720bbdf0a0ca8a030808845e55409522849a1a3015cb53238",
+    "apps/web/src/routes/api/$.ts": "c904aa99e9c524618cf218655ddba063a4490c63c8fe2fa2246b86e5ae62848f",
+    "apps/web/src/routes/changes/$id.tsx": "fce71c2d9633a503b22b868733772272da2cb8596b362b89b3f256d494a0e0c5",
+    "apps/web/src/routes/index.tsx": "6fd5aebef28c95c9cfec40ddc0d0202719450ef0d8099e40a70f23507f443145",
+    "apps/web/src/routes/repos/$team/$name.tsx": "b2b789ef18cacfb572e8d5e044790113569c100956c9a2b432de4a1316d815cf",
+    "apps/web/src/routes/repos/$team/$name/operations/$id.tsx": "86063f0ff7ed99e916e50dd1ad7ad643690e2e205888eaa2f629c54bdab9a3a0",
+    "apps/web/src/routes/repos/$team/$name/pulls/$id.tsx": "46b3fa42b5ab79c48e3491b1ddfc5fb3c6de71c867d0d430e0701c82df48d2c1",
+    "apps/web/src/server/forge.ts": "40b18e87bddc72547734fadf551f4e362f989c35934ae39bba57e6903e1eb72c",
+    "apps/web/src/styles.css": "529535790e1bde2e30f80823699d3c822cc13d564666218c4fd474d30107d5b4",
+    "apps/web/tour/animate.py": "c18d270c5fe711d83a6e5f2b8760fa64aa6317cba552717de80b5e06d32a2c95",
+    "apps/web/tour/capture.mjs": "0013d5c51625ded9b63824ff3c365a94e410b6f3c0520fe9fe165afad1610dbf",
+    "apps/web/tour/fixtures.mjs": "ab00e33ee808225504a13c0a819944c38a6624278394329ac6c31813c4a89fb6",
+    "apps/web/tour/requirements.txt": "41b54a6fb2918667ca47a61d73b522629d84490f3d78f0f20b21135faba10d35",
+    "apps/web/vite.config.ts": "06b7e91f3b70353a859af6de80fa52a9ded87ec9c6538922913bc4bd2bf122db"
+  },
+  "artifacts": {
+    "docs/media/web/01-sign-in.png": "f9a3ec7d0a51e8dc71eb3e950ec079b3eb5d843ec1f55bfcbf19cf4826eb7105",
+    "docs/media/web/02-repositories.png": "de8b8bcceaa5ebe38eb007e3b859803c7615b919b5b33356623fb78ca052e2ab",
+    "docs/media/web/03-code.png": "54d90bff54d615615bb0015c293415285851ffa4a44ec3b90046fb6773d8e6d0",
+    "docs/media/web/04-review.png": "238fcf1dc45841bd1bd774d6d7f0d7d6e09a00e059ca24aebd5ccafd4c8f457c",
+    "docs/media/web/05-releases.png": "a7ab0ccc24ad822847d2be3ab3ed4b66abaef4a795d01ceddea9359083a2253c",
+    "docs/media/web/walkthrough.gif": "3eb21dca5f34d2415bfba554691ddadd5459f2858c80c98aec797d7fade35f7b",
+    "docs/media/web/walkthrough.webm": "f6ec033af29747dd301d9ea1877aaf1a9ca93f0fb8cb250e778008a18cf8e9c3",
+    "docs/media/web/walkthrough.cast": "e1a5e798d1dcbaa528e8f348a79c4b6bf6712c27ef1f8d5db004b45066173a34",
+    "docs/media/web/walkthrough.txt": "985a923de9f8acaad7ddbd5f06f7ce4b9594a64702f456be3e30e6c0d4b6c6cf"
+  },
+  "scenes": [
+    {
+      "id": "01-sign-in",
+      "title": "Sign in to a private installation",
+      "screenshot": "docs/media/web/01-sign-in.png",
+      "route": "/"
+    },
+    {
+      "id": "02-repositories",
+      "title": "Find your team repository",
+      "screenshot": "docs/media/web/02-repositories.png",
+      "route": "/"
+    },
+    {
+      "id": "03-code",
+      "title": "Browse code at a pinned commit",
+      "screenshot": "docs/media/web/03-code.png",
+      "route": "/repos/demo/fieldnotes"
+    },
+    {
+      "id": "04-review",
+      "title": "Read a pull request and its diff",
+      "screenshot": "docs/media/web/04-review.png",
+      "route": "/repos/demo/fieldnotes/pulls/17d5ec13-64cd-49a0-a706-6b0ff7b88fc1"
+    },
+    {
+      "id": "05-releases",
+      "title": "Inspect a sample release and its assets",
+      "screenshot": "docs/media/web/05-releases.png",
+      "route": "/repos/demo/fieldnotes"
+    }
+  ]
+}
