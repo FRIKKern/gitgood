@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-record-construction",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Construct bounded native ownership records in the Elixir application from matching captured generation, original database-session and controller-seal values. Verify all four mode outputs against the Python record grammar. Construction grants no live authority; protected publication and complete native startup integration remain required.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-record-construction.md", "apps/forge/lib/gitgood/native_ownership_record.ex"],
+  "withdrawn": false
+}

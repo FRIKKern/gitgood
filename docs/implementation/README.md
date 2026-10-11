@@ -69,6 +69,8 @@ This work connects application processes to their actual host, database and serv
 | Publishing retained ownership without replacing prior responsibility | [Ownership publication](native-ownership-publication.md) |
 | Detecting changed or missing ownership markers | [Ownership marker guard](native-ownership-marker-guard.md) |
 | Keeping the original owner attached to its generation monitor | [Monitor attachment](native-ownership-monitor-attachment.md) |
+| Binding a claim to the captured generation, owner and database session | [Ownership record construction](native-ownership-record-construction.md) |
+| Publishing and attaching ownership before application startup | [Ownership handoff](native-ownership-claim.md) |
 
 ## Verification environment
 

@@ -138,6 +138,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Expose a read-only native operator status command for retained upgrade, activation and retirement responsibility, preserving dead-owner uncertainty and refusing mixed or private-invalid records; live readiness and Cloud inventory remain separate checks.
   Sources: [details 1](tools/deployment/native_operator.py), [details 2](docs/deployment/production.md)
 
+- Connect captured native generation and original database lease to bounded record construction, protected publication and monitor attachment in one non-retrying application handoff. Helper loss or refusal prevents success; complete installed startup and controller reconciliation remain required.
+  Sources: [details 1](docs/implementation/native-ownership-claim.md), [details 2](apps/forge/lib/gitgood/native_ownership_claim.ex)
+
 - Inspect retained native application ownership through read-only custody, preserving uncertain files and refusing replaced storage, directories or records. Inspection grants no replacement, live ownership or readiness authority; controller reconciliation remains required.
   Sources: [details 1](docs/implementation/native-application-ownership.md), [details 2](tools/deployment/native_ownership_records.py)
 
@@ -152,6 +155,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Add durable non-replacing ownership markers, original held-backend and owner-socket observations, a protected fixed publication entry and a bounded Elixir caller with independently sealed candidate/operation admission. Interrupted effects remain retained; prior-owner reconciliation and complete native application integration remain unfinished.
   Sources: [details 1](docs/implementation/native-ownership-publication.md), [details 2](tools/deployment/native_ownership_markers.py), [details 3](tools/deployment/native_ownership_publication_entry.py)
+
+- Construct bounded native ownership records in the Elixir application from matching captured generation, original database-session and controller-seal values. Verify all four mode outputs against the Python record grammar. Construction grants no live authority; protected publication and complete native startup integration remain required.
+  Sources: [details 1](docs/implementation/native-ownership-record-construction.md), [details 2](apps/forge/lib/gitgood/native_ownership_record.ex)
 
 - Remove exactly inventoried native databases and stores under retirement custody, refuse replacement resources and connected clients, and reconcile partial deletion or lost acknowledgements; complete installed retirement remains unfinished.
   Sources: [details 1](tools/deployment/retirement_database.py), [details 2](tools/deployment/retirement_stores.py), [details 3](docs/implementation/installation-retirement.md)
