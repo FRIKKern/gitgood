@@ -1,6 +1,6 @@
 # Private Barkpark accounts
 
-This slice adds backend connection storage, authenticated account APIs and private account settings. Native link records and read UI are implemented in the following slice; see [their contract](barkpark-records.md). External write journals and complete J10 acceptance remain pending; the actual Paper reverse-navigation prototype is separate evidence. The implementation ledger stays unconfigured.
+This reference covers backend connection storage, authenticated account APIs and private account settings. Subsequent layers are described in [native link records](barkpark-records.md) and [journaled Paper return links](barkpark-return-pointers.md). Their component evidence does not establish complete J10 acceptance. The live implementation ledger is configured; see the [tracking contract](../TRACKING.md) and [progress snapshot](../STATUS.md).
 
 ## Connection contract
 
