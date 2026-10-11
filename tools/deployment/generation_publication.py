@@ -7,6 +7,7 @@ from pathlib import Path
 import uuid
 
 from generation_custody import GenerationRecordCustody
+from native_lifecycle_history import NativeLifecycleHistory
 from native_durable_binding import observe_durable_binding, configuration
 from native_service_scope import group_identity, read_bytes, process_identity
 from native_writer_exclusion import NativeWriterExclusion
@@ -84,11 +85,28 @@ class GenerationPublication:
         self.transitions = self.directory / "generation-transitions-v2"
         self.receipts = self.directory / "generation-receipts-v2"
         self.directory_identities = {}
+        self.lifecycle_present = None
 
     def _check(self):
         self.custody.check()
+        present = getattr(self, 'lifecycle_present', None)
+        if present is not None:
+            path = self.directory / 'lifecycle-responsibility-v2'
+            require((path.exists() or path.is_symlink()) == present)
         for path, identity in self.directory_identities.items():
             require(self.custody._identity(path) == identity)
+
+    def _lifecycle_view(self):
+        self._check()
+        path = self.directory / 'lifecycle-responsibility-v2'
+        return NativeLifecycleHistory(self.custody) if path.exists() or path.is_symlink() else None
+
+    def _lifecycle_state(self):
+        view = self._lifecycle_view()
+        try:
+            return (view.references(), view.fingerprint()) if view else ([], None)
+        finally:
+            if view:view.close()
 
     def _observe(self):
         value = observe_durable_binding(str(self.root), self.installation, self.unit, self.executables, **self.options)
@@ -146,7 +164,8 @@ class GenerationPublication:
     def _layout(self):
         # No implicit conversion or restart over legacy/unknown responsibility.
         allowed = {".upgrade-history-lock-v1", "generation-records-v2", "durable-binding-v2.json",
-                   "current-generation-v2.json", "generation-transitions-v2", "generation-receipts-v2"}
+                   "current-generation-v2.json", "generation-transitions-v2", "generation-receipts-v2",
+                   "lifecycle-responsibility-v2"}
         paths = list(itertools.islice(self.directory.iterdir(), 1031))
         require(len(paths) <= 1030)
         for path in paths:
@@ -159,6 +178,16 @@ class GenerationPublication:
                     os.close(descriptor)
             else:
                 require(path.name in allowed)
+        lifecycle = self.directory / 'lifecycle-responsibility-v2'
+        self.lifecycle_present = lifecycle.exists() or lifecycle.is_symlink()
+        if self.lifecycle_present:
+            view = self._lifecycle_view()
+            try:
+                for role in ['lifecycle', 'records', 'heads']:
+                    path = view.paths[role]
+                    self.directory_identities[path] = self.custody._identity(path)
+                view.check()
+            finally:view.close()
         for path in [self.transitions, self.receipts]:
             if not path.exists() and not path.is_symlink():
                 path.mkdir(mode=0o700)
@@ -179,7 +208,7 @@ class GenerationPublication:
                     identifier(entry.name[:-5])
                     self._read(entry)
 
-    def _validate_pointer(self, value, records, seen):
+    def _validate_pointer(self, value, records, seen, lifecycle=None):
         require(type(value) is dict and set(value) == {"protocol", "installation", "operation", "generation_sha256", "transition_sha256"})
         require(type(value["protocol"]) is int and value["protocol"] == 2 and value["installation"] == self.installation)
         identifier(value["operation"])
@@ -191,7 +220,12 @@ class GenerationPublication:
         require(type(transition) is dict and set(transition) == {"protocol", "kind", "installation", "operation", "durable_binding_sha256",
                 "old_pointer", "old_pointer_sha256", "old_generation_sha256", "previous_publication_complete", "new_generation_sha256", "scope", "lifecycle_responsibilities", "created_at"})
         require(type(transition["protocol"]) is int and transition["protocol"] == 2 and transition["kind"] == "resource_generation_transition")
-        require(transition["installation"] == self.installation and transition["lifecycle_responsibilities"] == [])
+        require(transition["installation"] == self.installation)
+        responsibilities = transition['lifecycle_responsibilities']
+        require(type(responsibilities) is list)
+        if responsibilities:
+            require(lifecycle is not None)
+            lifecycle._validate_references(responsibilities, value['generation_sha256'])
         require(sha(transition) == value["transition_sha256"] and transition["operation"] == value["operation"])
         require(transition["new_generation_sha256"] == value["generation_sha256"] and transition["durable_binding_sha256"] == self.expected)
         require(value["generation_sha256"] in records)
@@ -205,7 +239,7 @@ class GenerationPublication:
         else:
             require(type(transition["previous_publication_complete"]) is bool)
             require(transition["old_pointer_sha256"] == sha(old))
-            self._validate_pointer(old, records, seen)
+            self._validate_pointer(old, records, seen, lifecycle)
             if transition["previous_publication_complete"]:
                 require(self._complete(old))
             # A stopped publication may retain a successor before its pointer.
@@ -222,11 +256,24 @@ class GenerationPublication:
         if not self.pointer.exists() and not self.pointer.is_symlink():
             return None
         value = self._read(self.pointer, 16_384)
-        self._validate_pointer(value, self.custody._records(), set())
+        lifecycle = self._lifecycle_view()
+        try:
+            self._validate_pointer(value, self.custody._records(), set(), lifecycle)
+            if lifecycle:lifecycle.check()
+        finally:
+            if lifecycle:lifecycle.close()
         return value
 
     def _inventory(self, records):
         """Every retained operation remains closed responsibility, even off-tip."""
+        lifecycle = self._lifecycle_view()
+        try:
+            self._publication_inventory(records, lifecycle)
+            if lifecycle:lifecycle.check()
+        finally:
+            if lifecycle:lifecycle.close()
+
+    def _publication_inventory(self, records, lifecycle):
         pointers = {}
         transition_paths = list(itertools.islice(self.transitions.iterdir(), 1025))
         receipt_paths = list(itertools.islice(self.receipts.iterdir(), 1025))
@@ -238,7 +285,7 @@ class GenerationPublication:
             require(type(transition) is dict and "new_generation_sha256" in transition)
             pointer = {"protocol": 2, "installation": self.installation, "operation": path.name[:-5],
                        "generation_sha256": transition["new_generation_sha256"], "transition_sha256": sha(transition)}
-            self._validate_pointer(pointer, records, set())
+            self._validate_pointer(pointer, records, set(), lifecycle)
             pointers[pointer["operation"]] = pointer
         for path in receipt_paths:
             if path.name.startswith(".partial-"):
@@ -269,6 +316,7 @@ class GenerationPublication:
                 current = self._current()
                 records = self.custody._records()
                 self._inventory(records)
+                lifecycle_state = self._lifecycle_state()
                 previous = records[current["generation_sha256"]] if current else None
                 if records and (not current or current["operation"] != operation):
                     used = {value["predecessor_sha256"] for value in records.values()}
@@ -287,6 +335,9 @@ class GenerationPublication:
                 if current and current["operation"] == operation:
                     require(previous["generation"] == generation and previous["created_at"] == created_at)
                     require(previous["scope"] == observed["scope"])
+                    if not self._complete(current):
+                        transition = self._read(self.transitions / (operation + '.json'))
+                        require(transition['lifecycle_responsibilities'] == lifecycle_state[0])
                     desired = current
                 else:
                     if previous:
@@ -301,27 +352,36 @@ class GenerationPublication:
                                   "old_generation_sha256": sha(previous) if previous else None,
                                   "previous_publication_complete": self._complete(current) if current else None,
                                   "new_generation_sha256": record_sha, "scope": observed["scope"],
-                                  "lifecycle_responsibilities": [], "created_at": created_at}
+                                  "lifecycle_responsibilities": lifecycle_state[0], "created_at": created_at}
                     request_path = self.transitions / (operation + ".json")
                     if request_path.exists() or request_path.is_symlink():
                         require(self._read(request_path) == transition)
                     require(record_sha in records or len(records) < 128)
                     self.custody.retain(record)
+                    lifecycle = self._lifecycle_view()
+                    try:
+                        if lifecycle:lifecycle.validate_references(lifecycle_state[0], record_sha)
+                    finally:
+                        if lifecycle:lifecycle.close()
+                    require(self._lifecycle_state() == lifecycle_state)
                     self._write(request_path, transition)
                     desired = {"protocol": 2, "installation": self.installation, "operation": operation,
                                "generation_sha256": record_sha, "transition_sha256": sha(transition)}
                     require(self._current() == current)
                     require(self._observe() == observed)
                     lease.check()
+                    require(self._lifecycle_state() == lifecycle_state)
                     self._write(self.pointer, desired, replace=True)
                 # A pointer without this separately retained completion remains
                 # stopped/uncertain. Resume reobserves both exclusions and facts.
                 require(self._observe() == observed)
                 lease.check()
+                require(self._lifecycle_state() == lifecycle_state)
                 self._write(self.receipts / (operation + ".json"),
                             {"protocol": 2, "installation": self.installation, "pointer_sha256": sha(desired), "status": "complete"})
                 require(self._current() == desired and self._complete(desired))
                 require(self._observe() == observed)
                 lease.check()
+                require(self._lifecycle_state() == lifecycle_state)
                 return {"generation_publication_established": True, "installation_readiness_established": False,
                         "pointer": desired, "binding_sha256": self.expected, "scope": observed["scope"]}

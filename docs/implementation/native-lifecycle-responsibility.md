@@ -22,8 +22,9 @@ The store grants no Root authority, current-generation publication, database
 exclusion, stage execution or functional readiness. Its caller must separately
 establish protected inputs, persistent continuity, current service ownership,
 actual OS/database fencing and reconciliation of previous descendants. Existing
-generation publication and worker admission continue to refuse unknown lifecycle
-history until their integration has been implemented and verified.
+generation publication validates and retains explicit snapshot references through
+[lifecycle transitions](native-lifecycle-transitions.md). Unknown history still
+refuses, and worker admission remains closed until stage-specific integration.
 
 Required verification includes ordered stages, retained original inputs, competing
 process refusal, changed/forked ownership, replaced locks/directories, interrupted

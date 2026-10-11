@@ -70,6 +70,29 @@ def generation_owner(record):
             'boot_id': scope['boot_id']}
 
 
+def validate_inventory(rows, heads, *, allow_incomplete=False):
+    """Validate the complete retained graph, including operations off the tip."""
+    operations = {row['operation'] for row in rows.values()}
+    require(len(operations) <= MAX_OPERATIONS)
+    children = {}
+    for key, row in rows.items():
+        previous = row['previous']
+        if previous is None:require(row['events'] == 1)
+        else:
+            require(previous in rows and previous not in children)
+            parent = rows[previous];require((row['operation'], row['origin'], row['events']-1, row['prefix_sha256']) ==
+                                           (parent['operation'], parent['origin'], parent['events'], parent['events_sha256']))
+            children[previous] = key
+    for operation in operations:
+        chain = {key: row for key, row in rows.items() if row['operation'] == operation}
+        require(sum(row['previous'] is None for row in chain.values()) == 1 and len(chain) <= MAX_EVENTS)
+        tips = [key for key in chain if key not in children];require(len(tips) == 1)
+        if operation in heads:require(heads[operation]['snapshot_sha256'] in chain)
+        if not allow_incomplete:require(operation in heads and heads[operation]['snapshot_sha256'] == tips[0])
+    require(set(heads) <= operations)
+    if not allow_incomplete:require(set(heads) == operations)
+
+
 def replay(value, generations):
     """Validate recorded metadata only; a receipt hash proves no stage effect."""
     require(type(value) is dict and set(value) == {'protocol', 'kind', 'origin', 'predecessor_sha256',
@@ -234,7 +257,7 @@ class NativeLifecycleResponsibility:
         return value
 
     def _inventory(self, *, allow_incomplete=False, skip_partials=False):
-        self.check();rows = {};heads = {};operations = set()
+        self.check();rows = {};heads = {}
         for role, maximum in [('records', MAX_RECORDS), ('heads', MAX_OPERATIONS)]:
             names = self._names(role, maximum)
             for name in names:
@@ -247,7 +270,7 @@ class NativeLifecycleResponsibility:
                 if role == 'records':
                     require(re.fullmatch(r'[0-9a-f]{64}\.json', name) and sha(value)+'.json' == name)
                     replay(value, self.generations)
-                    operation = value['origin']['request']['operation'];operations.add(operation)
+                    operation = value['origin']['request']['operation']
                     rows[name[:-5]] = {'operation': operation, 'origin': sha(value['origin']),
                                       'previous': value['predecessor_sha256'], 'events': len(value['events']),
                                       'events_sha256': sha(value['events']), 'prefix_sha256': sha(value['events'][:-1])}
@@ -256,24 +279,7 @@ class NativeLifecycleResponsibility:
                     require(type(value['protocol']) is int and value['protocol'] == 2 and value['kind'] == 'native_lifecycle_head')
                     require(value['installation'] == self.custody.installation and value['operation'] == name[:-5])
                     digest(value['snapshot_sha256']);heads[name[:-5]] = value
-        require(len(operations) <= MAX_OPERATIONS)
-        children = {}
-        for key, row in rows.items():
-            previous = row['previous']
-            if previous is None:require(row['events'] == 1)
-            else:
-                require(previous in rows and previous not in children)
-                parent = rows[previous];require((row['operation'], row['origin'], row['events']-1, row['prefix_sha256']) ==
-                                               (parent['operation'], parent['origin'], parent['events'], parent['events_sha256']))
-                children[previous] = key
-        for operation in operations:
-            chain = {key: row for key, row in rows.items() if row['operation'] == operation}
-            require(sum(row['previous'] is None for row in chain.values()) == 1 and len(chain) <= MAX_EVENTS)
-            tips = [key for key in chain if key not in children];require(len(tips) == 1)
-            if operation in heads:require(heads[operation]['snapshot_sha256'] in chain)
-            if not allow_incomplete:require(operation in heads and heads[operation]['snapshot_sha256'] == tips[0])
-        require(set(heads) <= operations)
-        if not allow_incomplete:require(set(heads) == operations)
+        validate_inventory(rows, heads, allow_incomplete=allow_incomplete)
         self.check();return rows, heads
 
     def _load(self):
