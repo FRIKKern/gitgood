@@ -17,8 +17,11 @@ profile before starting a helper. After the original monitor admits the generati
 it reads the fixed Root protocol-3 seal and private installation configuration
 through `NativeOwnershipInputs`, requires the actual compiled `Gitgood.Build`
 identity to be clean and equal the Root-sealed 40-character candidate, starts the
-original lease, then claims once. Unconfigured, dirty or mismatched builds refuse
-before SQL lease acquisition or ownership publication. This identity comparison
+original lease, then claims once. Before that lease, its
+[application configuration check](native-application-configuration.md) binds
+actual environment and resolved settings to the protected configuration and
+observed Root executable seal. Unconfigured, dirty or mismatched builds and
+configuration refuse before SQL lease acquisition or ownership publication. This identity comparison
 does not replace full archive inspection, installed artifact-byte verification,
 schema checks or functional readiness.
 It keeps original PIDs and the returned claim, never connection credentials. It
@@ -44,21 +47,26 @@ and grants no admission or writer authority. Both original helpers remain linked
 to the startup owner for immediate abnormal-exit propagation. Normal shutdown
 stops the fence before closing the original lease and monitor; records remain.
 
-Current focused verification passes 60 Elixir tests, including the original
+Current focused verification passes 75 Elixir tests, including the original
 ownership tests, normal and abnormal helper loss during blocked owner startup,
 invalid startup refusal before effects, closed constructor options and bounded
-input decoding. Nine additional actual fixed-path input checks run the reader as
-UID 1000 against an isolated Root seal and private configuration fixture. They
-cover permissions, ownership, symlinks, duplicate keys and restored inputs;
+input decoding and the actual application configuration comparison. Twenty
+additional checks run as UID 1000 against isolated Root ownership/generation
+seals and private configuration. They cover permissions, ownership, symlinks,
+duplicate keys, generation digest/identity changes, actual settings mismatches
+and restored inputs. Four startup-order probes retain the actual startup and
+file/configuration readers: three mismatches refuse before a lease attempt and
+one valid control reaches the lease stand-in once. All original fixture helpers
+exit. Service, build and lease dependencies in those four probes are stand-ins;
 the synthetic credential is absent from output. These are component checks.
 
-Four additional independent BEAM fixtures compile the actual `Gitgood.Build`
-module from synthetic clean, mismatched, dirty and absent manifests. They verify
+Earlier independent BEAM fixtures compiled the actual `Gitgood.Build` module in
+four cases with synthetic clean, mismatched, dirty and absent manifests. They verify
 the startup comparison and that replacing the manifest after compilation cannot
 replace the compiled identity. These checks establish this comparison boundary;
 they do not verify an installed release archive or successful protected startup.
 
-Six isolated BEAM fixtures also pass with the actual non-retrying Postgres lease,
+Six earlier isolated BEAM fixtures passed with the actual non-retrying Postgres lease,
 original-helper fence and permanent root supervisor. Normal monitor and lease
 loss during blocked startup, normal monitor and lease loss during runtime, killed
 monitor loss and normal connection loss end the complete BEAM. Independent SQL

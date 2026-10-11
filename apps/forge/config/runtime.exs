@@ -153,4 +153,12 @@ if config_env() == :prod do
     url: [host: host, port: 443, scheme: "https"],
     http: [ip: {127, 0, 0, 1}],
     secret_key_base: System.fetch_env!("SECRET_KEY_BASE")
+
+  if System.get_env("GITGOOD_SUPERVISION_PROFILE") == "systemd-v2" do
+    config :gitgood, Gitgood.Repo, show_sensitive_data_on_connection_error: false
+
+    config :gitgood, GitgoodWeb.Endpoint,
+      url: [port: URI.parse(public_url).port],
+      server: System.get_env("PHX_SERVER") == "true"
+  end
 end

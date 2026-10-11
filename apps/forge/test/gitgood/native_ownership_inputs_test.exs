@@ -38,6 +38,104 @@ defmodule Gitgood.NativeOwnershipInputsTest do
     {configuration, authority, storage, admission}
   end
 
+  defp application_fixture do
+    {_, _, storage, admission} = fixture()
+
+    path =
+      "/etc/gitgood/installations/" <>
+        admission["installation"] <> "/generation-admission-v2.json"
+
+    executables = Map.new(~w(python node git psql caddy), &{&1, "/fixed/" <> &1})
+
+    seal = %{
+      "protocol" => 2,
+      "kind" => "native_generation_admission_seal",
+      "installation" => admission["installation"],
+      "binding_sha256" => admission["binding_sha256"],
+      "history_identity" => %{"device" => 1, "inode" => 2, "uid" => 1000},
+      "lock_identity" => %{"device" => 1, "inode" => 3, "uid" => 1000},
+      "unit_sha256" => String.duplicate("a", 64),
+      "executables" => executables,
+      "limits" => %{"cpu_quota_us" => 200_000, "memory_bytes" => 268_435_456},
+      "database" => admission["database"]
+    }
+
+    raw = Publication.canonical(seal)
+
+    admission =
+      Map.merge(admission, %{
+        "seal_file" => %{
+          "path" => path,
+          "sha256" => Base.encode16(:crypto.hash(:sha256, raw), case: :lower)
+        },
+        "worker_observation" => %{
+          "service_scope" => %{"unit_definition" => %{"sha256" => seal["unit_sha256"]}}
+        }
+      })
+
+    {raw, path, admission, seal, storage}
+  end
+
+  test "application executables come from the exact observed fixed Root seal" do
+    {raw, path, admission, seal, _} = application_fixture()
+    assert {:ok, executables} = Inputs.application_executables(raw, path, admission)
+    assert executables == seal["executables"]
+
+    assert {:error, :native_ownership_inputs_unavailable} =
+             Inputs.application_executables(raw, "/foreign.json", admission)
+
+    assert {:error, :native_ownership_inputs_unavailable} =
+             Inputs.application_executables(raw <> "\n", path, admission)
+
+    assert {:error, :native_ownership_inputs_unavailable} =
+             Inputs.application_executables(
+               raw,
+               path,
+               put_in(admission, ["seal_file", "sha256"], String.duplicate("f", 64))
+             )
+  end
+
+  test "canonical hashes cannot bless wrong unit database binding or dependency sets" do
+    {_, path, admission, seal, _} = application_fixture()
+
+    for changed <- [
+          Map.put(seal, "protocol", true),
+          Map.put(seal, "kind", "legacy"),
+          Map.put(seal, "binding_sha256", String.duplicate("c", 64)),
+          Map.put(seal, "unit_sha256", String.duplicate("c", 64)),
+          put_in(seal, ["database", "role"], "foreign"),
+          put_in(seal, ["executables", "git"], "relative"),
+          put_in(seal, ["executables", "git"], seal["executables"]["python"]),
+          put_in(seal, ["executables", "other"], "/fixed/other"),
+          Map.put(seal, "unknown", true)
+        ] do
+      raw = Publication.canonical(changed)
+
+      admission =
+        put_in(
+          admission,
+          ["seal_file", "sha256"],
+          Base.encode16(:crypto.hash(:sha256, raw), case: :lower)
+        )
+
+      assert {:error, :native_ownership_inputs_unavailable} =
+               Inputs.application_executables(raw, path, admission)
+    end
+
+    duplicate =
+      String.replace(Publication.canonical(seal), "{", "{\"protocol\":2,", global: false)
+
+    admission =
+      put_in(
+        admission,
+        ["seal_file", "sha256"],
+        Base.encode16(:crypto.hash(:sha256, duplicate), case: :lower)
+      )
+
+    assert {:error, :native_ownership_inputs_unavailable} =
+             Inputs.application_executables(duplicate, path, admission)
+  end
+
   test "bounded parsed credentials stay internal and match the admitted local database" do
     {configuration, authority, storage, admission} = fixture()
 

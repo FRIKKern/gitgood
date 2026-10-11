@@ -7,6 +7,7 @@ defmodule Gitgood.NativeOwnershipStartup do
   alias Gitgood.NativeOwnershipClaim, as: Claim
   alias Gitgood.NativeOwnershipFence, as: Fence
   alias Gitgood.NativeOwnershipInputs, as: Inputs
+  alias Gitgood.NativeApplicationConfiguration, as: Configuration
 
   @failure :native_ownership_startup_unavailable
   @keys [:root, :mode]
@@ -28,8 +29,9 @@ defmodule Gitgood.NativeOwnershipStartup do
          {:ok, monitor} <- Monitor.start_link(root: options[:root], mode: options[:mode]),
          {:ok, admission} <- Monitor.admission(monitor),
          true <- admission["installation"] == installation,
-         {:ok, inputs} <- Inputs.read(options[:root], admission),
+         {:ok, inputs} <- Inputs.read_application(options[:root], admission),
          :ok <- validate_artifact(Gitgood.Build.identity(), inputs.authority),
+         :ok <- Configuration.check(inputs, admission, options[:mode]),
          {:ok, lease} <-
            Lease.start_link(database: admission["database"], connection: inputs.connection),
          {:ok, fence} <- Fence.start_link(monitor, lease),

@@ -45,6 +45,61 @@ defmodule Gitgood.NativeOwnershipInputs do
     :exit, _ -> {:error, :native_ownership_inputs_unavailable}
   end
 
+  def read_application(storage, admission) do
+    installation = admission["installation"]
+    path = "/etc/gitgood/installations/" <> installation <> "/generation-admission-v2.json"
+
+    with {:ok, inputs} <- read(storage, admission),
+         {:ok, generation_raw} <- read_file(path, 0, 16_384, nil),
+         {:ok, executables} <- application_executables(generation_raw, path, admission) do
+      {:ok, Map.put(inputs, :executables, executables)}
+    else
+      _ -> {:error, :native_ownership_inputs_unavailable}
+    end
+  rescue
+    _ -> {:error, :native_ownership_inputs_unavailable}
+  end
+
+  @doc false
+  def application_executables(raw, path, admission) do
+    fields =
+      ~w(protocol kind installation binding_sha256 history_identity lock_identity unit_sha256 executables limits database)
+
+    expected =
+      "/etc/gitgood/installations/" <>
+        admission["installation"] <> "/generation-admission-v2.json"
+
+    with true <- path == expected and admission["seal_file"]["path"] == expected,
+         true <-
+           :crypto.hash(:sha256, raw) |> Base.encode16(case: :lower) ==
+             admission["seal_file"]["sha256"],
+         {:ok, seal} <- json(raw),
+         true <- closed?(seal, fields) and Publication.canonical(seal) == raw,
+         true <- seal["protocol"] === 2 and seal["kind"] == "native_generation_admission_seal",
+         true <-
+           seal["installation"] == admission["installation"] and
+             seal["binding_sha256"] == admission["binding_sha256"],
+         true <- seal["database"] == admission["database"],
+         true <-
+           seal["unit_sha256"] ==
+             admission["worker_observation"]["service_scope"]["unit_definition"]["sha256"],
+         executables <- seal["executables"],
+         true <- closed?(executables, ~w(python node git psql caddy)),
+         values <- Map.values(executables),
+         true <- length(Enum.uniq(values)) == 5,
+         true <-
+           Enum.all?(values, fn value ->
+             is_binary(value) and byte_size(value) in 1..4096 and String.starts_with?(value, "/") and
+               not String.contains?(value, <<0>>)
+           end) do
+      {:ok, executables}
+    else
+      _ -> {:error, :native_ownership_inputs_unavailable}
+    end
+  rescue
+    _ -> {:error, :native_ownership_inputs_unavailable}
+  end
+
   @doc false
   def decode(configuration_raw, authority_raw, storage, admission) do
     installation = admission["installation"]
@@ -80,7 +135,7 @@ defmodule Gitgood.NativeOwnershipInputs do
          true <- Publication.canonical(authority) == authority_raw,
          :ok <- Gitgood.InstallationDatabaseSession.validate_database(database),
          {:ok, connection} <- connection(configuration["forge"]["DATABASE_URL"], database) do
-      {:ok, %{authority: authority, connection: connection}}
+      {:ok, %{authority: authority, connection: connection, configuration: configuration}}
     else
       _ -> {:error, :native_ownership_inputs_unavailable}
     end
