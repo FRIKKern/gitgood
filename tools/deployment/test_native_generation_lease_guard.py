@@ -20,13 +20,19 @@ class GenerationLeaseGuardTest(unittest.TestCase):
         self.worker = copy.deepcopy(self.fixture.worker)
         self.metadata = {'fixture': [1, 2, 3]}
         for name, value in [('observe_worker', lambda *a, **kw: copy.deepcopy(self.worker)),
-                            ('persistent_identity', lambda *a: copy.deepcopy(self.fixture.fixture.binding)),
+                            ('persistent_identity', lambda *a, **kw: copy.deepcopy(self.fixture.fixture.binding)),
                             ('persistent_fingerprint', lambda *a: copy.deepcopy(self.metadata))]:
             mock = patch.object(guard, name, value); mock.start(); self.addCleanup(mock.stop)
-        self.subject = guard.NativeGenerationLeaseGuard(self.fixture.open(), worker='native', owner_pid=42)
+        reader = self.fixture.open()
+        # These closed paths are explicit stand-ins, never actual file evidence.
+        reader.executables = {name: '/fixture/' + name for name in ['python', 'node', 'git', 'psql', 'caddy']}
+        self.subject = guard.NativeGenerationLeaseGuard(reader, worker='native', owner_pid=42)
         # Root file content custody has separate actual root-fixture tests.
         # The service observation here deliberately remains a stand-in.
         mock = patch.object(self.subject.root_files, 'freeze', return_value=None)
+        mock.start(); self.addCleanup(mock.stop)
+        # Executable content custody has separate actual Root filesystem checks.
+        mock = patch.object(self.subject.executable_files, 'freeze', return_value=None)
         mock.start(); self.addCleanup(mock.stop)
         for name, value in [('_observe_service', lambda *a, **kw: copy.deepcopy(self.worker['service_scope'])),
                             ('_ancestry', lambda *a: [copy.deepcopy(self.worker['caller']), copy.deepcopy(self.worker['owner'])])]:
@@ -127,6 +133,14 @@ class GenerationLeaseGuardTest(unittest.TestCase):
             with self.assertRaises(guard.GenerationLeaseGuardRefused): self.subject.capture()
         self.assertFalse(self.subject.usable)
         self.assertIsNone(self.subject.reader.custody.lock)
+
+    def test_both_persistent_observations_share_original_executable_custody(self):
+        value = copy.deepcopy(self.fixture.fixture.binding)
+        with patch.object(guard, 'persistent_identity', return_value=value) as observe:
+            self.subject.capture()
+        self.assertEqual(observe.call_count, 2)
+        for call in observe.call_args_list:
+            self.assertIs(call.kwargs['_executable_files'], self.subject.executable_files)
 
     def test_initial_partial_responsibility_refuses_without_cleanup(self):
         path = self.fixture.fixture.history / '.partial-initial-uncertain'

@@ -101,7 +101,71 @@ def executable(path):
             "bytes": before.st_size, "sha256": digest}
 
 
-def persistent_identity(root, scope, executables):
+class _CapturedExecutableDigests:
+    """One capture's streamed hashes, bound to unchanged Root file metadata.
+
+    Retains digests only. Both persistent observations still read configuration,
+    keys and the live database. Any changed path or metadata poisons this object.
+    """
+    def __init__(self, paths):
+        require(type(paths) is dict and set(paths) == {"python", "node", "git", "psql", "caddy"})
+        require(all(type(path) is str and 0 < len(path) <= 4096 and
+                    Path(path).is_absolute() and "\0" not in path for path in paths.values()))
+        require(len(set(paths.values())) == 5)
+        self.paths = dict(paths)
+        self.files = {}
+        self.usable = True
+        self.frozen = False
+
+    def close(self):
+        self.usable = False
+
+    @staticmethod
+    def _fingerprint(raw):
+        path = Path(raw).resolve(strict=True)
+        parents = []
+        for parent in path.parents:
+            info = parent.lstat()
+            require(parent.resolve(strict=True) == parent and stat.S_ISDIR(info.st_mode))
+            require(info.st_uid == 0 and not info.st_mode & 0o022)
+            parents.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_mode))
+        info = path.lstat()
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1)
+        require(info.st_mode & 0o111 and not info.st_mode & 0o022 and 0 < info.st_size <= 268435456)
+        fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns", "st_uid", "st_mode", "st_nlink")
+        return str(path), tuple(getattr(info, field) for field in fields), tuple(parents)
+
+    def read(self, path):
+        try:
+            require(self.usable and type(path) is str and path in self.paths.values())
+            fingerprint = self._fingerprint(path)
+            if path not in self.files:
+                require(not self.frozen and len(self.files) < 5)
+                value = executable(path)
+                require((value['path'], value['device'], value['inode'], value['bytes']) ==
+                        (fingerprint[0], *fingerprint[1][:3]))
+                require(self._fingerprint(path) == fingerprint)
+                self.files[path] = (fingerprint, value)
+            original, value = self.files[path]
+            require(fingerprint == original)
+            require(self._fingerprint(path) == original)
+            return dict(value)
+        except BaseException:
+            self.close()
+            raise
+
+    def freeze(self):
+        try:
+            require(self.usable and len(self.files) == 5)
+            for path in self.paths.values():
+                self.read(path)
+            self.frozen = True
+        except BaseException:
+            self.close()
+            raise
+
+
+def persistent_identity(root, scope, executables, *, _executable_files=None):
     """Observe allocated persistent resources; service admission is separate."""
     validate_scope(scope)
     uid = scope["uid"]
@@ -123,9 +187,11 @@ def persistent_identity(root, scope, executables):
     keys = {name: private_file(root / "ssh-host" / name, uid)[0] for name in ["ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"]}
     require({item.name for item in (root / "ssh-host").iterdir()} == set(keys))
     require(type(executables) is dict and set(executables) == {"python", "node", "git", "psql", "caddy"})
+    require(_executable_files is None or
+            (type(_executable_files) is _CapturedExecutableDigests and _executable_files.paths == executables))
     binaries = {}
     for name, path in executables.items():
-        binaries[name] = executable(path)
+        binaries[name] = executable(path) if _executable_files is None else _executable_files.read(path)
     require(len({(item["device"], item["inode"]) for item in binaries.values()}) == 5)
     database = observe_durable_database(binaries["psql"]["path"], database_url)
     return {"protocol": 2, "kind": "durable_installation_binding", "installation": scope["installation"],

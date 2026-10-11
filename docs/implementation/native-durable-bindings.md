@@ -13,7 +13,15 @@ It observes the installation beneath the fixed root-controlled
 identities, configuration and SSH-key file identities/checksums, root-controlled
 machine identity/OS profile and five root-controlled executable identities form
 the persistent record. Two complete observations must match, bracketed by
-unchanged actual service admission. Boot, controller birth and cgroup identities
+unchanged actual service admission. The generation guard streams each of the
+five executable hashes once within its capture, then reuses only that digest
+while repeatedly verifying the original canonical path, file identity,
+nanosecond ctime/mtime, size, owner, mode, links and protected parent identities.
+Configuration, keys and live database identity are observed on both passes.
+The standalone persistent observer still hashes executables on every call.
+Changed or unavailable executable custody permanently refuses; it cannot
+recapture or adopt a replacement. No bytes or digests survive into another
+guard. Boot, controller birth and cgroup identities
 remain exclusively in the resource generation.
 
 The existing configuration format stays unchanged. No protocol-1 journal or
