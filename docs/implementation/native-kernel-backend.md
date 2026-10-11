@@ -47,7 +47,22 @@ records, scope changes, nested PID mappings, permission failures, SQL/kernel
 bracketing and PID reuse without adoption. Actual ordinary Linux process tests
 exercise live-child refusal, zombie refusal and disappearance after reaping.
 These process tests do not prove that a real PostgreSQL backend is bound;
-an actual held-session capture/normal-exit proof remains required.
+the separate actual PostgreSQL proof supplies that component evidence.
+
+Seven real PostgreSQL/kernel checks pass with two actual ordinary-role BEAM
+lease owners. A Root fixture independently observes the actual listener's
+boot/PID namespace, account and pinned PostgreSQL executable. Each owner's
+original socket/held session/kernel birth is captured while live; live absence
+refuses; normal owner exit establishes both SQL and kernel absence. A second
+holder of the same advisory key remains untouched while the first original is
+observed absent. The original record bytes and all seven tested source digests
+remain unchanged. The first harness attempt refused before launching a BEAM
+because an ordinary actor could not read Root-private VM preflight inputs; it
+is retained. The corrected Root preflight exports only non-secret quiescence
+facts and then runs the proof as the ordinary actor, without widening fixture
+permissions. The existing stopped VM's original group/process absence is
+verified before this proof. Actual PID reuse, installed identity custody and
+complete native recovery remain unverified.
 
 Kernel field meanings come from the official
 [procfs documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html).
