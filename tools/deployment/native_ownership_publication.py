@@ -11,7 +11,8 @@ import sys
 from native_durable_binding import configuration
 from native_durable_database import unique
 from native_generation_monitor import open_guard
-from native_ownership_database import observe_held_session
+from native_backend_scope import NativeBackendScope
+from native_kernel_backend import observe_held_backend_kernel_identity
 from native_ownership_markers import NativeOwnershipMarkers
 from native_ownership_records import OwnershipRecordRefused, validate_record
 from native_service_scope import root_file
@@ -27,7 +28,7 @@ def parse_request(raw):
     require(type(raw) is bytes and 0<len(raw)<=32768 and b'\0' not in raw)
     request = json.loads(raw,object_pairs_hook=unique)
     require(type(request) is dict and set(request)=={'protocol','record'})
-    require(type(request['protocol']) is int and request['protocol']==2)
+    require(type(request['protocol']) is int and request['protocol']==3)
     require(raw==canonical(request))
     validate_record(request['record'])
     return request['record']
@@ -39,14 +40,16 @@ def publish_request(raw):
         record = parse_request(raw)
         installation = record['installation']
         worker = 'native' if record['mode']=='runtime' else 'maintenance'
-        seal_path = Path('/etc/gitgood/installations')/installation/'ownership-admission-v2.json'
+        seal_path = Path('/etc/gitgood/installations')/installation/'ownership-admission-v3.json'
         seal_file,sealed = root_file(seal_path,16384)
         authority = json.loads(sealed,object_pairs_hook=unique)
         require(sealed==canonical(authority))
         require(type(authority) is dict and set(authority)=={'protocol','kind','installation','operation','candidate','binding_sha256'})
-        require(type(authority['protocol']) is int and authority['protocol']==2)
+        require(type(authority['protocol']) is int and authority['protocol']==3)
         require(authority['kind']=='native_application_ownership_seal')
         require(all(authority[key]==record[key] for key in ['installation','operation','candidate','binding_sha256']))
+        backend_scope=NativeBackendScope(installation,record['scope']['boot_id'])
+        require(backend_scope.check()==record['backend_kernel']['server_scope'])
         guard_request = canonical({'protocol':2,'installation':installation,'worker':worker,'owner_pid':record['owner']['pid']})
         guard,request,seal,admission_identity,admission_bytes = open_guard(guard_request)
         captured = guard.capture()
@@ -77,21 +80,23 @@ def publish_request(raw):
         def session():
             files,url = configuration(root,installation,record['scope']['uid'])
             require(files==binding['configuration'])
-            result = observe_held_session(seal['executables']['psql'],url,record['database_session'],seal['database'],owner=owner)
+            result = observe_held_backend_kernel_identity(seal['executables']['psql'],url,record['backend_kernel'],seal['database'],backend_scope.check(),owner=owner)
             require(result['owner_connection_observed'] and result['lease_acquired'] is False)
+            require(result['original_backend_kernel_observed'] is True)
             require(configuration(root,installation,record['scope']['uid'])==(files,url))
             return result
         def current():
             require(guard.check()['current'] is True)
             require(root_file(seal_path,16384)==(seal_file,sealed))
             require(root_file(Path(admission_identity['path']),16384)==(admission_identity,admission_bytes))
+            require(backend_scope.check()==record['backend_kernel']['server_scope'])
         current();session();current()
         custody.retain(record)
         current();session();current()
         result = custody.publish(record)
         current();session();current()
         require(custody.inspect()['records']==[record])
-        return {'protocol':2,'status':'retained',**result,'writer_exclusion_established':False,
+        return {'protocol':3,'status':'retained',**result,'writer_exclusion_established':False,
                 'lifecycle_responsibility_admitted':False}
     finally:
         if guard is not None:
@@ -108,7 +113,7 @@ def main():
         sys.stdout.buffer.write(value+b'\n');sys.stdout.buffer.flush()
         return 0
     except Exception:
-        sys.stdout.buffer.write(b'{"protocol":2,"status":"refused"}\n');sys.stdout.buffer.flush()
+        sys.stdout.buffer.write(b'{"protocol":3,"status":"refused"}\n');sys.stdout.buffer.flush()
         return 1
 
 

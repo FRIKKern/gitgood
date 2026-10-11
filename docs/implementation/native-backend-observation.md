@@ -60,9 +60,9 @@ pass. Required CI remains a separate integration gate. An earlier run omitted
 the database-profile flag and skipped 54 tests; its result is retained alongside
 the corrected run, rather than substituting those skips for database coverage.
 
-Required follow-on work is independently sealed allocator enrollment, immutable
-retention of this identity with ownership, protected publisher recapture,
-original monitor/lease/claim integration, complete application abort on loss and
-controller reconciliation before replacement. Existing ownership records and
-the native startup gate remain unchanged. Existing records are not rewritten
-or silently upgraded by observation.
+The [protocol-3 ownership integration](native-kernel-ownership.md) now requires
+immutable retention of this identity, independent protected publisher checks
+and original monitor/lease/claim handoff. Independently sealed product allocator
+enrollment, installed handoff, complete application abort on loss and controller
+reconciliation before replacement remain required. The native startup gate stays
+closed. Existing records are not rewritten or silently upgraded by observation.

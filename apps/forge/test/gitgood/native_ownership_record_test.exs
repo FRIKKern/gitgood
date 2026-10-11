@@ -6,7 +6,7 @@ defmodule Gitgood.NativeOwnershipRecordTest do
   defp fixture(mode \\ :runtime) do
     record =
       __DIR__
-      |> Path.join("../fixtures/native_ownership_record.json")
+      |> Path.join("../fixtures/native_ownership_record_v3.json")
       |> File.read!()
       |> Jason.decode!()
       |> put_in(["owner", "pid"], String.to_integer(System.pid()))
@@ -57,18 +57,28 @@ defmodule Gitgood.NativeOwnershipRecordTest do
   defp digest(value),
     do: :crypto.hash(:sha256, Publication.canonical(value)) |> Base.encode16(case: :lower)
 
+  defp fixture_kernel do
+    __DIR__
+    |> Path.join("../fixtures/native_ownership_record_v3.json")
+    |> File.read!()
+    |> Jason.decode!()
+    |> Map.fetch!("backend_kernel")
+  end
+
   defp refused(context, session, seal, mode \\ :runtime) do
     assert {:error, :native_ownership_record_unavailable} =
-             Record.build(context, session, seal, mode)
+             Record.build(context, session, fixture_kernel(), seal, mode)
   end
 
   test "constructs the closed reference record with the actual calling owner" do
     {context, session, seal, expected} = fixture()
-    assert {:ok, ^expected} = Record.build(context, session, seal, :runtime)
+
+    assert {:ok, ^expected} =
+             Record.build(context, session, expected["backend_kernel"], seal, :runtime)
 
     assert MapSet.new(Map.keys(expected)) ==
              MapSet.new(
-               ~w(protocol kind installation operation candidate mode binding_sha256 pointer scope owner database_session guard)
+               ~w(protocol kind installation operation candidate mode binding_sha256 pointer scope owner database_session guard backend_kernel)
              )
 
     assert {:ok, _, _} = Publication.request(expected, String.to_integer(System.pid()))
@@ -77,7 +87,10 @@ defmodule Gitgood.NativeOwnershipRecordTest do
   test "maintenance modes require the maintenance worker and its matching guard" do
     for mode <- [:backup, :restore, :migrate] do
       {context, session, seal, expected} = fixture(mode)
-      assert {:ok, ^expected} = Record.build(context, session, seal, mode)
+
+      assert {:ok, ^expected} =
+               Record.build(context, session, expected["backend_kernel"], seal, mode)
+
       refused(context, session, seal, :runtime)
     end
   end
@@ -191,5 +204,26 @@ defmodule Gitgood.NativeOwnershipRecordTest do
       )
 
     refused(changed, session, seal)
+  end
+
+  test "kernel identity is mandatory and matches original SQL session and service boot" do
+    {context, session, seal, expected} = fixture()
+    kernel = expected["backend_kernel"]
+
+    for changed <- [
+          nil,
+          Map.delete(kernel, "kernel_birth"),
+          Map.put(kernel, "kernel_birth", "0"),
+          put_in(kernel, ["database_session", "backend_pid"], session["backend_pid"] + 1),
+          put_in(kernel, ["server_scope", "boot_id"], "11111111-1111-4111-8111-111111111111"),
+          Map.put(kernel, "protocol", 2.0),
+          Map.put(kernel, "extra", true)
+        ] do
+      assert {:error, :native_ownership_record_unavailable} =
+               Record.build(context, session, changed, seal, :runtime)
+    end
+
+    assert {:error, :native_ownership_record_unavailable} =
+             Record.build(context, session, kernel, Map.put(seal, "protocol", 2), :runtime)
   end
 end

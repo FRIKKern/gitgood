@@ -22,6 +22,33 @@ class KernelBackendBoundaryTest(unittest.TestCase):
         return copy.deepcopy({'protocol': 2, 'kind': 'native_backend_kernel_identity',
                               'server_scope': SCOPE, 'database_session': SNAPSHOT, 'kernel_birth': '450'})
 
+    def test_retained_kernel_birth_brackets_one_fresh_original_sql_observation(self):
+        order=[];record=self.record();before=copy.deepcopy(record)
+        with patch.object(kernel,'_check_scope',side_effect=lambda *a:order.append('scope')), \
+             patch.object(kernel,'_capture_process',side_effect=lambda *a:(order.append('process') or '450')), \
+             patch.object(kernel,'observe_held_session',side_effect=lambda *a,**kw:(order.append('session') or {'owner_connection_observed':True,'lease_acquired':False})):
+            result=kernel.observe_held_backend_kernel_identity('/trusted/psql',URL,record,GOOD,SCOPE)
+        self.assertEqual(order,['scope','process','session','process','scope'])
+        self.assertTrue(result['original_backend_kernel_observed'])
+        self.assertFalse(result['replacement_admitted']);self.assertFalse(result['lease_acquired'])
+        self.assertEqual(record,before)
+
+    def test_changed_or_lost_original_kernel_birth_refuses_without_adoption(self):
+        for sequence in [['451'],['450','451'],[FileNotFoundError()],['450',PermissionError()]]:
+            with self.subTest(sequence=len(sequence)),patch.object(kernel,'_check_scope'), \
+                 patch.object(kernel,'_capture_process',side_effect=sequence), \
+                 patch.object(kernel,'observe_held_session',return_value={'owner_connection_observed':True,'lease_acquired':False}) as sql:
+                with self.assertRaises(DatabaseRefused):kernel.observe_held_backend_kernel_identity('/trusted/psql',URL,self.record(),GOOD,SCOPE)
+            self.assertEqual(sql.call_count,1 if len(sequence)==2 else 0)
+
+    def test_lost_original_socket_or_lease_refuses_before_second_kernel_read(self):
+        for value in [DatabaseRefused(),{'owner_connection_observed':False,'lease_acquired':False},
+                      {'owner_connection_observed':True,'lease_acquired':True},{}]:
+            with patch.object(kernel,'_check_scope'),patch.object(kernel,'_capture_process',return_value='450') as process, \
+                 patch.object(kernel,'observe_held_session',side_effect=[value]):
+                with self.assertRaises(DatabaseRefused):kernel.observe_held_backend_kernel_identity('/trusted/psql',URL,self.record(),GOOD,SCOPE)
+            self.assertEqual(process.call_count,1)
+
     def test_capture_brackets_kernel_identity_with_original_held_session(self):
         with patch.object(kernel, '_check_scope') as scope, \
              patch.object(kernel, 'observe_held_session') as held, \

@@ -40,14 +40,16 @@ process signal, advisory lock acquisition, marker/journal write or readiness
 claim. The combined result explicitly withholds owner/descendant absence,
 writer exclusion and replacement admission. It cannot authorize reboot recovery;
 that still needs independently observed persistent continuity and a generation
-transition. The application ownership format and native startup gate are
-unchanged. Production admission/retention of this extra identity and complete
-controller/lifecycle integration remain required.
+transition. [Protocol-3 ownership](native-kernel-ownership.md) requires retention
+of this identity and its fresh original-birth checks. The native startup gate
+stays closed; installed admission and complete controller/lifecycle integration
+remain required.
 
 The [protected backend observation bridge](native-backend-observation.md)
 provides a fixed worker request and a separate Root-protected per-boot scope
-contract. It supplies no allocator enrollment, ownership retention or replacement
-authority; those integrations remain required.
+contract. It supplies no allocator enrollment or replacement authority. The
+ownership integration retains its result and independently rechecks it before
+effects; installed execution remains required.
 
 Component tests cover lost leases, changed kernel births, malformed and aliased
 records, scope changes, nested PID mappings, permission failures, SQL/kernel

@@ -11,7 +11,9 @@ publication receipt. Its record checksum, marker checksum and operation determin
 the exact expected ownership acknowledgement. The record must match the monitor's
 original pointer, binding, service scope, owner and guard checksums. The protected
 Python observer independently verifies the original live session, owner socket,
-Root seals and marker custody before acknowledging.
+Root seals, retained original backend kernel birth and marker custody before acknowledging.
+The immutable acknowledgement includes the nested kernel-record checksum and
+explicit original-kernel observation. See [current ownership versions](native-kernel-ownership.md).
 
 Attachment has a separate three-second deadline. Existing generation heartbeats
 cannot extend it. A partial frame cannot renew freshness or acknowledge ownership.

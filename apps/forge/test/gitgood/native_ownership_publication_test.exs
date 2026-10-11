@@ -3,21 +3,16 @@ defmodule Gitgood.NativeOwnershipPublicationTest do
   alias Gitgood.NativeOwnershipPublication, as: Publication
 
   defp record do
-    Map.new(
-      ~w(protocol kind installation operation candidate mode binding_sha256 pointer scope owner database_session guard),
-      &{&1, %{}}
-    )
-    |> Map.merge(%{
-      "protocol" => 2,
-      "kind" => "native_application_ownership",
-      "mode" => "runtime",
-      "owner" => %{"pid" => 42}
-    })
+    __DIR__
+    |> Path.join("../fixtures/native_ownership_record_v3.json")
+    |> File.read!()
+    |> Jason.decode!()
+    |> put_in(["owner", "pid"], 42)
   end
 
   defp reply do
     %{
-      "protocol" => 2,
+      "protocol" => 3,
       "status" => "retained",
       "ownership_marker_retained" => true,
       "operation" => "operation",
@@ -49,7 +44,7 @@ defmodule Gitgood.NativeOwnershipPublicationTest do
 
   test "request is closed and bound to the actual calling owner" do
     assert {:ok, request, digest} = Publication.request(record(), 42)
-    assert Jason.decode!(request) == %{"protocol" => 2, "record" => record()}
+    assert Jason.decode!(request) == %{"protocol" => 3, "record" => record()}
 
     assert digest ==
              :crypto.hash(:sha256, Publication.canonical(record())) |> Base.encode16(case: :lower)
@@ -58,6 +53,9 @@ defmodule Gitgood.NativeOwnershipPublicationTest do
           Map.put(record(), "command", "ignored"),
           Map.delete(record(), "guard"),
           Map.put(record(), "protocol", 2.0),
+          Map.put(record(), "protocol", 2),
+          Map.delete(record(), "backend_kernel"),
+          put_in(record(), ["backend_kernel", "kernel_birth"], "0"),
           Map.put(record(), "mode", "arbitrary"),
           put_in(record(), ["owner", "pid"], 43)
         ] do
@@ -95,7 +93,8 @@ defmodule Gitgood.NativeOwnershipPublicationTest do
           Map.put(reply(), "marker_sha256", "invalid"),
           Map.put(reply(), "extra", true),
           Map.delete(reply(), "replacement_admitted"),
-          Map.put(reply(), "ownership_marker_retained", false)
+          Map.put(reply(), "ownership_marker_retained", false),
+          Map.put(reply(), "protocol", 2)
         ] do
       assert :error = Publication.validate_reply(changed, "operation", String.duplicate("a", 64))
     end

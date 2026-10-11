@@ -7,7 +7,8 @@ protected publisher. It accepts two distinct live local PIDs and one fixed runti
 or maintenance mode. It resolves no process name and starts no replacement helper.
 
 The handoff obtains fresh ownership context and a checked original session snapshot,
-constructs the bounded record, calls the protected publisher and attaches its receipt
+obtains the protected original backend kernel observation, checks both original
+helpers, constructs the bounded protocol-3 record, calls the protected publisher and attaches its receipt
 to the same monitor. Both original helpers must still pass their current checks
 before success returns. The supplied seal map grants no authority: the protected
 publisher must observe its actual Root seal and original service/session/storage.
@@ -16,8 +17,11 @@ There is one attempt. A failure may follow immutable-record or marker retention;
 the caller must end the startup owner and preserve those effects for independent
 controller reconciliation. This function removes nothing, reconnects nothing and
 provides no retry, replacement, lifecycle or functional-readiness decision. Calling
-it again is not an ownership-attachment retry protocol.
+it again is not an ownership-attachment retry protocol. See the
+[current retained kernel identity contract](native-kernel-ownership.md).
 
+The following precommit results are historical for the earlier SQL-only claim;
+current revision verification is recorded in the kernel ownership contract.
 Four process-protocol tests cover early monitor refusal, lost original session,
 dead/aliased/unsupported helper inputs and invalid captured values. Their helpers
 are explicit GenServer stand-ins. All four pass in a standalone Elixir runner using

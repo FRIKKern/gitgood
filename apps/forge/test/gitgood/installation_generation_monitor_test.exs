@@ -197,6 +197,8 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
       "marker_sha256" => String.duplicate("e", 64),
       "ownership_marker_observed" => true,
       "original_database_session_observed" => true,
+      "original_backend_kernel_observed" => true,
+      "kernel_record_sha256" => String.duplicate("f", 64),
       "owner_socket_observed" => true,
       "lease_acquired" => false,
       "replacement_admitted" => false,
@@ -238,6 +240,16 @@ defmodule Gitgood.InstallationGenerationMonitorTest do
           current(),
           Map.put(current(), "ownership", %{}),
           Map.put(current(), "ownership", Map.put(ownership(), "lease_acquired", true)),
+          Map.put(
+            current(),
+            "ownership",
+            Map.put(ownership(), "original_backend_kernel_observed", false)
+          ),
+          Map.put(
+            current(),
+            "ownership",
+            Map.put(ownership(), "kernel_record_sha256", String.duplicate("a", 64))
+          ),
           Map.put(
             current(),
             "ownership",

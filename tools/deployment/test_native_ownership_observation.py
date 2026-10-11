@@ -1,5 +1,6 @@
 """Service/session stand-ins; real filesystem and database/socket tests are separate."""
 import copy
+import hashlib
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -25,20 +26,23 @@ class OwnershipObservationOrderingTest(unittest.TestCase):
         def generation():
             self.calls.append('generation');return {'current':True,**self.record['guard']}
         self.guard=SimpleNamespace(snapshot={'binding':self.binding},check=generation)
-        self.authority={'protocol':2,'kind':'native_application_ownership_seal',
+        self.authority={'protocol':3,'kind':'native_application_ownership_seal',
             **{name:self.record[name] for name in ['installation','operation','candidate','binding_sha256']}}
         def root_file(path,maximum):return {'path':str(path)},canonical(self.authority)
         def session(*args,**kwargs):
             self.calls.append('session')
             self.assertEqual(kwargs['owner'],{name:self.record['owner'][name] for name in ['pid','birth','uid']})
-            return {'owner_connection_observed':True,'lease_acquired':False}
+            self.assertEqual(args[2],self.record['backend_kernel'])
+            self.assertEqual(args[4],self.record['backend_kernel']['server_scope'])
+            return {'owner_connection_observed':True,'lease_acquired':False,'original_backend_kernel_observed':True}
         def custody_check():
             self.calls.append('custody');return {'record_sha256':'a'*64,'marker_sha256':'b'*64}
         def close():self.closed=True
         self.custody=SimpleNamespace(check=custody_check,close=close)
         mocks=[patch.object(observations,'root_file',side_effect=root_file),
             patch.object(observations,'configuration',return_value=(self.files,'postgresql://private-fixture')),
-            patch.object(observations,'observe_held_session',side_effect=session),
+            patch.object(observations,'observe_held_backend_kernel_identity',side_effect=session),
+            patch.object(observations,'NativeBackendScope',return_value=SimpleNamespace(check=lambda:copy.deepcopy(self.record['backend_kernel']['server_scope']))),
             patch.object(observations,'NativeOwnershipMarkerGuard',return_value=self.custody)]
         for mocked in mocks:mocked.start();self.addCleanup(mocked.stop)
 
@@ -51,6 +55,8 @@ class OwnershipObservationOrderingTest(unittest.TestCase):
         self.assertEqual(self.calls,['generation','session','custody','generation','custody'])
         self.assertTrue(value['ownership']['original_database_session_observed'])
         self.assertTrue(value['ownership']['owner_socket_observed'])
+        self.assertTrue(value['ownership']['original_backend_kernel_observed'])
+        self.assertEqual(value['ownership']['kernel_record_sha256'],hashlib.sha256(canonical(self.record['backend_kernel'])).hexdigest())
         for name in ['lease_acquired','replacement_admitted','installation_readiness_established','lifecycle_responsibility_admitted']:
             self.assertFalse(value['ownership'][name])
 
@@ -75,10 +81,24 @@ class OwnershipObservationOrderingTest(unittest.TestCase):
         with self.assertRaises(ValueError):subject.check()
         self.assertEqual(self.calls,[])
 
+    def test_original_kernel_birth_loss_is_terminal_without_recapture(self):
+        subject=self.attach();self.calls.clear()
+        with patch.object(observations,'observe_held_backend_kernel_identity',side_effect=ValueError('kernel birth loss')):
+            with self.assertRaises(ValueError):subject.check()
+        self.assertTrue(subject.poisoned);self.assertTrue(self.closed)
+        self.assertEqual(self.calls,['generation'])
+        with self.assertRaises(ValueError):subject.check()
+
+    def test_changed_protected_server_scope_refuses_before_fresh_sql_or_custody(self):
+        subject=self.attach();self.calls.clear()
+        with patch.object(subject.backend_scope,'check',return_value={**self.record['backend_kernel']['server_scope'],'postgres_uid':1002}):
+            with self.assertRaises(ValueError):subject.check()
+        self.assertTrue(subject.poisoned);self.assertEqual(self.calls,[])
+
     def test_original_backend_loss_or_borrowed_socket_stops_before_custody(self):
         for changed in [{'owner_connection_observed':False,'lease_acquired':False},{'owner_connection_observed':True,'lease_acquired':True}]:
             subject=self.attach();self.calls.clear()
-            with patch.object(observations,'observe_held_session',return_value=changed):
+            with patch.object(observations,'observe_held_backend_kernel_identity',return_value=changed):
                 with self.assertRaises(ValueError):subject.check()
             self.assertTrue(subject.poisoned);self.assertEqual(self.calls,['generation'])
 
@@ -111,7 +131,7 @@ class OwnershipObservationOrderingTest(unittest.TestCase):
 
     def test_failed_original_session_prevents_initial_marker_open(self):
         with patch.object(observations,'NativeOwnershipMarkerGuard') as factory:
-            with patch.object(observations,'observe_held_session',return_value={'owner_connection_observed':False,'lease_acquired':False}):
+            with patch.object(observations,'observe_held_backend_kernel_identity',return_value={'owner_connection_observed':False,'lease_acquired':False}):
                 with self.assertRaises(ValueError):self.attach()
             factory.assert_not_called()
         self.assertEqual(self.calls,['generation'])

@@ -15,7 +15,7 @@ A native forge connecting requirements, tasks, code review, evidence, and releas
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — development.** 123 pending changelog entries (84 added, 13 changed, 25 fixed, 1 security). See the [full development changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
+**Unreleased — development.** 124 pending changelog entries (84 added, 14 changed, 25 fixed, 1 security). See the [full development changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
 <!-- whats-new:end -->
 
 ## Start here

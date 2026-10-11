@@ -60,7 +60,7 @@ installed module custody before importing publication code. Its canonical,
 bounded request has only protocol and the complete closed ownership record.
 It accepts no executable, shell, environment, database URL, seal path or SQL.
 
-A separate Root-controlled `ownership-admission-v2.json` must contain exactly
+A separate Root-controlled protocol-3 `ownership-admission-v3.json` must contain exactly
 protocol, kind, installation, ownership operation, candidate and durable binding
 digest. The kind is `native_application_ownership_seal`; the operation and candidate
 must match the request. Creating this seal belongs to the forthcoming constrained
@@ -73,7 +73,13 @@ configuration supplies the connection URL. Original owner/socket/session observa
 generation checks and both Root seal identities bracket record retention and marker
 publication. Refusal after an effect retains that effect and reports no completion.
 
-Nine boundary/order tests pass with explicit service/database stand-ins. They verify
+The protocol-3 record also retains the original backend kernel identity. A
+separately Root-controlled per-boot scope and original process-birth checks
+bracket SQL/socket observation and every effect. No current birth can replace
+the retained one. The [current kernel ownership contract](native-kernel-ownership.md)
+defines versions, legacy preservation and current component verification.
+
+Earlier SQL-only boundary/order tests passed with explicit service/database stand-ins. They verified
 closed requests, candidate/operation mismatch, changed owner, prior responsibility,
 borrowed backend refusal, and preserved effects after session loss. Actual protected
 entry execution, Root controller seal creation and native BEAM linkage remain required.

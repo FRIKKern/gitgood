@@ -1,8 +1,10 @@
 """Attach read-only ownership custody to an already captured generation guard."""
 import json
+import hashlib
 from pathlib import Path
 
-from native_ownership_database import observe_held_session
+from native_backend_scope import NativeBackendScope
+from native_kernel_backend import observe_held_backend_kernel_identity
 from native_ownership_marker_guard import NativeOwnershipMarkerGuard
 from native_ownership_records import require, validate_record
 from native_service_scope import root_file
@@ -33,14 +35,16 @@ class NativeOwnershipObservation:
             binding = self.guard.snapshot['binding']
             require(binding['database']==self.seal['database']==record['database_session']['database'])
             self.root = Path('/var/lib/gitgood/installations')/record['installation']
-            self.authority_path = Path('/etc/gitgood/installations')/record['installation']/'ownership-admission-v2.json'
+            self.authority_path = Path('/etc/gitgood/installations')/record['installation']/'ownership-admission-v3.json'
             self.authority_identity,self.authority_bytes = root_file(self.authority_path,16384)
             authority = json.loads(self.authority_bytes,object_pairs_hook=unique)
             require(self.authority_bytes==canonical(authority))
             require(type(authority) is dict and set(authority)=={'protocol','kind','installation','operation','candidate','binding_sha256'})
-            require(type(authority['protocol']) is int and authority['protocol']==2)
+            require(type(authority['protocol']) is int and authority['protocol']==3)
             require(authority['kind']=='native_application_ownership_seal')
             require(all(authority[name]==record[name] for name in ['installation','operation','candidate','binding_sha256']))
+            self.backend_scope=NativeBackendScope(record['installation'],record['scope']['boot_id'])
+            require(self.backend_scope.check()==record['backend_kernel']['server_scope'])
             storage = binding['resources']['storage']
             require(storage['path']==str(self.root/'storage'))
             self.storage = json.loads(canonical(storage))
@@ -52,6 +56,7 @@ class NativeOwnershipObservation:
     def _generation(self):
         require(not self.poisoned)
         require(root_file(self.authority_path,16384)==(self.authority_identity,self.authority_bytes))
+        require(self.backend_scope.check()==self.record['backend_kernel']['server_scope'])
         current = self.guard.check()
         require(current['current'] is True and {name:current[name] for name in self.token}==self.token)
         require(root_file(self.authority_path,16384)==(self.authority_identity,self.authority_bytes))
@@ -62,8 +67,9 @@ class NativeOwnershipObservation:
         files,url = configuration(self.root,self.record['installation'],self.record['scope']['uid'])
         require(files==binding['configuration'])
         owner = {name:self.record['owner'][name] for name in ['pid','birth','uid']}
-        observed = observe_held_session(self.seal['executables']['psql'],url,self.record['database_session'],self.seal['database'],owner=owner)
+        observed = observe_held_backend_kernel_identity(self.seal['executables']['psql'],url,self.record['backend_kernel'],self.seal['database'],self.backend_scope.check(),owner=owner)
         require(observed['owner_connection_observed'] and observed['lease_acquired'] is False)
+        require(observed['original_backend_kernel_observed'] is True)
         require(configuration(self.root,self.record['installation'],self.record['scope']['uid'])==(files,url))
 
     def _observe(self, *, initial=False):
@@ -80,6 +86,8 @@ class NativeOwnershipObservation:
             return {'current':current,'ownership':{'operation':self.record['operation'],
                 'record_sha256':custody['record_sha256'],'marker_sha256':custody['marker_sha256'],
                 'ownership_marker_observed':True,'original_database_session_observed':True,
+                'original_backend_kernel_observed':True,
+                'kernel_record_sha256':hashlib.sha256(canonical(self.record['backend_kernel'])).hexdigest(),
                 'owner_socket_observed':True,'lease_acquired':False,'replacement_admitted':False,
                 'installation_readiness_established':False,'lifecycle_responsibility_admitted':False}}
         except Exception:
