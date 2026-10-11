@@ -7,9 +7,11 @@ SQL PID/birth absence. `native_kernel_backend.py` adds capture of that live
 session's kernel identity and a combined same-boot absence observation.
 
 The caller must independently admit the PostgreSQL server's actual boot, PID
-namespace and Unix account. These three closed fields are observations supplied
+namespace, time namespace and Unix account. These four closed fields are observations supplied
 by a trusted allocator/controller, not authority manufactured by this module.
-The observer requires its actual boot and PID namespace to match. It checks the
+The observer requires its actual boot, PID namespace and time namespace to match.
+It requires the native host clock's monotonic and boottime offsets to be zero;
+procfs adjusts process start times using the observer's time namespace. It checks the
 observer's PID, thread-group and namespace mappings against its actual PID.
 Nested server namespaces and foreign/ancestor procfs PID mappings refuse. This
 is a local native host profile, not a general remote/container PID translator.
@@ -30,7 +32,7 @@ scope. It brackets the existing catalog-only SQL absence query with fresh kernel
 absence reads. Only missing original PID/stat or a different kernel birth
 establishes kernel absence. A zombie with the original birth refuses until it is
 reaped. Unreadable/malformed process data, missing scope observations, a changed
-boot/namespace/account, and an unknown or type-aliased record refuse. Observing a
+boot/namespace/account, a nonzero time offset, and an unknown or type-aliased record refuse. Observing a
 different birth never returns, signals or adopts the current reused PID.
 
 All procfs reads are fixed, bounded and read-only. There is no process scan,
@@ -66,5 +68,9 @@ complete native recovery remain unverified.
 
 Kernel field meanings come from the official
 [procfs documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html).
+The kernel's [stat implementation](https://github.com/torvalds/linux/blob/master/fs/proc/array.c)
+applies the time-namespace boottime offset to process start time. Earlier
+predeployment component records lacking explicit time-namespace admission
+refuse under this schema; they are retained, not rewritten or adopted.
 The original SQL observer's fixed catalog-only environment and deadlines are
 preserved. No complete journey or deployment is claimed by this component.

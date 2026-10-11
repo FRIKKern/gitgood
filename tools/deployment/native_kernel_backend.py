@@ -36,10 +36,11 @@ def _positive(value, maximum=2**64-1):
 
 
 def _validate_scope(scope):
-    require(type(scope) is dict and set(scope) == {'boot_id', 'pid_namespace', 'postgres_uid'})
+    require(type(scope) is dict and set(scope) == {'boot_id', 'pid_namespace', 'time_namespace', 'postgres_uid'})
     require(type(scope['boot_id']) is str and str(uuid.UUID(scope['boot_id'])) == scope['boot_id'])
     require(uuid.UUID(scope['boot_id']).int != 0)
     require(type(scope['pid_namespace']) is str and re.fullmatch(r'pid:\[[1-9][0-9]{0,19}\]', scope['pid_namespace']))
+    require(type(scope['time_namespace']) is str and re.fullmatch(r'time:\[[1-9][0-9]{0,19}\]', scope['time_namespace']))
     require(type(scope['postgres_uid']) is int and 0 < scope['postgres_uid'] < 2**32)
 
 
@@ -57,6 +58,11 @@ def _check_scope(scope):
     require(sys.platform == 'linux')
     require(_read('/proc/sys/kernel/random/boot_id', 64).strip() == scope['boot_id'])
     require(os.readlink('/proc/self/ns/pid') == scope['pid_namespace'])
+    require(os.readlink('/proc/self/ns/time') == scope['time_namespace'])
+    # procfs start_time includes the observer's time-namespace boottime offset.
+    # Admit only the same independently observed zero-offset native host clock.
+    offsets = [line.split() for line in _read('/proc/self/timens_offsets', 256).splitlines()]
+    require(offsets == [['monotonic', '0', '0'], ['boottime', '0', '0']])
     # This native host profile admits no nested PostgreSQL PID namespace.
     # NSpid is relative to procfs's mount namespace; a foreign/ancestor procfs
     # or nested namespace must not turn a server PID into an unrelated target.

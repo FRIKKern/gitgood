@@ -13,7 +13,7 @@ from test_native_durable_database import GOOD, URL
 
 
 SCOPE = {'boot_id': '11111111-1111-4111-8111-111111111111',
-         'pid_namespace': 'pid:[12345]', 'postgres_uid': 1001}
+         'pid_namespace': 'pid:[12345]', 'time_namespace': 'time:[4441]', 'postgres_uid': 1001}
 SNAPSHOT = {'database': GOOD, 'backend_pid': 1234, 'backend_birth': '1770000000000000'}
 
 
@@ -95,7 +95,7 @@ class KernelBackendBoundaryTest(unittest.TestCase):
 
     def test_changed_server_scope_refuses_even_if_original_pid_is_missing(self):
         for key, value in [('boot_id', '22222222-2222-4222-8222-222222222222'),
-                           ('pid_namespace', 'pid:[12346]'), ('postgres_uid', 1002)]:
+                           ('pid_namespace', 'pid:[12346]'), ('time_namespace', 'time:[4442]'), ('postgres_uid', 1002)]:
             scope = {**SCOPE, key: value}
             with self.subTest(key=key), patch.object(kernel, '_stat') as process, self.assertRaises(DatabaseRefused):
                 kernel.observe_prior_backend_identity_absence('/trusted/psql', URL, self.record(), GOOD, scope)
@@ -123,12 +123,25 @@ class KernelBackendBoundaryTest(unittest.TestCase):
                 (SCOPE['boot_id'], SCOPE['pid_namespace'], good.replace('NSpid:\t4242', 'NSpid:\t4242 2')),
                 (SCOPE['boot_id'], SCOPE['pid_namespace'], good.replace('Pid:\t4242', 'Pid:\t4243'))]:
             with patch.object(kernel.sys, 'platform', 'linux'), patch.object(kernel.os, 'getpid', return_value=4242), \
-                 patch.object(kernel.os, 'readlink', return_value=namespace), \
-                 patch.object(kernel, '_read', side_effect=[boot, status]):
+                 patch.object(kernel.os, 'readlink', side_effect=lambda path: namespace if path.endswith('/pid') else SCOPE['time_namespace']), \
+                 patch.object(kernel, '_read', side_effect=[boot, 'monotonic 0 0\nboottime 0 0\n', status]):
                 if (boot, namespace, status) == (SCOPE['boot_id'], SCOPE['pid_namespace'], good):
                     kernel._check_scope(SCOPE)
                 else:
                     with self.assertRaises(DatabaseRefused): kernel._check_scope(SCOPE)
+
+    def test_changed_time_namespace_or_offsets_refuse_before_kernel_identity(self):
+        for namespace, offsets in [('time:[4442]', 'monotonic 0 0\nboottime 0 0\n'),
+                                   (SCOPE['time_namespace'], 'monotonic 0 0\nboottime 60 0\n'),
+                                   (SCOPE['time_namespace'], 'monotonic 0 1\nboottime 0 0\n')]:
+            with self.subTest(namespace=namespace, offsets=offsets), \
+                 patch.object(kernel.sys, 'platform', 'linux'), \
+                 patch.object(kernel.os, 'readlink', side_effect=lambda path: SCOPE['pid_namespace'] if path.endswith('/pid') else namespace), \
+                 patch.object(kernel, '_read', side_effect=[SCOPE['boot_id'], offsets]), \
+                 patch.object(kernel, '_stat') as process, \
+                 patch.object(kernel, 'observe_prior_backend_absence') as sql, self.assertRaises(DatabaseRefused):
+                kernel.observe_prior_backend_identity_absence('/trusted/psql', URL, self.record(), GOOD, SCOPE)
+            process.assert_not_called(); sql.assert_not_called()
 
     def test_process_status_must_show_one_server_namespace_and_exact_account(self):
         good = 'Pid:\t1234\nTgid:\t1234\nNSpid:\t1234\nNStgid:\t1234\nUid:\t1001 1001 1001 1001\n'
@@ -152,7 +165,8 @@ class KernelBackendBoundaryTest(unittest.TestCase):
 class ActualKernelBackendProcessTest(unittest.TestCase):
     def scope(self):
         return {'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
-                'pid_namespace': os.readlink('/proc/self/ns/pid'), 'postgres_uid': os.getuid()}
+                'pid_namespace': os.readlink('/proc/self/ns/pid'),
+                'time_namespace': os.readlink('/proc/self/ns/time'), 'postgres_uid': os.getuid()}
 
     def test_actual_child_is_present_until_reaped_and_then_absent_without_signals(self):
         scope = self.scope()
