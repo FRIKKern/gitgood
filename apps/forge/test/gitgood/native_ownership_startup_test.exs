@@ -25,12 +25,46 @@ defmodule Gitgood.NativeOwnershipStartupTest do
     assert :ok = Startup.validate_options(options)
     refute File.exists?(root)
 
-    assert {:error,
-            {:shutdown, {:failed_to_start_child, Startup, :native_ownership_startup_unavailable}}} =
-             Gitgood.NativeOwnershipSupervisor.start_native_link(root, :runtime, [])
+    # mix test already owns Gitgood.Supervisor. Exercise the actual native root
+    # in a separate BEAM without stopping or renaming the running application.
+    {:ok, peer, _} =
+      :peer.start(%{
+        connection: :standard_io,
+        args: [~c"+S", ~c"2:2"],
+        wait_boot: 10_000,
+        shutdown: {:halt, 1_000}
+      })
+
+    try do
+      assert :ok = :peer.call(peer, :code, :add_paths, [:code.get_path()], 5_000)
+      assert {:ok, _} = :peer.call(peer, :application, :ensure_all_started, [:elixir], 5_000)
+      assert :undefined = :peer.call(peer, :erlang, :whereis, [Gitgood.Supervisor], 5_000)
+
+      # The peer call runs outside a supervisor; trap the linked root's expected
+      # startup failure just as the application's caller does.
+      assert {{:error,
+               {:shutdown,
+                {:failed_to_start_child, Startup, :native_ownership_startup_unavailable}}}, _} =
+               :peer.call(
+                 peer,
+                 Code,
+                 :eval_string,
+                 [
+                   "Process.flag(:trap_exit, true); " <>
+                     "Gitgood.NativeOwnershipSupervisor.start_native_link(root, :runtime, [])",
+                   [root: root]
+                 ],
+                 5_000
+               )
+
+      assert :undefined = :peer.call(peer, :erlang, :whereis, [Gitgood.Supervisor], 5_000)
+    after
+      :peer.stop(peer)
+    end
 
     refute File.exists?(root)
     assert Process.whereis(Gitgood.Supervisor) == prior
+    if is_pid(prior), do: assert(Process.alive?(prior))
   end
 
   test "retained native responsibility survives failed startup byte for byte", %{root: root} do

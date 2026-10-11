@@ -21,6 +21,12 @@ starts no replacement and retries no claim. A failed initialization ends the
 linked helpers while preserving uncertain retained effects. The permanent root
 must still end the whole BEAM on child failure.
 
+The unsupported-startup regression runs the actual native root factory in a
+separate BEAM because the normal backend test application already owns the
+`Gitgood.Supervisor` name. The fixture bounds boot, calls and shutdown, limits
+the child to two schedulers, checks the original startup-child refusal and keeps
+the parent supervisor alive. It changes no production names or admission gates.
+
 The input reader checks file ownership, modes, link counts, bounded raw descriptor
 reads, and unchanged descriptor/path/parent metadata across the read. It rejects
 duplicate JSON keys and constrains the database URL to the admitted local database,
