@@ -29,6 +29,7 @@ defmodule Gitgood.NativeOwnershipStartup do
          {:ok, admission} <- Monitor.admission(monitor),
          true <- admission["installation"] == installation,
          {:ok, inputs} <- Inputs.read(options[:root], admission),
+         :ok <- validate_artifact(Gitgood.Build.identity(), inputs.authority),
          {:ok, lease} <-
            Lease.start_link(database: admission["database"], connection: inputs.connection),
          {:ok, fence} <- Fence.start_link(monitor, lease),
@@ -49,6 +50,18 @@ defmodule Gitgood.NativeOwnershipStartup do
     _ -> {:stop, @failure}
   catch
     :exit, _ -> {:stop, @failure}
+  end
+
+  @doc false
+  def validate_artifact(identity, authority) do
+    if is_map(identity) and is_map(authority) and identity["dirty"] === false and
+         is_binary(identity["candidate"]) and
+         Regex.match?(~r/\A[0-9a-f]{40}\z/, identity["candidate"]) and
+         identity["candidate"] === authority["candidate"],
+       do: :ok,
+       else: :error
+  rescue
+    _ -> :error
   end
 
   @doc false

@@ -3,6 +3,70 @@ defmodule Gitgood.NativeOwnershipStartupTest do
   @moduletag capture_log: true
   alias Gitgood.NativeOwnershipStartup, as: Startup
 
+  test "clean compiled candidate must equal the independently read Root candidate" do
+    candidate = String.duplicate("a", 40)
+
+    assert :ok =
+             Startup.validate_artifact(%{"candidate" => candidate, "dirty" => false}, %{
+               "candidate" => candidate
+             })
+
+    assert :error =
+             Startup.validate_artifact(%{"candidate" => candidate, "dirty" => false}, %{
+               "candidate" => String.duplicate("b", 40)
+             })
+  end
+
+  test "dirty and boolean aliases cannot establish a clean native artifact" do
+    candidate = String.duplicate("a", 40)
+
+    Enum.each([true, nil, 0, "false"], fn dirty ->
+      assert :error =
+               Startup.validate_artifact(%{"candidate" => candidate, "dirty" => dirty}, %{
+                 "candidate" => candidate
+               })
+    end)
+  end
+
+  test "unconfigured malformed and unsupported candidate identities refuse" do
+    Enum.each(
+      [
+        nil,
+        true,
+        "unconfigured",
+        String.duplicate("A", 40),
+        String.duplicate("a", 39),
+        String.duplicate("a", 64),
+        "a" <> <<0>>
+      ],
+      fn candidate ->
+        assert :error =
+                 Startup.validate_artifact(%{"candidate" => candidate, "dirty" => false}, %{
+                   "candidate" => candidate
+                 })
+      end
+    )
+  end
+
+  test "missing identities and malformed authority refuse with a constant result" do
+    candidate = String.duplicate("a", 40)
+    assert :error = Startup.validate_artifact(nil, %{"candidate" => candidate})
+    assert :error = Startup.validate_artifact(%{}, %{"candidate" => candidate})
+    assert :error = Startup.validate_artifact(%{"candidate" => candidate, "dirty" => false}, nil)
+    assert :error = Startup.validate_artifact(%{"candidate" => candidate, "dirty" => false}, %{})
+  end
+
+  test "actual compiled build cannot claim a different Root candidate" do
+    identity = Gitgood.Build.identity()
+
+    other =
+      if identity["candidate"] == String.duplicate("a", 40),
+        do: String.duplicate("b", 40),
+        else: String.duplicate("a", 40)
+
+    assert :error = Startup.validate_artifact(identity, %{"candidate" => other})
+  end
+
   setup do
     # Match the root supervisor's handling of a failed linked startup child.
     Process.flag(:trap_exit, true)
