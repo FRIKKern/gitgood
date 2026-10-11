@@ -101,6 +101,35 @@ def root_directory(path):
         require(entry.resolve() == entry)
 
 
+def harden_hosted_opt():
+    """Secure only the disposable runner's /opt directory, never its children."""
+    require(sys.platform == "linux" and os.geteuid() == 0)
+    require(os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted")
+    path = Path("/opt")
+    require(path.resolve(strict=True) == path)
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        before = os.fstat(descriptor)
+        require(stat.S_ISDIR(before.st_mode) and before.st_uid == 0)
+        original = (before.st_dev, before.st_ino, before.st_uid, before.st_gid)
+        named_before = path.lstat()
+        require(tuple(getattr(named_before, key) for key in ["st_dev", "st_ino", "st_uid", "st_gid"]) == original)
+        # GitHub's image setup makes /opt writable. Production ancestors must
+        # be root-controlled; secure the actual parent instead of exempting it.
+        os.fchmod(descriptor, 0o755)
+        after = os.fstat(descriptor)
+        require(tuple(getattr(after, key) for key in ["st_dev", "st_ino", "st_uid", "st_gid"]) == original)
+        require(stat.S_ISDIR(after.st_mode) and stat.S_IMODE(after.st_mode) == 0o755)
+        named = path.lstat()
+        require(tuple(getattr(named, key) for key in ["st_dev", "st_ino", "st_uid", "st_gid", "st_mode"]) ==
+                tuple(getattr(after, key) for key in ["st_dev", "st_ino", "st_uid", "st_gid", "st_mode"]))
+        return {"path": "/opt", "device": after.st_dev, "inode": after.st_ino, "uid": after.st_uid,
+                "before_mode": stat.S_IMODE(before.st_mode), "after_mode": stat.S_IMODE(after.st_mode),
+                "recursive_changes": False, "production_guards_modified": False}
+    finally:
+        os.close(descriptor)
+
+
 def copy_inventory(source):
     source = source.resolve(strict=True)
     paths = sorted(source.rglob("*")) if source.is_dir() else [source]
@@ -587,14 +616,18 @@ def main(args):
         args.output.mkdir(mode=0o755)
         os.chmod(args.output, 0o755)
         output = args.output
-        phase = "install-bounded-private-runtimes"
+        phase = "secure-disposable-host-opt"
+        receipt["hosted_opt_custody"] = harden_hosted_opt()
+        phase = "create-protected-runtime-prefix"
         runtime = Path("/opt/gitgood-owned-proof") / str(uuid.uuid4())
         root_directory(runtime.parent)
         runtime.mkdir(mode=0o755)
         for source, name in [(args.release, "release"), (args.postgres, "postgres"), (args.node, "node"), (args.caddy, "caddy"),
                              (Path("/usr/bin/git"), "git")]:
+            phase = "copy-private-" + name
             copy_runtime(source, runtime / name)
         for name in ["native-owned-manager.py", "native-owned-worker.exs"]:
+            phase = "copy-fixture-" + name.removeprefix("native-owned-").split(".")[0]
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
         phase = "relocate-private-postgresql-client"
         receipt["postgresql_client_relocation"] = relocate_postgresql_client(runtime)

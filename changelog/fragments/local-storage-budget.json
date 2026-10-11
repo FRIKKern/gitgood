@@ -1,0 +1,9 @@
+{
+  "id": "local-storage-budget",
+  "category": "Changed",
+  "summary": "Require a local disk-space reserve before large development allocations and prefer hosted verification while preserving source, recovery material and retained evidence during cache cleanup.",
+  "impact": "planning",
+  "references": ["AGENTS.md", "docs/DEVELOPMENT.md"],
+  "journeys": [],
+  "withdrawn": false
+}

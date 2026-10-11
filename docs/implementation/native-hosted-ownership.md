@@ -109,6 +109,14 @@ tree, with single-link files and verified hashes. The protected production Pytho
 import closure is copied unchanged to `/opt/gitgood/native/v2`; an existing
 installation at that path is refused rather than overwritten.
 
+GitHub's [runner image setup](https://github.com/actions/runner-images/blob/main/images/ubuntu/scripts/build/configure-system.sh)
+makes `/opt` writable. After checking that this is a disposable hosted runner,
+the fixture opens the literal root-owned `/opt` directory without following a
+symlink and changes only that directory to `0755`. It checks the same original
+device/inode before and after and records the mode change. It does not change
+the ownership or permissions of existing children. Production checks still
+require every ancestor of the installed private runtimes to be root-controlled.
+
 PostgreSQL's source build embeds its workspace library prefix. The fixture uses
 `patchelf` to relocate only the copied psql's RUNPATH to the root-owned copied
 library directory. It records the original/relocated psql and copied libpq

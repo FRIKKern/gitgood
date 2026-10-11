@@ -7,8 +7,9 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
@@ -46,6 +47,41 @@ class BoundedProofTests(unittest.TestCase):
         receipt = {"status": "failed", "scope": "publication-only-component", "cases": []}
         with patch.object(proof, "command", return_value=b""), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(proof.finalize(receipt, [], None, "preflight"), 1)
+
+    def hosted_opt_fixture(self, *, uid=0, mode=0o40777):
+        before = SimpleNamespace(st_dev=10, st_ino=20, st_uid=uid, st_gid=0, st_mode=mode)
+        after = SimpleNamespace(st_dev=10, st_ino=20, st_uid=uid, st_gid=0, st_mode=0o40755)
+        path = Mock()
+        path.resolve.return_value = path
+        path.lstat.side_effect = [before, after]
+        operating = SimpleNamespace(geteuid=lambda: 0,
+            environ={"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted"},
+            O_RDONLY=0, O_DIRECTORY=1, O_NOFOLLOW=2, O_CLOEXEC=4,
+            open=Mock(return_value=31), close=Mock(), fstat=Mock(side_effect=[before, after]), fchmod=Mock())
+        return path, operating
+
+    def test_hosted_opt_hardening_changes_only_original_directory_descriptor(self):
+        path, operating = self.hosted_opt_fixture()
+        with patch.object(proof, "os", operating), patch.object(proof, "Path", return_value=path) as constructor, \
+                patch.object(proof.sys, "platform", "linux"):
+            result = proof.harden_hosted_opt()
+        constructor.assert_called_once_with("/opt")
+        operating.open.assert_called_once_with(path, 7)
+        operating.fchmod.assert_called_once_with(31, 0o755)
+        operating.close.assert_called_once_with(31)
+        self.assertEqual((result["before_mode"], result["after_mode"]), (0o777, 0o755))
+        self.assertFalse(result["recursive_changes"])
+        self.assertFalse(result["production_guards_modified"])
+
+    def test_hosted_opt_hardening_refuses_untrusted_owner_or_non_directory(self):
+        for options in [{"uid": 1001}, {"mode": 0o120777}]:
+            with self.subTest(options=options):
+                path, operating = self.hosted_opt_fixture(**options)
+                with patch.object(proof, "os", operating), patch.object(proof, "Path", return_value=path), \
+                        patch.object(proof.sys, "platform", "linux"), self.assertRaises(ValueError):
+                    proof.harden_hosted_opt()
+                operating.fchmod.assert_not_called()
+                operating.close.assert_called_once_with(31)
 
     def test_runtime_inventory_refuses_escape_before_copy(self):
         source = self.directory / "source"
