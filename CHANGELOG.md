@@ -299,6 +299,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Bounded evidence history to 20 records and 25 events per record per response, with authorized navigation and whole-history latest-result state. NUL-containing evidence text now refuses before database storage; retained records and artifact custody are unchanged.
   Sources: [details 1](docs/implementation/evidence-history.md)
 
+- Prefer a separate EU Hetzner CCX23 project with dedicated CPU for the Gitgood pilot and a EUR 120 planning budget, while preserving measured workload and deployment gates.
+  Sources: [details 1](deploy/pilot-target.md)
+
 - Converted the top README roadmap to a milestone Gantt showing delivery surfaces and proposed research overlap; retained the detailed journey evidence map as a separate generated view.
   Sources: [details 1](docs/ROADMAP.md), [details 2](docs/images/journey-evidence.svg)
 
