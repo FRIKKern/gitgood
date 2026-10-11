@@ -71,6 +71,7 @@ This work connects application processes to their actual host, database and serv
 | Keeping the original owner attached to its generation monitor | [Monitor attachment](native-ownership-monitor-attachment.md) |
 | Binding a claim to the captured generation, owner and database session | [Ownership record construction](native-ownership-record-construction.md) |
 | Publishing and attaching ownership before application startup | [Ownership handoff](native-ownership-claim.md) |
+| Resolving lease checks against trusted PostgreSQL catalogs | [Ownership SQL namespace](native-database-namespace.md) |
 
 ## Verification environment
 

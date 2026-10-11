@@ -51,7 +51,12 @@ defmodule Gitgood.NativeDatabaseLease do
       connect_timeout: 3_000,
       timeout: 3_000,
       show_sensitive_data_on_connection_error: false,
-      parameters: [application_name: "gitgood native installation lease v2"]
+      parameters: [
+        application_name: "gitgood native installation lease v2",
+        search_path: "pg_catalog",
+        statement_timeout: "3000",
+        default_transaction_read_only: "on"
+      ]
     )
   end
 
@@ -59,7 +64,7 @@ defmodule Gitgood.NativeDatabaseLease do
     with {:ok, %{rows: [[true]]}} <-
            Postgrex.query(
              connection,
-             "SELECT pg_try_advisory_lock($1::int, $2::int)",
+             "SELECT pg_catalog.pg_try_advisory_lock($1::int, $2::int)",
              [@namespace, @key],
              timeout: 3_000
            ),

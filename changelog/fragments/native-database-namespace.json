@@ -1,0 +1,9 @@
+{
+  "id": "native-database-namespace",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Pin native ownership database observations and the held lease connection to the PostgreSQL catalog search path and read-only statements.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-database-namespace.md", "apps/forge/lib/gitgood/native_database_lease.ex", "tools/deployment/native_ownership_database.py"],
+  "withdrawn": false
+}
