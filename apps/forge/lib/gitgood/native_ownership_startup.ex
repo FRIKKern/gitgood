@@ -1,0 +1,100 @@
+defmodule Gitgood.NativeOwnershipStartup do
+  @moduledoc "First native child: claim once before workers; never restart original helpers."
+  use GenServer
+
+  alias Gitgood.InstallationGenerationMonitor, as: Monitor
+  alias Gitgood.NativeDatabaseLease, as: Lease
+  alias Gitgood.NativeOwnershipClaim, as: Claim
+  alias Gitgood.NativeOwnershipFence, as: Fence
+  alias Gitgood.NativeOwnershipInputs, as: Inputs
+
+  @failure :native_ownership_startup_unavailable
+  @keys [:root, :mode]
+  @root ~r"\A/var/lib/gitgood/installations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/storage\z"
+
+  def start_link(options) do
+    if validate_options(options) == :ok,
+      do: GenServer.start_link(__MODULE__, options),
+      else: {:error, @failure}
+  end
+
+  def current(pid), do: GenServer.call(pid, :current, 10_000)
+
+  @impl true
+  def init(options) do
+    with :ok <- validate_options(options),
+         {:ok, %{profile: :systemd_v2, installation: installation}} <-
+           Gitgood.InstallationProfile.resolve("systemd-v2", options[:root], options[:mode]),
+         {:ok, monitor} <- Monitor.start_link(root: options[:root], mode: options[:mode]),
+         {:ok, admission} <- Monitor.admission(monitor),
+         true <- admission["installation"] == installation,
+         {:ok, inputs} <- Inputs.read(options[:root], admission),
+         {:ok, lease} <-
+           Lease.start_link(database: admission["database"], connection: inputs.connection),
+         {:ok, fence} <- Fence.start_link(monitor, lease),
+         {:ok, ownership} <- Claim.claim(monitor, lease, inputs.authority, options[:mode]),
+         :ok <- Fence.current(fence) do
+      {:ok,
+       %{
+         monitor: monitor,
+         lease: lease,
+         fence: fence,
+         reference: Process.monitor(fence),
+         ownership: ownership
+       }}
+    else
+      _ -> {:stop, @failure}
+    end
+  rescue
+    _ -> {:stop, @failure}
+  catch
+    :exit, _ -> {:stop, @failure}
+  end
+
+  @doc false
+  def validate_options(options) do
+    if Keyword.keyword?(options) and Enum.sort(Keyword.keys(options)) == Enum.sort(@keys) and
+         options[:mode] in [:runtime, :backup, :restore, :migrate] and
+         is_binary(options[:root]) and byte_size(options[:root]) <= 4_096 and
+         Regex.match?(@root, options[:root]),
+       do: :ok,
+       else: :error
+  rescue
+    _ -> :error
+  end
+
+  @impl true
+  def handle_call(:current, _from, state) do
+    with :ok <- Fence.current(state.fence),
+         :ok <- Lease.current(state.lease),
+         :ok <- Monitor.current(state.monitor) do
+      {:reply, :ok, state}
+    else
+      _ -> {:stop, @failure, {:error, @failure}, state}
+    end
+  rescue
+    _ -> {:stop, @failure, {:error, @failure}, state}
+  catch
+    :exit, _ -> {:stop, @failure, {:error, @failure}, state}
+  end
+
+  @impl true
+  def handle_info(
+        {:DOWN, reference, :process, fence, _},
+        %{reference: reference, fence: fence} = state
+      ),
+      do: {:stop, @failure, state}
+
+  def handle_info(_, state), do: {:stop, @failure, state}
+
+  @impl true
+  def terminate(_, state) do
+    # Stop the watcher first, then close the original session and monitor. No
+    # marker, ownership record, partial or controller responsibility is removed.
+    Enum.each([state.fence, state.lease, state.monitor], fn original ->
+      if Process.alive?(original), do: GenServer.stop(original, :normal, 3_000)
+    end)
+  catch
+    :exit, _ -> :ok
+  end
+end
