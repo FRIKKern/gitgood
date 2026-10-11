@@ -4,7 +4,7 @@ import stat
 import subprocess
 
 from generation_publication import require, sha, PublicationRefused
-from native_durable_binding import persistent_identity, BindingRefused
+from native_durable_binding import persistent_identity, BindingRefused, _CapturedExecutableDigests
 from native_durable_database import DatabaseRefused
 from native_generation_reader import GenerationAdmissionRefused, _ReadOnlyCustody
 from native_service_scope import ServiceRefused, _observe_service, _CapturedRootFiles
@@ -76,10 +76,12 @@ class NativeGenerationLeaseGuard:
         self.worker, self.owner_pid = worker, owner_pid
         self.started = self.usable = False
         self.root_files = _CapturedRootFiles()
+        self.executable_files = _CapturedExecutableDigests(reader.executables)
 
     def close(self):
         self.usable = False
         self.root_files.close()
+        self.executable_files.close()
         self.reader.custody.__exit__(None, None, None)
 
     def _current_worker(self):
@@ -107,9 +109,11 @@ class NativeGenerationLeaseGuard:
             self.reader.custody.__enter__()
             snapshot = self.reader._snapshot(observed['scope'])
             before = persistent_fingerprint(snapshot['binding'])
-            binding = persistent_identity(self.reader.root, observed['scope'], self.reader.executables)
+            binding = persistent_identity(self.reader.root, observed['scope'], self.reader.executables,
+                                          _executable_files=self.executable_files)
             require(binding == snapshot['binding'] and sha(binding) == self.reader.expected)
-            require(persistent_identity(self.reader.root, observed['scope'], self.reader.executables) == binding)
+            require(persistent_identity(self.reader.root, observed['scope'], self.reader.executables,
+                                        _executable_files=self.executable_files) == binding)
             require(persistent_fingerprint(snapshot['binding']) == before)
             require(observe_worker(self.reader.installation, self.reader.unit,
                                    worker=self.worker, owner_pid=self.owner_pid, **self.reader.options,
@@ -117,6 +121,7 @@ class NativeGenerationLeaseGuard:
             require(self.reader._snapshot(observed['scope']) == snapshot)
             self.reader._check()
             self.root_files.freeze()
+            self.executable_files.freeze()
             admitted = {'published_generation_admitted':True, 'writer_exclusion_established':False,
                         'installation_readiness_established':False, 'lifecycle_responsibility_admitted':False,
                         'pointer':snapshot['pointer'], 'binding_sha256':self.reader.expected,
@@ -136,7 +141,8 @@ class NativeGenerationLeaseGuard:
             require(self.usable)
             observed, chain = self._current_worker()
             require(observed == self.observed)
-            # Content was fully validated twice during capture. Complete names,
+            # Private content and the database were observed twice during capture;
+            # Root binary hashes remain bound to unchanged metadata. Complete names,
             # inode, size, mode, link count and nanosecond ctime/mtime now bind it.
             # Ordinary callers cannot restore ctime after an in-place edit.
             require(self.reader._fingerprint() == self.snapshot['files'])

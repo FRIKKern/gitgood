@@ -287,6 +287,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Route required planning and forge jobs to the measured isolated ephemeral Linux runner after real GitHub dispatch proof, verifying the build platform and installer image identity while preserving tests and full production recovery.
   Sources: [details 1](docs/implementation/isolated-ci.md)
 
+- Hash the five Root-controlled executables once per generation-guard capture, with repeated original file custody checks and both configuration/database observations retained; actual service timing remains unverified.
+  Sources: [details 1](docs/implementation/native-generation-lease-guard.md), [details 2](docs/implementation/native-durable-bindings.md), [details 3](tools/deployment/native_durable_binding.py)
+
 - Record actual current-CLI recovery after selected owner loss in all seven initial installation stages, lost terminal baseline handoff, and packaged installation with an ordinary database-owner role. Preserve failed harness attempts and private recovery materials; identify systemd delegation and explicit reboot resource generations as the next host dependencies. These same-boot fixtures do not establish managed Cloud or complete journey/release acceptance.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/native-host-prerequisites.md)
 

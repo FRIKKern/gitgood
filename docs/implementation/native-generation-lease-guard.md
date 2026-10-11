@@ -10,7 +10,12 @@ service scope, publication/history and persistent file metadata. They open no
 database connection and take no lifecycle lock. The application's already held
 Postgrex session independently checks database identity, backend birth and lease.
 
-Hash executable contents and query independent database identity during capture.
+Stream each executable hash once per capture and query independent database
+identity on both persistent observations. Repeated canonical file and protected
+parent metadata checks bind each retained digest to its original Root-controlled
+binary. Freeze requires all five original files; changed or missing custody
+permanently refuses, including same-inode edits with restored mtime. The digest
+cache is private to this guard and admits no new path after freezing.
 During subsequent checks, compare exact file identities, size, times, ownership,
 mode and link count against that validated capture. Storage and staging directory
 contents may change during legitimate application work; their directory identity,
@@ -27,6 +32,12 @@ requires implementation. Refusal must stop the application and retain its marker
 Generation-aware markers, lifecycle admission, recovery and packaged functional
 checks remain required under decision 0018. A periodic guard grants no lifecycle,
 writer or readiness authority, and performs no writes, cleanup or signals.
+
+Twelve executable-capture tests pass, including eleven against actual Root-owned
+Linux files; the synthetic executable files are never run. Seventeen generation
+guard boundaries also pass using explicit service and database stand-ins. Actual
+service startup timing, heartbeat freshness and interruption behavior for this
+changed capture remain unverified; startup and freshness deadlines are unchanged.
 
 Sixteen guard boundaries, ten stream boundaries and ten Elixir monitor boundaries
 pass. Eight actual ordinary Linux filesystem checks verify configuration

@@ -1,0 +1,9 @@
+{
+  "id": "native-executable-capture",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Hash the five Root-controlled executables once per generation-guard capture, with repeated original file custody checks and both configuration/database observations retained; actual service timing remains unverified.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-generation-lease-guard.md", "docs/implementation/native-durable-bindings.md", "tools/deployment/native_durable_binding.py"],
+  "withdrawn": false
+}
