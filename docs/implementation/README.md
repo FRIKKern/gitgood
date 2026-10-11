@@ -67,6 +67,7 @@ This work connects application processes to their actual host, database and serv
 | Admitting runtime and maintenance workers | [Worker admission](native-worker-admission.md) |
 | Checking generation and database identity from Elixir | [Elixir admission](native-elixir-generation-admission.md) |
 | Connecting these checks to application startup | [Application ownership](native-application-ownership.md) |
+| Matching actual application settings to protected installation inputs | [Native application configuration](native-application-configuration.md) |
 | Reading a bounded set of actual service properties | [Selected systemd properties](native-selected-systemd-properties.md) |
 | Checking the original application and database owner | [Ownership observation](native-ownership-observation.md) |
 | Publishing retained ownership without replacing prior responsibility | [Ownership publication](native-ownership-publication.md) |

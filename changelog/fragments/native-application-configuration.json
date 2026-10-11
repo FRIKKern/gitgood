@@ -1,0 +1,12 @@
+{
+  "id": "native-application-configuration",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Check actual native application credentials, stores, listeners and executable paths against protected installation configuration before lease acquisition or ownership publication.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-application-configuration.md",
+    "apps/forge/lib/gitgood/native_application_configuration.ex"
+  ],
+  "withdrawn": false
+}

@@ -72,6 +72,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Persist exact native current-release observations under the installation history lock, with artifact/schema/probe binding and explicit lost-write uncertainty.
   Sources: [details 1](tools/deployment/native_activation.py), [details 2](tools/deployment/test_native_activation.py), [details 3](docs/implementation/installation-upgrade.md)
 
+- Check actual native application credentials, stores, listeners and executable paths against protected installation configuration before lease acquisition or ownership publication.
+  Sources: [details 1](docs/implementation/native-application-configuration.md), [details 2](apps/forge/lib/gitgood/native_application_configuration.ex)
+
 - Gate application startup, direct lease initialization and offline maintenance before storage or database actions. Reject unsupported profiles and implicit native downgrade. Add immutable private ownership-record custody with synchronized publication, unchanged retries and retained partial responsibility. Add root supervision without child restarts and a single-session native database lease keeper; actual standalone processes exit on held backend or connection loss. Application integration, live markers and complete native startup remain unfinished.
   Sources: [details 1](docs/implementation/native-application-ownership.md), [details 2](apps/forge/lib/gitgood/installation_profile.ex), [details 3](tools/deployment/native_ownership_records.py), [details 4](apps/forge/lib/gitgood/native_ownership_supervisor.ex), [details 5](apps/forge/lib/gitgood/native_database_lease.ex)
 
@@ -295,6 +298,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Bounded evidence history to 20 records and 25 events per record per response, with authorized navigation and whole-history latest-result state. NUL-containing evidence text now refuses before database storage; retained records and artifact custody are unchanged.
   Sources: [details 1](docs/implementation/evidence-history.md)
+
+- Prefer a separate EU Hetzner CCX23 project with dedicated CPU for the Gitgood pilot and a EUR 120 planning budget, while preserving measured workload and deployment gates.
+  Sources: [details 1](deploy/pilot-target.md)
 
 - Converted the top README roadmap to a milestone Gantt showing delivery surfaces and proposed research overlap; retained the detailed journey evidence map as a separate generated view.
   Sources: [details 1](docs/ROADMAP.md), [details 2](docs/images/journey-evidence.svg)
