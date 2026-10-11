@@ -1,0 +1,9 @@
+{
+  "id": "native-retirement-fixture-cleanup",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Bound disposable retirement input-fixture cleanup with the existing production database-removal limits while preserving identity checks, no-force behavior and product deadlines.",
+  "journeys": ["J17"],
+  "references": ["docs/implementation/native-retirement-fixture-cleanup.md", "tools/deployment/test_native_retirement.py"],
+  "withdrawn": false
+}
