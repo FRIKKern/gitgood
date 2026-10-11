@@ -28,9 +28,9 @@ not a protected helper or complete running application. Actual protected entry
 attachment, whole-BEAM loss, prior-owner reconciliation and controller wiring are
 still required. The native installation profile remains unavailable.
 
-## Live systemd reads
+## Earlier GetAll experiment
 
-The generation reader now obtains all required unit fields in two live typed
+The earlier generation reader obtained all required unit fields in two live typed
 `GetAll` replies, one each for Unit and Service, instead of fifteen separate
 property calls. Both observations still read every required field; manager
 version remains a separate live read. Replies and manager state are never cached.
@@ -53,6 +53,12 @@ empty and original Qemu process is gone; original disk, seed, runtime, diagnosti
 and checksummed failure evidence are retained. Batching targets the measured
 observation overhead without increasing deadlines or resource limits. A fresh
 native VM proof must establish the result; the failure is not acceptance evidence.
+
+That experiment is retained evidence for the earlier decoder. The current
+reader uses [selected live property batches](native-selected-systemd-properties.md)
+to avoid decoding unrelated GetAll fields. Its separate current-source
+installation and timing evidence governs integration; the older checks below
+do not establish the current installed reader or full native ownership.
 
 The combined ordinary-user Linux operator suite passed 440 tests with 18
 platform-specific skips, and all 33 planning checks passed. The private suite

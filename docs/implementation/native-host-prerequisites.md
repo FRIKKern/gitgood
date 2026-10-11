@@ -96,6 +96,11 @@ recreation remains separate evidence. Repeat installation-stage interruption
 and installed upgrade/retirement behavior under the resulting generation-aware
 application and controller before claiming complete product reboot recovery.
 
+The [local command framing component](native-command-wire.md) checks bounded
+canonical requests and actual Linux peer credentials. Private endpoint custody,
+independently sealed operation admission and fixed lifecycle dispatch remain
+controller work; that component does not install or expose a product service.
+
 Host allocation, reservation and cancellation need durable ownership and
 reconciliation before provider operations are connected. Establish deployed
 database authentication and limited credentials separately from the current
