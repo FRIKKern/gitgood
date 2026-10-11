@@ -156,6 +156,12 @@ Fixture source is split by responsibility:
   it. The receipt contains component scope, exact candidate, installed module
   hashes, observed outcomes and fixed failure phase/type; it contains no SQL,
   private configuration, password, key material, raw process log or stack trace.
+  On startup failure, the fixture can include at most 64 fixed startup events
+  and the original process's numeric exit code. VM call tracing observes only
+  allowlisted startup functions; its arguments, return values and exception
+  reasons are never serialized. Only fixed entered/accepted/refused/exception
+  tags and witness milestones survive the root reader's closed vocabulary.
+  This diagnostic does not substitute for any guard or modify its deadline.
   Private diagnostics remain in each account's `0700` `/run/gitgood-owned-proof`
   directory. Never upload that directory or the `/var/lib` installation roots.
 

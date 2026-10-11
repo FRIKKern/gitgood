@@ -29,6 +29,10 @@ COPY_LIMIT = 2 * 1024**3
 MODULES = Path("/opt/gitgood/native/v2")
 CASES = ("helper-loss", "marker-permission-loss", "original-backend-loss")
 BASE_ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
+STARTUP_CALLS = {"profile", "monitor", "admission", "inputs", "artifact", "configuration",
+                 "lease", "fence", "claim", "attachment"}
+STARTUP_MARKS = {"bootstrap", "build-valid", "dependencies", "application-start", "application-started",
+                 "witness-started", "witness-current", "witness-samples", "descendant-started", "attached"}
 
 
 def require(value, phase="fixture invariant"):
@@ -269,6 +273,55 @@ def wait_for(path, run, seconds):
             raise RuntimeError("original owner exited before attachment")
         time.sleep(.1)
     raise TimeoutError("fixture receipt deadline")
+
+
+def bounded_diagnostic_read(path, maximum=4096):
+    before = path.lstat()
+    require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and before.st_size <= maximum)
+    fields = ["st_dev", "st_ino", "st_uid", "st_gid", "st_mode", "st_nlink", "st_size", "st_mtime_ns"]
+    # Linux execution checks change time too. Windows' stat/fstat disagree on
+    # ctime (creation versus change time); local parser tests use stable fields.
+    if sys.platform == "linux":
+        fields.append("st_ctime_ns")
+    def metadata(value):
+        return tuple(getattr(value, key) for key in fields)
+    original = metadata(before)
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0) |
+                         getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+    try:
+        require(metadata(os.fstat(descriptor)) == original)
+        raw = os.read(descriptor, maximum + 1)
+        require(len(raw) == before.st_size and len(raw) <= maximum)
+        require(metadata(os.fstat(descriptor)) == original)
+        require(metadata(path.lstat()) == original)
+        return raw
+    finally:
+        os.close(descriptor)
+
+
+def startup_diagnostics(run):
+    """Only a closed event vocabulary crosses the private/public boundary."""
+    result = {"status": "unavailable"}
+    try:
+        path = run / "startup-events.txt"
+        if path.exists():
+            events = bounded_diagnostic_read(path).decode("ascii").splitlines()
+            allowed = {name + ":" + outcome for name in STARTUP_CALLS
+                       for outcome in ["entered", "accepted", "refused", "exception"]}
+            allowed |= {name + ":observed" for name in STARTUP_MARKS}
+            require(1 <= len(events) <= 64 and all(event in allowed for event in events))
+            result = {"status": "observed", "events": events}
+        exited = run / "owner-exited.json"
+        if exited.exists():
+            detail = json.loads(bounded_diagnostic_read(exited, 1024))
+            require(set(detail) == {"exit_code", "fixture_signalled_beam"})
+            require(type(detail["exit_code"]) is int and -127 <= detail["exit_code"] <= 255)
+            require(detail["fixture_signalled_beam"] is False)
+            result["original_exit_code"] = detail["exit_code"]
+    except Exception:
+        # Malformed diagnostics are never copied through, even on fixture failure.
+        return {"status": "invalid"}
+    return result
 
 
 class Database:
@@ -673,6 +726,7 @@ def main(args):
         receipt["failure"] = {"phase": phase, "error_type": type(error).__name__}
         if seed is not None:
             receipt["failure"]["component_phase"] = seed.get("proof_phase", "allocation")
+            receipt["failure"]["startup"] = startup_diagnostics(Path(seed["run"]))
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
                 detail = read_json(failed, 1024)

@@ -4,7 +4,10 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -125,6 +128,133 @@ class BoundedProofTests(unittest.TestCase):
                          "pid=27 AND floor(extract(epoch FROM backend_start)*1000000)::bigint=123456")
         with self.assertRaises(ValueError):
             database.predicate({"backend_pid": 27, "backend_birth": "123456 OR true"})
+
+    def test_startup_diagnostics_accept_only_closed_events_and_numeric_exit(self):
+        (self.directory / "startup-events.txt").write_text("bootstrap:observed\nmonitor:entered\nmonitor:refused\n", encoding="ascii")
+        (self.directory / "owner-exited.json").write_text(json.dumps({"exit_code": 1, "fixture_signalled_beam": False}))
+        self.assertEqual(proof.startup_diagnostics(self.directory), {
+            "status": "observed", "events": ["bootstrap:observed", "monitor:entered", "monitor:refused"],
+            "original_exit_code": 1})
+
+    def test_startup_diagnostics_never_forward_unknown_or_excess_output(self):
+        path = self.directory / "startup-events.txt"
+        for raw in [b"configuration:secret-value\n", b"bootstrap:observed\n" * 65, b"x" * 4097, b"\xff"]:
+            with self.subTest(raw_size=len(raw)):
+                path.write_bytes(raw)
+                self.assertEqual(proof.startup_diagnostics(self.directory), {"status": "invalid"})
+        path.write_bytes(b"bootstrap:observed\n")
+        (self.directory / "owner-exited.json").write_text(json.dumps({
+            "exit_code": 1, "fixture_signalled_beam": False, "private": "secret-value"}))
+        self.assertEqual(proof.startup_diagnostics(self.directory), {"status": "invalid"})
+
+    def test_vm_trace_reduces_actual_messages_to_fixed_tags(self):
+        # Exercise the real fixture tracer with explicitly fake startup modules;
+        # this checks trace grammar/redaction, never production startup admission.
+        executable = shutil.which("elixir")
+        if not executable:
+            self.skipTest("Elixir is required for the small VM tracer check")
+        source = (HERE / "native-owned-worker.exs").read_text(encoding="utf-8")
+        diagnostics = source.split("defmodule GitgoodOwnedProof.Witness", 1)[0]
+        script = '''
+calls = [
+  {Gitgood.InstallationProfile, :resolve, 3},
+  {Gitgood.InstallationGenerationMonitor, :start_link, 1},
+  {Gitgood.InstallationGenerationMonitor, :admission, 1},
+  {Gitgood.NativeOwnershipInputs, :read_application, 2},
+  {Gitgood.NativeOwnershipStartup, :validate_artifact, 2},
+  {Gitgood.NativeApplicationConfiguration, :check, 3},
+  {Gitgood.NativeDatabaseLease, :start_link, 1},
+  {Gitgood.NativeOwnershipFence, :start_link, 2},
+  {Gitgood.NativeOwnershipClaim, :claim, 4},
+  {Gitgood.InstallationGenerationMonitor, :attach_ownership, 3}
+]
+for {module, entries} <- Enum.group_by(calls, &elem(&1, 0)) do
+  definitions = for {_, function, arity} <- entries do
+    arguments = for i <- 1..arity, do: Macro.var(String.to_atom("_input#{i}"), nil)
+    body = case function do
+      :check -> quote do: {:error, "synthetic-private-return"}
+      :read_application -> quote do: raise("synthetic-private-exception")
+      _ -> quote do: {:ok, "synthetic-private-return"}
+    end
+    quote do
+      def unquote(function)(unquote_splicing(arguments)), do: unquote(body)
+    end
+  end
+  Module.create(module, {:__block__, [], definitions}, Macro.Env.location(__ENV__))
+end
+'''
+        script += diagnostics + '''
+GitgoodOwnedProof.Diagnostics.start()
+GitgoodOwnedProof.Diagnostics.mark("bootstrap")
+for {module, function, arity} <- calls do
+  try do
+    apply(module, function, List.duplicate("synthetic-private-argument", arity))
+  rescue
+    _ -> :ok
+  end
+end
+path = Path.join(System.fetch_env!("GITGOOD_OWNED_PROOF_DIRECTORY"), "startup-events.txt")
+until = System.monotonic_time(:millisecond) + 2_000
+wait = fn recurse ->
+  if length(String.split(File.read!(path), "\\n", trim: true)) < 21 do
+    true = System.monotonic_time(:millisecond) < until
+    Process.sleep(10)
+    recurse.(recurse)
+  end
+end
+wait.(wait)
+'''
+        environment = {**os.environ, "GITGOOD_OWNED_PROOF_DIRECTORY": str(self.directory),
+                       "ERL_FLAGS": "+S 2:2 +SDio 1 +SDcpu 1"}
+        result = subprocess.run([executable, "-e", "Code.eval_string(IO.read(:stdio, :all))"],
+                                input=script, text=True, capture_output=True, timeout=20, env=environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        detail = proof.startup_diagnostics(self.directory)
+        self.assertEqual(detail["status"], "observed")
+        self.assertEqual(len(detail["events"]), 21)
+        self.assertIn("configuration:refused", detail["events"])
+        self.assertIn("inputs:exception", detail["events"])
+        self.assertNotIn("synthetic-private", (self.directory / "startup-events.txt").read_text())
+
+    def test_diagnostic_read_has_a_real_byte_bound_and_refuses_changed_identity(self):
+        path = self.directory / "startup-events.txt"
+        path.write_bytes(b"bootstrap:observed\n")
+        actual_read = os.read
+        with patch.object(proof.os, "read", wraps=actual_read) as read:
+            self.assertEqual(proof.bounded_diagnostic_read(path), b"bootstrap:observed\n")
+            self.assertEqual(read.call_args.args[1], 4097)
+        def changed_read(descriptor, maximum):
+            raw = actual_read(descriptor, maximum)
+            path.write_bytes(b"bootstrap:observed\n" * 2)
+            return raw
+        with patch.object(proof.os, "read", side_effect=changed_read), self.assertRaises(ValueError):
+            proof.bounded_diagnostic_read(path)
+
+    def test_actual_fixture_application_spec_uses_supported_otp_loader(self):
+        executable = shutil.which("elixir")
+        if not executable:
+            self.skipTest("Elixir is required for the small application specification check")
+        script = '''
+{:__block__, _, expressions} =
+  System.fetch_env!("GITGOOD_OWNED_WORKER_SOURCE") |> File.read!() |> Code.string_to_quoted!()
+[loader] = Enum.filter(expressions, fn expression ->
+  Macro.prewalk(expression, false, fn
+    {{:., _, [_, :load]}, _, [{:{}, _, [:application, :gitgood_owned_proof, _]}]} = node, _ -> {node, true}
+    node, found -> {node, found}
+  end) |> elem(1)
+end)
+{:ok, _} = Code.eval_quoted(loader)
+{:ok, properties} = :application.get_all_key(:gitgood_owned_proof)
+{GitgoodOwnedProof.Application, []} = Keyword.fetch!(properties, :mod)
+[:kernel, :stdlib, :elixir, :logger, :postgrex, :jason] = Keyword.fetch!(properties, :applications)
+IO.puts("fixture-application-spec-loaded")
+'''
+        environment = {**os.environ, "GITGOOD_OWNED_WORKER_SOURCE": str(HERE / "native-owned-worker.exs"),
+                       "ERL_FLAGS": "+S 2:2 +SDio 1 +SDcpu 1"}
+        result = subprocess.run([executable, "-e", "Code.eval_string(IO.read(:stdio, :all))"],
+                                input=script, text=True, capture_output=True, timeout=20, env=environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), "fixture-application-spec-loaded", result.stderr)
 
 
 if __name__ == "__main__":
