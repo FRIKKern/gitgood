@@ -261,7 +261,8 @@ defmodule Gitgood.InstallationGenerationMonitor do
 
     cond do
       value["status"] == "ownership_attached" and not is_nil(pending) and is_nil(ownership) ->
-        with true <-
+        with true <- now() < pending.deadline,
+             true <-
                MapSet.new(Map.keys(value)) == MapSet.new(~w(protocol status guard ownership)),
              true <- value["protocol"] === 2 and value["guard"] === state.guard,
              true <- value["ownership"] === pending.expected do
@@ -341,12 +342,19 @@ defmodule Gitgood.InstallationGenerationMonitor do
              "record" => record
            }) <> "\n",
          true <- byte_size(request) <= 20_000,
-         true <- Port.command(state.port, request) do
+         deadline <- now() + @freshness,
+         true <- Port.command(state.port, request),
+         true <- now() < deadline do
       reference = make_ref()
-      Process.send_after(self(), {:ownership_deadline, reference}, @freshness)
+      Process.send_after(self(), {:ownership_deadline, reference}, max(0, deadline - now()))
 
       {:noreply,
-       Map.put(state, :ownership_pending, %{from: from, expected: expected, reference: reference})}
+       Map.put(state, :ownership_pending, %{
+         from: from,
+         expected: expected,
+         reference: reference,
+         deadline: deadline
+       })}
     else
       _ -> {:stop, :installation_generation_lost, {:error, :installation_generation_lost}, state}
     end
