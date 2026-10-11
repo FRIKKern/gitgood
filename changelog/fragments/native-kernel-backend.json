@@ -1,0 +1,9 @@
+{
+  "id": "native-kernel-backend",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Capture the original held native database lease's Linux process identity and combine same-boot kernel/SQL absence observations without signals or replacement authority; complete native recovery remains required.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-kernel-backend.md", "tools/deployment/native_kernel_backend.py"],
+  "withdrawn": false
+}

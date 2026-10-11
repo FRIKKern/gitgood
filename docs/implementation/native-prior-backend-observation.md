@@ -33,6 +33,11 @@ holder of the same key remains untouched while the old snapshot is observed abse
 The fixture retains hostile role search-path defaults, which these catalog-only
 queries override. Real kernel PID reuse is not established by the structural test.
 
+The [kernel identity companion](native-kernel-backend.md) captures a live original
+session's kernel birth under an independently admitted server PID namespace and
+combines same-boot kernel/activity-view absence. Its component tests do not
+substitute for installed capture, retained identity custody or full recovery.
+
 Complete reconciliation still requires independently admitted kernel/backend,
 original owner and descendant absence,
 current writer exclusion, independently observed persistent continuity, immutable
