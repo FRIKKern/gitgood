@@ -1,6 +1,6 @@
 # Native linked changes work package
 
-This work package targets J10. Account settings are implemented separately; J10 acceptance and the implementation ledger remain pending. Follow PRODUCT.md, QUALITY.md, AUTONOMY.md and the supported link decision.
+This work package targets J10. Account settings are implemented separately. The implementation ledger is configured under the [tracking contract](../TRACKING.md); complete J10 acceptance remains pending. The experiments below retain their original candidate and source-build context.
 
 ## Delivery sequence
 
@@ -20,7 +20,7 @@ An opaque native /changes/:uuid landing path avoids disclosing repository names 
 
 ## Current boundaries
 
-The live implementation ledger, supported native Cloud hosting contract, coordinated replacement-host recovery and product release remain unconfigured or unverified. Passing an isolated slice does not advance those gates.
+The live implementation ledger is configured. Supported native Cloud hosting, complete replacement-host recovery acceptance, and a product release remain unfinished. Passing an isolated slice does not advance those gates; see the [progress snapshot](../STATUS.md) for the recorded assessment.
 
 ## Opaque landing implementation
 
