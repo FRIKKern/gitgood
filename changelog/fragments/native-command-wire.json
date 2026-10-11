@@ -1,0 +1,9 @@
+{
+  "id": "native-command-wire",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add bounded canonical local controller request framing and actual Linux peer-account checks; sealed operation admission, lifecycle dispatch and installed controller remain required.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-command-wire.md", "tools/deployment/native_command_wire.py"],
+  "withdrawn": false
+}

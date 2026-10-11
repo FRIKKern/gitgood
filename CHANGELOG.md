@@ -87,6 +87,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Document the measured native rootless CI boundary and a pinned runner build recipe, preserving failed emulated/minimal-image results and requiring actual job conclusions.
   Sources: [details 1](docs/implementation/isolated-ci.md), [details 2](tools/ci/native-runner.Containerfile)
 
+- Add bounded canonical local controller request framing and actual Linux peer-account checks; sealed operation admission, lifecycle dispatch and installed controller remain required.
+  Sources: [details 1](docs/implementation/native-command-wire.md), [details 2](tools/deployment/native_command_wire.py)
+
 - Added immutable native evidence attached to linked task criteria and exact source/Git revisions, checksummed private text artifacts, explicit reassessment history and unavailable-artifact events; full J11 acceptance remains under verification.
   Sources: [details 1](docs/implementation/criterion-evidence.md)
 
