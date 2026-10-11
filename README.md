@@ -1,62 +1,54 @@
-[![Gitgood milestone Gantt: delivery order, where capabilities appear, and proposed overlapping research; columns are stages, not dates](docs/images/roadmap.svg)](docs/ROADMAP.md)
+[![Gitgood: from a private repository to a complete managed forge](docs/images/overview.svg)](docs/ROADMAP.md)
 
 # Gitgood
 
-A native forge connecting requirements, tasks, code review, evidence, and releases.
+**A private home for your team's code, reviews, and releases.** Gitgood connects changes to the tasks, specifications, and evidence behind them. It has a native Elixir/Phoenix backend, Postgres, standard Git, and a React/TanStack interface. Barkpark connects the workspace; Barkpark Cloud is the planned managed deployment path.
 
-[Full-size Gantt](docs/images/roadmap.svg) · [Journey evidence map](docs/images/journey-evidence.svg) · [Milestone exit criteria](docs/ROADMAP.md) · [Journey specifications](JOURNEYS.md)
+**Development preview.** The local app includes private repositories, HTTPS and SSH Git, browsing, pull requests, reviews, protected merges, and basic releases. Complete journey acceptance, native installation and recovery integration, and managed Cloud deployment remain unfinished. There is no Gitgood product release yet.
 
-**Native development is underway.** This checkout contains a Phoenix/Postgres private repository foundation, a TanStack web interface, specifications and reporting checks. See [forge setup](apps/forge/README.md) and [web setup](apps/web/README.md). Native HTTPS/SSH Git, supported bundle import, commit browsing, pull requests, reviews, checks, protected merges and [basic private releases/assets](docs/implementation/releases.md) are implemented with development verification. The [private Gitgood delivery ledger](https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio) owns live implementation status and protected delivery assessments. Complete native J11 acceptance, release ingestion and managed deployment remain unfinished; no Gitgood product release is established. See the [tracking contract](docs/TRACKING.md) for refresh and freshness limits.
+[Start locally](docs/DEVELOPMENT.md) · [Progress snapshot](docs/STATUS.md) · [Roadmap](docs/ROADMAP.md) · [Documentation](docs/README.md)
 
-**Autonomous progression.** Agents resolve decisions, implement, verify, merge, and advance milestones without human acceptance. Current evidence governs each transition. See [AUTONOMY.md](AUTONOMY.md) for the operating policy and the distinction between active agent work and future unattended automation.
+## See the interface
 
-**Foundation run delivered.** The [run finish record](docs/RUN-72H-FINISH.md) maps implemented behavior to tests, candidate identities and remaining scope. [Production artifact instructions](docs/deployment/production.md) reproduce the copied Elixir/TanStack installation and readiness experiment.
+[![Gitgood web interface: sign in, repositories, code, review and releases](docs/media/web/walkthrough.gif)](docs/WEB-TOUR.md)
 
-<!-- whats-new:start -->
-## What's new
+Actual development screens with **synthetic sample data**. [Open the visual tour](docs/WEB-TOUR.md) for full-size screenshots, a browser video and an ASCII walkthrough. These captures show the current frontend; they do not establish backend or release readiness.
 
-**Unreleased — development.** 125 pending changelog entries (85 added, 14 changed, 25 fixed, 1 security). See the [full development changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
-<!-- whats-new:end -->
+## Follow the project
 
-## Start here
+| Your question | Start here |
+|---|---|
+| What are we building, and where does the first release stop? | [Product scope](PRODUCT.md) |
+| What is assessed, what is missing, and what comes next? | [Progress snapshot](docs/STATUS.md) → [Delivery sequence](docs/EXECUTION.md) |
+| How do I run it and find the relevant code? | [Development guide](docs/DEVELOPMENT.md) → [Code map](docs/CODEBASE.md) |
+| How do the parts fit together? | [Architecture](docs/architecture.md) |
+| What makes a feature complete? | [User journeys](JOURNEYS.md) → [Quality criteria](QUALITY.md) |
 
-1. Read [Product scope](PRODUCT.md) and [Architecture](docs/architecture.md).
-2. Follow [Execution order](docs/EXECUTION.md); open decisions are explicit.
-3. Use [Journeys](JOURNEYS.md) and [Quality rules](QUALITY.md) to judge completion.
-4. Run the planning checks below before changing the baseline.
+The [private delivery ledger](https://guerrilla.barkpark.cloud/w/gitgood/p/delivery/studio) owns live work and blockers. The snapshot is a dated observation; draft PRs are work in progress, and passing component tests do not mean a whole journey is accepted. The [full Gantt](docs/images/roadmap.svg) shows delivery order and where capabilities appear, without promising calendar dates.
+
+## Find your way around
+
+- [apps/forge](apps/forge/README.md): API, permissions, Git operations, and durable records.
+- [apps/web](apps/web/README.md): browser interface and its server-side API connection.
+- [docs](docs/README.md): guides, scope, decisions, and implementation references.
+- [deploy](deploy/README.md): the deployment contract; [tools/deployment](tools/deployment) contains native operation tools.
+- [evidence](evidence/README.md): reporting inputs and verification rules.
+
+## Contribute and keep it readable
+
+Follow [the contribution guide](CONTRIBUTING.md). Agents can implement, verify, and merge passing work under [the autonomous progression policy](AUTONOMY.md); oversight comes from readable changes and traceable evidence.
+
+The source repository is public, and CI uses disposable GitHub-hosted Ubuntu machines. Public visibility does not add a software license; [D01](docs/decisions/D01.md) records the decision. Use [private vulnerability reporting](SECURITY.md) for security findings.
+
+For documentation and reporting changes, use Node 22 with OpenSSL on `PATH` and run these from the repository root. They need no npm install; they do not run the application test suites.
 
 ```sh
 npm run generate
 npm run check
-npm run status
 ```
 
-Requires Node 22.13.1 or a compatible Node 22 runtime. No npm dependencies are needed. Generated files are checked in and verified for drift.
+<!-- whats-new:start -->
+## What's new
 
-## One fact, one home
-
-| Information | Home |
-|---|---|
-| Users, scope, exclusions | [PRODUCT.md](PRODUCT.md) |
-| Journey IDs and phase membership | [Journey catalog](docs/journeys/catalog.json) |
-| Required behavior | [Journey specifications](docs/journeys/J01.md), indexed in [JOURNEYS.md](JOURNEYS.md) |
-| Milestone definitions | [Milestone catalog](docs/milestones.json); [rendered roadmap](docs/ROADMAP.md) |
-| Quality and evidence | [QUALITY.md](QUALITY.md), [evidence contract](evidence/README.md) |
-| Architecture and decisions | [Architecture](docs/architecture.md), [decision index](docs/decisions/README.md) |
-| Assignments and blockers | Future Gitgood goal in the Barkpark ledger; [tracking contract](docs/TRACKING.md) |
-| Setup sequence | [Execution plan](docs/EXECUTION.md) |
-| Agent authority and progression | [AUTONOMY.md](AUTONOMY.md) |
-| Repository care | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Release history and routine | [CHANGELOG.md](CHANGELOG.md), [changelog routine](changelog/ROUTINE.md) |
-| Cloud and recovery | [Cloud contract](deploy/README.md), [operations acceptance](docs/operations/README.md) |
-| Provenance | [THIRD-PARTY.md](THIRD-PARTY.md), [references](reference/README.md) |
-| Reporting inputs | [Status snapshot](evidence/status.json); schema and validation in scripts |
-| Security reporting | [SECURITY.md](SECURITY.md) |
-
-## Repository shape
-
-`apps/forge/` owns the Phoenix API, access rules, durable operations and Git storage. `apps/web/` owns the TanStack interface and its server-side request composition. The root retains specifications, reporting scripts and CI definitions.
-
-The upstream design discussion is preserved in the [initial reference Page](https://chatgpt.com/space/page_fd72d3f936c88191b2f83ed1217f7f82); access to that Page is separate. These repository files are the normative implementation baseline.
-
-The upstream repository is [FRIKKern/gitgood](https://github.com/FRIKKern/gitgood), created as private on 7 October 2026. Planning checks run on pushes to `main` and pull requests. The scheduled freshness job remains disabled until its sources and alerts are configured. Agents resolve remaining licensing and technical decisions through [decision records](docs/decisions/README.md); human release staffing is not required.
+**Unreleased — development.** 129 development changes are recorded in the [changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
+<!-- whats-new:end -->

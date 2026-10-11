@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-attachment-deadline",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Reject native ownership acknowledgements after their absolute attachment deadline even when the timer message is delayed; retain the three-second limit and native startup refusal pending installed proof.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["apps/forge/lib/gitgood/installation_generation_monitor.ex", "docs/implementation/native-ownership-monitor-attachment.md"],
+  "withdrawn": false
+}
