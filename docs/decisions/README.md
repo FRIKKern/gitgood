@@ -8,7 +8,7 @@ Read these records for the reasons behind a design and its boundaries. The **D01
 
 | Record | Question or responsibility |
 |---|---|
-| [D01 — Governance](D01.md) | Private ownership, first-release scope and delegated agent authority |
+| [D01 — Governance](D01.md) | Ownership, public source visibility, first-release scope and delegated agent authority |
 | [D02 — Identity](D02.md) | Local accounts, bootstrap and identity across Gitgood, Cloud and Barkpark |
 | [D03 — Barkpark reuse](D03.md) | Which supported capabilities Gitgood can adopt |
 | [D04 — Git transport](D04.md) | Native Git hosting and its compatibility boundary |

@@ -38,6 +38,8 @@ The [private delivery ledger](https://guerrilla.barkpark.cloud/w/gitgood/p/deliv
 
 Follow [the contribution guide](CONTRIBUTING.md). Agents can implement, verify, and merge passing work under [the autonomous progression policy](AUTONOMY.md); oversight comes from readable changes and traceable evidence.
 
+The source repository is public, and CI uses disposable GitHub-hosted Ubuntu machines. Public visibility does not add a software license; [D01](docs/decisions/D01.md) records the decision. Use [private vulnerability reporting](SECURITY.md) for security findings.
+
 For documentation and reporting changes, use Node 22 with OpenSSL on `PATH` and run these from the repository root. They need no npm install; they do not run the application test suites.
 
 ```sh
@@ -48,5 +50,5 @@ npm run check
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — development.** 107 development changes are recorded in the [changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
+**Unreleased — development.** 108 development changes are recorded in the [changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
 <!-- whats-new:end -->
