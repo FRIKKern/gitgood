@@ -1,0 +1,9 @@
+{
+  "id": "web-interface-tour",
+  "category": "Added",
+  "summary": "Added an in-repository tour of the actual web interface: five screenshots, an animated README preview, browser video and ASCII companion, captured with clearly labelled synthetic API data. Added a reproducible capture command and source/media freshness checks.",
+  "impact": "planning",
+  "references": ["README.md", "docs/WEB-TOUR.md", "apps/web/tour/capture.mjs", "scripts/web-tour.mjs"],
+  "journeys": [],
+  "withdrawn": false
+}

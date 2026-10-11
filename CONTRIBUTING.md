@@ -24,6 +24,8 @@ When adding a document, give it a descriptive title and link it from its directo
 
 State limitations next to the claim they qualify. Use ordinary language for the outcome before naming internal processes or proof artifacts. Avoid copying live task counts, blockers, or acceptance status into multiple hand-maintained pages.
 
+Keep the [visual web tour](docs/WEB-TOUR.md) aligned with the interface. After frontend or capture-fixture changes, run `npm run tour` in `apps/web`, inspect the screenshots and recordings, and commit their manifest together. Root checks detect stale source hashes and missing or altered media. Use synthetic data and label it; a visual tour is not backend verification.
+
 ## Edit the source, then generate
 
 | Generated view | Edit this source |

@@ -4,6 +4,10 @@ The React/TypeScript interface uses TanStack Start, Router and Query. It follows
 
 **Start with [Run Gitgood locally](../../docs/DEVELOPMENT.md)** to prepare the database, API and disposable accounts. This guide describes the web application's responsibilities and commands.
 
+## See the interface
+
+The [web tour](../../docs/WEB-TOUR.md) shows the current screens in screenshots, an animated walkthrough and a navigation map. Captures use the real interface with synthetic API data. Run `npm run tour` from this directory to refresh them; the guide explains how to review and retain the generated media.
+
 ## Start the interface
 
 With the forge already running, open a terminal in `apps/web`:

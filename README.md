@@ -8,6 +8,12 @@
 
 [Start locally](docs/DEVELOPMENT.md) · [Progress snapshot](docs/STATUS.md) · [Roadmap](docs/ROADMAP.md) · [Documentation](docs/README.md)
 
+## See the interface
+
+[![Gitgood web interface: sign in, repositories, code, review and releases](docs/media/web/walkthrough.gif)](docs/WEB-TOUR.md)
+
+Actual development screens with **synthetic sample data**. [Open the visual tour](docs/WEB-TOUR.md) for full-size screenshots, a browser video and an ASCII walkthrough. These captures show the current frontend; they do not establish backend or release readiness.
+
 ## Follow the project
 
 | Your question | Start here |
@@ -42,5 +48,5 @@ npm run check
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — development.** 106 development changes are recorded in the [changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
+**Unreleased — development.** 107 development changes are recorded in the [changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
 <!-- whats-new:end -->

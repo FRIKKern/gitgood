@@ -3,6 +3,7 @@ import path from 'node:path'
 import {load, read, root, validate} from './model.mjs'
 import {generated} from './generate.mjs'
 import {documentationProblems} from './documentation.mjs'
+import {tourProblems} from './web-tour.mjs'
 const m=load(), errors=validate(m)
 function walk(dir) {
   return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{
@@ -19,6 +20,7 @@ for(const j of m.catalog.journeys) {
 }
 const files = walk(root)
 errors.push(...documentationProblems(files.map(file => path.relative(root, file)), read))
+errors.push(...tourProblems(root))
 for(const f of files.filter(p=>p.endsWith('.md'))) {
   const body=fs.readFileSync(f,'utf8')
   for(const [,url] of body.matchAll(/!?\[[^\]]*\]\(([^)]+)\)/g)) {

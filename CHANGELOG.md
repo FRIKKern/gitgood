@@ -234,6 +234,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Added creator-owned full Git bundle import with bounded streaming intake, durable replay/provenance, atomic branches and tags, recovery markers and browser/native-client verification.
   Sources: [details 1](docs/implementation/import.md), [details 2](docs/decisions/0006-offline-bundle-import.md)
 
+- Added an in-repository tour of the actual web interface: five screenshots, an animated README preview, browser video and ASCII companion, captured with clearly labelled synthetic API data. Added a reproducible capture command and source/media freshness checks.
+  Sources: [details 1](README.md), [details 2](docs/WEB-TOUR.md), [details 3](apps/web/tour/capture.mjs), [details 4](scripts/web-tour.mjs)
+
 ### Changed
 
 - Delegated project progression to agents and replaced human acceptance gates with recorded evidence-based verification across decisions, milestones, merges, and releases.

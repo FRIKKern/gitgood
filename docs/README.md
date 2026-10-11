@@ -8,6 +8,7 @@ Gitgood is a private-team forge built with Elixir, Postgres and standard Git, wi
 
 | I want to… | Read |
 |---|---|
+| See the interface before setting it up | [Web tour: screenshots and walkthrough](WEB-TOUR.md) |
 | Understand the product and its first release | [Product scope](../PRODUCT.md) |
 | Understand progress and what acceptance means | [Progress snapshot](STATUS.md), then the [delivery roadmap](ROADMAP.md) |
 | Run the development application | [Development guide](DEVELOPMENT.md) |
