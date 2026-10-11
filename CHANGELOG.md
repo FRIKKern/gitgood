@@ -397,6 +397,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Require native ownership startup to match its clean compiled build candidate to the Root seal before database lease acquisition and publication.
   Sources: [details 1](docs/implementation/native-ownership-startup.md), [details 2](apps/forge/lib/gitgood/native_ownership_startup.ex)
 
+- Exercise unsupported native root startup in a bounded separate BEAM so the running development supervisor cannot mask the expected refusal; preserve the parent application and production ownership guards.
+  Sources: [details 1](apps/forge/test/gitgood/native_ownership_startup_test.exs), [details 2](docs/implementation/native-ownership-startup.md)
+
 - Install the Ubuntu systemd runtime in isolated CI so native root-file custody and installed-version tests execute against actual protected executables instead of failing on missing files.
   Sources: [details 1](.github/workflows/product.yml), [details 2](docs/implementation/native-generation-lease-guard.md)
 
