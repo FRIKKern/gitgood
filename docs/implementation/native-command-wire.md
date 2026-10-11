@@ -5,6 +5,11 @@ Implementation under [decision 0018](../decisions/0018-native-supervision-genera
 not bind a socket, install a service, admit a lifecycle operation or dispatch
 an effect. The native application gate remains closed.
 
+The separate [owned endpoint](native-command-endpoint.md) now implements a fixed
+Root-sealed pathname listener around this decoder. It remains unwired to the
+product controller and lifecycle dispatch; its service admission still needs
+actual installed verification.
+
 The controller must independently admit its installation and ordinary account,
 retain its private socket directory and original socket identity, and accept only
 connections to that owned endpoint. The reader checks actual Linux `SO_PEERCRED`
