@@ -214,7 +214,7 @@ defmodule Gitgood.InstallationGenerationMonitor do
     alias Gitgood.NativeOwnershipPublication, as: Publication
 
     with {:ok, _, digest} <- Publication.request(record, owner),
-         :ok <- Publication.validate_reply(receipt, record["operation"], digest),
+         :ok <- Publication.validate_reply(receipt, record["operation"], digest, record["claim"]),
          true <- Regex.match?(@uuid, record["operation"]) do
       {:ok,
        %{

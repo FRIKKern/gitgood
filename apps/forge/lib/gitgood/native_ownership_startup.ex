@@ -19,10 +19,19 @@ defmodule Gitgood.NativeOwnershipStartup do
       else: {:error, @failure}
   end
 
+  def start_controller_link(options) do
+    if validate_options(options) == :ok,
+      do: GenServer.start_link(__MODULE__, Keyword.put(options, :controller_handoff, true)),
+      else: {:error, @failure}
+  end
+
   def current(pid), do: GenServer.call(pid, :current, 10_000)
 
   @impl true
   def init(options) do
+    controller_handoff = Keyword.get(options, :controller_handoff, false)
+    options = Keyword.delete(options, :controller_handoff)
+
     with :ok <- validate_options(options),
          {:ok, %{profile: :systemd_v2, installation: installation}} <-
            Gitgood.InstallationProfile.resolve("systemd-v2", options[:root], options[:mode]),
@@ -32,10 +41,13 @@ defmodule Gitgood.NativeOwnershipStartup do
          {:ok, inputs} <- Inputs.read_application(options[:root], admission),
          :ok <- validate_artifact(Gitgood.Build.identity(), inputs.authority),
          :ok <- Configuration.check(inputs, admission, options[:mode]),
+         {:ok, handoff} <-
+           admit_controller(controller_handoff, admission, inputs.authority, options[:mode]),
          {:ok, lease} <-
            Lease.start_link(database: admission["database"], connection: inputs.connection),
          {:ok, fence} <- Fence.start_link(monitor, lease),
-         {:ok, ownership} <- Claim.claim(monitor, lease, inputs.authority, options[:mode]),
+         {:ok, ownership} <-
+           Claim.claim(monitor, lease, inputs.authority, options[:mode], handoff),
          :ok <- Fence.current(fence) do
       {:ok,
        %{
@@ -53,6 +65,11 @@ defmodule Gitgood.NativeOwnershipStartup do
   catch
     :exit, _ -> {:stop, @failure}
   end
+
+  defp admit_controller(false, _, _, _), do: {:ok, nil}
+
+  defp admit_controller(true, admission, authority, mode),
+    do: Gitgood.NativeOwnershipPublication.admit_owner(admission, authority, mode)
 
   @doc false
   def validate_artifact(identity, authority) do

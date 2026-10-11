@@ -10,6 +10,25 @@ defmodule Gitgood.NativeOwnershipRecord do
   # The protected publisher independently verifies the actual Root seal,
   # generation, original owner/socket/session and storage before any retention.
   # In particular, a map passed as `seal` does not establish Root custody.
+  def build(context, session, backend_kernel, seal, mode, handoff) do
+    with {:ok, record} <- build(context, session, backend_kernel, seal, mode),
+         :ok <- Publication.validate_handoff_reply(handoff, context.admission, seal, mode),
+         record <-
+           Map.merge(record, %{
+             "protocol" => 4,
+             "claim" => handoff["claim"],
+             "predecessor_sha256" => handoff["predecessor_sha256"],
+             "reservation_sha256" => handoff["reservation_sha256"]
+           }),
+         {:ok, _, _} <- Publication.request(record, String.to_integer(System.pid())) do
+      {:ok, record}
+    else
+      _ -> @failure
+    end
+  rescue
+    _ -> @failure
+  end
+
   def build(context, session, backend_kernel, seal, mode) do
     owner_pid = String.to_integer(System.pid())
 

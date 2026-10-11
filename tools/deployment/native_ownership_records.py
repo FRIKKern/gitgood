@@ -31,10 +31,11 @@ def require(value):
 
 def validate_record(record, *, allow_legacy=False):
     require(type(record) is dict and type(record.get('protocol')) is int)
-    require(record['protocol']==3 or (allow_legacy is True and record['protocol']==2))
+    require(record['protocol'] in {3,4} or (allow_legacy is True and record['protocol']==2))
     fields=('protocol', 'kind', 'installation', 'operation', 'candidate',
             'mode', 'binding_sha256', 'pointer', 'scope', 'owner', 'database_session', 'guard')
-    closed(record, fields + (('backend_kernel',) if record['protocol']==3 else ()))
+    closed(record, fields + (('backend_kernel',) if record['protocol']>=3 else ()) +
+           (('claim','predecessor_sha256','reservation_sha256') if record['protocol']==4 else ()))
     require(record['kind'] == 'native_application_ownership')
     identifier(record['installation']); identifier(record['operation'])
     require(record['operation'] != record['installation'])
@@ -47,6 +48,11 @@ def validate_record(record, *, allow_legacy=False):
     require(pointer['installation'] == record['installation'])
     identifier(pointer['operation']); digest(pointer['generation_sha256']); digest(pointer['transition_sha256'])
     require(record['operation'] != pointer['operation'])
+    if record['protocol']==4:
+        identifier(record['claim'])
+        require(record['claim'] not in {record['installation'],record['operation'],pointer['operation']})
+        if record['predecessor_sha256'] is not None: digest(record['predecessor_sha256'])
+        digest(record['reservation_sha256'])
     scope, owner = record['scope'], record['owner']
     validate_scope(scope)
     require(scope['installation'] == record['installation'])
@@ -69,7 +75,7 @@ def validate_record(record, *, allow_legacy=False):
     integer(database.get('port'), 1, 65535)
     validate_database(database, {'PGDATABASE':database['database'], 'PGUSER':database['role'],
                                  'PGPORT':str(database['port'])})
-    if record['protocol']==3:
+    if record['protocol']>=3:
         kernel=record['backend_kernel']
         require(type(kernel) is dict and type(kernel.get('server_scope')) is dict)
         validate_kernel_record(kernel,session,database,kernel['server_scope'])
@@ -82,6 +88,12 @@ def validate_record(record, *, allow_legacy=False):
     require(guard['scope_sha256'] == hashlib.sha256(canonical(expected)).hexdigest())
     require(len(canonical(record)) <= 16384)
     return record
+
+
+def record_name(record):
+    """Version 3 filenames remain unchanged; version 4 names each BEAM claim."""
+    validate_record(record,allow_legacy=True)
+    return record['claim' if record['protocol']==4 else 'operation']+'.json'
 
 
 class NativeOwnershipRecords:
@@ -121,7 +133,7 @@ class NativeOwnershipRecords:
         # Legacy claims stay observable as immutable history. No writer or live
         # guard admits their missing kernel identity; never synthesize one.
         validate_record(value,allow_legacy=True)
-        require(raw == canonical(value) and name == value['operation'] + '.json')
+        require(raw == canonical(value) and name == record_name(value))
         require(value['installation'] == self.installation and value['scope']['uid'] == self.identity['uid'])
         return value
 
@@ -201,7 +213,7 @@ class NativeOwnershipRecords:
             directory_identity = self._identity(os.fstat(directory_fd))
             self._check(storage_fd, directory_fd, directory_identity)
             entries = self._layout(directory_fd)
-            name = record['operation'] + '.json'
+            name = record_name(record)
             if name in entries:
                 require(self._read(directory_fd, name) == record)
             else:

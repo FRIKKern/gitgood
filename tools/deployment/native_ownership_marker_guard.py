@@ -5,7 +5,7 @@ import os
 
 from native_durable_database import DatabaseRefused
 from native_ownership_markers import NativeOwnershipMarkers, fcntl
-from native_ownership_records import OwnershipRecordRefused, require, validate_record
+from native_ownership_records import OwnershipRecordRefused, require, validate_record, record_name
 from resource_generations import GenerationRefused, canonical
 
 
@@ -45,12 +45,12 @@ class NativeOwnershipMarkerGuard(NativeOwnershipMarkers):
             self._check(self.storage_fd,self.directory_fd,self.directory_identity)
             directory = self._fingerprint(os.fstat(self.directory_fd))
             names = self._layout(self.directory_fd)
-            require(self.record['operation']+'.json' in names)
+            require(record_name(self.record) in names)
             def fingerprints():
                 return {name:self._fingerprint(os.stat(name,dir_fd=self.directory_fd,follow_symlinks=False)) for name in names}
             before = fingerprints()
             values = {name:self._read(self.directory_fd,name) for name in names}
-            require(values[self.record['operation']+'.json']==self.record)
+            require(values[record_name(self.record)]==self.record)
             self._absent_marker(self.storage_fd,self.other)
             marker = self._marker_bytes(self.storage_fd,self.name)
             require(marker[0]==self.expected_marker)

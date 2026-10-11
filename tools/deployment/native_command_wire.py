@@ -73,14 +73,14 @@ def _peer(connection, uid):
     return {'pid': pid, 'uid': actual_uid, 'gid': gid}
 
 
-def receive_command(connection, *, installation, uid):
+def receive_frame(connection, *, uid, maximum=MAXIMUM):
     """Read one half-closed stream from an independently admitted account.
 
     The caller owns a successful connection. Every refusal closes it. Neither
     peer identity nor decoded data admits a sealed operation or grants effects.
     """
     try:
-        identifier(installation)
+        require(type(maximum) is int and 1<=maximum<=32768)
         peer = _peer(connection, uid)
         original_timeout = connection.gettimeout()
         deadline = time.monotonic() + RECEIVE_SECONDS
@@ -89,17 +89,26 @@ def receive_command(connection, *, installation, uid):
             remaining = deadline - time.monotonic()
             require(remaining > 0)
             connection.settimeout(remaining)
-            chunk = connection.recv(MAXIMUM + 1 - len(raw))
+            chunk = connection.recv(maximum + 1 - len(raw))
             if not chunk:
                 break
             raw.extend(chunk)
-            require(len(raw) <= MAXIMUM)
+            require(len(raw) <= maximum)
         require(time.monotonic() < deadline)
-        value = decode_command(bytes(raw), installation)
         require(_peer(connection, uid) == peer)
         connection.settimeout(original_timeout)
-        return {'request': value, 'peer': peer}
+        return bytes(raw),peer
     except (CommandWireRefused, OSError, ValueError, TypeError, AttributeError):
         if type(connection) is socket.socket:
             connection.close()
+        raise CommandWireRefused('Native local command unavailable') from None
+
+
+def receive_command(connection, *, installation, uid):
+    try:
+        identifier(installation)
+        raw,peer=receive_frame(connection,uid=uid)
+        return {'request':decode_command(raw,installation),'peer':peer}
+    except Exception:
+        if type(connection) is socket.socket:connection.close()
         raise CommandWireRefused('Native local command unavailable') from None

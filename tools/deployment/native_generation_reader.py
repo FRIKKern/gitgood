@@ -59,6 +59,16 @@ class NativeGenerationReader(GenerationPublication):
         original = self.custody
         self.custody = _ReadOnlyCustody(self.directory, self.installation,
                                        original.identity, original.expected_lock_identity)
+        self._owns_custody = True
+
+    def borrow_custody(self, custody):
+        """Controller reads never close its independently owned lifecycle lock."""
+        require(type(custody) is GenerationRecordCustody)
+        require(self._owns_custody and self.custody.lock is None)
+        custody.check()
+        require(custody.installation==self.installation and custody.directory==self.directory)
+        require(custody.identity==self.custody.identity and custody.expected_lock_identity==self.custody.expected_lock_identity)
+        self.custody=custody;self._owns_custody=False
 
     def publish(self, **options):
         raise GenerationAdmissionRefused("Read-only generation admission cannot publish")
@@ -67,7 +77,7 @@ class NativeGenerationReader(GenerationPublication):
         raise GenerationAdmissionRefused("Read-only generation admission cannot write")
 
     def close(self):
-        self.custody.__exit__(None, None, None)
+        if getattr(self,'_owns_custody',True):self.custody.__exit__(None, None, None)
 
     def _layout(self):
         policy = Path('/etc/gitgood/installations')/self.installation/'lifecycle-worker-admission-v2.json'
