@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -255,6 +256,31 @@ IO.puts("fixture-application-spec-loaded")
                                 input=script, text=True, capture_output=True, timeout=20, env=environment)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout.strip(), "fixture-application-spec-loaded", result.stderr)
+
+    @unittest.skipUnless(sys.platform == "linux", "real Linux JIT file-limit check runs on the hosted runner")
+    def test_real_beam_jit_boots_with_the_finite_fixture_file_limit(self):
+        import resource
+        executable = shutil.which("erl")
+        self.assertIsNotNone(executable, "the pinned hosted OTP runtime is required")
+        seed = {"account": "fixture", "seal_directory": str(self.directory), "run": str(self.directory)}
+        unit = proof.unit_text(seed, self.directory / "manager.py").decode()
+        file_limit = int(next(line.split("=", 1)[1] for line in unit.splitlines() if line.startswith("LimitFSIZE=")))
+        self.assertIn("LimitCORE=0\n", unit)
+        self.assertLessEqual(file_limit, 64 * 1024**2)
+        environment = {"PATH": os.environ["PATH"], "LANG": "C.UTF-8", "HOME": str(self.directory),
+                       "TMPDIR": str(self.directory), "ERL_CRASH_DUMP": "/dev/null", "ERL_CRASH_DUMP_SECONDS": "0",
+                       "ERL_FLAGS": "+S 2:2 +SDio 1 +SDcpu 1"}
+        for limit, expected in [(16 * 1024**2, -signal.SIGXFSZ), (file_limit, 0)]:
+            with self.subTest(limit=limit):
+                def constrain():
+                    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+                    resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
+                result = subprocess.run([executable, "-noshell", "-eval",
+                    'jit = erlang:system_info(emu_flavor), io:format("native-beam-limit-ok~n"), halt().'],
+                    env=environment, capture_output=True, timeout=15, preexec_fn=constrain)
+                self.assertEqual(result.returncode, expected)
+                if expected == 0:
+                    self.assertEqual(result.stdout, b"native-beam-limit-ok\n")
 
 
 if __name__ == "__main__":

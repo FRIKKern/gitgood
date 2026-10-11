@@ -26,6 +26,7 @@ import uuid
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
 COPY_LIMIT = 2 * 1024**3
+FILE_LIMIT = 64 * 1024**2  # OTP 29's first dual-mapped JIT memfd is 64 MiB.
 MODULES = Path("/opt/gitgood/native/v2")
 CASES = ("helper-loss", "marker-permission-loss", "original-backend-loss")
 BASE_ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
@@ -370,7 +371,8 @@ CPUQuota=200%
 CPUQuotaPeriodSec=100ms
 MemoryMax={LIMITS['memory_bytes']}
 MemorySwapMax=0
-LimitFSIZE=16M
+LimitFSIZE={FILE_LIMIT}
+LimitCORE=0
 KillMode=control-group
 Restart=on-failure
 RestartSec=60
@@ -660,6 +662,7 @@ def main(args):
                "native_application_acceptance": False, "complete_journey_acceptance": False,
                "reboot_verified": False, "successor_reconciliation_verified": False,
                "production_deadlines_modified": False, "limits": LIMITS, "cases": []}
+    receipt["fixture_file_size_limit_bytes"] = FILE_LIMIT
     phase = "preflight"
     output = None
     units = []

@@ -140,9 +140,16 @@ Fixture source is split by responsibility:
   reserve, 30,000 entries per input tree and 256 MiB per regular file. No disk
   images, VM snapshots, repository copies, or source build directories are made.
 - Each unit has two CPU cores worth of quota, 512 MiB memory and zero swap.
-  BEAM scheduler counts and individual file sizes (16 MiB) are bounded; BEAM
-  crash dumps are disabled. Production admission, heartbeat, SQL and ownership
-  deadlines remain unchanged.
+  BEAM scheduler counts and individual file sizes (64 MiB) are bounded; BEAM
+  crash dumps and operating-system core dumps are disabled. The file limit
+  includes memory-backed files: OTP 29.1.1 selects a
+  [32 MiB JIT block](https://github.com/erlang/otp/blob/OTP-29.1.1/erts/emulator/beam/jit/beam_jit_main.cpp#L188-L205),
+  which its [allocator initially doubles](https://github.com/erlang/otp/blob/OTP-29.1.1/erts/emulator/asmjit/core/jitallocator.cpp#L538-L560)
+  before [sizing the Linux memfd](https://github.com/erlang/otp/blob/OTP-29.1.1/erts/emulator/asmjit/core/virtmem.cpp#L640-L647).
+  The earlier 16 MiB fixture limit killed the original release with `SIGXFSZ`
+  before any application code ran. A small hosted regression checks that failure
+  and successful JIT startup under the finite 64 MiB limit. Production admission,
+  heartbeat, SQL and ownership deadlines remain unchanged.
 - Root handshakes, commands, attachment/loss observation and cleanup all have
   finite timeouts. The ordinary manager has a 300-second lifetime even if its
   outer observer disappears. Its bounded failure exit avoids a fixture retry

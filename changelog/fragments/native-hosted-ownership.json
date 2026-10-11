@@ -1,7 +1,7 @@
 {
   "id": "native-hosted-ownership",
   "category": "Added",
-  "summary": "Added a bounded disposable hosted-runner proof for actual systemd native ownership attachment and original helper, marker and PostgreSQL backend loss, with retained records, closed startup diagnostics and explicit component-only receipts.",
+  "summary": "Added a bounded disposable hosted-runner proof for actual systemd native ownership attachment and original helper, marker and PostgreSQL backend loss, with finite BEAM-compatible file limits, retained records, closed startup diagnostics and explicit component-only receipts.",
   "impact": "operator",
   "references": ["docs/implementation/native-hosted-ownership.md", "tools/ci/native-owned-proof.py"],
   "journeys": ["J14"],
