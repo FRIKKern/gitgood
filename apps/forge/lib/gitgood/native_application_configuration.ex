@@ -168,7 +168,7 @@ defmodule Gitgood.NativeApplicationConfiguration do
 
   defp port(value, minimum \\ 1024) do
     case Integer.parse(value) do
-      {number, ""} when number in minimum..65535 ->
+      {number, ""} when number in minimum..65535//1 ->
         if Integer.to_string(number) == value, do: {:ok, number}, else: :error
 
       _ ->
