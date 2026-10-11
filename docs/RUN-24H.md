@@ -1,5 +1,7 @@
 # First 24-hour implementation run
 
+> **Historical plan — 8 October 2026.** This preserves the original time allocation. It is not today's task list or progress report. Start with the [current progress snapshot](STATUS.md) and [execution guide](EXECUTION.md); see the [foundation report](RUN-72H-FINISH.md) for this run's results.
+
 Prepared 8 October 2026. This is a time-boxed execution plan, not a report that implementation has started or passed. Hour zero is the beginning of the implementation run. An active agent execution environment must be available for the run; this document does not create a background runner or schedule.
 
 ## Finish target
