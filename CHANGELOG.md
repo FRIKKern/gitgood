@@ -138,6 +138,21 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Expose a read-only native operator status command for retained upgrade, activation and retirement responsibility, preserving dead-owner uncertainty and refusing mixed or private-invalid records; live readiness and Cloud inventory remain separate checks.
   Sources: [details 1](tools/deployment/native_operator.py), [details 2](docs/deployment/production.md)
 
+- Inspect retained native application ownership through read-only custody, preserving uncertain files and refusing replaced storage, directories or records. Inspection grants no replacement, live ownership or readiness authority; controller reconciliation remains required.
+  Sources: [details 1](docs/implementation/native-application-ownership.md), [details 2](tools/deployment/native_ownership_records.py)
+
+- Observe original ownership record and marker custody through retained descriptors and immutable fingerprints; poison the guard after loss without repair or recapture. Protected helper linkage and complete native startup remain unfinished.
+  Sources: [details 1](docs/implementation/native-ownership-marker-guard.md), [details 2](tools/deployment/native_ownership_marker_guard.py)
+
+- Attach ownership custody and the original held session to the existing generation monitor; require immutable ownership heartbeats and terminal acknowledgement deadlines. Protected service loss and complete application startup remain unverified.
+  Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](tools/deployment/native_monitor_ownership_attachment.py)
+
+- Combine original generation, held database session and retained marker observations without replacement authority; batch live typed systemd properties while retaining strict bounds and permanent refusal. Protected helper attachment and current native VM timing remain unverified.
+  Sources: [details 1](docs/implementation/native-ownership-observation.md), [details 2](tools/deployment/native_ownership_observation.py)
+
+- Add durable non-replacing ownership markers, original held-backend and owner-socket observations, a protected fixed publication entry and a bounded Elixir caller with independently sealed candidate/operation admission. Interrupted effects remain retained; prior-owner reconciliation and complete native application integration remain unfinished.
+  Sources: [details 1](docs/implementation/native-ownership-publication.md), [details 2](tools/deployment/native_ownership_markers.py), [details 3](tools/deployment/native_ownership_publication_entry.py)
+
 - Remove exactly inventoried native databases and stores under retirement custody, refuse replacement resources and connected clients, and reconcile partial deletion or lost acknowledgements; complete installed retirement remains unfinished.
   Sources: [details 1](tools/deployment/retirement_database.py), [details 2](tools/deployment/retirement_stores.py), [details 3](docs/implementation/installation-retirement.md)
 
@@ -260,6 +275,12 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record actual current-CLI recovery after selected owner loss in all seven initial installation stages, lost terminal baseline handoff, and packaged installation with an ordinary database-owner role. Preserve failed harness attempts and private recovery materials; identify systemd delegation and explicit reboot resource generations as the next host dependencies. These same-boot fixtures do not establish managed Cloud or complete journey/release acceptance.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/native-host-prerequisites.md)
 
+- Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
+  Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)
+
+- Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.
+  Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py)
+
 - Record actual ordinary-user systemd delegation, whole-unit descendant cleanup and bounded manager-loss restart. Select a distinct resource-generation profile with immutable original lifecycle history and explicit continuity. The product supervisor, generation protocol, actual reboot, allocation and Cloud acceptance remain unfinished.
   Sources: [details 1](docs/decisions/0018-native-supervision-generations.md), [details 2](docs/implementation/native-supervision-profile.md)
 
@@ -268,6 +289,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Authorize public source development and move planning and forge verification to disposable GitHub-hosted Ubuntu 24.04 runners. Preserve pinned native dependencies, non-root workspace ownership, cgroup exclusion and recovery checks; prepare an identical job-owned Node binary with native-safe permissions, retire the local dispatch probe and document private vulnerability reporting without adding a software license.
   Sources: [details 1](docs/decisions/D01.md), [details 2](docs/implementation/isolated-ci.md), [details 3](.github/workflows/product.yml), [details 4](.github/workflows/verify.yml), [details 5](SECURITY.md)
+
+- Keep the pre-release README summary compact with pending changelog counts and category totals, while preserving every detailed entry and source reference in CHANGELOG.
+  Sources: [details 1](changelog/ROUTINE.md), [details 2](scripts/render.mjs)
 
 - Redesigned the README roadmap with journey-level status, milestone dependencies and exit criteria, separate progress summaries, and light/dark palettes.
   Sources: [details 1](docs/ROADMAP.md), [details 2](scripts/roadmap-svg.mjs)
@@ -315,6 +339,12 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Accept and preserve the exact first-install UUID in encrypted export and recovery configuration, reject mismatched identity before publication, and rebind it only for an independently allocated retirement verification target. Fresh packaged enrollment and direct five-stage retirement passed without any prior upgrade; terminal/refusal checks and 77-log credential checks passed. Actual partial migration recovery resumed after three of sixteen commits; current integration CI and broader lifecycle/Cloud acceptance remain separate.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/installation-retirement.md)
+
+- Reject native ownership acknowledgements after their absolute attachment deadline even when the timer message is delayed; retain the three-second limit and native startup refusal pending installed proof.
+  Sources: [details 1](apps/forge/lib/gitgood/installation_generation_monitor.ex), [details 2](docs/implementation/native-ownership-monitor-attachment.md)
+
+- Use one complete generation/session/marker bracket for initial ownership attachment and consume its result once; retain fresh checks on later heartbeats and all original deadlines, refusal and authority limits. Installed proof remains pending.
+  Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](tools/deployment/native_ownership_observation.py), [details 3](tools/deployment/native_monitor_ownership_attachment.py)
 
 - Build digest-pinned PostgreSQL 18.4 server and recovery clients in the isolated Ubuntu runner, preserving exact recovery versions and the same-OS database locale profile.
   Sources: [details 1](tools/ci/install-postgres-18.4.sh), [details 2](.github/workflows/product.yml)

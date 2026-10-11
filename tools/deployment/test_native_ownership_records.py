@@ -75,6 +75,94 @@ class OwnershipRecordCustodyTest(unittest.TestCase):
     def snapshot(self):
         return {path.name:(path.lstat().st_ino,path.lstat().st_nlink,path.read_bytes()) for path in self.directory.iterdir()}
 
+    def test_inspection_of_absence_creates_nothing_and_grants_no_replacement(self):
+        before = self.storage.stat()
+        with patch.object(records.os, 'mkdir', side_effect=AssertionError('inspection must not create')):
+            result = self.subject.inspect()
+        self.assertEqual(list(self.storage.iterdir()), [])
+        self.assertEqual(self.storage.stat().st_mtime_ns, before.st_mtime_ns)
+        self.assertEqual(result, {'ownership_directory_present':False, 'records':[],
+                                 'installation_readiness_established':False, 'replacement_admitted':False})
+
+    def test_inspection_preserves_complete_records_and_returns_detached_values(self):
+        self.subject.retain(self.record)
+        second = {**self.record, 'operation':str(uuid.uuid4()), 'candidate':'b'*40}
+        self.subject.retain(second)
+        before = self.snapshot()
+        result = self.subject.inspect()
+        expected = sorted([self.record, second], key=lambda value:value['operation'])
+        self.assertEqual(result['records'], expected)
+        self.assertTrue(result['ownership_directory_present'])
+        self.assertFalse(result['replacement_admitted'])
+        result['records'][0]['candidate'] = '0'*40
+        self.assertEqual(self.subject.inspect()['records'], expected)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_inspection_preserves_unknown_partial_and_hardlinked_responsibility(self):
+        self.subject.retain(self.record)
+        partial = self.directory/'.partial-uncertain'; partial.write_bytes(b'uncertain'); partial.chmod(0o600)
+        before = self.snapshot()
+        with self.assertRaises(records.OwnershipRecordRefused): self.subject.inspect()
+        self.assertEqual(self.snapshot(), before)
+        partial.unlink()
+        os.link(self.target, partial)
+        before = self.snapshot()
+        with self.assertRaises(records.OwnershipRecordRefused): self.subject.inspect()
+        self.assertEqual(self.snapshot(), before)
+
+    def test_inspection_refuses_identical_bytes_replacement_between_reads(self):
+        self.subject.retain(self.record)
+        original = self.subject._read
+        calls = 0
+        def replacement(descriptor, name):
+            nonlocal calls
+            calls += 1
+            if calls == 3:
+                source = self.storage/'replacement'; source.write_bytes(canonical(self.record)); source.chmod(0o600)
+                os.replace(source, self.target)
+            return original(descriptor, name)
+        with patch.object(self.subject, '_read', side_effect=replacement):
+            with self.assertRaises(records.OwnershipRecordRefused): self.subject.inspect()
+        self.assertEqual(self.target.read_bytes(), canonical(self.record))
+
+    def test_inspection_refuses_replaced_directory_without_redirecting_reads(self):
+        self.subject.retain(self.record)
+        moved = self.storage/'retained-original'
+        original = self.subject._layout
+        calls = 0
+        def replacement(descriptor):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                self.directory.rename(moved); self.directory.mkdir(mode=0o700)
+            return original(descriptor)
+        with patch.object(self.subject, '_layout', side_effect=replacement):
+            with self.assertRaises(records.OwnershipRecordRefused): self.subject.inspect()
+        self.assertEqual(list(self.directory.iterdir()), [])
+        self.assertEqual((moved/self.target.name).read_bytes(), canonical(self.record))
+
+    def test_inspection_refuses_replaced_storage_before_absence_result(self):
+        with tempfile.TemporaryDirectory(prefix='gitgood-inspection-replacement-') as temporary:
+            base = Path(temporary); storage = base/'storage'; storage.mkdir(mode=0o700)
+            info = storage.stat()
+            subject = records.NativeOwnershipRecords(storage, self.record['installation'],
+                {'device':info.st_dev,'inode':info.st_ino,'uid':info.st_uid})
+            storage.rename(base/'original'); storage.mkdir(mode=0o700)
+            with self.assertRaises(records.OwnershipRecordRefused): subject.inspect()
+            self.assertEqual(list(storage.iterdir()), [])
+
+    def test_directory_created_during_absence_observation_refuses(self):
+        original = records.os.open
+        def concurrent_creation(path, flags, *args, **options):
+            if path == '.gitgood-ownership-v2':
+                self.directory.mkdir(mode=0o700)
+                raise FileNotFoundError('Concurrent fixture creation')
+            return original(path, flags, *args, **options)
+        with patch.object(records.os, 'open', side_effect=concurrent_creation):
+            with self.assertRaises(records.OwnershipRecordRefused): self.subject.inspect()
+        self.assertTrue(self.directory.is_dir())
+        self.assertEqual(list(self.directory.iterdir()), [])
+
     def test_atomic_record_and_identical_retry_preserve_bytes_and_inode(self):
         result = self.subject.retain(self.record)
         before = self.snapshot()

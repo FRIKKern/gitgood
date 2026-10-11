@@ -28,10 +28,12 @@ class ReadOnlySystemdProperties:
             'sd_bus_set_method_call_timeout':([pointer,ctypes.c_uint64],ctypes.c_int),
             'sd_bus_start':([pointer],ctypes.c_int),
             'sd_bus_get_property':([pointer,string,string,string,string,pointer,ctypes.POINTER(pointer),string],ctypes.c_int),
+            'sd_bus_call_method':([pointer,string,string,string,string,pointer,ctypes.POINTER(pointer),string],ctypes.c_int),
             'sd_bus_message_read_basic':([pointer,ctypes.c_char,pointer],ctypes.c_int),
             'sd_bus_message_enter_container':([pointer,ctypes.c_char,string],ctypes.c_int),
             'sd_bus_message_exit_container':([pointer],ctypes.c_int),
             'sd_bus_message_at_end':([pointer,ctypes.c_int],ctypes.c_int),
+            'sd_bus_message_skip':([pointer,string],ctypes.c_int),
             'sd_bus_message_unref':([pointer],pointer),
             'sd_bus_flush_close_unref':([pointer],pointer)}
         for name,(arguments,result) in signatures.items():
@@ -60,10 +62,20 @@ class ReadOnlySystemdProperties:
         return value.value.decode('ascii',errors='strict')
 
     def _get(self,path,interface,name,signature):
+        try:
+            require(self.usable)
+            require(self.files.read(self.path)[0]==self.original)
+            result=self._read_property(path,interface,name,signature)
+            require(self.files.read(self.path)[0]==self.original)
+            return result
+        except BaseException:
+            self.close();raise
+
+    def _read_property(self,path,interface,name,signature):
+        """Decode one live reply inside an already bracketed library observation."""
         message=ctypes.c_void_p()
         try:
             require(self.usable and signature in ['s','u','b','as'])
-            require(self.files.read(self.path)[0]==self.original)
             require(self.library.sd_bus_get_property(self.bus,b'org.freedesktop.systemd1',path.encode(),interface.encode(),name.encode(),None,ctypes.byref(message),signature.encode())==0)
             if signature=='s': result=self._string(message)
             elif signature in ['u','b']:
@@ -79,7 +91,6 @@ class ReadOnlySystemdProperties:
                 require(self.library.sd_bus_message_exit_container(message)>=0)
                 result=' '.join(values)
             require(self.library.sd_bus_message_at_end(message,0)==1)
-            require(self.files.read(self.path)[0]==self.original)
             return result
         except BaseException:
             self.close();raise
@@ -88,6 +99,68 @@ class ReadOnlySystemdProperties:
 
     def manager_version(self):
         return self._get('/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','Version','s')
+
+    def _get_many(self,path,properties):
+        """Read selected live properties; publish nothing until the batch closes."""
+        try:
+            require(self.usable and type(properties) is list and 0<len(properties)<=32)
+            require(all(type(item) is tuple and len(item)==3 for item in properties))
+            require(all(type(interface) is str and type(name) is str and signature in ['s','u','b','as']
+                        for interface,name,signature in properties))
+            require(len({name for _,name,_ in properties})==len(properties))
+            require(self.files.read(self.path)[0]==self.original)
+            result={name:self._read_property(path,interface,name,signature) for interface,name,signature in properties}
+            require(self.files.read(self.path)[0]==self.original)
+            return result
+        except BaseException:
+            self.close();raise
+
+    def _get_all(self,path,interface,signatures):
+        """Read one live interface reply; never cache manager or unit values."""
+        message=ctypes.c_void_p()
+        try:
+            require(self.usable and type(signatures) is dict and 0<len(signatures)<=32)
+            require(all(type(name) is str and signature in ['s','u','b','as'] for name,signature in signatures.items()))
+            require(self.files.read(self.path)[0]==self.original)
+            require(self.library.sd_bus_call_method(self.bus,b'org.freedesktop.systemd1',path.encode(),
+                b'org.freedesktop.DBus.Properties',b'GetAll',None,ctypes.byref(message),b's',interface.encode())>=0)
+            require(self.library.sd_bus_message_enter_container(message,b'a',b'{sv}')==1)
+            seen=set();result={}
+            while self.library.sd_bus_message_at_end(message,0)==0:
+                require(len(seen)<512)
+                require(self.library.sd_bus_message_enter_container(message,b'e',b'sv')==1)
+                name=self._string(message);require(name and name not in seen);seen.add(name)
+                if name in signatures:
+                    signature=signatures[name]
+                    require(self.library.sd_bus_message_enter_container(message,b'v',signature.encode())==1)
+                    if signature=='s':value=self._string(message)
+                    elif signature in ['u','b']:
+                        field=ctypes.c_uint32() if signature=='u' else ctypes.c_int()
+                        require(self.library.sd_bus_message_read_basic(message,signature.encode(),ctypes.byref(field))==1)
+                        if signature=='b':require(field.value in [0,1])
+                        value=str(field.value) if signature=='u' else ('yes' if field.value else 'no')
+                    else:
+                        require(self.library.sd_bus_message_enter_container(message,b'a',b's')==1)
+                        values=[]
+                        while self.library.sd_bus_message_at_end(message,0)==0:
+                            require(len(values)<32);values.append(self._string(message))
+                        require(self.library.sd_bus_message_exit_container(message)>=0)
+                        value=' '.join(values)
+                    require(self.library.sd_bus_message_at_end(message,0)==1)
+                    require(self.library.sd_bus_message_exit_container(message)>=0)
+                    result[name]=value
+                else:
+                    require(self.library.sd_bus_message_skip(message,b'v')>=0)
+                require(self.library.sd_bus_message_at_end(message,0)==1)
+                require(self.library.sd_bus_message_exit_container(message)>=0)
+            require(self.library.sd_bus_message_exit_container(message)>=0)
+            require(self.library.sd_bus_message_at_end(message,0)==1 and set(result)==set(signatures))
+            require(self.files.read(self.path)[0]==self.original)
+            return result
+        except BaseException:
+            self.close();raise
+        finally:
+            if message:self.library.sd_bus_message_unref(message)
 
     def unit_properties(self,unit):
         try:
@@ -100,9 +173,8 @@ class ReadOnlySystemdProperties:
         path='/org/freedesktop/systemd1/unit/'+suffix
         unit_names=['Id','LoadState','ActiveState','SubState','FragmentPath','DropInPaths']
         service_names=['User','Group','MainPID','ControlGroup','Delegate','DelegateSubgroup','DelegateControllers','KillMode','Restart']
-        result={}
+        properties=[]
         for interface,names in [('Unit',unit_names),('Service',service_names)]:
-            for name in names:
-                signature={'MainPID':'u','Delegate':'b','DropInPaths':'as','DelegateControllers':'as'}.get(name,'s')
-                result[name]=self._get(path,'org.freedesktop.systemd1.'+interface,name,signature)
-        return result
+            properties += [('org.freedesktop.systemd1.'+interface,name,
+                            {'MainPID':'u','Delegate':'b','DropInPaths':'as','DelegateControllers':'as'}.get(name,'s')) for name in names]
+        return self._get_many(path,properties)

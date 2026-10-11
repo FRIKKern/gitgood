@@ -119,21 +119,112 @@ class SystemdPropertiesTest(unittest.TestCase):
 
     def test_unit_schema_and_path_are_fixed_and_every_property_read_is_live(self):
         subject = self.subject()
-        subject._get = Mock(return_value='observed')
+        subject._read_property = Mock(return_value='observed')
         unit = 'gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
         first = subject.unit_properties(unit)
         self.assertEqual(len(first), 15)
         self.assertEqual(subject.unit_properties(unit), first)
-        self.assertEqual(subject._get.call_count, 30)
+        self.assertEqual(subject._read_property.call_count, 30)
+        self.assertEqual(subject.files.read.call_count, 4)
         expected_path = '/org/freedesktop/systemd1/unit/' + unit.replace('-', '_2d').replace('.', '_2e')
-        for call in subject._get.call_args_list:
+        for call in subject._read_property.call_args_list:
             self.assertEqual(call.args[0], expected_path)
             self.assertIn(call.args[1], ['org.freedesktop.systemd1.Unit', 'org.freedesktop.systemd1.Service'])
-        signatures = {call.args[2]: call.args[3] for call in subject._get.call_args_list}
+        signatures = {call.args[2]:call.args[3] for call in subject._read_property.call_args_list}
         self.assertEqual(signatures['MainPID'], 'u')
         self.assertEqual(signatures['Delegate'], 'b')
         self.assertEqual(signatures['DelegateControllers'], 'as')
         self.assertEqual(signatures['DropInPaths'], 'as')
+
+    def test_selected_batch_reads_live_values_and_brackets_the_whole_result(self):
+        subject=self.subject()
+        properties=[('fixed','First','s'),('fixed','Second','s')]
+        self.assertEqual(subject._get_many('/fixed',properties),{'First':'255.4','Second':'255.4'})
+        self.assertEqual(subject._get_many('/fixed',properties),{'First':'255.4','Second':'255.4'})
+        self.assertEqual(subject.library.sd_bus_get_property.call_count,4)
+        self.assertEqual(subject.files.read.call_count,4)
+        self.assertEqual(subject.library.sd_bus_message_unref.call_count,4)
+
+    def test_selected_batch_changed_library_discards_all_values_and_cannot_resume(self):
+        subject=self.subject()
+        subject.files.read.side_effect=[(subject.original,b'library'),({'inode':18},b'library')]
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s'),('fixed','Second','s')])
+        self.assertEqual(subject.library.sd_bus_get_property.call_count,2)
+        self.assert_lost(subject)
+
+    def test_selected_batch_refuses_replacement_before_any_call_and_duplicate_names(self):
+        subject=self.subject()
+        subject.files.read.return_value=({'inode':18},b'library')
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s')])
+        subject.library.sd_bus_get_property.assert_not_called();self.assert_lost(subject)
+        subject=self.subject()
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s'),('other','First','s')])
+        subject.library.sd_bus_get_property.assert_not_called();self.assert_lost(subject)
+
+    def test_selected_batch_stops_at_first_bad_reply_without_returning_partial_result(self):
+        subject=self.subject()
+        original=subject.library.sd_bus_get_property.side_effect
+        calls=[]
+        def reply(*args):
+            calls.append(args[4]);return original(*args) if len(calls)==1 else -22
+        subject.library.sd_bus_get_property.side_effect=reply
+        with self.assertRaises(BusRefused):subject._get_many('/fixed',[('fixed','First','s'),('fixed','Second','s'),('fixed','Third','s')])
+        self.assertEqual(calls,[b'First',b'Second']);self.assert_lost(subject)
+
+    def dictionary_subject(self, names, values=(), endings=()):
+        subject = self.subject()
+        def reply(*arguments):
+            ctypes.cast(arguments[6], ctypes.POINTER(ctypes.c_void_p))[0] = 2
+            return 1
+        subject.library.sd_bus_call_method.side_effect = reply
+        subject.library.sd_bus_message_enter_container.return_value = 1
+        subject.library.sd_bus_message_exit_container.return_value = 1
+        subject.library.sd_bus_message_at_end.side_effect = list(endings)
+        subject._string = Mock(side_effect=list(names))
+        fields = iter(values)
+        def basic(message, kind, destination):
+            field = ctypes.c_uint32 if kind == b'u' else ctypes.c_int
+            ctypes.cast(destination, ctypes.POINTER(field))[0] = next(fields)
+            return 1
+        subject.library.sd_bus_message_read_basic.side_effect = basic
+        return subject
+
+    def test_getall_rejects_duplicate_keys_even_for_unknown_properties(self):
+        subject = self.dictionary_subject(['Unknown', 'Unknown'], endings=[0, 1, 0])
+        subject.library.sd_bus_message_skip.return_value = 1
+        with self.assertRaises(BusRefused): subject._get_all('/fixed', 'fixed', {'MainPID': 'u'})
+        self.assert_lost(subject)
+        subject.library.sd_bus_message_unref.assert_called_once()
+
+    def test_getall_missing_property_and_trailing_body_permanently_refuse(self):
+        for names, values, endings in [([], [], [1, 1]),
+                                      (['MainPID'], [1234], [0, 1, 1, 1, 0])]:
+            subject = self.dictionary_subject(names, values, endings)
+            with self.assertRaises(BusRefused): subject._get_all('/fixed', 'fixed', {'MainPID': 'u'})
+            self.assert_lost(subject)
+
+    def test_getall_invalid_boolean_and_variant_type_refuse(self):
+        subject = self.dictionary_subject(['Delegate'], [2], [0])
+        with self.assertRaises(BusRefused): subject._get_all('/fixed', 'fixed', {'Delegate': 'b'})
+        self.assert_lost(subject)
+        subject = self.dictionary_subject(['MainPID'], endings=[0])
+        subject.library.sd_bus_message_enter_container.side_effect = [1, 1, -22]
+        with self.assertRaises(BusRefused): subject._get_all('/fixed', 'fixed', {'MainPID': 'u'})
+        self.assert_lost(subject)
+
+    def test_getall_changed_library_discards_complete_reply(self):
+        subject = self.dictionary_subject(['MainPID'], [1234], [0, 1, 1, 1, 1])
+        subject.files.read.side_effect = [(subject.original, b'library'), ({'inode': 18}, b'library')]
+        with self.assertRaises(BusRefused): subject._get_all('/fixed', 'fixed', {'MainPID': 'u'})
+        self.assert_lost(subject)
+
+    def test_getall_entry_limit_bounds_unknown_property_processing(self):
+        subject = self.dictionary_subject(['Unknown' + str(index) for index in range(512)],
+                                         endings=[item for _ in range(512) for item in [0, 1]] + [0])
+        subject.library.sd_bus_message_skip.return_value = 1
+        with self.assertRaises(BusRefused): subject._get_all('/fixed', 'fixed', {'MainPID': 'u'})
+        self.assertEqual(subject.library.sd_bus_message_skip.call_count, 512)
+        self.assert_lost(subject)
 
 
 if __name__ == '__main__':

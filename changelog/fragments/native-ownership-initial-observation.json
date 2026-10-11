@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-initial-observation",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Use one complete generation/session/marker bracket for initial ownership attachment and consume its result once; retain fresh checks on later heartbeats and all original deadlines, refusal and authority limits. Installed proof remains pending.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-monitor-attachment.md", "tools/deployment/native_ownership_observation.py", "tools/deployment/native_monitor_ownership_attachment.py"],
+  "withdrawn": false
+}

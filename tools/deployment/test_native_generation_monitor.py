@@ -1,9 +1,11 @@
 import copy
 import io
 import json
+import os
+from types import SimpleNamespace
 import unittest
 import uuid
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import native_generation_monitor as monitor
 
@@ -11,6 +13,8 @@ import native_generation_monitor as monitor
 class Stream:
     def __init__(self, value=b''):
         self.buffer = io.BytesIO(value)
+
+    def fileno(self): return 0
 
 
 class Guard:
@@ -71,15 +75,19 @@ class GenerationMonitorTest(unittest.TestCase):
         if capture_failure:
             guard.capture = lambda: (_ for _ in ()).throw(ValueError('private fixture value'))
         values = [(identity,sealed), (identity,sealed+b'changed')] if changed_seal else None
+        selector = Mock()
+        selector.select.return_value = []
         with patch.object(monitor.sys, 'argv', ['fixed-entry']), \
              patch.object(monitor.sys, 'stdin', Stream(self.raw)), \
              patch.object(monitor.sys, 'stdout', output), \
              patch.object(monitor, 'open_guard', return_value=(guard,self.request,seal,identity,sealed)), \
              patch.object(monitor, 'root_file', side_effect=values, return_value=(identity,sealed)), \
-             patch.object(monitor.time, 'sleep', return_value=None) as sleeper, \
+             patch.object(monitor.selectors,'DefaultSelector',return_value=selector), \
+             patch.object(monitor.os,'set_blocking'), \
              patch.object(monitor.time, 'monotonic', side_effect=ticks, return_value=10):
             code = monitor.main()
-        self.sleeps = [call.args[0] for call in sleeper.call_args_list]
+        self.sleeps = [call.args[0] for call in selector.select.call_args_list]
+        selector.close.assert_called_once() if not capture_failure else None
         self.assertEqual(code, 1); self.assertTrue(guard.closed)
         raw = output.buffer.getvalue(); self.assertNotIn(b'private fixture', raw)
         self.assertNotIn(b'Traceback', raw)
@@ -114,6 +122,22 @@ class GenerationMonitorTest(unittest.TestCase):
     def test_fast_checks_wait_for_the_next_one_second_start_interval(self):
         self.run_stream(ticks=[10, 10, 10, 10.25, 11])
         self.assertEqual(self.sleeps, [0, .75])
+
+    def test_actual_input_pipe_eof_refuses_and_closes_original_guard(self):
+        read_fd,write_fd=os.pipe()
+        os.write(write_fd,self.raw);os.close(write_fd)
+        guard=Guard();output=Stream()
+        identity={'path':'/fixed/root/seal'};sealed=b'fixture'
+        seal={'binding_sha256':'d'*64,'database':{}}
+        with os.fdopen(read_fd,'rb',buffering=0) as source, \
+             patch.object(monitor.sys,'argv',['fixed-entry']), \
+             patch.object(monitor.sys,'stdin',SimpleNamespace(buffer=source,fileno=source.fileno)), \
+             patch.object(monitor.sys,'stdout',output), \
+             patch.object(monitor,'open_guard',return_value=(guard,self.request,seal,identity,sealed)), \
+             patch.object(monitor,'root_file',return_value=(identity,sealed)):
+            self.assertEqual(monitor.main(),1)
+        self.assertTrue(guard.closed)
+        self.assertEqual([json.loads(line)['status'] for line in output.buffer.getvalue().splitlines()],['admitted','refused'])
 
 
 if __name__ == '__main__': unittest.main()

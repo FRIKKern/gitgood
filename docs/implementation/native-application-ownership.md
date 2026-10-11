@@ -3,6 +3,11 @@
 Implementation work under decision 0018. Complete application startup, native
 leases, generation-aware markers and lifecycle admission remain unfinished.
 
+The [publication integration](native-ownership-publication.md) now includes marker
+custody, original backend/owner-socket observation and a protected fixed entry.
+Its actual service execution and prior-owner reconciliation remain unfinished;
+the native application gate remains closed.
+
 The preliminary `InstallationProfile` selector distinguishes the development
 profile from `systemd-v2`. Native selection requires Linux x86_64, the canonical
 installation storage path and a matching actual native or maintenance kernel
@@ -130,3 +135,14 @@ native application or journey acceptance.
 Keep the original protocol-1 journals and same-boot refusal rules intact. Initial,
 upgrade, backup and retirement interruptions, terminal-only conversion, allocator,
 deployed authentication, the Cloud contract and complete journey gates still apply.
+
+`NativeOwnershipRecords.inspect()` adds bounded read-only observation for the
+forthcoming controller. Missing custody returns absence without creating a
+directory. Existing custody requires private canonical records, repeated complete
+names, original directory/storage identities and unchanged file identities,
+including nanosecond ctime/mtime. Concurrent creation, replacement, partial files
+and hard links refuse without cleanup. Returned records are detached values;
+they describe retained responsibility and cannot establish owner/backend absence,
+grant replacement permission or establish readiness. The controller must still
+prove old-owner and descendant absence and independently check the database
+before admitting replacement.

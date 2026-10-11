@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-marker-guard",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Observe original ownership record and marker custody through retained descriptors and immutable fingerprints; poison the guard after loss without repair or recapture. Protected helper linkage and complete native startup remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-marker-guard.md", "tools/deployment/native_ownership_marker_guard.py"],
+  "withdrawn": false
+}

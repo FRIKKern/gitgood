@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-monitor-attachment",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Attach ownership custody and the original held session to the existing generation monitor; require immutable ownership heartbeats and terminal acknowledgement deadlines. Protected service loss and complete application startup remain unverified.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-monitor-attachment.md", "tools/deployment/native_monitor_ownership_attachment.py"],
+  "withdrawn": false
+}
