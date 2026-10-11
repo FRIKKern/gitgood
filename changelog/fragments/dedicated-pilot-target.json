@@ -1,0 +1,9 @@
+{
+  "id": "dedicated-pilot-target",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Prefer a separate EU Hetzner CCX23 project with dedicated CPU for the Gitgood pilot and a EUR 120 planning budget, while preserving measured workload and deployment gates.",
+  "journeys": ["J14"],
+  "references": ["deploy/pilot-target.md"],
+  "withdrawn": false
+}
