@@ -25,7 +25,9 @@ manager or protected service and establishes no native application acceptance.
 The preceding production VM failed maintenance freshness before ownership
 publication. A separate timing VM has an explicitly overlaid diagnostic entry and
 cannot establish production acceptance. Complete operator checks and a fresh
-proof with the original protected entry remain prerequisites for integration.
+proof with the original protected entry remain prerequisites for installed native
+application acceptance and activation. Integrating independently tested components
+does not satisfy those gates or enable native startup.
 
 The complete ordinary-user Linux operator suite passed: 452 tests with 18
 platform-specific skips. Its private receipt records every current deployment

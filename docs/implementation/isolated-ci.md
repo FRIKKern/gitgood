@@ -1,5 +1,17 @@
 # Isolated development CI
 
+> Historical local-runner investigation. On 11 October 2026, the owner authorized public source visibility and standard GitHub-hosted CI. The observations below describe earlier experiments, not current runner provisioning instructions.
+
+## Current hosted execution boundary
+
+Planning and forge workflows use disposable GitHub-hosted `ubuntu-24.04` machines with read-only repository permissions. Pull requests receive synthetic fixture inputs; no application credentials, local VM images or private recovery archives are transferred. The obsolete self-hosted dispatch probe is retired. Do not register a local runner for public pull-request execution.
+
+The forge job still builds checksum-pinned PostgreSQL 18.4 under its canonical owned workspace, runs as a non-root account, and verifies complete database, process-interruption, copied-installation and recovery behavior. Its dedicated cgroup v2 children and empty-group checks remain required. Runner migration does not waive failed checks or establish a production release.
+
+The hosted image's shared tool cache does not establish the native executable-permission boundary. After selecting pinned Node, record its file metadata and copy the identical binary into a private job-owned runtime directory. Check the copy with the unchanged native executable validator and use it for subsequent Node commands. Do not loosen production validation or change the shared cache's permissions. The first hosted runs at `a26fbce` and `735b8b4` passed backend checks but failed native preflight while inspecting cached Node; retain those failed runs as the reason for this preparation step.
+
+Standard hosted runner minutes are free for public repositories according to [GitHub's billing documentation](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Account-level restrictions and finite runner disk space still require an actual run. Keep verification artifacts bounded and retain them for seven days; the hosted VM is disposable after the job. The local VM/evidence retirement audit is a separate task and publication itself does not reclaim local disk space.
+
 ## Purpose and acceptance
 
 GitHub-hosted jobs currently stop before executing any steps because of account billing. Required checks remain required. Investigate a disposable self-hosted Ubuntu 24.04 guest without changing billing, purchasing infrastructure, or weakening a check. This is infrastructure for developing the private repository; it does not add hosted CI execution to Gitgood's product scope.
