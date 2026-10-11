@@ -87,7 +87,8 @@ def observe_held_session(psql, database_url, snapshot, expected_database, *, own
     try:
         require(type(psql) is str and psql.startswith('/') and '\0' not in psql and len(psql)<=4096)
         environment = database_environment(database_url)
-        environment.update(PGPASSFILE='/dev/null',PGOPTIONS='-c statement_timeout=3000')
+        environment.update(PGPASSFILE='/dev/null',PGOPTIONS=(
+            '-c statement_timeout=3000 -c default_transaction_read_only=on -c search_path=pg_catalog'))
         validate_database(expected_database,environment)
         validate_session(snapshot,expected_database)
         if owner is not None:
