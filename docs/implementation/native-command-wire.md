@@ -49,7 +49,10 @@ owned fixture endpoint is not product enrollment.
 
 All 13 focused tests and 35 planning tests pass. The socket fixture verifies
 unchanged component source bytes before and after its actual connections.
-Complete operator regression checks and required CI remain pending.
+All 496 operator regression tests pass in 66.875 seconds, with 18 expected
+platform skips. All 117 tracked operator source hashes remain unchanged across
+the run. Required CI remains pending. These checks do not establish installed
+native application or controller acceptance.
 
 Linux documents peer credentials as belonging to connection/socket-pair creation
 in the [Unix socket manual](https://man7.org/linux/man-pages/man7/unix.7.html).
