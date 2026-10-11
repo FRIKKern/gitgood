@@ -1,23 +1,33 @@
-# Barkpark Cloud application contract
+# Deploying Gitgood through Barkpark Cloud
 
-This is a design contract, not a deployable package.
+[Documentation](../docs/README.md) · [Packaging experiment](../docs/deployment/production.md) · [Operational acceptance](../docs/operations/README.md)
 
-The [proposed pilot target](pilot-target.md) selects a separate Hetzner project,
-an Ubuntu24.04 x86_64 CPX32 installation and an initial EUR60/month planning
-budget before VAT. Provider allocation and the supported native Cloud contract
-remain implementation dependencies.
+**The managed Cloud integration is unfinished.** The repository contains application packaging and native lifecycle components, but this directory is a design contract, not an installable Cloud package.
 
-Gitgood owns its web/API release packaging, migrations, version/readiness endpoints, functional probes, and app-specific data requirements. Cloud owns generic validation, provisioning, inventory, routing, constrained lifecycle execution, and reporting.
+## Pilot environment
 
-The [controlled native upgrade work](../docs/implementation/installation-upgrade.md)
-includes digest-bound artifact inspection, controlled installed activation and
-explicit failure recovery. These local operator experiments do not establish
-managed Cloud deployment.
+The [pilot target](pilot-target.md) owns the proposed provider, host profile, location, and budget. A proposal does not establish an allocation or a working installation. Keep the pilot separate from CI and untrusted execution, with independent credentials and storage; CI also needs its own budget.
 
-The proposed descriptor must declare immutable artifact digests, target CPU/runtime, service/private-network dependencies, database and volume bindings, secret references, HTTP/SSH routes, owner bootstrap, migrations, health gates, backup/restore, and upgrade compatibility.
+## Who owns what
 
-The inspected Cloud Node path expects Next.js standalone output. Prototype actual TanStack output rather than claiming existing support. The current archive path covers Barkpark database/media; Git repositories and other adopted stores need explicit lifecycle support.
+| Gitgood | Barkpark Cloud |
+|---|---|
+| Forge/web release artifacts and matching build identity | Validation, allocation and inventory of the owned installation |
+| Application permissions, migrations and functional readiness | Routing and constrained lifecycle orchestration |
+| Git repositories, collaboration data and application recovery rules | Reported installation state and access to supported lifecycle actions |
 
-Do not grant a deployment descriptor unrestricted host shell execution. Use reviewed lifecycle actions and scoped credentials. Store code releases separately from mutable customer data.
+The installed forge must continue ordinary authentication and Git operations during a Cloud outage. Cloud installation ownership does not grant repository access.
 
-D06 proves clean-host packaging; D07 proves coordinated restoration. Keep source-derived templates and service manifests minimal until these experiments establish the contract.
+## What the workload contract must cover
+
+The descriptor must bind immutable artifact digests, supported CPU/runtime, required binaries, database and Git storage, secret references, HTTP/SSH routes, owner bootstrap, migrations, functional health, backup/restore, and upgrade compatibility. Keep replaceable code separate from mutable application data.
+
+Use fixed, reviewed lifecycle actions and scoped credentials. A descriptor must not grant arbitrary host shell execution. The [controlled native upgrade work](../docs/implementation/installation-upgrade.md) describes the application-side components and their current proof boundaries.
+
+## Existing Cloud features and the missing adapter
+
+The inspected Cloud Node deployment path expects Next.js standalone output. Gitgood's TanStack entry and paired Elixir release require a supported native workload adapter. Existing Barkpark archives cover Barkpark stores; coordinated Gitgood recovery must also include Git repositories and every other authoritative store.
+
+Cloud support-instance provisioning creates a Barkpark instance tied to its parent data and fleet. It does not provide an independently configured Gitgood CI runner or native forge installation. Reusing that route requires a separate supported contract; choosing a different instance name is insufficient.
+
+[Packaging decision D06](../docs/decisions/D06.md) records the source audit and unresolved Cloud boundary. [Backup decision D07](../docs/decisions/D07.md) defines coordinated recovery. Complete installation, upgrade, replacement-host restore, export and removal must pass before this path is called supported.
