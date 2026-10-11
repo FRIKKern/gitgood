@@ -90,6 +90,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Document the measured native rootless CI boundary and a pinned runner build recipe, preserving failed emulated/minimal-image results and requiring actual job conclusions.
   Sources: [details 1](docs/implementation/isolated-ci.md), [details 2](tools/ci/native-runner.Containerfile)
 
+- Add fixed Root-sealed controller scope and private command-listener custody. Installed service admission, restart cleanup and lifecycle dispatch remain required.
+  Sources: [details 1](docs/implementation/native-command-endpoint.md), [details 2](tools/deployment/native_controller_scope.py), [details 3](tools/deployment/native_command_endpoint.py)
+
 - Add bounded canonical local controller request framing and actual Linux peer-account checks; sealed operation admission, lifecycle dispatch and installed controller remain required.
   Sources: [details 1](docs/implementation/native-command-wire.md), [details 2](tools/deployment/native_command_wire.py)
 

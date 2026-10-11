@@ -1,0 +1,9 @@
+{
+  "id": "native-command-endpoint",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add fixed Root-sealed controller scope and private command-listener custody. Installed service admission, restart cleanup and lifecycle dispatch remain required.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-command-endpoint.md", "tools/deployment/native_controller_scope.py", "tools/deployment/native_command_endpoint.py"],
+  "withdrawn": false
+}
