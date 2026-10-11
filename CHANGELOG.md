@@ -132,6 +132,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Observe exact private native installation resources and PostgreSQL cluster/database identity under a retained bindings digest before supervised upgrade actions.
   Sources: [details 1](tools/deployment/native_inventory.py), [details 2](tools/deployment/test_native_inventory.py), [details 3](docs/implementation/installation-upgrade.md)
 
+- Capture the original held native database lease's Linux process identity and combine same-boot kernel/SQL absence observations without signals or replacement authority; complete native recovery remains required.
+  Sources: [details 1](docs/implementation/native-kernel-backend.md), [details 2](tools/deployment/native_kernel_backend.py)
+
 - Introduce fixed TLS maintenance and bounded SSH routing under the installation-owned edge group; complete upgrade activation remains under verification.
   Sources: [details 1](tools/deployment/native_edge.py), [details 2](tools/deployment/test_native_edge.py), [details 3](docs/implementation/installation-upgrade.md)
 

@@ -73,6 +73,7 @@ This work connects application processes to their actual host, database and serv
 | Publishing and attaching ownership before application startup | [Ownership handoff](native-ownership-claim.md) |
 | Resolving lease checks against trusted PostgreSQL catalogs | [Ownership SQL namespace](native-database-namespace.md) |
 | Distinguishing original backend activity absence from a reused PID | [Prior backend observation](native-prior-backend-observation.md) |
+| Requiring the original PostgreSQL process to disappear under the same host scope | [Kernel backend identity and absence](native-kernel-backend.md) |
 
 ## Verification environment
 
