@@ -168,6 +168,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Construct bounded native ownership records in the Elixir application from matching captured generation, original database-session and controller-seal values. Verify all four mode outputs against the Python record grammar. Construction grants no live authority; protected publication and complete native startup integration remain required.
   Sources: [details 1](docs/implementation/native-ownership-record-construction.md), [details 2](apps/forge/lib/gitgood/native_ownership_record.ex)
 
+- Add a native ownership startup child, fixed-path private input reader, root factory and original-helper fence before claim publication. Native application wiring and installed startup acceptance remain required.
+  Sources: [details 1](docs/implementation/native-ownership-startup.md), [details 2](apps/forge/lib/gitgood/native_ownership_startup.ex), [details 3](apps/forge/lib/gitgood/native_ownership_inputs.ex), [details 4](apps/forge/lib/gitgood/native_ownership_fence.ex)
+
 - Observe the exact original native PostgreSQL backend's absence without signalling reused PIDs, adopting a new holder or granting replacement authority; complete controller reconciliation remains required.
   Sources: [details 1](docs/implementation/native-prior-backend-observation.md), [details 2](tools/deployment/native_prior_backend.py), [details 3](tools/deployment/native_ownership_database.py)
 
@@ -378,6 +381,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Bound disposable retirement input-fixture cleanup with the existing production database-removal limits while preserving identity checks, no-force behavior and product deadlines.
   Sources: [details 1](docs/implementation/native-retirement-fixture-cleanup.md), [details 2](tools/deployment/test_native_retirement.py)
+
+- Exercise unsupported native root startup in a bounded separate BEAM so the running development supervisor cannot mask the expected refusal; preserve the parent application and production ownership guards.
+  Sources: [details 1](apps/forge/test/gitgood/native_ownership_startup_test.exs), [details 2](docs/implementation/native-ownership-startup.md)
 
 - Install the Ubuntu systemd runtime in isolated CI so native root-file custody and installed-version tests execute against actual protected executables instead of failing on missing files.
   Sources: [details 1](.github/workflows/product.yml), [details 2](docs/implementation/native-generation-lease-guard.md)

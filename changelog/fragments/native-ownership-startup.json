@@ -1,0 +1,9 @@
+{
+  "id": "native-ownership-startup",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add a native ownership startup child, fixed-path private input reader, root factory and original-helper fence before claim publication. Native application wiring and installed startup acceptance remain required.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-startup.md", "apps/forge/lib/gitgood/native_ownership_startup.ex", "apps/forge/lib/gitgood/native_ownership_inputs.ex", "apps/forge/lib/gitgood/native_ownership_fence.ex"],
+  "withdrawn": false
+}

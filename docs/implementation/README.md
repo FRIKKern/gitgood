@@ -77,6 +77,7 @@ This work connects application processes to their actual host, database and serv
 | Reading fixed local commands from the admitted Linux account | [Controller command framing](native-command-wire.md) |
 | Binding the original database lease to its protected kernel observation | [Backend observation bridge](native-backend-observation.md) |
 | Retaining and monitoring the original backend process with ownership | [Kernel identity in ownership](native-kernel-ownership.md) |
+| Claiming ownership before workers and aborting when an original helper exits | [Native startup boundary](native-ownership-startup.md) |
 
 ## Verification environment
 
