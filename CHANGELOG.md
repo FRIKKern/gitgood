@@ -81,6 +81,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Stage inspected native code under private custody with independent file hashes, retained interrupted requests and atomic publication that cannot replace existing targets.
   Sources: [details 1](tools/deployment/stage_native_artifact.py), [details 2](tools/deployment/test_stage_native_artifact.py), [details 3](docs/implementation/installation-upgrade.md)
 
+- Add a bounded protected bridge for observing the original held Postgres session's kernel identity under an independently sealed server scope; installed enrollment, ownership retention and native application admission remain unfinished.
+  Sources: [details 1](docs/implementation/native-backend-observation.md), [details 2](tools/deployment/native_backend_observation.py), [details 3](apps/forge/lib/gitgood/native_ownership_publication.ex)
+
 - Added durable native links to Barkpark tasks and Paper specifications, per-viewer source reads, private change-page context, and original operation receipts that survive removal and replay.
   Sources: [details 1](docs/implementation/barkpark-records.md)
 

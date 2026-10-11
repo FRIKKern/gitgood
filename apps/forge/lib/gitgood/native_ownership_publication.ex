@@ -4,10 +4,118 @@ defmodule Gitgood.NativeOwnershipPublication do
 
   @python "/usr/bin/python3.12"
   @entry "/opt/gitgood/native/v2/native_ownership_publication_entry.py"
+  @backend_entry "/opt/gitgood/native/v2/native_backend_observation_entry.py"
   @fields ~w(protocol kind installation operation candidate mode binding_sha256 pointer scope owner database_session guard)
   @reply_fields ~w(protocol status ownership_marker_retained operation marker_sha256 record_sha256 installation_readiness_established replacement_admitted writer_exclusion_established lifecycle_responsibility_admitted)
   @timeout 60_000
   @failure {:error, :native_ownership_publication_unavailable}
+
+  def observe_backend(admission, session) do
+    owner_pid = String.to_integer(System.pid())
+    installation = admission["installation"]
+    worker = get_in(admission, ["worker_observation", "worker"])
+
+    with {:unix, :linux} <- :os.type(),
+         :ok <-
+           Gitgood.InstallationGenerationAdmission.validate(
+             admission,
+             installation,
+             worker,
+             owner_pid
+           ),
+         true <- closed?(session, ~w(database backend_pid backend_birth)),
+         true <- session["database"] === admission["database"],
+         :ok <- Gitgood.InstallationDatabaseSession.validate_database(session["database"]),
+         request <-
+           canonical(%{
+             "protocol" => 2,
+             "kind" => "native_backend_observation",
+             "installation" => installation,
+             "worker" => worker,
+             "owner_pid" => owner_pid,
+             "database_session" => session
+           }),
+         true <- byte_size(request) <= 8_192,
+         {:ok, python} <- trusted_file(@python, true),
+         {:ok, entry} <- trusted_file(@backend_entry, false),
+         {:ok, output} <- exchange(request <> "\n", @backend_entry),
+         {:ok, value} <- Jason.decode(output),
+         :ok <- validate_backend_reply(value, admission, session),
+         true <- output === canonical(value) <> "\n",
+         {:ok, ^python} <- trusted_file(@python, true),
+         {:ok, ^entry} <- trusted_file(@backend_entry, false) do
+      {:ok, value["kernel_record"]}
+    else
+      _ -> {:error, :native_backend_observation_unavailable}
+    end
+  rescue
+    _ -> {:error, :native_backend_observation_unavailable}
+  catch
+    _, _ -> {:error, :native_backend_observation_unavailable}
+  end
+
+  @doc false
+  def validate_backend_reply(value, admission, session) do
+    observation = admission["worker_observation"]
+    kernel = value["kernel_record"]
+    scope = kernel["server_scope"]
+
+    with true <-
+           closed?(
+             value,
+             ~w(protocol status installation worker owner_pid owner kernel_record service_scope_sha256 ownership_retained writer_exclusion_established installation_readiness_established replacement_admitted)
+           ),
+         true <- value["protocol"] === 2 and value["status"] === "observed",
+         true <-
+           value["installation"] === admission["installation"] and
+             value["worker"] === observation["worker"],
+         true <-
+           value["owner_pid"] === observation["owner"]["pid"] and
+             value["owner"] === observation["owner"],
+         true <-
+           value["service_scope_sha256"] ===
+             :crypto.hash(:sha256, canonical(observation["service_scope"]))
+             |> Base.encode16(case: :lower),
+         true <-
+           Enum.all?(
+             ~w(ownership_retained writer_exclusion_established installation_readiness_established replacement_admitted),
+             &(value[&1] === false)
+           ),
+         true <- closed?(kernel, ~w(protocol kind server_scope database_session kernel_birth)),
+         true <- kernel["protocol"] === 2 and kernel["kind"] === "native_backend_kernel_identity",
+         true <-
+           kernel["database_session"] === session and
+             session["database"] === admission["database"],
+         true <- closed?(session, ~w(database backend_pid backend_birth)),
+         :ok <- Gitgood.InstallationDatabaseSession.validate_database(session["database"]),
+         true <- is_integer(session["backend_pid"]) and session["backend_pid"] in 1..2_147_483_647,
+         true <-
+           positive_birth?(session["backend_birth"]) and positive_birth?(kernel["kernel_birth"]),
+         true <- closed?(scope, ~w(boot_id pid_namespace time_namespace postgres_uid)),
+         true <- scope["boot_id"] === observation["service_scope"]["boot_id"],
+         true <-
+           is_binary(scope["pid_namespace"]) and
+             Regex.match?(~r/\Apid:\[[1-9][0-9]{0,19}\]\z/, scope["pid_namespace"]),
+         true <-
+           is_binary(scope["time_namespace"]) and
+             Regex.match?(~r/\Atime:\[[1-9][0-9]{0,19}\]\z/, scope["time_namespace"]),
+         true <- is_integer(scope["postgres_uid"]) and scope["postgres_uid"] in 1..4_294_967_295,
+         true <- byte_size(canonical(value)) <= 4_096 do
+      :ok
+    else
+      _ -> :error
+    end
+  rescue
+    _ -> :error
+  end
+
+  defp closed?(value, fields),
+    do: is_map(value) and MapSet.new(Map.keys(value)) === MapSet.new(fields)
+
+  defp positive_birth?(value),
+    do:
+      is_binary(value) and Regex.match?(~r/\A[1-9][0-9]{0,19}\z/, value) and
+        String.to_integer(value) < 18_446_744_073_709_551_616
 
   def publish(record) do
     with {:unix, :linux} <- :os.type(),
@@ -142,7 +250,7 @@ defmodule Gitgood.NativeOwnershipPublication do
     end
   end
 
-  defp exchange(request) do
+  defp exchange(request, entry \\ @entry) do
     environment =
       System.get_env()
       |> Map.drop(["PATH", "LANG"])
@@ -153,7 +261,7 @@ defmodule Gitgood.NativeOwnershipPublication do
         :binary,
         :exit_status,
         :use_stdio,
-        {:args, ["-I", "-S", "-B", @entry]},
+        {:args, ["-I", "-S", "-B", entry]},
         {:env, environment ++ [{~c"PATH", ~c"/usr/bin:/bin"}, {~c"LANG", ~c"C.UTF-8"}]}
       ])
 

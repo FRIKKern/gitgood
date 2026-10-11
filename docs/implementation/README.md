@@ -75,6 +75,7 @@ This work connects application processes to their actual host, database and serv
 | Distinguishing original backend activity absence from a reused PID | [Prior backend observation](native-prior-backend-observation.md) |
 | Requiring the original PostgreSQL process to disappear under the same host scope | [Kernel backend identity and absence](native-kernel-backend.md) |
 | Reading fixed local commands from the admitted Linux account | [Controller command framing](native-command-wire.md) |
+| Binding the original database lease to its protected kernel observation | [Backend observation bridge](native-backend-observation.md) |
 
 ## Verification environment
 
