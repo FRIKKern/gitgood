@@ -16,9 +16,39 @@ def require(value):
         raise DatabaseRefused('Native ownership database session unavailable')
 
 
+OBSERVATION_OPTIONS = '-c statement_timeout=3000 -c default_transaction_read_only=on -c search_path=pg_catalog'
+
+
+def _query_database(psql, environment, statement):
+    """Bound a trusted internal statement; no external entry accepts SQL."""
+    require(type(psql) is str and psql.startswith('/') and '\0' not in psql and len(psql)<=4096)
+    require(environment.get('PGOPTIONS')==OBSERVATION_OPTIONS and environment.get('PGPASSFILE')=='/dev/null')
+    require(type(statement) is str and 0<len(statement)<=8192 and '\0' not in statement)
+    arguments=[psql,'--no-psqlrc','--no-password','--tuples-only','--no-align','--set=ON_ERROR_STOP=1','--command',statement]
+    with subprocess.Popen(arguments,env=environment,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL) as child:
+        output=bytearray()
+        try:
+            deadline=time.monotonic()+4
+            with selectors.DefaultSelector() as selector:
+                selector.register(child.stdout,selectors.EVENT_READ)
+                while True:
+                    remaining=deadline-time.monotonic()
+                    require(remaining>0 and selector.select(remaining))
+                    block=os.read(child.stdout.fileno(),min(4096,16385-len(output)))
+                    if not block:break
+                    output.extend(block);require(len(output)<=16384)
+            require(child.wait(timeout=max(.01,deadline-time.monotonic()))==0 and 0<len(output)<=16384)
+            return bytes(output)
+        finally:
+            if child.poll() is None:
+                child.kill();child.wait()
+
+
 def validate_session(snapshot, expected_database):
     require(type(snapshot) is dict and set(snapshot)=={'database','backend_pid','backend_birth'})
+    require(type(snapshot['database']) is dict and type(expected_database) is dict)
     require(snapshot['database']==expected_database)
+    require(all(type(snapshot['database'][key]) is type(value) for key,value in expected_database.items()))
     require(type(snapshot['backend_pid']) is int and 0<snapshot['backend_pid']<2**31)
     birth = snapshot['backend_birth']
     require(type(birth) is str and re.fullmatch(r'[1-9][0-9]{0,19}',birth) and int(birth)<2**64)
@@ -87,8 +117,7 @@ def observe_held_session(psql, database_url, snapshot, expected_database, *, own
     try:
         require(type(psql) is str and psql.startswith('/') and '\0' not in psql and len(psql)<=4096)
         environment = database_environment(database_url)
-        environment.update(PGPASSFILE='/dev/null',PGOPTIONS=(
-            '-c statement_timeout=3000 -c default_transaction_read_only=on -c search_path=pg_catalog'))
+        environment.update(PGPASSFILE='/dev/null',PGOPTIONS=OBSERVATION_OPTIONS)
         validate_database(expected_database,environment)
         validate_session(snapshot,expected_database)
         if owner is not None:
@@ -102,26 +131,7 @@ def observe_held_session(psql, database_url, snapshot, expected_database, *, own
             "AND classid::bigint=1197034575 AND objid::bigint=1 AND objsubid=2 AND mode='ExclusiveLock' AND granted)) " \
             "FROM pg_stat_activity a WHERE a.pid="+str(snapshot['backend_pid'])+" AND a.backend_type='client backend' " \
             "AND a.usename=current_user AND a.datname=current_database()"
-        arguments = [psql,'--no-psqlrc','--no-password','--tuples-only','--no-align','--set=ON_ERROR_STOP=1','--command',statement]
-        with subprocess.Popen(arguments,env=environment,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL) as child:
-            output = bytearray()
-            try:
-                deadline = time.monotonic()+4
-                with selectors.DefaultSelector() as selector:
-                    selector.register(child.stdout,selectors.EVENT_READ)
-                    while True:
-                        remaining = deadline-time.monotonic()
-                        require(remaining>0 and selector.select(remaining))
-                        block = os.read(child.stdout.fileno(),min(4096,16385-len(output)))
-                        if not block:
-                            break
-                        output.extend(block)
-                        require(len(output)<=16384)
-                require(child.wait(timeout=max(.01,deadline-time.monotonic()))==0 and 0<len(output)<=16384)
-            finally:
-                if child.poll() is None:
-                    child.kill();child.wait()
-        observed = json.loads(bytes(output),object_pairs_hook=unique)
+        observed = json.loads(_query_database(psql,environment,statement),object_pairs_hook=unique)
         require(type(observed) is dict and set(observed)=={'database','backend_pid','backend_birth','held','client_address','client_port'})
         require(observed['held'] is True)
         require(observed['client_address']=='127.0.0.1' and type(observed['client_port']) is int and 0<observed['client_port']<65536)

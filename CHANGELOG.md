@@ -159,6 +159,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Construct bounded native ownership records in the Elixir application from matching captured generation, original database-session and controller-seal values. Verify all four mode outputs against the Python record grammar. Construction grants no live authority; protected publication and complete native startup integration remain required.
   Sources: [details 1](docs/implementation/native-ownership-record-construction.md), [details 2](apps/forge/lib/gitgood/native_ownership_record.ex)
 
+- Observe the exact original native PostgreSQL backend's absence without signalling reused PIDs, adopting a new holder or granting replacement authority; complete controller reconciliation remains required.
+  Sources: [details 1](docs/implementation/native-prior-backend-observation.md), [details 2](tools/deployment/native_prior_backend.py), [details 3](tools/deployment/native_ownership_database.py)
+
 - Remove exactly inventoried native databases and stores under retirement custody, refuse replacement resources and connected clients, and reconcile partial deletion or lost acknowledgements; complete installed retirement remains unfinished.
   Sources: [details 1](tools/deployment/retirement_database.py), [details 2](tools/deployment/retirement_stores.py), [details 3](docs/implementation/installation-retirement.md)
 
