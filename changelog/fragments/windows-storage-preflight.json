@@ -1,0 +1,9 @@
+{
+  "id": "windows-storage-preflight",
+  "category": "Added",
+  "summary": "Add a Windows preflight command for a fixed 20 GiB reserve after planned allocations, gate missing runtime downloads automatically, and verify both with small hosted Windows checks.",
+  "impact": "planning",
+  "references": ["docs/DEVELOPMENT.md", "scripts/windows-storage-preflight.ps1", "scripts/windows-storage.test.ps1"],
+  "journeys": [],
+  "withdrawn": false
+}

@@ -291,6 +291,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Added an in-repository tour of the actual web interface: five screenshots, an animated README preview, browser video and ASCII companion, captured with clearly labelled synthetic API data. Added a reproducible capture command and source/media freshness checks.
   Sources: [details 1](README.md), [details 2](docs/WEB-TOUR.md), [details 3](apps/web/tour/capture.mjs), [details 4](scripts/web-tour.mjs)
 
+- Add a Windows preflight command for a fixed 20 GiB reserve after planned allocations, gate missing runtime downloads automatically, and verify both with small hosted Windows checks.
+  Sources: [details 1](docs/DEVELOPMENT.md), [details 2](scripts/windows-storage-preflight.ps1), [details 3](scripts/windows-storage.test.ps1)
+
 ### Changed
 
 - Delegated project progression to agents and replaced human acceptance gates with recorded evidence-based verification across decisions, milestones, merges, and releases.
