@@ -15,7 +15,12 @@ all application workers. Neither authority maps nor connection credentials enter
 the supervisor child specification. The startup child requires the actual native
 profile before starting a helper. After the original monitor admits the generation,
 it reads the fixed Root protocol-3 seal and private installation configuration
-through `NativeOwnershipInputs`, starts the original lease, then claims once.
+through `NativeOwnershipInputs`, requires the actual compiled `Gitgood.Build`
+identity to be clean and equal the Root-sealed 40-character candidate, starts the
+original lease, then claims once. Unconfigured, dirty or mismatched builds refuse
+before SQL lease acquisition or ownership publication. This identity comparison
+does not replace full archive inspection, installed artifact-byte verification,
+schema checks or functional readiness.
 It keeps original PIDs and the returned claim, never connection credentials. It
 starts no replacement and retries no claim. A failed initialization ends the
 linked helpers while preserving uncertain retained effects. The permanent root
@@ -39,13 +44,19 @@ and grants no admission or writer authority. Both original helpers remain linked
 to the startup owner for immediate abnormal-exit propagation. Normal shutdown
 stops the fence before closing the original lease and monitor; records remain.
 
-Current focused verification passes 55 Elixir tests, including the original
+Current focused verification passes 60 Elixir tests, including the original
 ownership tests, normal and abnormal helper loss during blocked owner startup,
 invalid startup refusal before effects, closed constructor options and bounded
 input decoding. Nine additional actual fixed-path input checks run the reader as
 UID 1000 against an isolated Root seal and private configuration fixture. They
 cover permissions, ownership, symlinks, duplicate keys and restored inputs;
 the synthetic credential is absent from output. These are component checks.
+
+Four additional independent BEAM fixtures compile the actual `Gitgood.Build`
+module from synthetic clean, mismatched, dirty and absent manifests. They verify
+the startup comparison and that replacing the manifest after compilation cannot
+replace the compiled identity. These checks establish this comparison boundary;
+they do not verify an installed release archive or successful protected startup.
 
 Six isolated BEAM fixtures also pass with the actual non-retrying Postgres lease,
 original-helper fence and permanent root supervisor. Normal monitor and lease

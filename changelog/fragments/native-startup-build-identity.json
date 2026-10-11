@@ -1,0 +1,9 @@
+{
+  "id": "native-startup-build-identity",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Require native ownership startup to match its clean compiled build candidate to the Root seal before database lease acquisition and publication.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-ownership-startup.md", "apps/forge/lib/gitgood/native_ownership_startup.ex"],
+  "withdrawn": false
+}
