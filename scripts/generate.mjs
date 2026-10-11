@@ -1,11 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {load, read, root, validate} from './model.mjs'
-import {svg, journeySvg, roadmap, index, changelog} from './render.mjs'
+import {svg, journeySvg, overviewSvg, roadmap, index, status, changelog} from './render.mjs'
 export function generated(m) {
   const changes = changelog(m)
   const readme = read('README.md').replace(/<!-- whats-new:start -->[\s\S]*?<!-- whats-new:end -->/, '<!-- whats-new:start -->\n'+changes.highlights+'\n<!-- whats-new:end -->')
-  return {'README.md':readme,'JOURNEYS.md':index(m),'docs/ROADMAP.md':roadmap(m),'docs/images/roadmap.svg':svg(m),'docs/images/journey-evidence.svg':journeySvg(m),'CHANGELOG.md':changes.body}
+  return {'README.md':readme,'JOURNEYS.md':index(m),'docs/ROADMAP.md':roadmap(m),'docs/STATUS.md':status(m),'docs/images/overview.svg':overviewSvg(m),'docs/images/roadmap.svg':svg(m),'docs/images/journey-evidence.svg':journeySvg(m),'CHANGELOG.md':changes.body}
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === path.join(root,'scripts/generate.mjs')) {
   const m=load(), errors=validate(m)

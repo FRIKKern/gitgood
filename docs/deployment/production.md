@@ -2,7 +2,7 @@
 
 Gitgood currently packages an Elixir OTP release and a TanStack SSR web service. This is an experimental deployment contract, not a managed Cloud release. Build and deployment must use one clean candidate. Do not reuse the development seed in production.
 
-The [Gitgood Pilot target](pilot-target.md) records the selected Cloud project,
+The [Gitgood Pilot target](../../deploy/pilot-target.md) records the proposed Cloud project,
 host profile and planning budget. Allocation and deployment remain unverified.
 
 ## Build

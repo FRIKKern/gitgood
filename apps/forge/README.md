@@ -1,59 +1,57 @@
 # Gitgood forge
-Native Phoenix API with Postgres records and standard Git bare repositories.
 
-Use the pinned Elixir/OTP versions in the root .tool-versions, Postgres 18.4, Git and Python 3.12+.
-Set GITGOOD_GIT and GITGOOD_PYTHON to executable paths when they are absent from PATH.
-On Windows, dot-source ../../scripts/windows-runtime.ps1 for isolated Elixir/OTP binaries, then run mix local.hex --force.
+The Phoenix/Elixir backend owns authorization, collaboration records, Git storage and recovery. It uses Postgres for durable records and standard Git bare repositories for code.
 
-Configure PGHOST, PGPORT (default 55432), PGUSER (default gitgood), PGPASSWORD and PGDATABASE.
-The development defaults require an isolated loopback database.
+**New here? Follow [Run Gitgood locally](../../docs/DEVELOPMENT.md)** for the complete database → API → web sequence, disposable accounts, and separate test resources. This page is the backend configuration and behavior reference. The [code map](../../docs/CODEBASE.md) points to the modules for each feature.
 
-```sh
-mix deps.get
-mix ecto.create
-mix ecto.migrate
-mix run priv/repo/seeds.exs
-mix phx.server
-```
+## Development configuration
 
-Disposable login: owner / synthetic-password. reviewer is a writer; reader and outsider exercise denial paths.
-The seed refuses production. Bootstrap a real actor with GITGOOD_BOOTSTRAP_PASSWORD in the environment and
-`mix gitgood.bootstrap USER TEAM owner`. Passwords and tokens must never be arguments or saved in remote URLs.
+Use the Elixir/OTP pins in [.tool-versions](../../.tool-versions), PostgreSQL 18.4, Git and Python 3.12 or later. Run backend commands from `apps/forge`.
 
-The API listens at http://localhost:47841; /health/ready checks migrations, writable storage and native executables. /health/live reports process/build identity separately.
-The web origin defaults to http://localhost:47840. Storage defaults to ignored .gitgood/repos.
-Production requires DATABASE_URL, SECRET_KEY_BASE, PHX_HOST, GITGOOD_PUBLIC_URL, GITGOOD_WEB_ORIGIN and GITGOOD_STORAGE.
-Public origins require HTTPS; the backend binds loopback behind a TLS proxy. No public deployment is configured.
-For compiled releases, transactional bootstrap and copied-artifact verification, see [production instructions](../../docs/deployment/production.md).
+| Setting | Development default | Purpose |
+|---|---|---|
+| `PGHOST`, `PGPORT` | `127.0.0.1`, `55432` | Isolated local Postgres server |
+| `PGUSER`, `PGPASSWORD` | `gitgood`, empty password | Local database authentication |
+| `PGDATABASE` | `gitgood_dev`; `gitgood_test` in tests | Database name; an explicit value overrides both defaults |
+| `PORT` | `47841` | API listener, bound to loopback |
+| `GITGOOD_PUBLIC_URL` | `http://localhost:47841` | Advertised API/Git origin |
+| `GITGOOD_WEB_ORIGIN` | `http://localhost:47840` | Allowed browser origin |
+| `GITGOOD_STORAGE` | Repository-root `.gitgood/repos` | Git storage; use an absolute, session-specific path |
+| `GITGOOD_GIT`, `GITGOOD_PYTHON` | `git`, `python3` | Native executables or explicit executable paths |
 
-Authenticated POST /api/repos/:team/:name/credentials issues a repository-scoped Git token once.
-DELETE /api/credentials/:id revokes an owned credential. Git uses HTTP Basic with the account username and this token.
-Use a credential helper or an interactive password prompt. Clone URLs are /git/:team/:name.git.
-Readers can fetch; writers can push feature branches. The creator may initialize main; subsequent raw main pushes are denied.
-Managed stores are upgraded before transport is admitted.
+The source of truth is [dev.exs](config/dev.exs), [test.exs](config/test.exs) and [runtime.exs](config/runtime.exs). The local walkthrough sets a unique database and storage so two worktrees do not share state.
 
-The transport uses native stateless upload-pack and receive-pack. Current limits are 32 MiB input/output, 15 seconds
-for body upload, 60 seconds for Git, four concurrent requests, and 64 proposed refs. Forced rewrites, deletes,
-LFS and compressed RPC bodies are outside this slice. New tags are supported through the same durable push path;
-tag replacement/deletion are denied so released identities cannot be silently reassigned.
-See [the transport decision](../../docs/decisions/0003-native-http-transport.md).
+`/health/ready` checks database migrations, writable storage, executables and any configured SSH listener. `/health/live` reports process/build identity separately. A live process is not automatically ready.
 
-Native SSH is opt-in through GITGOOD_SSH_PORT and a persistent GITGOOD_SSH_HOST_KEY_DIRECTORY.
-Set GITGOOD_SSH_PUBLIC_HOST/PORT to the verified TCP route. Ed25519 account keys are registered and
-revoked in the web interface; the same permissions, protected-main policy and durable push records apply.
-See [SSH configuration and verification](../../docs/implementation/ssh.md). OpenSSH ssh-keygen is needed
-for disposable test keys, not as the production SSH daemon.
+## Accounts and credentials
 
-Creator-owned full Git bundle import initializes an empty repository with atomic branches/tags and
-durable source/outcome responsibility. See [supported import and recovery](../../docs/implementation/import.md)
-for source bounds, explicit limitations, replay, staging retention and whole-VM verification.
+[Development seeds](priv/repo/seeds.exs) create `owner`, `reviewer`, `reader` and `outsider`, all with the disposable password `synthetic-password`. Seeding refuses production. For a real actor, the bootstrap task is `mix gitgood.bootstrap USER TEAM owner`, with `GITGOOD_BOOTSTRAP_PASSWORD` supplied through the environment. See [production instructions](../../docs/deployment/production.md) for the complete installation context.
 
-Private releases pin tags/commits and actual change ranges, own bounded checksummed assets in Postgres,
-and retain corrections/withdrawals. See [release publication and recovery](../../docs/implementation/releases.md).
+Git credentials are separate from login passwords. Authenticated `POST /api/repos/:team/:name/credentials` issues a repository-scoped token once; `DELETE /api/credentials/:id` revokes an owned credential. Use the account username and token through a credential helper or interactive password prompt. Never store the token in a remote URL.
 
-Run mix precommit against isolated gitgood_test. The suite includes real Git storage, authorization, retry,
-reconciliation, process timeout, cancellation, concurrency, memory and output limits.
+## Git over HTTP and SSH
 
-Managed packing uses two threads so a host with many CPUs cannot exceed the existing worker memory ceiling just by creating thread stacks. Both HTTPS and SSH use this bound. The pack regression transfers a 5,000-file repository through the buffered and streaming workers and validates the received pack in a separate bare repository.
-The web suite additionally exercises trusted HTTPS clone/push/fetch, interrupted upload/retry, revocation,
-protected main and Git fsck. These checks establish development evidence, not release acceptance.
+HTTP clone URLs are `/git/:team/:name.git`. Readers can fetch; writers can push feature branches. The creator can initialize `main`, and subsequent raw pushes to `main` are denied. New tags use the durable push path; tag replacement and deletion are denied.
+
+The native stateless `upload-pack` and `receive-pack` path currently admits 32 MiB input/output, 15 seconds for body upload, 60 seconds for Git, four concurrent requests, and 64 proposed refs. Managed packing uses two threads to stay within the worker memory ceiling. Forced rewrites, deletes, LFS and compressed RPC bodies are outside this slice. Read the [HTTP transport decision](../../docs/decisions/0003-native-http-transport.md) and [client compatibility matrix](../../docs/implementation/git-compatibility.md) before claiming support for another client feature.
+
+SSH is opt-in. Set `GITGOOD_SSH_PORT` and a persistent `GITGOOD_SSH_HOST_KEY_DIRECTORY`; set `GITGOOD_SSH_PUBLIC_HOST` and `GITGOOD_SSH_PUBLIC_PORT` to the actual TCP route. The interface registers and revokes Ed25519 account keys. SSH applies the same permissions, main-branch protection and durable push rules. [SSH configuration and verification](../../docs/implementation/ssh.md) covers the full setup. OpenSSH `ssh-keygen` creates disposable test keys; it is not the application's SSH daemon.
+
+## Feature contracts
+
+| Feature | What the guide explains |
+|---|---|
+| [Browsing](../../docs/implementation/browsing.md) | Commit-bound trees, previews, history and bounded diffs |
+| [Collaboration](../../docs/implementation/collaboration.md) | Same-repository pull requests, line reviews, checks and protected merge |
+| [Import](../../docs/implementation/import.md) | Creator-owned full Git bundles, bounds, retries and interrupted import recovery |
+| [Releases](../../docs/implementation/releases.md) | Tags/commits, actual change ranges, checksummed assets and retained corrections |
+| [Barkpark](../../docs/implementation/barkpark.md) | Private account connections and supported external source contracts |
+| [Criterion evidence](../../docs/implementation/criterion-evidence.md) | Evidence tied to criteria, source revisions and Git revisions |
+
+## Verification and deployment
+
+Run `mix precommit` and `mix format --check-formatted` with an isolated test database and storage; the [local guide](../../docs/DEVELOPMENT.md#4-check-your-change) provides the exact command. Backend tests cover actual Git storage, access rules, retries, reconciliation and bounded process behavior. Browser and interruption exercises establish additional properties.
+
+Production has additional requirements, including `DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`, HTTPS public/web origins, `GITGOOD_STORAGE` and `GITGOOD_PROXY_KEY`. The backend binds loopback behind the TLS edge. Configured production Barkpark connections also require their separate `GITGOOD_CONNECTION_KEY`. Use the [production guide](../../docs/deployment/production.md) for copied artifacts, migration/bootstrap, and verification; this configuration summary is not an installation procedure.
+
+Development checks do not establish release acceptance. The [status guide](../../docs/STATUS.md) separates the implemented application from unfinished managed native startup and Cloud lifecycle work.
