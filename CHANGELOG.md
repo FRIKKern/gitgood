@@ -249,7 +249,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
   Sources: [details 1](docs/decisions/D01.md)
 
 - Reorganized the repository around a short README, a readable delivery overview, local setup, a code map, and grouped documentation. Added a dated progress view and navigation checks; historical reports and detailed evidence remain accessible without dominating the front page.
-  Sources: [details 1](README.md), [details 2](docs/README.md), [details 3](docs/DEVELOPMENT.md), [details 4](docs/CODEBASE.md), [details 5](docs/STATUS.md), [details 6](CONTRIBUTING.md)
+  Sources: [details 1](README.md), [details 2](docs/README.md), [details 3](docs/DEVELOPMENT.md), [details 4](docs/CODEBASE.md), [details 5](docs/STATUS.md), [details 6](CONTRIBUTING.md), [details 7](deploy/README.md), [details 8](docs/decisions/D06.md), [details 9](scripts/render.mjs)
 
 - Route required planning and forge jobs to the measured isolated ephemeral Linux runner after real GitHub dispatch proof, verifying the build platform and installer image identity while preserving tests and full production recovery.
   Sources: [details 1](docs/implementation/isolated-ci.md)
