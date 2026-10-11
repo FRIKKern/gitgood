@@ -1,0 +1,9 @@
+{
+  "id": "public-hosted-ci",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Authorize public source development and move planning and forge verification to disposable GitHub-hosted Ubuntu 24.04 runners. Preserve pinned native dependencies, non-root workspace ownership, cgroup exclusion and recovery checks; retire the local dispatch probe and document private vulnerability reporting without adding a software license.",
+  "journeys": ["J14", "J16"],
+  "references": ["docs/decisions/D01.md", "docs/implementation/isolated-ci.md", ".github/workflows/product.yml", ".github/workflows/verify.yml", "SECURITY.md"],
+  "withdrawn": false
+}

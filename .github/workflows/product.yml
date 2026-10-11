@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   forge-and-web:
-    runs-on: [self-hosted, Linux, X64, gitgood-isolated-v1]
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       ImageOS: ubuntu24
@@ -27,6 +27,14 @@ jobs:
           test "$ID" = ubuntu
           test "$VERSION_ID" = 24.04
           test "$(uname -m)" = x86_64
+          test "$(id -u)" -ne 0
+          test -n "$GITHUB_WORKSPACE"
+          test "$GITHUB_WORKSPACE" != /
+          test -d "$GITHUB_WORKSPACE"
+          test ! -L "$GITHUB_WORKSPACE"
+          test "$(realpath "$GITHUB_WORKSPACE")" = "$GITHUB_WORKSPACE"
+          test "$(stat -c %u "$GITHUB_WORKSPACE")" = "$(id -u)"
+          test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
       - name: Install native build tools
         run: |
           set -euo pipefail
@@ -49,6 +57,7 @@ jobs:
       - name: Build pinned native PostgreSQL server and recovery clients
         run: |
           set -euo pipefail
+          bash tools/ci/test-postgres-workspace.sh
           sudo -n apt-get install -y --no-install-recommends pkg-config zlib1g-dev libssl-dev bison flex
           bash tools/ci/install-postgres-18.4.sh "$GITHUB_WORKSPACE/.gitgood/postgres-18.4"
           echo "$GITHUB_WORKSPACE/.gitgood/postgres-18.4/bin" >> "$GITHUB_PATH"
@@ -132,7 +141,7 @@ jobs:
       - name: Verify copied production installation
         run: |
           set -euo pipefail
-          test "$(id -un)" = ci
+          test "$(id -u)" -ne 0
           [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
           group="/sys/fs/cgroup/gitgood-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"

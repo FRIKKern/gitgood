@@ -4,7 +4,7 @@ Frikk delegates Gitgood development decisions and progression to agents, with fu
 
 ## Authority and scope
 
-Use PRODUCT.md as the execution baseline. Resolve open technical decisions through research and experiments, record the result, and proceed without a confirmation round. Record scope changes and their impact before implementing them. Preserve explicit user choices: native architecture, private repository, and the bounded first-release direction. Full trust does not turn failed or missing evidence into success.
+Use PRODUCT.md as the execution baseline. Resolve open technical decisions through research and experiments, record the result, and proceed without a confirmation round. Record scope changes and their impact before implementing them. Preserve explicit user choices: native architecture, the public source repository authorized on 11 October 2026, and the bounded first-release direction. Public source visibility does not authorize publication of operational secrets, customer data or private recovery material. Full trust does not turn failed or missing evidence into success.
 
 Agents may select dependencies, resolve architecture decisions, implement, test, review, merge passing changes, maintain documentation, and progress milestones. Release and deployment progression uses the same evidence-based process once the target, credentials, artifacts, and recovery path exist. Missing infrastructure is an implementation dependency, not a human acceptance gate.
 
