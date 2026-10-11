@@ -107,6 +107,7 @@ class NativeLifecycleHistory:
                      dir_fd=self.descriptors[role])
         with os.fdopen(fd, 'rb') as source:
             before = self._file(os.fstat(source.fileno()));raw = source.read(MAX_BYTES+1)
+            require(self.files.get((role, name), before) == before)
             require(self._file(os.fstat(source.fileno())) == before and len(raw) == before[6])
         require(self._file(os.stat(name, dir_fd=self.descriptors[role], follow_symlinks=False)) == before)
         value = json.loads(raw, object_pairs_hook=unique);require(raw == canonical(value))
@@ -114,15 +115,17 @@ class NativeLifecycleHistory:
 
     def check(self):
         try:
-            self._check();require(self.custody._records() == self.generations)
-            require(self._names('lifecycle', 2) == ['heads', 'records'])
-            for role, maximum in [('records', MAX_RECORDS), ('heads', MAX_OPERATIONS)]:
-                require(self._names(role, maximum) == self.names[role])
-            for (role, name), identity in self.files.items():
-                require(self._file(os.stat(name, dir_fd=self.descriptors[role], follow_symlinks=False)) == identity)
-            self._check()
+            self._check_files();require(self.custody._records() == self.generations);self._check_files()
         except Exception:
             self.close();raise LifecycleResponsibilityRefused('Native lifecycle history unavailable or changed') from None
+
+    def _check_files(self):
+        self._check();require(self._names('lifecycle', 2) == ['heads', 'records'])
+        for role, maximum in [('records', MAX_RECORDS), ('heads', MAX_OPERATIONS)]:
+            require(self._names(role, maximum) == self.names[role])
+        for (role, name), identity in self.files.items():
+            require(self._file(os.stat(name, dir_fd=self.descriptors[role], follow_symlinks=False)) == identity)
+        self._check()
 
     def _reference(self, key):
         row = self.rows[key]
@@ -134,8 +137,28 @@ class NativeLifecycleHistory:
         self.check()
         return [self._reference(self.heads[operation]['snapshot_sha256']) for operation in sorted(self.heads)]
 
+    def snapshot(self, operation):
+        try:
+            self.check();identifier(operation);require(operation in self.heads)
+            key = self.heads[operation]['snapshot_sha256']
+            value = self._read('records', key+'.json');require(sha(value) == key)
+            self.check();return copy.deepcopy(value)
+        except Exception:
+            self.close();raise LifecycleResponsibilityRefused('Native lifecycle snapshot unavailable or changed') from None
+
     def fingerprint(self):
         self.check()
+        result = self.metadata_fingerprint();self.check();return result
+
+    def metadata_fingerprint(self):
+        """Captured lifecycle metadata only; caller separately pins generation files."""
+        try:
+            return self._metadata_fingerprint()
+        except Exception:
+            self.close();raise LifecycleResponsibilityRefused('Native lifecycle metadata unavailable or changed') from None
+
+    def _metadata_fingerprint(self):
+        self._check_files()
         # Generation publication writes beside this directory, never within it.
         # Pin lifecycle directory change times as well as every original file.
         directories = {role: (*identity, os.fstat(self.descriptors[role]).st_mtime_ns,
@@ -143,7 +166,7 @@ class NativeLifecycleHistory:
                        for role, identity in self.identities.items() if role != 'history'}
         result = {'directories': directories,
                   'files': {role+'/'+name: identity for (role, name), identity in self.files.items()}}
-        self.check();return copy.deepcopy(result)
+        self._check_files();return copy.deepcopy(result)
 
     def validate_references(self, references, generation_sha256):
         """Historic references must remain exact retained ancestors of generation."""

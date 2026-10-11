@@ -5,6 +5,7 @@ starting the application lease; database identity queries retain no session.
 """
 import itertools
 import os
+from pathlib import Path
 
 from generation_custody import GenerationRecordCustody, CustodyRefused
 from generation_publication import GenerationPublication, PublicationRefused, require, sha
@@ -65,7 +66,12 @@ class NativeGenerationReader(GenerationPublication):
     def _write(self, *args, **options):
         raise GenerationAdmissionRefused("Read-only generation admission cannot write")
 
+    def close(self):
+        self.custody.__exit__(None, None, None)
+
     def _layout(self):
+        policy = Path('/etc/gitgood/installations')/self.installation/'lifecycle-worker-admission-v2.json'
+        require(not policy.exists() and not policy.is_symlink())
         expected = {".upgrade-history-lock-v1", "generation-records-v2", "durable-binding-v2.json",
                     "current-generation-v2.json", "generation-transitions-v2", "generation-receipts-v2"}
         paths = list(itertools.islice(self.directory.iterdir(), 7))

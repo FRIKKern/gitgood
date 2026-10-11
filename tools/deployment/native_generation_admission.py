@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 from native_durable_database import unique, validate_database
-from native_generation_reader import NativeGenerationReader
+from native_lifecycle_generation_reader import open_reader
 from native_service_scope import root_file
 from resource_generations import canonical, identifier
 
@@ -41,10 +41,11 @@ def admit_request(raw):
     require(type(database) is dict)
     validate_database(database, {"PGDATABASE": database.get("database"), "PGUSER": database.get("role"),
                                  "PGPORT": str(database.get("port"))})
-    reader = NativeGenerationReader("/var/lib/gitgood/installations/" + installation, installation,
+    reader = open_reader("/var/lib/gitgood/installations/" + installation, installation,
                                     seal["binding_sha256"], seal["history_identity"], seal["lock_identity"],
-                                    seal["unit_sha256"], seal["executables"], **seal["limits"])
-    result = reader.admit(worker=request["worker"], owner_pid=request["owner_pid"])
+                                    seal["unit_sha256"], seal["executables"], worker=request['worker'], **seal["limits"])
+    try:result = reader.admit(worker=request["worker"], owner_pid=request["owner_pid"])
+    finally:reader.close()
     require(result["published_generation_admitted"] and not result["writer_exclusion_established"])
     require(result["binding_sha256"] == seal["binding_sha256"])
     require(not result["installation_readiness_established"] and not result["lifecycle_responsibility_admitted"])

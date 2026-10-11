@@ -29,36 +29,37 @@ class GenerationAdmissionRequestTest(unittest.TestCase):
             root.assert_not_called()
 
     def test_only_fixed_root_seal_inputs_reach_reader_and_are_reobserved(self):
-        with patch.object(admission,'root_file',return_value=(self.file,canonical(self.seal))) as root,patch.object(admission,'NativeGenerationReader') as factory:
+        with patch.object(admission,'root_file',return_value=(self.file,canonical(self.seal))) as root,patch.object(admission,'open_reader') as factory:
             factory.return_value.admit.return_value=self.result
             value=self.call()
         self.assertEqual(root.call_count,2)
         self.assertTrue(all(str(call.args[0])==self.file['path'] and call.args[1]==16384 for call in root.call_args_list))
         self.assertEqual(factory.call_args.args,('/var/lib/gitgood/installations/'+self.installation,self.installation,'b'*64,self.seal['history_identity'],self.seal['lock_identity'],'a'*64,self.seal['executables']))
-        self.assertEqual(factory.call_args.kwargs,self.seal['limits'])
+        self.assertEqual(factory.call_args.kwargs,{**self.seal['limits'],'worker':'native'})
+        factory.return_value.close.assert_called_once_with()
         factory.return_value.admit.assert_called_once_with(worker='native',owner_pid=42)
         self.assertEqual(value['database'],self.database)
         for name in ['writer_exclusion_established','installation_readiness_established','lifecycle_responsibility_admitted']:self.assertFalse(value[name])
 
     def test_foreign_noncanonical_or_extended_seal_refuses_before_reader(self):
         for changes in [{'protocol':True},{'installation':'00000000-0000-4000-8000-000000000002'},{'kind':'legacy'},{'extra':True},{'limits':{'cpu_quota_us':200000,'memory_bytes':268435456,'command':'shell'}}]:
-            with patch.object(admission,'root_file',return_value=(self.file,canonical({**self.seal,**changes}))),patch.object(admission,'NativeGenerationReader') as factory,self.assertRaises(Exception):self.call()
+            with patch.object(admission,'root_file',return_value=(self.file,canonical({**self.seal,**changes}))),patch.object(admission,'open_reader') as factory,self.assertRaises(Exception):self.call()
             factory.assert_not_called()
         with patch.object(admission,'root_file',return_value=(self.file,canonical(self.seal)+b'\n')),self.assertRaises(Exception):self.call()
 
     def test_privileged_or_changed_expected_database_refuses_before_reader(self):
         for changes in [{'superuser':True},{'memberships':1},{'owner_oid':33},{'session_role':'foreign'},{'version':'other'},{'address':'remote'},{'role_oid':True}]:
             seal={**self.seal,'database':{**self.database,**changes}}
-            with patch.object(admission,'root_file',return_value=(self.file,canonical(seal))),patch.object(admission,'NativeGenerationReader') as factory,self.assertRaises(Exception):self.call()
+            with patch.object(admission,'root_file',return_value=(self.file,canonical(seal))),patch.object(admission,'open_reader') as factory,self.assertRaises(Exception):self.call()
             factory.assert_not_called()
 
     def test_replaced_root_seal_after_admission_refuses_the_response(self):
-        with patch.object(admission,'root_file',side_effect=[(self.file,canonical(self.seal)),({**self.file,'inode':5},canonical(self.seal))]),patch.object(admission,'NativeGenerationReader') as factory,self.assertRaises(Exception):
+        with patch.object(admission,'root_file',side_effect=[(self.file,canonical(self.seal)),({**self.file,'inode':5},canonical(self.seal))]),patch.object(admission,'open_reader') as factory,self.assertRaises(Exception):
             factory.return_value.admit.return_value=self.result;self.call()
 
     def test_reader_unavailable_or_wrong_authority_is_not_returned(self):
         for changes in [{'published_generation_admitted':False},{'writer_exclusion_established':True},{'installation_readiness_established':True},{'lifecycle_responsibility_admitted':True},{'binding_sha256':'d'*64}]:
-            with patch.object(admission,'root_file',return_value=(self.file,canonical(self.seal))),patch.object(admission,'NativeGenerationReader') as factory,self.assertRaises(Exception):
+            with patch.object(admission,'root_file',return_value=(self.file,canonical(self.seal))),patch.object(admission,'open_reader') as factory,self.assertRaises(Exception):
                 factory.return_value.admit.return_value={**self.result,**changes};self.call()
 
     def test_entry_refusal_does_not_echo_input_or_traceback(self):

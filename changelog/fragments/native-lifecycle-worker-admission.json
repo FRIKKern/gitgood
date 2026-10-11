@@ -1,0 +1,12 @@
+{
+  "id": "native-lifecycle-worker-admission",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Admit native and maintenance workers only in fixed recorded lifecycle windows with original protected inputs and permanently fenced guards.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-lifecycle-worker-admission.md",
+    "tools/deployment/native_lifecycle_generation_reader.py"
+  ],
+  "withdrawn": false
+}

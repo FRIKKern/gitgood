@@ -7,7 +7,7 @@ import sys
 import time
 
 from native_durable_database import DatabaseRefused, unique, validate_database
-from native_generation_reader import NativeGenerationReader
+from native_lifecycle_generation_reader import open_reader
 from native_generation_lease_guard import NativeGenerationLeaseGuard
 from native_monitor_ownership_attachment import MonitorOwnershipAttachment
 from native_service_scope import root_file
@@ -50,10 +50,12 @@ def open_guard(raw):
     database = seal['database']; require(type(database) is dict)
     validate_database(database, {'PGDATABASE':database.get('database'),'PGUSER':database.get('role'),
                                  'PGPORT':str(database.get('port'))})
-    reader = NativeGenerationReader('/var/lib/gitgood/installations/' + installation, installation,
+    reader = open_reader('/var/lib/gitgood/installations/' + installation, installation,
                                     seal['binding_sha256'], seal['history_identity'], seal['lock_identity'],
-                                    seal['unit_sha256'], seal['executables'], **seal['limits'])
-    guard = NativeGenerationLeaseGuard(reader, worker=request['worker'], owner_pid=request['owner_pid'])
+                                    seal['unit_sha256'], seal['executables'], worker=request['worker'], **seal['limits'])
+    try:guard = NativeGenerationLeaseGuard(reader, worker=request['worker'], owner_pid=request['owner_pid'])
+    except Exception:
+        reader.close();raise
     return guard, request, seal, identity, sealed
 
 

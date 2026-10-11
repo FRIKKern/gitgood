@@ -2,6 +2,9 @@
 
 Gitgood currently packages an Elixir OTP release and a TanStack SSR web service. This is an experimental deployment contract, not a managed Cloud release. Build and deployment must use one clean candidate. Do not reuse the development seed in production.
 
+The [Gitgood Pilot target](../../deploy/pilot-target.md) records the proposed Cloud project,
+host profile and planning budget. Allocation and deployment remain unverified.
+
 ## Build
 
 Use Elixir 1.20.4 / OTP 29.1.1, Node 22.23.3, PostgreSQL 18.4, Git with atomic update-ref transactions, and Python 3.12. The Windows proof uses Git 2.53.0.windows.3 and Python 3.12.14; Linux CI records its actual versions. Build releases on the target OS and architecture: Windows artifacts do not establish Linux compatibility.
