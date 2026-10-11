@@ -147,6 +147,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Introduce fixed TLS maintenance and bounded SSH routing under the installation-owned edge group; complete upgrade activation remains under verification.
   Sources: [details 1](tools/deployment/native_edge.py), [details 2](tools/deployment/test_native_edge.py), [details 3](docs/implementation/installation-upgrade.md)
 
+- Bind native enrollment and upgrade input reads to fixed Root-sealed operations, original private file identities and digests; retain files and refuse replacements without granting lifecycle dispatch.
+  Sources: [details 1](docs/implementation/native-operation-inputs.md), [details 2](tools/deployment/native_operation_inputs.py)
+
 - Expose a read-only native operator status command for retained upgrade, activation and retirement responsibility, preserving dead-owner uncertainty and refusing mixed or private-invalid records; live readiness and Cloud inventory remain separate checks.
   Sources: [details 1](tools/deployment/native_operator.py), [details 2](docs/deployment/production.md)
 

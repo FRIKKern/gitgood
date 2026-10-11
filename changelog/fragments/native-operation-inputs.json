@@ -1,0 +1,9 @@
+{
+  "id": "native-operation-inputs",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Bind native enrollment and upgrade input reads to fixed Root-sealed operations, original private file identities and digests; retain files and refuse replacements without granting lifecycle dispatch.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-operation-inputs.md", "tools/deployment/native_operation_inputs.py"],
+  "withdrawn": false
+}
