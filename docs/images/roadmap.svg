@@ -138,7 +138,7 @@
 <text x="730.25" y="1184" font-size="15" class="strong" text-anchor="middle">Research</text>
 <path d="M36 1224L1164 1224" class="rule"/>
 </g>
-<g data-track="Q"><title>Q Quality + repo maintenance. Checks and upkeep at every stage. Live evidence collection and unattended scheduling remain implementation work.</title>
+<g data-track="Q"><title>Q Quality + repo maintenance. Checks and upkeep at every stage. Scoped source collectors are configured; complete journey verification and unattended scheduling remain unfinished.</title>
 <text x="36" y="1254" font-size="14" class="accent mono strong" >Q</text>
 <text x="79" y="1254" font-size="19" class="strong" >Quality + repo maintenance</text>
 <text x="79" y="1279" font-size="14" class="muted" >CI · PRs · evidence · README · changelog</text>

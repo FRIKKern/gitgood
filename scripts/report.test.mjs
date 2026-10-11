@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {validate, classify, releaseProblems} from './model.mjs'
-import {journeySvg as svg, svg as gantt, changelog} from './render.mjs'
+import {journeySvg as svg, svg as gantt, overviewSvg, changelog, status} from './render.mjs'
 const now=new Date('2026-10-07T12:00:00Z')
 const clone=()=>({
   catalog:{schemaVersion:1,journeys:[{id:'J01',milestone:'M1',title:'Fixture journey',required:true,spec:'docs/journeys/J01.md'}]},
@@ -24,6 +24,16 @@ function connected(){
 const record=()=>({id:'J01',implementation:{state:'implemented',reference:'fixture:task'},
 verification:{state:'verified',passed:true,reference:'fixture:manifest',codeCommit:'a'.repeat(40),specRevision:'planning-2026-10-07'},
 release:{state:'released',accepted:true,version:'0.1.0',reference:'fixture:release',codeCommit:'a'.repeat(40)}})
+test('compact overview cannot silently omit or reorder new milestone scope',()=>{
+  const m=clone()
+  m.milestones.milestones=Array.from({length:8},(_,i)=>({id:'M'+i}))
+  assert.match(overviewSvg(m),/Planned sequence/)
+  m.milestones.milestones.push({id:'M8'})
+  assert.throws(()=>overviewSvg(m),/Update the README overview grouping/)
+  m.milestones.milestones.pop()
+  m.milestones.milestones.reverse()
+  assert.throws(()=>overviewSvg(m),/Update the README overview grouping/)
+})
 test('unconfigured inputs do not become zero or verified',()=>{
   const m=clone()
   assert.deepEqual(validate(m,now),[])
@@ -128,6 +138,89 @@ test('release notes select included fragments and omit withdrawals',()=>{
   assert.match(out.body,/Back up before migration/)
   assert.match(out.highlights,/0.1.0/)
   assert.equal(out.body,changelog(m).body)
+})
+
+test('README stays bounded while the changelog preserves grouped development history',()=>{
+  const m=clone()
+  m.fragments=Array.from({length:200},(_,i)=>({id:'fixture-'+i,category:i%2?'Fixed':'Added',summary:'Detailed change '+i+'. '+('Context '.repeat(80)),impact:'product',references:['PRODUCT.md'],journeys:[],withdrawn:false}))
+  m.fragments.push({id:'withdrawn-fixture',category:'Security',summary:'Withdrawn change',impact:'product',references:['PRODUCT.md'],journeys:[],withdrawn:true})
+  const out=changelog(m)
+  assert.match(out.highlights,/200 development changes/)
+  assert.match(out.highlights,/CHANGELOG\.md#unreleased/)
+  assert.match(out.highlights,/No Gitgood application release has been published/)
+  assert.ok(out.highlights.length<400)
+  assert.ok(!out.highlights.includes('Detailed change'))
+  assert.match(out.body,/### Added\n/)
+  assert.match(out.body,/### Fixed\n/)
+  assert.ok(!out.body.includes('Withdrawn change'))
+  for(let i=0;i<200;i++) assert.equal(out.body.split('Detailed change '+i+'. ').length,2)
+  assert.equal((out.body.match(/\]\(PRODUCT\.md\)/g)??[]).length,200)
+})
+
+test('README handles empty development history and lengthy published notes without growing',()=>{
+  const m=clone()
+  assert.match(changelog(m).highlights,/1 development change is/)
+  m.fragments[0].withdrawn=true
+  assert.match(changelog(m).highlights,/No pending changelog entries/)
+  m.fragments[0].withdrawn=false
+  m.fragments[0].summary='Long published detail '.repeat(200)
+  m.releases.releases=[{version:'0.1.0',date:'2026-10-07',commit:'a'.repeat(40),fragments:['planning-foundation']}]
+  const out=changelog(m)
+  assert.match(out.highlights,/0\.1\.0 — 2026-10-07/)
+  assert.ok(out.highlights.length<400)
+  assert.ok(out.body.includes(m.fragments[0].summary))
+})
+
+test('human progress report keeps unknown states and exposes its observation boundary',()=>{
+  const m=clone(), out=status(m)
+  assert.match(out,/No candidate recorded/)
+  assert.match(out,/does not prove the current main branch or any open development branch/)
+  assert.match(out,/not at the moment you opened this page/)
+  assert.match(out,/\| Implementation \| 0 complete · 1 unknown \|/)
+  assert.match(out,/\| Verification \| 0 passed · 1 unknown \|/)
+  assert.match(out,/\| Release \| 0 confirmed published · 1 unknown \|/)
+  assert.match(out,/\| J01 \| Unknown \| Unknown \| Unknown \|/)
+  assert.match(out,/\| Verification evidence \| Not connected \| Not observed \|/)
+  assert.equal(out,status(m))
+})
+
+test('human progress report preserves candidate mismatches, partial work and unavailable sources',()=>{
+  const m=connected();m.snapshot.records=[record()]
+  let out=status(m)
+  assert.match(out,/\| J01 \| Complete \| Passed \| Published \|/)
+  assert.ok(out.includes('a'.repeat(40)))
+  assert.ok(out.includes(now.toISOString()))
+  m.snapshot.headCommit='b'.repeat(40)
+  m.catalog.journeys.push({id:'J02',milestone:'M1',title:'Unfinished journey',required:true,spec:'docs/journeys/J02.md'})
+  m.snapshot.records.push({id:'J02',implementation:{state:'in_progress',reference:'fixture:task'}})
+  out=status(m)
+  assert.match(out,/\| J01 \| Complete \| Needs recheck \| Needs recheck \|/)
+  assert.match(out,/\| J02 \| In progress \| No evidence \| Unknown \|/)
+  assert.match(out,/\| Implementation \| 1 complete · 1 in progress \|/)
+  assert.match(out,/\| Verification \| 0 passed · 1 no evidence · 1 needs recheck \|/)
+  m.snapshot.sources.evidence.status='unavailable'
+  out=status(m)
+  assert.match(out,/\| Verification evidence \| Unavailable \|/)
+  assert.match(out,/\| J01 \| Complete \| Unknown \| Needs recheck \|/)
+  assert.ok(!out.includes('| Passed |'))
+})
+
+test('human progress summary accounts for every known state without inventing zero failures',()=>{
+  const m=connected()
+  m.catalog.journeys=Array.from({length:6},(_,i)=>({id:'J0'+(i+1),milestone:'M1',title:'Journey '+(i+1),required:true,spec:'docs/journeys/J0'+(i+1)+'.md'}))
+  m.snapshot.records=[
+    record(),
+    {id:'J02',implementation:{state:'in_progress',reference:'fixture:task'}},
+    {id:'J03',implementation:{state:'planned',reference:'fixture:task'},verification:{state:'failed',reference:'fixture:assessment'}},
+    {id:'J04',implementation:{state:'in_progress',reference:'fixture:task'},verification:{state:'inconclusive',reference:'fixture:assessment'}},
+    {...record(),id:'J05',verification:{...record().verification,codeCommit:'b'.repeat(40)},release:undefined}
+  ]
+  const out=status(m)
+  assert.match(out,/\| Implementation \| 2 complete · 2 in progress · 1 planned · 1 unknown \|/)
+  assert.match(out,/\| Verification \| 1 passed · 1 failed · 1 inconclusive · 2 no evidence · 1 needs recheck \|/)
+  assert.match(out,/\| Release \| 1 confirmed published · 5 unknown \|/)
+  assert.ok(!status(clone()).includes('0 failed'))
+  assert.ok(!status(clone()).includes('0 no evidence'))
 })
 
 test('Gantt spans use milestone IDs and stay distinct from completion',()=>{

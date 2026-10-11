@@ -11,6 +11,7 @@ Read [AUTONOMY.md](AUTONOMY.md). Agents have full delegated authority to progres
 - Use isolated worktrees and test resources. Do not switch or reset a shared main checkout.
 - Keep secrets out of source, logs, artifacts, and browser code.
 - Update affected specifications and changelog fragments with the change.
+- Keep the human reading path current: README for orientation, docs/README.md for navigation, docs/DEVELOPMENT.md for setup, and docs/CODEBASE.md for code responsibilities. Index new guides, implementation references, and decisions; explain the user outcome before internal proof details. Label historical reports and avoid copying live status into competing summaries.
 - Run npm run generate and npm run check after changing plan/reporting inputs.
 - Do not mark planned, merged, or task-closed work verified without current evidence.
 - No destructive housekeeping of unmerged work. Preserve release evidence and restore materials.
