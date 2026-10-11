@@ -102,7 +102,7 @@ actual pinned artifact. This document changes no journey or release criterion.
 
 - [CCX23 specifications and dedicated CPU](https://www.hetzner.com/cloud/general-purpose/) checked on 11 October 2026.
 - [Earlier CPX32 specifications](https://www.hetzner.com/cloud/regular-performance/) checked on 10 October 2026.
-- [Published EU cloud prices](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/).
-- [Backup billing](https://docs.hetzner.com/cloud/billing/faq/) checked on 10 October 2026.
-- [Primary IPv4 pricing](https://docs.hetzner.com/general/infrastructure-and-availability/ipv4-pricing/) checked on 10 October 2026.
-- [Provider backup and snapshot limitations](https://docs.hetzner.com/cloud/servers/backups-snapshots/faq/) checked on 10 October 2026.
+- [Published EU cloud prices](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/) checked on 11 October 2026.
+- [Backup billing](https://docs.hetzner.com/cloud/billing/faq/) checked on 11 October 2026.
+- [Primary IPv4 pricing](https://docs.hetzner.com/general/infrastructure-and-availability/ipv4-pricing/) checked on 11 October 2026.
+- [Provider backup and snapshot limitations](https://docs.hetzner.com/cloud/servers/backups-snapshots/faq/) checked on 11 October 2026.

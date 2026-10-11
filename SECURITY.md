@@ -1,8 +1,8 @@
 # Security reporting
 
-This is a planning-only checkout; Gitgood has no deployed product here.
+Gitgood is under development. No supported production release is published yet.
 
-Before publishing the repository, configure a private vulnerability-reporting channel and document the support/security owner. Do not invent an email address or rely on a public issue for confidential reports.
+The repository owner and security contact is [FRIKKern](https://github.com/FRIKKern). Report vulnerabilities through [GitHub's private vulnerability reporting form](https://github.com/FRIKKern/gitgood/security/advisories/new). Do not place credentials, private data or unpatched exploit details in public issues, pull requests or build logs. No response-time commitment is established yet.
 
 During implementation, route sensitive findings to the owner privately. Keep unpatched exploit details out of public change fragments, logs, fixtures, and generated progress. Coordinate disclosure with a verified fix and its release.
 
