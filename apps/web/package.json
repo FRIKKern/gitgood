@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "tour": "node tour/capture.mjs",
     "dev": "vite dev --host 127.0.0.1 --port 47840 --strictPort",
     "build": "vite build",
     "start": "srvx --prod -s dist/client server.mjs",
