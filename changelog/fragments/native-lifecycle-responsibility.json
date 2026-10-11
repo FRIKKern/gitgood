@@ -1,0 +1,9 @@
+{
+  "id": "native-lifecycle-responsibility",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Retain original protocol-2 lifecycle responsibility through immutable stage snapshots, explicit uncertainty and bounded publication recovery under the original OS lock.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-lifecycle-responsibility.md", "tools/deployment/native_lifecycle_responsibility.py"],
+  "withdrawn": false
+}
