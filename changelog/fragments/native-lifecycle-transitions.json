@@ -1,0 +1,12 @@
+{
+  "id": "native-lifecycle-transitions",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Retain exact lifecycle snapshot references across native generation transitions without treating unfinished stages as reconciled or admitting workers.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-lifecycle-transitions.md",
+    "tools/deployment/native_lifecycle_history.py"
+  ],
+  "withdrawn": false
+}

@@ -35,8 +35,11 @@ Stopped publication can retain a successor before replacing the pointer. Recover
 follows the unique retained generation tip and separately references the old
 published pointer; it cannot create another branch around that retained successor.
 Reusing an original operation with changed inputs refuses before retaining another
-generation. A fresh boot/request can continue a publication-only chain because
-these transitions explicitly contain no application lifecycle responsibilities.
+generation. [Lifecycle transition integration](native-lifecycle-transitions.md)
+now retains exact original snapshot references when the explicit protocol-2
+journal exists. Publication preserves unfinished responsibility; it neither
+reconciles effects nor admits a worker. Earlier publication-only transitions
+retain their original empty reference lists.
 
 History is bounded to 128 generation records and bounded directory inventories.
 Capacity exhaustion refuses further publication while retaining existing custody;

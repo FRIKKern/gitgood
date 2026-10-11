@@ -147,6 +147,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Retain original protocol-2 lifecycle responsibility through immutable stage snapshots, explicit uncertainty and bounded publication recovery under the original OS lock.
   Sources: [details 1](docs/implementation/native-lifecycle-responsibility.md), [details 2](tools/deployment/native_lifecycle_responsibility.py)
 
+- Retain exact lifecycle snapshot references across native generation transitions without treating unfinished stages as reconciled or admitting workers.
+  Sources: [details 1](docs/implementation/native-lifecycle-transitions.md), [details 2](tools/deployment/native_lifecycle_history.py)
+
 - Introduce fixed TLS maintenance and bounded SSH routing under the installation-owned edge group; complete upgrade activation remains under verification.
   Sources: [details 1](tools/deployment/native_edge.py), [details 2](tools/deployment/test_native_edge.py), [details 3](docs/implementation/installation-upgrade.md)
 

@@ -41,6 +41,8 @@ These are operational implementation references. Begin with the [packaging exper
 | Validating private first-install inputs | [Enrollment input custody](native-enrollment-inputs.md) |
 | Creating the first installation owner safely | [Owner bootstrap](installation-owner-bootstrap.md) |
 | Executing and resuming initial installation | [Initial lifecycle](native-initial-lifecycle.md) |
+| Recording unfinished installation steps and their original inputs | [Lifecycle responsibility](native-lifecycle-responsibility.md) |
+| Retaining that responsibility when service generations change | [Lifecycle transitions](native-lifecycle-transitions.md) |
 | Installing an upgrade and recovering a failure | [Controlled upgrades](installation-upgrade.md) |
 | Coordinating Git, Postgres and configuration backups | [Offline backup and recovery](offline-backup.md) |
 | Exporting and removing an installation | [Installation retirement](installation-retirement.md) |
@@ -82,10 +84,6 @@ This work connects application processes to their actual host, database and serv
 | Binding enrollment and upgrade commands to their original protected inputs | [Operation input custody](native-operation-inputs.md) |
 
 ## Verification environment
-
-Keep interrupted installation steps and their original inputs traceable through
-[lifecycle responsibility](native-lifecycle-responsibility.md). Its retained
-records distinguish an unfinished step from one that has been observed complete.
 
 | Read about… | Document |
 |---|---|
