@@ -1,0 +1,9 @@
+{
+  "id": "native-startup-test-isolation",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Exercise unsupported native root startup in a bounded separate BEAM so the running development supervisor cannot mask the expected refusal; preserve the parent application and production ownership guards.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["apps/forge/test/gitgood/native_ownership_startup_test.exs", "docs/implementation/native-ownership-startup.md"],
+  "withdrawn": false
+}

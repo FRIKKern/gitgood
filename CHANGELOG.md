@@ -385,6 +385,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Bound disposable retirement input-fixture cleanup with the existing production database-removal limits while preserving identity checks, no-force behavior and product deadlines.
   Sources: [details 1](docs/implementation/native-retirement-fixture-cleanup.md), [details 2](tools/deployment/test_native_retirement.py)
 
+- Exercise unsupported native root startup in a bounded separate BEAM so the running development supervisor cannot mask the expected refusal; preserve the parent application and production ownership guards.
+  Sources: [details 1](apps/forge/test/gitgood/native_ownership_startup_test.exs), [details 2](docs/implementation/native-ownership-startup.md)
+
 - Install the Ubuntu systemd runtime in isolated CI so native root-file custody and installed-version tests execute against actual protected executables instead of failing on missing files.
   Sources: [details 1](.github/workflows/product.yml), [details 2](docs/implementation/native-generation-lease-guard.md)
 
