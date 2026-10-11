@@ -1,0 +1,9 @@
+{
+  "id": "native-backend-observation",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add a bounded protected bridge for observing the original held Postgres session's kernel identity under an independently sealed server scope; installed enrollment, ownership retention and native application admission remain unfinished.",
+  "journeys": ["J14", "J15", "J16", "J17"],
+  "references": ["docs/implementation/native-backend-observation.md", "tools/deployment/native_backend_observation.py", "apps/forge/lib/gitgood/native_ownership_publication.ex"],
+  "withdrawn": false
+}

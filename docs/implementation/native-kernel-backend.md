@@ -44,6 +44,11 @@ transition. The application ownership format and native startup gate are
 unchanged. Production admission/retention of this extra identity and complete
 controller/lifecycle integration remain required.
 
+The [protected backend observation bridge](native-backend-observation.md)
+provides a fixed worker request and a separate Root-protected per-boot scope
+contract. It supplies no allocator enrollment, ownership retention or replacement
+authority; those integrations remain required.
+
 Component tests cover lost leases, changed kernel births, malformed and aliased
 records, scope changes, nested PID mappings, permission failures, SQL/kernel
 bracketing and PID reuse without adoption. Actual ordinary Linux process tests
