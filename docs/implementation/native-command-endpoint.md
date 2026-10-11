@@ -45,6 +45,12 @@ node. That cleanup, controller entry point, sealed-purpose operation admission,
 durable lost-response handling, lifecycle dispatch and status responses remain
 required. A stale socket is not silently adopted or unlinked.
 
+The separate [protected operation-input reader](native-operation-inputs.md) now
+observes fixed Root-sealed enrollment/upgrade requests and original private file
+identities. It grants no operation or lifecycle authority and is not connected
+to this endpoint. Generation-aware engines and reconciliation remain required
+before dispatch.
+
 Verification uses actual ordinary pathname sockets for replacement, permissions,
 malformed clients, descriptor ownership, fork refusal and retained close. A
 separate actual Root/private fixed-path fixture checks seal ownership, canonical
