@@ -1,0 +1,126 @@
+GITGOOD / WEB TOUR / SAMPLE DATA
+========================================================================================
+[1/5] Sign in to a private installation
+Screen: /
+Sign in -> Repositories -> Code -> Review -> Releases
+
+A GOOD PLACE FOR YOUR CODE
+Build something good.
+Code, collaboration, and a clear path from change to delivery.
+Sign in to your installation
+Username
+Password
+
+Actual frontend; synthetic API responses. This is not a terminal recording.
+
+----------------------------------------------------------------------------------------
+
+GITGOOD / WEB TOUR / SAMPLE DATA
+========================================================================================
+[2/5] Find your team repository
+Screen: /
+Sign in -> Repositories -> Code -> Review -> Releases
+
+A GOOD PLACE FOR YOUR CODE
+Your repositories
+Private by default. Owned by your team.
+demo / fieldnotes
+Ready for your first commit.
+Clone URL
+SSH clone URL
+demo / design-system
+Ready for your first commit.
+Clone URL
+SSH clone URL
+demo / handbook
+Ready for your first commit.
+Clone URL
+SSH clone URL
+Create a repository
+Team
+
+Actual frontend; synthetic API responses. This is not a terminal recording.
+
+----------------------------------------------------------------------------------------
+
+GITGOOD / WEB TOUR / SAMPLE DATA
+========================================================================================
+[3/5] Browse code at a pinned commit
+Screen: /repos/demo/fieldnotes
+Sign in -> Repositories -> Code -> Review -> Releases
+
+PRIVATE REPOSITORY
+demo / fieldnotes
+Clone URL
+Branch
+main
+clear-release-notes
+This view stays on its commit when a branch advances. Choose a branch to view its
+current tip.
+Directory
+docs
+Directory
+src
+File
+README.md
+File
+package.json
+Commit history
+
+Actual frontend; synthetic API responses. This is not a terminal recording.
+
+----------------------------------------------------------------------------------------
+
+GITGOOD / WEB TOUR / SAMPLE DATA
+========================================================================================
+[4/5] Read a pull request and its diff
+Screen: /repos/demo/fieldnotes/pulls/17d5ec13-64cd-49a0-a706-6b0ff7b88fc1
+Sign in -> Repositories -> Code -> Review -> Releases
+
+PULL REQUEST OPEN
+Make release notes easier to scan
+clear-release-notes main fast-forward
+Group release notes by the kind of change and connect each item to its review. The
+checklist keeps the last step clear for everyone on the team.
+Source e419d4052fa8 target 8e605066c6fb policy 3
+Changes
+diff --git a/docs/release-checklist.md b/docs/release-checklist.md
+index 31bd73a..b512a06 100644
+--- a/docs/release-checklist.md
++++ b/docs/release-checklist.md
+@@ -1,4 +1,8 @@
+ # Release checklist
+
+-Prepare the release notes.
++## Before publishing
++
+
+Actual frontend; synthetic API responses. This is not a terminal recording.
+
+----------------------------------------------------------------------------------------
+
+GITGOOD / WEB TOUR / SAMPLE DATA
+========================================================================================
+[5/5] Inspect a sample release and its assets
+Screen: /repos/demo/fieldnotes
+Sign in -> Repositories -> Code -> Review -> Releases
+
+Releases
+Published releases identify an existing Git tag, its commit and checksummed assets. A
+draft is work in progress.
+Fieldnotes v0.3.0 demo
+v0.3.0-demo published 2026-10-11T09:20:00Z
+Fieldnotes v0.3.0 demo
+Release published
+Tag v0.3.0-demo commit 8e605066c6fbc463f207be551303e6a2610b4093
+Tag object dfdaaf433cae4477f97c53983025f8ee35573b85 Changes since
+1d393ae92c1b684aa8b594599a6e130836604d20
+A clearer daily workflow for the Fieldnotes sample team.
+Added
+- A short checklist for preparing each release.
+- Links between release notes and reviewed changes.
+Changed
+- Product notes now live together under docs/.
+Synthetic sample release for the interface tour; not a Gitgood product release.
+
+Actual frontend; synthetic API responses. This is not a terminal recording.
