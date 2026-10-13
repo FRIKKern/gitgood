@@ -38,6 +38,23 @@ still requires lifecycle policy and history to be absent.
 installed case passes. `business_lifecycle_stages_executed` and complete product
 acceptance remain false; synthetic stage receipts cannot establish those gates.
 
+A sixth `private-business-inputs-boundary` case uses a fresh installation with
+actual Root/input/journal custody and the same three lifecycle-aware owners. Its
+private sealed payload contains deliberately synthetic migration expectations
+and a synthetic first-owner password. Migration receives no bootstrap material;
+bootstrap receives its original private fields and validates the existing ordered
+owner digest. The actual startup calls the original attached monitor and checks
+its lease/fence before and after the private reply. The fixture observes redacted
+OTP status and records only fixed outcomes; no credentials or their digests enter
+the public receipt. Runtime requests no private maintenance payload.
+
+`private_business_input_stream_verified` becomes true only after that complete
+installed case and final unit stop pass. The same original loss, kernel/SQL
+absence, descendant/sibling and retained-inode checks still apply. Migration
+expectations `[1, 2]` are fixture data rather than a verified packaged inventory;
+no schema change or first-owner creation is executed. Complete business lifecycle
+effects, product startup and recovery stay unverified.
+
 ## What a passing run observes
 
 Three independent installations exercise three different losses. Each has a

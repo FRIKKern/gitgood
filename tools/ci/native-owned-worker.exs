@@ -99,7 +99,15 @@ defmodule GitgoodOwnedProof.Witness do
   def init(options) do
     GitgoodOwnedProof.Diagnostics.mark("witness-started")
     send(self(), :observe)
-    {:ok, %{directory: options[:directory], observed: nil, count: 0, deadline: now() + 20_000}}
+
+    {:ok,
+     %{
+       directory: options[:directory],
+       observed: nil,
+       count: 0,
+       deadline: now() + 20_000,
+       private_inputs_observed: false
+     }}
   end
 
   @impl true
@@ -114,6 +122,45 @@ defmodule GitgoodOwnedProof.Witness do
       )
 
     :ok = Gitgood.NativeOwnershipStartup.current(startup)
+    action = System.get_env("GITGOOD_OWNED_PROOF_LIFECYCLE_ACTION")
+
+    state =
+      if System.get_env("GITGOOD_OWNED_PROOF_PRIVATE_INPUTS") == "true" and
+           action in ["migrate", "bootstrap"] and not state.private_inputs_observed do
+        {:ok, inputs} = Gitgood.NativeOwnershipStartup.private_business_inputs(startup)
+        true = inputs["action"] == action
+        true = inputs["migrations"] == %{"before_versions" => [], "target_versions" => [1, 2]}
+
+        if action == "bootstrap" do
+          {:ok, _} =
+            Gitgood.InstallationOwnerBootstrap.validate(
+              inputs["bootstrap"],
+              inputs["bootstrap_request_sha256"]
+            )
+
+          true = inputs["bootstrap"]["password"] == "synthetic-secret-éé"
+        else
+          false = Map.has_key?(inputs, "bootstrap")
+          false = Map.has_key?(inputs, "bootstrap_request_sha256")
+        end
+
+        source = :sys.get_state(startup)
+        status = inspect(:sys.get_status(source.monitor), limit: :infinity)
+        false = String.contains?(status, "synthetic-secret-éé")
+
+        write!(state.directory, "private-inputs-observed.json", %{
+          action: action,
+          original_guard_and_ownership_bound: true,
+          credential_status_redacted: true,
+          bootstrap_digest_validated: action == "bootstrap",
+          business_effects_executed: false
+        })
+
+        %{state | private_inputs_observed: true}
+      else
+        state
+      end
+
     owner = :sys.get_state(startup)
     monitor = :sys.get_state(owner.monitor)
     true = is_map(monitor.ownership) and is_nil(monitor.ownership_pending)

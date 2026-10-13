@@ -126,6 +126,8 @@ def main(seed_path):
             if journal is not None:
                 environment['GITGOOD_OWNED_PROOF_LIFECYCLE_ACTION'] = {
                     'migration-owner': 'migrate', 'bootstrap-owner': 'bootstrap', 'runtime-owner': 'runtime'}[label]
+            if seed.get('business_inputs_fixture'):
+                environment['GITGOOD_OWNED_PROOF_PRIVATE_INPUTS'] = 'true'
             if journal is not None and label == 'migration-owner':
                 phase = 'wrong-bootstrap-action-in-migration-window'
                 trial = stage / 'refused-trial';trial.mkdir(mode=0o700)

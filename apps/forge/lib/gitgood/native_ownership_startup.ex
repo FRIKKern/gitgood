@@ -41,6 +41,7 @@ defmodule Gitgood.NativeOwnershipStartup do
   end
 
   def current(pid), do: GenServer.call(pid, :current, 10_000)
+  def private_business_inputs(pid), do: GenServer.call(pid, :private_business_inputs, 10_000)
 
   @impl true
   def init(options) do
@@ -72,7 +73,8 @@ defmodule Gitgood.NativeOwnershipStartup do
          lease: lease,
          fence: fence,
          reference: Process.monitor(fence),
-         ownership: ownership
+         ownership: ownership,
+         lifecycle_action: lifecycle_action
        }}
     else
       _ -> {:stop, @failure}
@@ -131,6 +133,25 @@ defmodule Gitgood.NativeOwnershipStartup do
   end
 
   @impl true
+  def handle_call(:private_business_inputs, _from, state) do
+    with true <- state.lifecycle_action in [:migrate, :bootstrap],
+         :ok <- Fence.current(state.fence),
+         :ok <- Lease.current(state.lease),
+         :ok <- Monitor.current(state.monitor),
+         {:ok, inputs} <- Monitor.private_business_inputs(state.monitor, state.lifecycle_action),
+         :ok <- Fence.current(state.fence),
+         :ok <- Lease.current(state.lease),
+         :ok <- Monitor.current(state.monitor) do
+      {:reply, {:ok, inputs}, state}
+    else
+      _ -> {:stop, @failure, {:error, @failure}, state}
+    end
+  rescue
+    _ -> {:stop, @failure, {:error, @failure}, state}
+  catch
+    :exit, _ -> {:stop, @failure, {:error, @failure}, state}
+  end
+
   def handle_call(:current, _from, state) do
     with :ok <- Fence.current(state.fence),
          :ok <- Lease.current(state.lease),
@@ -153,6 +174,17 @@ defmodule Gitgood.NativeOwnershipStartup do
       do: {:stop, @failure, state}
 
   def handle_info(_, state), do: {:stop, @failure, state}
+
+  @impl true
+  def format_status(status) do
+    Map.new(status, fn
+      {:state, _} -> {:state, :native_ownership_status_redacted}
+      {:message, _} -> {:message, :native_ownership_message_redacted}
+      {:reason, _} -> {:reason, @failure}
+      {:log, _} -> {:log, []}
+      item -> item
+    end)
+  end
 
   @impl true
   def terminate(_, state) do
