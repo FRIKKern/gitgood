@@ -172,7 +172,8 @@ class BoundedProofTests(unittest.TestCase):
         modules = proof.module_closure(HERE.parents[1] / "tools/deployment")
         self.assertLessEqual(len(modules), 128)
         self.assertTrue({"native_generation_monitor_entry.py", "native_writer_exclusion.py",
-                         "native_ownership_publication_entry.py", "native_lifecycle_worker_inputs.py"} <= set(modules))
+                         "native_ownership_publication_entry.py", "native_lifecycle_worker_inputs.py",
+                         "native_lifecycle_business_inputs.py"} <= set(modules))
         self.assertFalse(any(name.startswith("test_") for name in modules))
 
     def test_original_zombie_is_not_backend_absence(self):

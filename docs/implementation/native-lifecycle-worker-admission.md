@@ -74,6 +74,10 @@ and fence still finish before any supplied worker starts. This API never execute
 an action from a receipt and does not accept a command or mode override.
 
 The packaged application callback remains unwired and refuses native startup.
+The [private business-input projection](native-lifecycle-business-inputs.md) checks
+closed migration/bootstrap subdocuments under the original held guard. Its output
+contains private bootstrap material and grants no effects; the monitor wire does
+not expose it.
 Actual business effects, fixed lifecycle dispatch and interruption recovery still
 require implementation and installed verification. Matching fixture metadata is
 not proof of a migration, bootstrap or complete installation.

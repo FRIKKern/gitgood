@@ -1,0 +1,9 @@
+{
+  "id": "native-lifecycle-business-inputs",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Validate private migration expectations and first-owner inputs against the original captured native lifecycle stage, with detached fixed-action projections and permanent guard poisoning on refusal. Business execution, BEAM transport and complete native startup/recovery remain unfinished.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-lifecycle-business-inputs.md", "tools/deployment/native_lifecycle_business_inputs.py", "tools/deployment/native_generation_lease_guard.py"],
+  "withdrawn": false
+}

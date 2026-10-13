@@ -12,6 +12,7 @@ from native_service_scope import ServiceRefused, _observe_service, _CapturedRoot
 from native_worker_scope import observe_worker, _ancestry
 from generation_custody import CustodyRefused
 from resource_generations import GenerationRefused
+from native_lifecycle_business_inputs import _project, LifecycleBusinessInputsRefused
 
 
 class GenerationLeaseGuardRefused(Exception):
@@ -86,6 +87,27 @@ class NativeGenerationLeaseGuard:
         self.executable_files.close()
         self.reader.custody.__exit__(None, None, None)
         self.reader.close()
+
+    def private_business_inputs(self, action):
+        """Private fixed-action data, bracketed by the original poisoned guard."""
+        try:
+            require(type(action) is str and action in {'migrate', 'bootstrap'})
+            before = self.check()
+            require(self.worker == 'maintenance' and 'lifecycle' in self.snapshot)
+            require(self.snapshot['lifecycle']['stage'] == action and
+                    self.snapshot['lifecycle']['recorded_status'] == 'running')
+            inputs = self.reader.inputs
+            metadata = inputs.check()
+            observed = self.snapshot['lifecycle']
+            require(metadata['request_sha256'] == observed['request_sha256'] and
+                    metadata['candidate'] == observed['candidate'] and
+                    metadata['request']['operation'] == observed['operation'])
+            result = _project(inputs._private_payloads(), observed, action, self.reader.installation)
+            require(self.check() == before)
+            return result
+        except Exception:
+            self.close()
+            raise LifecycleBusinessInputsRefused('Native lifecycle business inputs unavailable') from None
 
     def _current_worker(self):
         # The two observations in check bracket file custody and ancestry.

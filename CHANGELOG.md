@@ -335,6 +335,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Require original SQL and kernel backend identity in new native ownership claims and monitoring; preserve older records as history and refuse their live readmission. Installed startup and controller recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-kernel-ownership.md), [details 2](apps/forge/lib/gitgood/native_ownership_claim.ex), [details 3](tools/deployment/native_ownership_records.py)
 
+- Validate private migration expectations and first-owner inputs against the original captured native lifecycle stage, with detached fixed-action projections and permanent guard poisoning on refusal. Business execution, BEAM transport and complete native startup/recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-lifecycle-business-inputs.md), [details 2](tools/deployment/native_lifecycle_business_inputs.py), [details 3](tools/deployment/native_generation_lease_guard.py)
+
 - Carry the original Root-validated lifecycle stage into native admission replies and match a fixed runtime, migration or bootstrap action before explicit lifecycle startup opens a lease or starts workers. Add an installed startup-boundary exercise with actual Root/input custody and explicitly synthetic stage receipts. Native product callback integration, business effects and interruption recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-worker-admission.md), [details 2](apps/forge/lib/gitgood/installation_generation_admission.ex), [details 3](apps/forge/lib/gitgood/native_lifecycle_action.ex), [details 4](tools/deployment/native_generation_lease_guard.py)
 

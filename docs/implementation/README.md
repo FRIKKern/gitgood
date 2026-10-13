@@ -44,6 +44,7 @@ These are operational implementation references. Begin with the [packaging exper
 | Recording unfinished installation steps and their original inputs | [Lifecycle responsibility](native-lifecycle-responsibility.md) |
 | Retaining that responsibility when service generations change | [Lifecycle transitions](native-lifecycle-transitions.md) |
 | Starting workers only during their recorded lifecycle stages | [Lifecycle worker admission](native-lifecycle-worker-admission.md) |
+| Reading original private migration and first-owner inputs | [Lifecycle business inputs](native-lifecycle-business-inputs.md) |
 | Installing an upgrade and recovering a failure | [Controlled upgrades](installation-upgrade.md) |
 | Coordinating Git, Postgres and configuration backups | [Offline backup and recovery](offline-backup.md) |
 | Exporting and removing an installation | [Installation retirement](installation-retirement.md) |
