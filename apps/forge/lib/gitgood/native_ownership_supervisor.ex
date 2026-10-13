@@ -36,6 +36,27 @@ defmodule Gitgood.NativeOwnershipSupervisor do
 
   def start_controller_link(_, _, _), do: {:error, :native_ownership_startup_unavailable}
 
+  def start_lifecycle_link(root, action, workers)
+      when is_list(workers) and length(workers) in 0..63 do
+    options = [root: root, action: action]
+
+    case Gitgood.NativeOwnershipStartup.validate_lifecycle_options(options) do
+      :ok ->
+        start_link([
+          %{
+            id: Gitgood.NativeOwnershipStartup,
+            start: {Gitgood.NativeOwnershipStartup, :start_lifecycle_link, [options]}
+          }
+          | workers
+        ])
+
+      _ ->
+        {:error, :native_ownership_startup_unavailable}
+    end
+  end
+
+  def start_lifecycle_link(_, _, _), do: {:error, :native_ownership_startup_unavailable}
+
   def start_link(children) when is_list(children) and length(children) in 1..64 do
     children = Enum.map(children, &Supervisor.child_spec(&1, restart: :permanent))
 

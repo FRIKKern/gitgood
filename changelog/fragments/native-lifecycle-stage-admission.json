@@ -2,8 +2,8 @@
   "id": "native-lifecycle-stage-admission",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Carry the original Root-validated lifecycle stage into native generation admission and monitor replies, with closed stage and worker-role checks. The observation grants no effect authority; native product startup and full lifecycle integration remain unfinished.",
+  "summary": "Carry the original Root-validated lifecycle stage into native admission replies and match a fixed runtime, migration or bootstrap action before explicit lifecycle startup opens a lease or starts workers. Native product callback integration, business effects and interruption recovery remain unfinished.",
   "journeys": ["J14", "J15"],
-  "references": ["docs/implementation/native-lifecycle-worker-admission.md", "apps/forge/lib/gitgood/installation_generation_admission.ex", "tools/deployment/native_generation_lease_guard.py"],
+  "references": ["docs/implementation/native-lifecycle-worker-admission.md", "apps/forge/lib/gitgood/installation_generation_admission.ex", "apps/forge/lib/gitgood/native_lifecycle_action.ex", "tools/deployment/native_generation_lease_guard.py"],
   "withdrawn": false
 }

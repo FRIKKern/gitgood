@@ -3,6 +3,31 @@ defmodule Gitgood.NativeOwnershipStartupTest do
   @moduletag capture_log: true
   alias Gitgood.NativeOwnershipStartup, as: Startup
 
+  test "explicit lifecycle options select fixed actions without mode or command overrides" do
+    root = "/var/lib/gitgood/installations/00000000-0000-4000-8000-000000000001/storage"
+
+    for action <- [:runtime, :migrate, :bootstrap] do
+      assert Startup.validate_lifecycle_options(root: root, action: action) == :ok
+    end
+
+    for options <- [
+          nil,
+          [],
+          [root: root],
+          [root: root, action: :backup],
+          [root: root, action: "migrate"],
+          [root: root, action: :migrate, mode: :runtime],
+          [root: root, action: :migrate, command: "/tmp/program"],
+          [root: root, action: :runtime, controller_handoff: false],
+          [root: root, action: :runtime, action: :migrate]
+        ] do
+      assert Startup.validate_lifecycle_options(options) == :error
+
+      assert Startup.start_lifecycle_link(options) ==
+               {:error, :native_ownership_startup_unavailable}
+    end
+  end
+
   test "clean compiled candidate must equal the independently read Root candidate" do
     candidate = String.duplicate("a", 40)
 

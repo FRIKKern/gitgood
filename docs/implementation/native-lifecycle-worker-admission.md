@@ -56,6 +56,28 @@ also match its requested action to this original observation before effects;
 that application/controller integration remains unfinished. Writer exclusion,
 lifecycle responsibility and readiness flags remain false in this read-only reply.
 
+## Action-specific startup
+
+The explicit `NativeOwnershipSupervisor.start_lifecycle_link(root, action, children)`
+path makes ownership startup the first child. Its fixed actions are `:runtime`,
+`:migrate` and `:bootstrap`; child options accept only `root` and `action`.
+Migration and bootstrap share the maintenance leaf, but cannot exchange their
+recorded stage. Bootstrap requires enrollment purpose, and both maintenance
+actions require their exact running stage. A completed operation permits runtime
+without replaying a maintenance action.
+
+`NativeLifecycleAction` checks the decoded original observation against the
+independently read Root operation, candidate and durable binding. Missing policy,
+changed authority, uncertain history and action/role mismatch refuse before
+controller handoff or opening the SQL lease. The existing controller publication
+and fence still finish before any supplied worker starts. This API never executes
+an action from a receipt and does not accept a command or mode override.
+
+The packaged application callback remains unwired and refuses native startup.
+Actual business effects, fixed lifecycle dispatch and interruption recovery still
+require implementation and installed verification. Matching fixture metadata is
+not proof of a migration, bootstrap or complete installation.
+
 The reader admits only complete, bounded, canonical history. It performs no
 partial recovery, journal claim, write or effect reconciliation. The default
 publication-only reader continues to refuse lifecycle history and also refuses
