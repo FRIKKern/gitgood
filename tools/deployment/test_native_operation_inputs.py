@@ -129,6 +129,23 @@ class PrivateInputCustodyTest(unittest.TestCase):
             after = (self.directory/name).stat()
             self.assertEqual((before.st_dev, before.st_ino, before.st_ctime_ns), (after.st_dev, after.st_ino, after.st_ctime_ns))
 
+    def test_private_worker_projection_keeps_original_descriptors_and_poisoning(self):
+        from native_lifecycle_worker_inputs import NativeLifecycleWorkerInputs, LifecycleWorkerInputsRefused
+        # Root/service observation is an explicit boundary stand-in here;
+        # ordinary file descriptors, exact metadata and poisoning are actual.
+        subject = object.__new__(NativeLifecycleWorkerInputs)
+        subject.usable = True;subject.inputs = self.reader()
+        subject.check = lambda: {'fixture_root_boundary': True}
+        self.addCleanup(subject.close)
+        projection = subject._private_payloads()
+        projection['inputs.json']['detached_only'] = True
+        self.assertEqual(subject.inputs.check(), self.raw)
+        path = self.directory/'inputs.json';path.write_bytes(self.raw['inputs.json'])
+        with self.assertRaises(LifecycleWorkerInputsRefused):subject._private_payloads()
+        self.assertFalse(subject.usable)
+        with self.assertRaises(LifecycleWorkerInputsRefused):subject._private_payloads()
+        self.assertEqual({name: (self.directory/name).read_bytes() for name in self.raw}, self.raw)
+
     def test_same_bytes_inode_replacement_poison_cannot_be_revived(self):
         reader = self.reader();path = self.directory/'inputs.json'
         original = path.with_name('retained.json');path.rename(original)

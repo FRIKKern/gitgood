@@ -58,6 +58,11 @@ and [native_ownership_supervisor.ex](../apps/forge/lib/gitgood/native_ownership_
 [native_lifecycle_action.ex](../apps/forge/lib/gitgood/native_lifecycle_action.ex) matches a requested action
 to the guarded Root lifecycle window before lease or worker startup. Read [worker admission](implementation/native-lifecycle-worker-admission.md)
 for the distinction between that startup boundary and complete installation effects.
+[native_lifecycle_business_inputs.py](../tools/deployment/native_lifecycle_business_inputs.py)
+validates private migration/first-owner projections under the original held guard.
+Read [business inputs](implementation/native-lifecycle-business-inputs.md) before
+connecting these password-bearing values to fixed workers; transport and effects
+remain unimplemented.
 
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 

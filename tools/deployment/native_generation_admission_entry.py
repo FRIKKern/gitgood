@@ -13,7 +13,7 @@ REQUIRED_MODULES = frozenset({
     'native_generation_admission.py', 'native_generation_admission_entry.py',
     'native_generation_lease_guard.py', 'native_generation_monitor.py',
     'native_generation_monitor_entry.py', 'native_generation_reader.py', 'native_inventory.py',
-    'native_kernel_backend.py', 'native_lifecycle_generation_reader.py',
+    'native_kernel_backend.py', 'native_lifecycle_business_inputs.py', 'native_lifecycle_generation_reader.py',
     'native_lifecycle_history.py', 'native_lifecycle_responsibility.py',
     'native_lifecycle_worker_inputs.py', 'native_monitor_ownership_attachment.py',
     'native_operation_inputs.py', 'native_ownership_database.py', 'native_ownership_marker_guard.py',

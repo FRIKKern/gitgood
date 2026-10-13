@@ -28,11 +28,24 @@ defmodule Gitgood.InstallationOwnerBootstrapTest do
       receipts = Repo.all(InstallationOwnerReceipt)
       ids = Enum.map(receipts, & &1.user_id)
       Repo.delete_all(InstallationOwnerReceipt)
-      Repo.delete_all(from m in Membership, where: m.user_id in ^ids)
-      Repo.delete_all(from u in User, where: u.id in ^ids)
+      Repo.delete_all(from(m in Membership, where: m.user_id in ^ids))
+      Repo.delete_all(from(u in User, where: u.id in ^ids))
     end)
 
     %{params: params}
+  end
+
+  test "protocol two private business projection uses the original owner digest contract" do
+    params = %{
+      "installation" => "11111111-1111-4111-8111-111111111111",
+      "request" => "22222222-2222-4222-8222-222222222222",
+      "username" => "owner",
+      "team" => "pilot",
+      "password" => "synthetic-secret-éé"
+    }
+
+    expected = "7c88ecc40ded65bf7c1b507bd8712a6c61c5e8afac39177aec4689cf56444fc2"
+    assert {:ok, _payload} = InstallationOwnerBootstrap.validate(params, expected)
   end
 
   defp expected(params) do
@@ -116,7 +129,7 @@ defmodule Gitgood.InstallationOwnerBootstrapTest do
     assert {:ok, user} =
              Accounts.create_user("existing-observed-owner", "existing-private-password")
 
-    on_exit(fn -> Repo.delete_all(from u in User, where: u.id == ^user.id) end)
+    on_exit(fn -> Repo.delete_all(from(u in User, where: u.id == ^user.id)) end)
     before = Repo.all(User)
 
     assert {:error, :installation_not_empty} =
@@ -241,7 +254,7 @@ defmodule Gitgood.InstallationOwnerBootstrapTest do
 
   test "existing actor data refuses initial enrollment without alteration", %{params: params} do
     assert {:ok, user} = Accounts.create_user("existing-owner", "existing-private-password")
-    on_exit(fn -> Repo.delete_all(from u in User, where: u.id == ^user.id) end)
+    on_exit(fn -> Repo.delete_all(from(u in User, where: u.id == ^user.id)) end)
     before = Repo.all(User)
 
     assert {:error, :installation_not_empty} =

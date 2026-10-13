@@ -113,6 +113,16 @@ class NativeLifecycleWorkerInputs:
         except Exception:
             self.close();raise LifecycleWorkerInputsRefused('Native lifecycle worker inputs unavailable or changed') from None
 
+    def _private_payloads(self):
+        """Only for the original held guard; never a status or caller response."""
+        try:
+            before = self.check()
+            payloads = {name: document(raw) for name, raw in self.inputs.check().items()}
+            require(self.check() == before)
+            return payloads
+        except Exception:
+            self.close();raise LifecycleWorkerInputsRefused('Native lifecycle worker inputs unavailable or changed') from None
+
     def fingerprint(self):
         self.check()
         return {'root': {name: value[1] for name, value in self.root_files.items()},
