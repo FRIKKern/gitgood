@@ -734,30 +734,38 @@ def run_successor_case(seed, config, password, database, server_scope):
         sibling = wait_for(stage / 'sentinel.json', run, 5)
         sentinel = process(sibling['sentinel_pid'])
         require(sentinel['uid'] == seed['uid'] and sentinel['cgroup'] == '0::/system.slice/' + seed['unit'] + '/web')
-        seed['proof_phase'] = label + ':original-owner-and-backend-loss'
+        seed['proof_phase'] = label + ':inject-original-helper-or-backend-loss'
         inject_loss(fault, captured, record['database_session'], database)
+        seed['proof_phase'] = label + ':owner-exit-acknowledgement'
         exited = wait_for(stage / 'owner-exited.json', run, 15)
         require(exited['fixture_signalled_beam'] is False and exited['exit_code'] != 0)
+        seed['proof_phase'] = label + ':original-owner-sql-kernel-absence'
         until = time.monotonic() + 10
         while not (absent(captured['owner']) and absent(captured['backend']) and database.backend_absent(record['database_session'])):
             require(time.monotonic() < until, 'original successor owner/backend not absent')
             time.sleep(.1)
+        seed['proof_phase'] = label + ':surviving-descendant-and-sibling'
         require(not absent(captured['descendant']) and not absent(sentinel))
+        seed['proof_phase'] = label + ':retained-record-and-marker-before-quiescence'
         require(fingerprint(captured['retained']) == captured['record_file'])
         require(fingerprint(captured['marker']) == captured['marker_file'])
         write_new(seal / ('fixture-cleanup-' + label + '.json'), {'original_owner_and_backend_absent': True})
+        seed['proof_phase'] = label + ':selected-leaf-quiescence'
         quiescent = wait_for(stage / 'quiescent.json', run, 12)
         require(quiescent == {'selected_leaf_empty': True, 'sibling_preserved': True,
             'cleanup_actor': 'fixture-manager', 'product_controller_cleanup_verified': False})
         leaf = Path('/sys/fs/cgroup/system.slice') / seed['unit'] / ('native' if mode == 'runtime' else 'maintenance')
         require('populated 0' in (leaf / 'cgroup.events').read_text() and not absent(sentinel))
+        seed['proof_phase'] = label + ':original-helper-and-descendant-absence'
         until = time.monotonic() + 5
         while not (absent(captured['descendant']) and absent(captured['helper'])):
             require(time.monotonic() < until, 'original successor descendants remain')
             time.sleep(.1)
         write_new(seal / ('fixture-reap-sentinel-' + label + '.json'), {'sibling_preservation_observed': True})
+        seed['proof_phase'] = label + ':sibling-reap-acknowledgement'
         wait_for(stage / 'sibling-reaped.json', run, 5)
         require(absent(sentinel))
+        seed['proof_phase'] = label + ':retained-record-and-marker-after-quiescence'
         require(fingerprint(captured['retained']) == captured['record_file'])
         require(fingerprint(captured['marker']) == captured['marker_file'])
         digest = hashlib.sha256(canonical(record)).hexdigest()
