@@ -28,6 +28,11 @@ probe, assignment or publication. Root independently observes the original
 exclusion backend and advisory lock still held before authorizing the correct
 action under the same reservation. The three valid owners then undergo the same
 actual handoff, heartbeat, loss and retained-inode checks as the successor case.
+Root finally checks that the original operation/worker seals and exact private
+input-file identities remain unchanged, and replays the complete retained journal
+chain. Its tip must remain pending after exactly the five fixture observations
+through `verify`; activation and enrollment remain unexecuted. The fourth case
+still requires lifecycle policy and history to be absent.
 
 `lifecycle_startup_boundary_verified` can become true only after this whole
 installed case passes. `business_lifecycle_stages_executed` and complete product

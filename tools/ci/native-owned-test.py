@@ -69,6 +69,48 @@ class BoundedProofTests(unittest.TestCase):
         with patch.object(proof, "command", return_value=b""), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(proof.finalize(receipt, [], None, "preflight"), 1)
 
+    @unittest.skipUnless(sys.platform == 'linux' and os.getuid() > 0, 'Actual ordinary Linux lifecycle journal custody')
+    def test_lifecycle_fixture_history_requires_original_inputs_and_exact_pending_tip(self):
+        deployment = str(HERE.parent / 'deployment')
+        with patch.object(sys, 'path', [deployment, *sys.path]):
+            from native_lifecycle_responsibility import sha
+            from native_operation_inputs import file_identity, file_record
+            from test_native_lifecycle_responsibility import LifecycleResponsibilityTest
+            fixture = LifecycleResponsibilityTest()
+            fixture.setUp();self.addCleanup(fixture.doCleanups)
+            fixture.history = self.directory / 'history';fixture.history.mkdir(mode=0o700)
+            lock = fixture.history / '.upgrade-history-lock-v1'
+            lock.write_bytes(b'');lock.chmod(0o600)
+            journal = fixture.journal(fixture.open());journal.claim()
+            for stage, label in zip(('inspect', 'stage', 'migrate', 'bootstrap', 'verify'),
+                                    (None, None, 'migration-owner', 'bootstrap-owner', 'runtime-owner')):
+                observation = {'fixture_only': True, 'business_stage_effects_verified': False}
+                if label:observation['ownership_boundary_observed'] = label
+                journal.begin(stage);journal.succeed(stage, sha(observation))
+            inputs = self.directory / 'inputs';inputs.mkdir(mode=0o700)
+            path = inputs / 'request.json';path.write_bytes(proof.canonical(fixture.request));path.chmod(0o600)
+            preserved = {'files': {path: proof.fingerprint(path)},
+                'input_directory': inputs, 'input_identity': proof.identity(inputs),
+                'request': fixture.request, 'inputs_seal_sha256': 'c'*64,
+                'sealed_files': {'request.json': file_record(file_identity(path.stat(), os.getuid(), os.getgid(), 16384), path.read_bytes())}}
+            seed = {'root': str(self.directory), 'uid': os.getuid(), 'gid': os.getgid(),
+                    'installation': fixture.installation, 'ownership_operation': fixture.request['operation']}
+            pointer = {'generation_sha256': fixture.generation}
+            observed = proof.observe_fixture_lifecycle_history(seed, pointer, preserved)
+            self.assertTrue(observed['sealed_lifecycle_inputs_retained'])
+            self.assertTrue(observed['fixture_lifecycle_history_verified'])
+            self.assertEqual(observed['remaining_lifecycle_stages'], ['activate', 'enroll'])
+            # Identical bytes/inode still invalidate the original input seal
+            # after metadata changes; a digest alone cannot establish custody.
+            before = path.stat()
+            os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000))
+            with self.assertRaises(ValueError):proof.observe_fixture_lifecycle_history(seed, pointer, preserved)
+            preserved['sealed_files']['request.json'] = file_record(file_identity(path.stat(), os.getuid(), os.getgid(), 16384), path.read_bytes())
+            # An extra business-stage receipt exceeds this fixture's scope,
+            # even when the production journal accepts that valid transition.
+            journal.begin('activate');journal.succeed('activate', 'd'*64)
+            with self.assertRaises(ValueError):proof.observe_fixture_lifecycle_history(seed, pointer, preserved)
+
     def hosted_opt_fixture(self, *, uid=0, mode=0o40777):
         before = SimpleNamespace(st_dev=10, st_ino=20, st_uid=uid, st_gid=0, st_mode=mode)
         after = SimpleNamespace(st_dev=10, st_ino=20, st_uid=uid, st_gid=0, st_mode=0o40755)
