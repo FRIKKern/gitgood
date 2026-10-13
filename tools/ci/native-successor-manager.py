@@ -22,6 +22,7 @@ from native_durable_binding import observe_durable_binding
 from native_ownership_controller import NativeOwnershipController
 from native_ownership_handoff import serve_once
 from native_ownership_records import OwnershipRecordRefused
+from native_lifecycle_responsibility import NativeLifecycleResponsibility, sha
 from native_service_scope import group_identity
 
 spec = importlib.util.spec_from_file_location('owned_fixture', Path(__file__).with_name('native-owned-manager.py'))
@@ -52,7 +53,7 @@ def main(seed_path):
     run, root, seal = (Path(seed[name]) for name in ('run', 'root', 'seal_directory'))
     deadline = time.monotonic() + 300
     phase = 'delegation'
-    controller = endpoint = custody = None
+    controller = endpoint = custody = journal = None
     os.umask(0o077)
     try:
         assert os.getuid() == os.geteuid() == seed['uid'] > 0
@@ -86,6 +87,19 @@ def main(seed_path):
         custody.__enter__()
         endpoint = NativeCommandEndpoint(seed['installation'])
         controller = NativeOwnershipController(seed['installation'], custody, endpoint)
+        if seed.get('lifecycle_fixture'):
+            # These stages exercise the actual sealed journal/input transport.
+            # Their receipts deliberately describe fixture metadata, not
+            # application inspection, staging or business effects.
+            directory = Path('/var/lib/gitgood/operation-inputs') / seed['installation'] / seed['ownership_operation']
+            request = json.loads((directory / 'request.json').read_bytes())
+            policy = json.loads((seal / 'lifecycle-worker-admission-v2.json').read_bytes())
+            journal = NativeLifecycleResponsibility(custody, request, policy['inputs_seal_sha256'],
+                published['pointer']['generation_sha256'])
+            journal.claim()
+            fixture_observation = {'fixture_only': True, 'business_stage_effects_verified': False}
+            for stage in ('inspect', 'stage'):
+                journal.begin(stage);journal.succeed(stage, sha(fixture_observation))
         fixture.write(run / 'controller-open.json', {'actual_main_pid': os.getpid(),
                        'controller_identity': controller.scope['manager']})
         configuration = json.loads((root / 'configuration/installation.json').read_bytes())
@@ -93,6 +107,8 @@ def main(seed_path):
             stage = run / label
             stage.mkdir(mode=0o700)
             phase = label + '-reserve'
+            if journal is not None:
+                journal.begin({'migration-owner': 'migrate', 'bootstrap-owner': 'bootstrap', 'runtime-owner': 'verify'}[label])
             reservation = controller.reserve(mode)
             fixture.write(stage / 'reserved.json', reservation)
             # Root observes the actual held SQL/kernel exclusion before this
@@ -107,6 +123,32 @@ def main(seed_path):
                 'GITGOOD_SUPERVISION_PROFILE': 'systemd-v2', 'PHX_SERVER': 'true' if mode == 'runtime' else 'false',
                 'GITGOOD_GIT': seed['executables']['git'], 'GITGOOD_PYTHON': seed['executables']['python'],
                 'GITGOOD_OWNED_PROOF_DIRECTORY': str(stage), 'GITGOOD_OWNED_PROOF_CONTROLLER_MODE': mode}
+            if journal is not None:
+                environment['GITGOOD_OWNED_PROOF_LIFECYCLE_ACTION'] = {
+                    'migration-owner': 'migrate', 'bootstrap-owner': 'bootstrap', 'runtime-owner': 'runtime'}[label]
+            if journal is not None and label == 'migration-owner':
+                phase = 'wrong-bootstrap-action-in-migration-window'
+                trial = stage / 'refused-trial';trial.mkdir(mode=0o700)
+                trial_env = {**environment, 'GITGOOD_OWNED_PROOF_DIRECTORY': str(trial),
+                             'GITGOOD_OWNED_PROOF_LIFECYCLE_ACTION': 'bootstrap'}
+                with (trial / 'worker.private.log').open('xb') as trial_output:
+                    rejected = fixture.launch([seed['release'] + '/bin/gitgood', 'eval',
+                        'Code.eval_file("' + seed['worker'] + '")'], leaf, environment=trial_env, output=trial_output)
+                    until = time.monotonic() + 30
+                    while rejected.poll() is None:
+                        assert time.monotonic() < until
+                        serve(controller, trial)
+                    assert rejected.returncode != 0 and not (trial / 'attached.json').exists()
+                assert controller.state == 'reserved' and controller.assignment is None
+                controller.exclusion.check()
+                assert group_identity(leaf, seed['uid']) == leaf_identity
+                (leaf / 'cgroup.kill').write_text('1')
+                until = time.monotonic() + 5
+                while 'populated 0' not in (leaf / 'cgroup.events').read_text():
+                    assert time.monotonic() < until;time.sleep(.05)
+                fixture.write(stage / 'wrong-action-refused.json', {'requested_action': 'bootstrap',
+                    'recorded_stage': 'migrate', 'before_handoff_and_lease': True, 'fixture_probe_started': False})
+                fixture.wait(seal / 'fixture-correct-action.json', deadline)
             phase = label + '-actual-admission-and-publication'
             with (stage / 'worker.private.log').open('xb') as output:
                 beam = fixture.launch([seed['release'] + '/bin/gitgood', 'eval',
@@ -142,6 +184,9 @@ def main(seed_path):
                 fixture.write(stage / 'sibling-reaped.json', {'original_sibling_reaped': True})
                 phase = label + '-await-root-next'
                 fixture.wait(seal / ('fixture-next-' + label + '.json'), deadline)
+                if journal is not None:
+                    journal.succeed(journal.snapshot['stage'], sha({'fixture_only': True,
+                        'business_stage_effects_verified': False, 'ownership_boundary_observed': label}))
         fixture.write(run / 'controller-chain-complete.json', {'actual_controller_handoff_completed': True,
             'claims': 3, 'same_controller': True, 'same_boot_and_generation': True,
             'business_lifecycle_stages_executed': False})
@@ -160,6 +205,7 @@ def main(seed_path):
             time.sleep(.25)
         return 0
     finally:
+        if journal is not None:journal.close()
         if controller is not None:
             controller.close()
         if endpoint is not None:

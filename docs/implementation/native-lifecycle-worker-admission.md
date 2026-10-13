@@ -78,6 +78,13 @@ Actual business effects, fixed lifecycle dispatch and interruption recovery stil
 require implementation and installed verification. Matching fixture metadata is
 not proof of a migration, bootstrap or complete installation.
 
+The [hosted startup-boundary case](native-hosted-ownership.md) tests the actual
+Root seals, protected inputs, journal transport, live controller and three
+explicit startup actions. Its prior-stage receipts are declared fixture metadata;
+they establish no business stage effects. The installed boundary stays unverified
+until a current receipt passes both wrong-action refusal before handoff and the
+three actual admitted owners.
+
 The reader admits only complete, bounded, canonical history. It performs no
 partial recovery, journal claim, write or effect reconciliation. The default
 publication-only reader continues to refuse lifecycle history and also refuses

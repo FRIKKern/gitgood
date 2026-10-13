@@ -12,11 +12,26 @@ the product's `Gitgood.Application` native-startup refusal stays in place. There
 are no forge HTTP, SSH, web, or edge listeners. The private Node and Caddy binaries
 are checked as part of the durable binding, rather than started as services.
 
-The fixture requires an absent lifecycle worker policy and lifecycle history.
-It never removes a policy, fabricates successful lifecycle stages or deletes an
-ownership marker. The successor case uses the actual live controller to admit
+The first four cases require an absent lifecycle worker policy and history.
+They never remove a policy or delete an ownership marker. The successor case uses the actual live controller to admit
 three owners within one boot and generation. Product lifecycle execution,
 controller restart and replacement-host recovery remain separate work.
+
+A fifth `lifecycle-startup-boundary` case installs actual Root operation/worker
+seals and private input-file identities, and uses actual journal custody. Its
+stage observations are explicitly **fixture metadata** with business effects
+unverified. They select migration, bootstrap and runtime windows for testing the
+startup API; no product inspection, staging, migration or bootstrap is executed.
+The same permanent probe application calls `start_lifecycle_link` in each window.
+Before the migration owner, an attempted bootstrap action must exit without a
+probe, assignment or publication. Root independently observes the original
+exclusion backend and advisory lock still held before authorizing the correct
+action under the same reservation. The three valid owners then undergo the same
+actual handoff, heartbeat, loss and retained-inode checks as the successor case.
+
+`lifecycle_startup_boundary_verified` can become true only after this whole
+installed case passes. `business_lifecycle_stages_executed` and complete product
+acceptance remain false; synthetic stage receipts cannot establish those gates.
 
 ## What a passing run observes
 

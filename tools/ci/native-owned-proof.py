@@ -386,7 +386,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate, *, controller=False):
+def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -435,6 +435,9 @@ def allocate_case(label, runtime, database, candidate, *, controller=False):
             "release": str(runtime / "release"), "worker": str(runtime / "native-owned-worker.exs"), "limits": LIMITS,
             "candidate": candidate, "generation_operation": str(uuid.uuid4()), "generation": str(uuid.uuid4()),
             "ownership_operation": str(uuid.uuid4())}
+    if lifecycle:
+        require(controller)
+        seed['lifecycle_fixture'] = True
     if controller:
         directory = Path('/run/gitgood/installations') / installation
         root_directory(directory.parent)
@@ -617,6 +620,40 @@ def run_case(seed, config, password, database, server_scope):
             "lifecycle_policy_absent": True, "native_application_acceptance": False, "product_controller_verified": False}
 
 
+def seal_lifecycle_fixture(seed, binding_sha256):
+    """Real Root/input custody, with explicitly synthetic stage observations."""
+    from native_operation_inputs import file_identity, file_record
+    directory = Path('/var/lib/gitgood/operation-inputs') / seed['installation'] / seed['ownership_operation']
+    root_directory(directory.parent.parent)
+    root_directory(directory.parent)
+    directory.mkdir(mode=0o700)
+    os.chown(directory, seed['uid'], seed['gid'])
+    for name in ('allocation.json', 'inputs.json'):
+        write_new(directory / name, {'protocol': 2, 'fixture_only': True,
+            'business_stage_effects_verified': False}, 0o600, seed['uid'], seed['gid'])
+    declared = {name: {'bytes': (directory / name).stat().st_size,
+                      'sha256': hashlib.sha256((directory / name).read_bytes()).hexdigest()}
+                for name in ('allocation.json', 'inputs.json')}
+    request = {'protocol': 2, 'kind': 'native_lifecycle_request', 'installation': seed['installation'],
+        'operation': seed['ownership_operation'], 'purpose': 'native_initial_enrollment',
+        'durable_binding_sha256': binding_sha256, 'files': declared}
+    write_new(directory / 'request.json', request, 0o600, seed['uid'], seed['gid'])
+    files = {name: file_record(file_identity((directory / name).stat(), seed['uid'], seed['gid'], 16384),
+                              (directory / name).read_bytes())
+             for name in ('request.json', 'allocation.json', 'inputs.json')}
+    operation = {'protocol': 2, 'kind': 'native_operation_inputs_seal',
+        **{name: request[name] for name in ('installation', 'operation', 'purpose', 'durable_binding_sha256')},
+        'uid': seed['uid'], 'gid': seed['gid'], 'directory_identity': identity(directory), 'files': files}
+    seal = Path(seed['seal_directory'])
+    (seal / 'operations').mkdir(mode=0o755)
+    write_new(seal / 'operations' / (seed['ownership_operation'] + '.json'), operation)
+    write_new(seal / 'lifecycle-worker-admission-v2.json', {'protocol': 2,
+        'kind': 'native_lifecycle_worker_seal',
+        **{name: request[name] for name in ('installation', 'operation', 'purpose', 'durable_binding_sha256')},
+        'candidate': seed['candidate'], 'request_sha256': hashlib.sha256(canonical(request)).hexdigest(),
+        'inputs_seal_sha256': hashlib.sha256(canonical(operation)).hexdigest(), 'uid': seed['uid'], 'gid': seed['gid']})
+
+
 def run_successor_case(seed, config, password, database, server_scope):
     """Independent witness of actual protected same-controller handoffs."""
     run, seal = Path(seed['run']), Path(seed['seal_directory'])
@@ -630,6 +667,8 @@ def run_successor_case(seed, config, password, database, server_scope):
     published = wait_for(run / 'published.json', run, 50)
     require(published['generation_publication_established'] is True)
     require(published['installation_readiness_established'] is False)
+    if seed.get('lifecycle_fixture'):
+        seal_lifecycle_fixture(seed, observed['binding_sha256'])
     write_new(seal / 'fixture-start.json', {'start': True})
     opened = wait_for(run / 'controller-open.json', run, 15)
     manager = process(opened['actual_main_pid'])
@@ -660,6 +699,16 @@ def run_successor_case(seed, config, password, database, server_scope):
             f"AND pid={excluded['pid']} AND classid::bigint=1197034575 AND objid::bigint=1 AND objsubid=2 AND mode='ExclusiveLock'") == '1')
         write_new(seal / ('fixture-launch-' + label + '.json'), {'exclusion_observed': True})
         seed['proof_phase'] = label + ':protected-handoff-and-heartbeats'
+        if seed.get('lifecycle_fixture') and label == 'migration-owner':
+            refused_startup = wait_for(stage / 'wrong-action-refused.json', run, 45)
+            require(refused_startup == {'requested_action': 'bootstrap', 'recorded_stage': 'migrate',
+                'before_handoff_and_lease': True, 'fixture_probe_started': False})
+            require(not (transition / (pending['claim'] + '.assignment.json')).exists())
+            require(not list((storage / '.gitgood-ownership-v2').glob('*.json')))
+            require(not absent(excluded) and database.query('SELECT count(*) FROM pg_stat_activity WHERE ' + database.predicate(session)) == '1')
+            require(database.query("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND granted "
+                f"AND pid={excluded['pid']} AND classid::bigint=1197034575 AND objid::bigint=1 AND objsubid=2 AND mode='ExclusiveLock'") == '1')
+            write_new(seal / 'fixture-correct-action.json', {'original_reservation_retained': True})
         attached = wait_for(stage / 'attached.json', run, 100)
         captured = capture_attachment(seed, attached, database, mode=mode, protocol=4)
         record = attached['record']
@@ -735,11 +784,14 @@ def run_successor_case(seed, config, password, database, server_scope):
         require(fingerprint(marker) == item['captured']['marker_file'])
     require(not (seal / 'lifecycle-worker-admission-v2.json').exists())
     require(not (Path(seed['root']) / 'history/lifecycle-responsibility-v2').exists())
-    return {'case': 'same-controller-successor', 'status': 'passed', 'stages': stages,
+    return {'case': 'lifecycle-startup-boundary' if seed.get('lifecycle_fixture') else 'same-controller-successor',
+        'status': 'passed', 'stages': stages,
         'actual_same_boot_same_generation_controller_handoff_verified': True,
         'migration_bootstrap_runtime_modes_observed': True, 'business_lifecycle_stages_executed': False,
         'all_original_records_and_marker_inodes_retained': True, 'native_application_acceptance': False,
-        'complete_journey_acceptance': False, 'product_controller_cleanup_verified': False}
+        'complete_journey_acceptance': False, 'product_controller_cleanup_verified': False,
+        'actual_lifecycle_startup_boundary_verified': bool(seed.get('lifecycle_fixture')),
+        'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture'))}
 
 
 def preflight(args):
@@ -796,7 +848,7 @@ def finalize(receipt, units, output, phase):
 
 
 def main(args):
-    receipt = {"protocol": 1, "scope": "publication-only-component", "status": "failed", "candidate": args.candidate,
+    receipt = {"protocol": 1, "scope": "ownership-and-lifecycle-startup-component", "status": "failed", "candidate": args.candidate,
                "native_application_acceptance": False, "complete_journey_acceptance": False,
                "reboot_verified": False, "successor_reconciliation_verified": False,
                "production_deadlines_modified": False, "limits": LIMITS, "cases": []}
@@ -872,6 +924,17 @@ def main(args):
         result['owned_unit_stopped'] = True
         receipt['cases'].append(result)
         receipt['same_boot_same_generation_successor_handoff_verified'] = True
+        phase = 'lifecycle-startup-boundary:allocate'
+        seed, config, password = allocate_case('lifecycle-startup-boundary', runtime, database,
+            args.candidate, controller=True, lifecycle=True)
+        units.append(seed['unit'])
+        phase = 'lifecycle-startup-boundary:protected-handoffs'
+        result = run_successor_case(seed, config, password, database, server_scope)
+        command(['/usr/bin/systemctl', 'stop', seed['unit']], timeout=25)
+        group = Path('/sys/fs/cgroup/system.slice') / seed['unit']
+        require(not group.exists(), 'owned lifecycle fixture unit remained after stop')
+        receipt['cases'].append({**result, 'owned_unit_stopped': True})
+        receipt['lifecycle_startup_boundary_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:
