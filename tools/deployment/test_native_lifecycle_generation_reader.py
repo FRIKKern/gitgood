@@ -85,6 +85,30 @@ class LifecycleGenerationReaderTest(unittest.TestCase):
             other = 'native' if allowed == 'maintenance' else 'maintenance'
             with self.subTest(stage=stage),self.assertRaises(GenerationAdmissionRefused):self.admit(other)
 
+    def test_admission_projects_the_exact_recorded_stage_without_effect_authority(self):
+        self.begin('bootstrap');result=self.admit('maintenance')
+        observed=result['lifecycle_observation']
+        self.assertEqual(observed['operation'],self.request['operation'])
+        self.assertEqual(observed['purpose'],'native_initial_enrollment')
+        self.assertEqual(observed['candidate'],'b'*40)
+        self.assertEqual(observed['request_sha256'],sha(self.request))
+        self.assertEqual(observed['generation_sha256'],self.generation)
+        self.assertEqual((observed['stage'],observed['recorded_status'],observed['worker']),
+                         ('bootstrap','running','maintenance'))
+        self.assertEqual(set(observed),{'operation','purpose','candidate','request_sha256','origin_sha256',
+            'snapshot_sha256','generation_sha256','epoch','stage','recorded_status','worker'})
+        for field in ['lifecycle_responsibility_admitted','writer_exclusion_established','installation_readiness_established']:
+            self.assertIs(result[field],False)
+
+    def test_terminal_ancestor_projection_preserves_original_generation_and_status(self):
+        self.begin('verify');self.finish();self.fixture.next_boot();self.fixture.controller().publish(**self.fixture.arguments)
+        self.worker['service_scope']=self.fixture.scope
+        result=self.admit();observed=result['lifecycle_observation']
+        self.assertEqual((observed['stage'],observed['recorded_status'],observed['worker']),('enroll','complete','native'))
+        self.assertEqual(observed['generation_sha256'],self.generation)
+        self.assertNotEqual(observed['generation_sha256'],result['pointer']['generation_sha256'])
+        self.assertIs(result['lifecycle_responsibility_admitted'],False)
+
     def test_fixed_upgrade_windows_admit_migration_and_candidate_verification_roles(self):
         for stage, allowed in [('migrate', 'maintenance'), ('verify', 'native'), ('activate', 'native'), ('public_verify', 'native')]:
             self.begin(stage, 'native_upgrade_execution')
@@ -144,6 +168,10 @@ class LifecycleGenerationReaderTest(unittest.TestCase):
         for cache in [guard.root_files, guard.executable_files]:
             mock = patch.object(cache, 'freeze', return_value=None);mock.start();self.addCleanup(mock.stop)
         captured = guard.capture();self.assertTrue(guard.check()['current'])
+        self.assertEqual(captured['admission']['lifecycle_observation'],guard.snapshot['lifecycle'])
+        captured['admission']['lifecycle_observation']['stage']='untrusted-caller-edit'
+        self.assertEqual(guard.snapshot['lifecycle']['stage'],'verify')
+        self.assertTrue(guard.check()['current'])
         with patch.object(subject.lifecycle_view, '_read', side_effect=AssertionError('heartbeat must not reparse journal')) as journal_read, \
              patch.object(subject.custody, '_records', side_effect=AssertionError('heartbeat must not reparse generations')) as generation_read, \
              patch.object(guard_module, 'persistent_identity', side_effect=AssertionError('heartbeat must not query database')) as database:

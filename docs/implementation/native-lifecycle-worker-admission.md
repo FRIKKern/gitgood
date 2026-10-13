@@ -39,6 +39,52 @@ operation from an older generation requires its exact terminal snapshot referenc
 in the current transition and retained ancestry; an old running operation cannot
 provide current worker admission.
 
+Admission and the monitor's initial reply retain an optional closed
+`lifecycle_observation` when this explicit Root policy is present. It contains
+the original operation, purpose, candidate, request/origin/snapshot digests,
+recorded generation, epoch, stage, status and worker. A terminal ancestor keeps
+its original generation; it is never relabelled as the current one. The Elixir
+consumer checks the closed schema, typed identities and fixed stage/role windows.
+Running observations must name the current pointer's generation. Unknown,
+pending and uncertain observations refuse. No caller request can supply this
+field, and the publication-only path omits it.
+
+The monitor's original history digest already binds this observation. Returning
+or editing a caller's copy grants no lifecycle effect authority and changes no
+captured guard. Stage advancement still poisons that guard. Business startup must
+also match its requested action to this original observation before effects;
+that application/controller integration remains unfinished. Writer exclusion,
+lifecycle responsibility and readiness flags remain false in this read-only reply.
+
+## Action-specific startup
+
+The explicit `NativeOwnershipSupervisor.start_lifecycle_link(root, action, children)`
+path makes ownership startup the first child. Its fixed actions are `:runtime`,
+`:migrate` and `:bootstrap`; child options accept only `root` and `action`.
+Migration and bootstrap share the maintenance leaf, but cannot exchange their
+recorded stage. Bootstrap requires enrollment purpose, and both maintenance
+actions require their exact running stage. A completed operation permits runtime
+without replaying a maintenance action.
+
+`NativeLifecycleAction` checks the decoded original observation against the
+independently read Root operation, candidate and durable binding. Missing policy,
+changed authority, uncertain history and action/role mismatch refuse before
+controller handoff or opening the SQL lease. The existing controller publication
+and fence still finish before any supplied worker starts. This API never executes
+an action from a receipt and does not accept a command or mode override.
+
+The packaged application callback remains unwired and refuses native startup.
+Actual business effects, fixed lifecycle dispatch and interruption recovery still
+require implementation and installed verification. Matching fixture metadata is
+not proof of a migration, bootstrap or complete installation.
+
+The [hosted startup-boundary case](native-hosted-ownership.md) tests the actual
+Root seals, protected inputs, journal transport, live controller and three
+explicit startup actions. Its prior-stage receipts are declared fixture metadata;
+they establish no business stage effects. The installed boundary stays unverified
+until a current receipt passes both wrong-action refusal before handoff and the
+three actual admitted owners.
+
 The reader admits only complete, bounded, canonical history. It performs no
 partial recovery, journal claim, write or effect reconciliation. The default
 publication-only reader continues to refuse lifecycle history and also refuses

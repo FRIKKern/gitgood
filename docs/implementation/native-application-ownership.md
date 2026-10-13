@@ -74,6 +74,13 @@ session. The packaged application must start as permanent for root-tree failure
 to terminate the whole BEAM. It remains unwired: the profile gate still refuses
 native startup before application workers.
 
+The explicit lifecycle startup API additionally checks the requested runtime,
+migration or bootstrap action against the original guarded Root lifecycle
+observation before handoff and lease startup. It retains the same first-child
+publication and fail-closed supervision. See [worker admission](native-lifecycle-worker-admission.md#action-specific-startup)
+for its fixed windows. It does not wire the packaged application callback or
+establish actual business-stage or interruption-recovery acceptance.
+
 Four standalone process tests use actual Elixir/OTP applications and OS processes,
 with explicit fixture workers standing in for the monitor and held session.
 They check whole-BEAM exit and exactly one start after helper loss, including a

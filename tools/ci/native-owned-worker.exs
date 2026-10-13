@@ -168,10 +168,15 @@ defmodule GitgoodOwnedProof.Witness do
       repeated_admission_refused =
         if owner.ownership.record["protocol"] == 4 do
           {:ok, admission} = Gitgood.InstallationGenerationMonitor.admission(owner.monitor)
+
           {:ok, inputs} =
-            Gitgood.NativeOwnershipInputs.read_application(System.fetch_env!("GITGOOD_STORAGE"), admission)
+            Gitgood.NativeOwnershipInputs.read_application(
+              System.fetch_env!("GITGOOD_STORAGE"),
+              admission
+            )
 
           mode = if owner.ownership.record["mode"] == "runtime", do: :runtime, else: :migrate
+
           {:error, :native_ownership_publication_unavailable} =
             Gitgood.NativeOwnershipPublication.admit_owner(admission, inputs.authority, mode)
 
@@ -220,12 +225,55 @@ defmodule GitgoodOwnedProof.Application do
 
   @impl true
   def start(_, _) do
-    workers = [{GitgoodOwnedProof.Witness, directory: System.fetch_env!("GITGOOD_OWNED_PROOF_DIRECTORY")}]
+    workers = [
+      {GitgoodOwnedProof.Witness, directory: System.fetch_env!("GITGOOD_OWNED_PROOF_DIRECTORY")}
+    ]
 
-    case System.get_env("GITGOOD_OWNED_PROOF_CONTROLLER_MODE") do
-      nil -> Gitgood.NativeOwnershipSupervisor.start_native_link(System.fetch_env!("GITGOOD_STORAGE"), :runtime, workers)
-      "migrate" -> Gitgood.NativeOwnershipSupervisor.start_controller_link(System.fetch_env!("GITGOOD_STORAGE"), :migrate, workers)
-      "runtime" -> Gitgood.NativeOwnershipSupervisor.start_controller_link(System.fetch_env!("GITGOOD_STORAGE"), :runtime, workers)
+    case System.get_env("GITGOOD_OWNED_PROOF_LIFECYCLE_ACTION") do
+      "migrate" ->
+        Gitgood.NativeOwnershipSupervisor.start_lifecycle_link(
+          System.fetch_env!("GITGOOD_STORAGE"),
+          :migrate,
+          workers
+        )
+
+      "bootstrap" ->
+        Gitgood.NativeOwnershipSupervisor.start_lifecycle_link(
+          System.fetch_env!("GITGOOD_STORAGE"),
+          :bootstrap,
+          workers
+        )
+
+      "runtime" ->
+        Gitgood.NativeOwnershipSupervisor.start_lifecycle_link(
+          System.fetch_env!("GITGOOD_STORAGE"),
+          :runtime,
+          workers
+        )
+
+      nil ->
+        case System.get_env("GITGOOD_OWNED_PROOF_CONTROLLER_MODE") do
+          nil ->
+            Gitgood.NativeOwnershipSupervisor.start_native_link(
+              System.fetch_env!("GITGOOD_STORAGE"),
+              :runtime,
+              workers
+            )
+
+          "migrate" ->
+            Gitgood.NativeOwnershipSupervisor.start_controller_link(
+              System.fetch_env!("GITGOOD_STORAGE"),
+              :migrate,
+              workers
+            )
+
+          "runtime" ->
+            Gitgood.NativeOwnershipSupervisor.start_controller_link(
+              System.fetch_env!("GITGOOD_STORAGE"),
+              :runtime,
+              workers
+            )
+        end
     end
   end
 end

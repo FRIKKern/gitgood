@@ -66,8 +66,9 @@ class GenerationMonitorTest(unittest.TestCase):
         for raw in [b'x'*4097, self.raw+b'\0', '', b'']:
             with self.subTest(raw_type=type(raw)), self.assertRaises(ValueError): monitor.parse_request(raw)
 
-    def run_stream(self, *, changed_seal=False, changed_token=False, capture_failure=False, ticks=None):
+    def run_stream(self, *, changed_seal=False, changed_token=False, capture_failure=False, ticks=None, lifecycle=None):
         guard = Guard(); output = Stream()
+        if lifecycle is not None:guard.admitted['lifecycle_observation']=lifecycle
         seal = {'binding_sha256':'d'*64,'database':{'fixture':True}}
         identity = {'path':'/fixed/root/seal','fixture':True}; sealed = b'private fixture seal'
         if changed_token:
@@ -100,6 +101,14 @@ class GenerationMonitorTest(unittest.TestCase):
         self.assertEqual(set(values[1]), {'protocol','status','guard'})
         self.assertEqual(values[2], {'protocol':2,'status':'refused'})
         self.assertEqual(values[0]['guard'], values[1]['guard']); self.assertEqual(guard.checks, 2)
+
+    def test_initial_reply_retains_guarded_lifecycle_observation_without_new_authority(self):
+        observed={'operation':'00000000-0000-4000-8000-000000000002','stage':'verify','worker':'native'}
+        values,_=self.run_stream(lifecycle=observed)
+        self.assertEqual(values[0]['admission']['lifecycle_observation'],observed)
+        for flag in ['lifecycle_responsibility_admitted','writer_exclusion_established','installation_readiness_established']:
+            self.assertIs(values[0]['admission'][flag],False)
+        self.assertNotIn('lifecycle_observation',values[1]);self.assertNotIn('lifecycle_observation',values[2])
 
     def test_changed_seal_refuses_before_a_current_message(self):
         values, guard = self.run_stream(changed_seal=True)

@@ -25,12 +25,28 @@ defmodule Gitgood.NativeOwnershipStartup do
       else: {:error, @failure}
   end
 
+  def start_lifecycle_link(options) do
+    if validate_lifecycle_options(options) == :ok do
+      {:ok, mode} = Gitgood.NativeLifecycleAction.mode(options[:action])
+
+      GenServer.start_link(__MODULE__,
+        root: options[:root],
+        mode: mode,
+        controller_handoff: true,
+        lifecycle_action: options[:action]
+      )
+    else
+      {:error, @failure}
+    end
+  end
+
   def current(pid), do: GenServer.call(pid, :current, 10_000)
 
   @impl true
   def init(options) do
     controller_handoff = Keyword.get(options, :controller_handoff, false)
-    options = Keyword.delete(options, :controller_handoff)
+    lifecycle_action = Keyword.get(options, :lifecycle_action)
+    options = Keyword.drop(options, [:controller_handoff, :lifecycle_action])
 
     with :ok <- validate_options(options),
          {:ok, %{profile: :systemd_v2, installation: installation}} <-
@@ -41,6 +57,7 @@ defmodule Gitgood.NativeOwnershipStartup do
          {:ok, inputs} <- Inputs.read_application(options[:root], admission),
          :ok <- validate_artifact(Gitgood.Build.identity(), inputs.authority),
          :ok <- Configuration.check(inputs, admission, options[:mode]),
+         :ok <- validate_lifecycle(lifecycle_action, admission, inputs.authority),
          {:ok, handoff} <-
            admit_controller(controller_handoff, admission, inputs.authority, options[:mode]),
          {:ok, lease} <-
@@ -71,6 +88,11 @@ defmodule Gitgood.NativeOwnershipStartup do
   defp admit_controller(true, admission, authority, mode),
     do: Gitgood.NativeOwnershipPublication.admit_owner(admission, authority, mode)
 
+  defp validate_lifecycle(nil, _, _), do: :ok
+
+  defp validate_lifecycle(action, admission, authority),
+    do: Gitgood.NativeLifecycleAction.validate(admission, authority, action)
+
   @doc false
   def validate_artifact(identity, authority) do
     if is_map(identity) and is_map(authority) and identity["dirty"] === false and
@@ -91,6 +113,19 @@ defmodule Gitgood.NativeOwnershipStartup do
          Regex.match?(@root, options[:root]),
        do: :ok,
        else: :error
+  rescue
+    _ -> :error
+  end
+
+  @doc false
+  def validate_lifecycle_options(options) do
+    with true <-
+           Keyword.keyword?(options) and Enum.sort(Keyword.keys(options)) == [:action, :root],
+         {:ok, mode} <- Gitgood.NativeLifecycleAction.mode(options[:action]) do
+      validate_options(root: options[:root], mode: mode)
+    else
+      _ -> :error
+    end
   rescue
     _ -> :error
   end

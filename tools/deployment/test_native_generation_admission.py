@@ -28,6 +28,20 @@ class GenerationAdmissionRequestTest(unittest.TestCase):
             with self.subTest(raw=raw[:20]),patch.object(admission,'root_file') as root,self.assertRaises(Exception):admission.admit_request(raw)
             root.assert_not_called()
 
+    def test_lifecycle_projection_comes_from_the_reader_not_the_request(self):
+        observed={'operation':'00000000-0000-4000-8000-000000000002','purpose':'native_initial_enrollment',
+            'candidate':'e'*40,'request_sha256':'f'*64,'origin_sha256':'a'*64,'snapshot_sha256':'b'*64,
+            'generation_sha256':'c'*64,'epoch':1,'stage':'verify','recorded_status':'running','worker':'native'}
+        with patch.object(admission,'root_file',return_value=(self.file,canonical(self.seal))),\
+             patch.object(admission,'open_reader') as factory:
+            factory.return_value.admit.return_value={**self.result,'lifecycle_observation':observed}
+            value=self.call()
+        self.assertEqual(value['lifecycle_observation'],observed)
+        self.assertIs(value['lifecycle_responsibility_admitted'],False)
+        with patch.object(admission,'root_file') as root,self.assertRaises(Exception):
+            self.call({**self.request,'lifecycle_observation':observed})
+        root.assert_not_called()
+
     def test_only_fixed_root_seal_inputs_reach_reader_and_are_reobserved(self):
         with patch.object(admission,'root_file',return_value=(self.file,canonical(self.seal))) as root,patch.object(admission,'open_reader') as factory:
             factory.return_value.admit.return_value=self.result

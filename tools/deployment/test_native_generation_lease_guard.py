@@ -46,6 +46,7 @@ class GenerationLeaseGuardTest(unittest.TestCase):
 
     def test_stable_checks_keep_original_digests_and_read_only_history(self):
         before = self.fixture.snapshot(); captured = self.subject.capture()
+        self.assertNotIn('lifecycle_observation',captured['admission'])
         for _ in range(3):
             current = self.subject.check()
             self.assertTrue(current['current'])

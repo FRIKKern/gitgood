@@ -4,6 +4,7 @@ This does not acquire a writer lease or authorize lifecycle effects. Read before
 starting the application lease; database identity queries retain no session.
 """
 import itertools
+import copy
 import os
 from pathlib import Path
 
@@ -148,10 +149,13 @@ class NativeGenerationReader(GenerationPublication):
                 require(observe_worker(self.installation, self.unit, worker=worker, owner_pid=owner_pid, **self.options) == observed)
                 require(self._snapshot(scope) == first)
                 self._check()
-                return {"published_generation_admitted": True, "writer_exclusion_established": False,
+                admitted = {"published_generation_admitted": True, "writer_exclusion_established": False,
                         "installation_readiness_established": False, "lifecycle_responsibility_admitted": False,
                         "pointer": first["pointer"], "binding_sha256": self.expected,
                         "worker_observation": observed}
+                if 'lifecycle' in first:
+                    admitted['lifecycle_observation'] = copy.deepcopy(first['lifecycle'])
+                return admitted
         except GenerationAdmissionRefused:
             raise
         except (PublicationRefused, CustodyRefused, BindingRefused, DatabaseRefused,
