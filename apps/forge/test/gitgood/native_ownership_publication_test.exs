@@ -72,6 +72,50 @@ defmodule Gitgood.NativeOwnershipPublicationTest do
              )
   end
 
+  test "version four publication selects the live controller transport and binds its claim" do
+    claim = "99999999-9999-4999-8999-999999999999"
+
+    record =
+      Map.merge(record(), %{
+        "protocol" => 4,
+        "claim" => claim,
+        "predecessor_sha256" => nil,
+        "reservation_sha256" => String.duplicate("c", 64)
+      })
+
+    assert {:ok, request, digest} = Publication.request(record, 42)
+    assert Jason.decode!(request) == %{"protocol" => 4, "action" => "publish", "record" => record}
+
+    response =
+      Map.merge(reply(), %{
+        "protocol" => 4,
+        "claim" => claim,
+        "operation" => record["operation"],
+        "record_sha256" => digest
+      })
+
+    assert :ok = Publication.validate_reply(response, record["operation"], digest, claim)
+    assert :error = Publication.validate_reply(response, record["operation"], digest)
+
+    assert :error =
+             Publication.validate_reply(
+               response,
+               record["operation"],
+               digest,
+               record["operation"]
+             )
+
+    for changed <- [
+          Map.put(record, "claim", record["operation"]),
+          Map.put(record, "reservation_sha256", false),
+          Map.put(record, "predecessor_sha256", "unknown"),
+          Map.put(record, "protocol", 4.0)
+        ] do
+      assert {:error, :native_ownership_publication_unavailable} =
+               Publication.request(changed, 42)
+    end
+  end
+
   test "retained reply establishes no readiness replacement or lifecycle authority" do
     assert :ok = Publication.validate_reply(reply(), "operation", String.duplicate("a", 64))
 

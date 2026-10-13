@@ -240,6 +240,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Added PostgreSQL-owned Ed25519 account keys, browser registration/revocation, native OTP SSH Git transport, host fingerprints and clone URLs, with shared authorization/push recovery and real-client interruption checks.
   Sources: [details 1](docs/implementation/ssh.md), [details 2](docs/decisions/0005-native-ssh.md)
 
+- Add an authenticated controller handoff for successive native workers within one lifecycle operation, preserving original ownership records and interrupted marker transitions. Bound the wait for the released exclusion backend's original SQL and kernel identity to disappear. Add a bounded hosted exercise of three original owners under one live controller. Native product startup and recovery when a worker disappears before its original database identity is known remain unavailable.
+  Sources: [details 1](docs/implementation/native-ownership-publication.md), [details 2](docs/implementation/native-hosted-ownership.md), [details 3](tools/deployment/native_ownership_controller.py), [details 4](tools/deployment/native_ownership_handoff.py)
+
 - Bind fixed native migration and runtime launch actions to owned journal stages, rechecking code against its pinned archive and preserving exact whole-process shutdown without database availability.
   Sources: [details 1](tools/deployment/native_actions.py), [details 2](tools/deployment/test_native_actions.py), [details 3](docs/implementation/installation-upgrade.md)
 

@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import signal
@@ -23,6 +24,22 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def fixture_elixir(self):
+        expected = next(line.split()[1].split('-otp-')[0]
+                        for line in (HERE.parents[1] / '.tool-versions').read_text().splitlines()
+                        if line.startswith('elixir '))
+        executable = shutil.which('elixir')
+        if not executable:
+            self.skipTest('The pinned Elixir runtime is required for this executable fixture check')
+        version = subprocess.run([executable, '--version'], capture_output=True, text=True, timeout=10)
+        match = re.search(r'Elixir (\d+\.\d+\.\d+)\b', version.stdout)
+        supported = version.returncode == 0 and match is not None and match.group(1) == expected
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            self.assertTrue(supported, 'Hosted fixture checks require the pinned Elixir ' + expected + ' runtime')
+        elif not supported:
+            self.skipTest('Local Elixir is outside the pinned ' + expected + ' fixture baseline; hosted execution remains required')
+        return executable
+
     def setUp(self):
         # Local Windows checks must not spill into a full system temp drive.
         self.scratch = HERE.parents[1] / ".gitgood/native-owned-static"
@@ -151,9 +168,7 @@ class BoundedProofTests(unittest.TestCase):
     def test_vm_trace_reduces_actual_messages_to_fixed_tags(self):
         # Exercise the real fixture tracer with explicitly fake startup modules;
         # this checks trace grammar/redaction, never production startup admission.
-        executable = shutil.which("elixir")
-        if not executable:
-            self.skipTest("Elixir is required for the small VM tracer check")
+        executable = self.fixture_elixir()
         source = (HERE / "native-owned-worker.exs").read_text(encoding="utf-8")
         diagnostics = source.split("defmodule GitgoodOwnedProof.Witness", 1)[0]
         script = '''
@@ -232,9 +247,7 @@ wait.(wait)
             proof.bounded_diagnostic_read(path)
 
     def test_actual_fixture_application_spec_uses_supported_otp_loader(self):
-        executable = shutil.which("elixir")
-        if not executable:
-            self.skipTest("Elixir is required for the small application specification check")
+        executable = self.fixture_elixir()
         script = '''
 {:__block__, _, expressions} =
   System.fetch_env!("GITGOOD_OWNED_WORKER_SOURCE") |> File.read!() |> Code.string_to_quoted!()

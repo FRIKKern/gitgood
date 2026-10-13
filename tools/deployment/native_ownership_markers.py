@@ -8,7 +8,7 @@ import os
 import stat
 import uuid
 
-from native_ownership_records import NativeOwnershipRecords, OwnershipRecordRefused, require, validate_record
+from native_ownership_records import NativeOwnershipRecords, OwnershipRecordRefused, require, validate_record, record_name
 from resource_generations import canonical, GenerationRefused
 from native_durable_database import DatabaseRefused
 from upgrade_journal import fcntl
@@ -16,9 +16,11 @@ from upgrade_journal import fcntl
 
 class NativeOwnershipMarkers(NativeOwnershipRecords):
     def _marker(self, record):
-        return {'protocol':2, 'kind':'native_application_marker', 'installation':self.installation,
+        marker = {'protocol':4 if record['protocol']==4 else 2, 'kind':'native_application_marker', 'installation':self.installation,
                 'operation':record['operation'], 'mode':record['mode'],
                 'record_sha256':hashlib.sha256(canonical(record)).hexdigest()}
+        if record['protocol']==4: marker['claim']=record['claim']
+        return marker
 
     def _marker_bytes(self, descriptor, name):
         fd = os.open(name, os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_NONBLOCK, dir_fd=descriptor)
@@ -50,6 +52,9 @@ class NativeOwnershipMarkers(NativeOwnershipRecords):
         try:
             require(fcntl is not None)
             validate_record(record)
+            # Version 4 publication belongs to the live controller's retained
+            # reservation and journal, never this initial-only legacy writer.
+            require(record['protocol']==3)
             require(record['installation']==self.installation and record['scope']['uid']==self.identity['uid'])
             require(self.storage.resolve(strict=True)==self.storage)
             storage_fd = os.open(self.storage, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
@@ -61,7 +66,7 @@ class NativeOwnershipMarkers(NativeOwnershipRecords):
             fcntl.flock(directory_fd, fcntl.LOCK_EX|fcntl.LOCK_NB)
             self._check(storage_fd, directory_fd, identity)
             entries = self._layout(directory_fd)
-            require(record['operation']+'.json' in entries)
+            require(record_name(record) in entries)
             fields = ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink')
             def record_fingerprint():
                 result = {}
@@ -70,7 +75,7 @@ class NativeOwnershipMarkers(NativeOwnershipRecords):
                     result[entry] = tuple(getattr(info,key) for key in fields)
                 return result
             captured_records = record_fingerprint()
-            require(self._read(directory_fd, record['operation']+'.json')==record)
+            require(self._read(directory_fd, record_name(record))==record)
             name = '.gitgood-runtime-v2.json' if record['mode']=='runtime' else '.gitgood-maintenance-v2.json'
             other = '.gitgood-maintenance-v2.json' if record['mode']=='runtime' else '.gitgood-runtime-v2.json'
             self._absent_marker(storage_fd, other)
@@ -88,7 +93,7 @@ class NativeOwnershipMarkers(NativeOwnershipRecords):
                     published_inode = (original.st_dev, original.st_ino)
                 os.fsync(directory_fd)
                 self._check(storage_fd, directory_fd, identity)
-                require(self._read(directory_fd, record['operation']+'.json')==record)
+                require(self._read(directory_fd, record_name(record))==record)
                 require(record_fingerprint()==captured_records)
                 os.link(temporary, name, src_dir_fd=directory_fd, dst_dir_fd=storage_fd, follow_symlinks=False)
                 os.fsync(storage_fd)
@@ -102,7 +107,7 @@ class NativeOwnershipMarkers(NativeOwnershipRecords):
                 os.fsync(storage_fd)
             self._check(storage_fd, directory_fd, identity)
             require(self._layout(directory_fd)==entries)
-            require(self._read(directory_fd, record['operation']+'.json')==record)
+            require(self._read(directory_fd, record_name(record))==record)
             require(record_fingerprint()==captured_records)
             require(existing[0]==raw and self._marker_bytes(storage_fd, name)==existing)
             self._absent_marker(storage_fd, other)

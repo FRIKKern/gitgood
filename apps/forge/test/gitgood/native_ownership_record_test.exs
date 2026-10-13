@@ -70,6 +70,45 @@ defmodule Gitgood.NativeOwnershipRecordTest do
              Record.build(context, session, fixture_kernel(), seal, mode)
   end
 
+  test "successive claims retain stable operation and explicit predecessor without rewriting version three" do
+    {context, session, seal, original} = fixture()
+
+    handoff = %{
+      "protocol" => 4,
+      "status" => "admitted",
+      "installation" => seal["installation"],
+      "operation" => seal["operation"],
+      "candidate" => seal["candidate"],
+      "mode" => "runtime",
+      "claim" => "99999999-9999-4999-8999-999999999999",
+      "pointer" => context.admission["pointer"],
+      "owner" => original["owner"],
+      "controller" => original["scope"]["manager"],
+      "predecessor_sha256" => digest(original),
+      "reservation_sha256" => String.duplicate("9", 64)
+    }
+
+    assert {:ok, record} =
+             Record.build(context, session, fixture_kernel(), seal, :runtime, handoff)
+
+    assert record["protocol"] == 4
+    assert record["operation"] == original["operation"]
+    assert record["claim"] != record["operation"]
+    assert record["predecessor_sha256"] == digest(original)
+    assert {:ok, ^original} = Record.build(context, session, fixture_kernel(), seal, :runtime)
+
+    for changed <- [
+          put_in(handoff, ["owner", "birth"], "999"),
+          put_in(handoff, ["controller", "birth"], "999"),
+          Map.put(handoff, "candidate", String.duplicate("b", 40)),
+          Map.put(handoff, "claim", original["operation"]),
+          Map.put(handoff, "receipt", %{})
+        ] do
+      assert {:error, :native_ownership_record_unavailable} =
+               Record.build(context, session, fixture_kernel(), seal, :runtime, changed)
+    end
+  end
+
   test "constructs the closed reference record with the actual calling owner" do
     {context, session, seal, expected} = fixture()
 

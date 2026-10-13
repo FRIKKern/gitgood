@@ -6,11 +6,11 @@ import subprocess
 from native_service_scope import ServiceRefused, _observe_service, process_identity, read_bytes, require
 
 
-def _ancestry(owner, scope, worker):
+def _ancestry(owner, scope, worker, *, _peer_pid=None):
     """Bind every birth in the caller-to-owner chain; no command lines or signals."""
     relative = scope["groups"][worker]["path"].removeprefix("/sys/fs/cgroup")
     uid, gid = scope["uid"], scope["gid"]
-    pid = os.getpid()
+    pid = os.getpid() if _peer_pid is None else _peer_pid
     seen = set()
     identities = []
     for _ in range(64):

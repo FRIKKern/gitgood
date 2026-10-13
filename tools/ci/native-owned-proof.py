@@ -386,7 +386,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate):
+def allocate_case(label, runtime, database, candidate, *, controller=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -435,9 +435,20 @@ def allocate_case(label, runtime, database, candidate):
             "release": str(runtime / "release"), "worker": str(runtime / "native-owned-worker.exs"), "limits": LIMITS,
             "candidate": candidate, "generation_operation": str(uuid.uuid4()), "generation": str(uuid.uuid4()),
             "ownership_operation": str(uuid.uuid4())}
-    unit = unit_text(seed, runtime / "native-owned-manager.py")
+    if controller:
+        directory = Path('/run/gitgood/installations') / installation
+        root_directory(directory.parent)
+        directory.mkdir(mode=0o700)
+        os.chown(directory, user.pw_uid, user.pw_gid)
+        seed['controller_directory'] = str(directory)
+    unit = unit_text(seed, runtime / ("native-successor-manager.py" if controller else "native-owned-manager.py"))
     seed["unit_sha256"] = hashlib.sha256(unit).hexdigest()
     write_new(Path("/etc/systemd/system") / seed["unit"], unit)
+    if controller:
+        write_new(seal / 'controller-endpoint-v2.json', {
+            'protocol': 2, 'kind': 'native_controller_endpoint_seal', 'installation': installation,
+            'uid': user.pw_uid, 'gid': user.pw_gid, 'unit_sha256': seed['unit_sha256'],
+            'directory_identity': identity(directory), 'limits': LIMITS})
     write_new(seal / "fixture-seed.json", seed)
     return seed, config, password
 
@@ -488,18 +499,18 @@ def seal_observation(seed, config, password, observed, database, server_scope):
         "unit_sha256": seed["unit_sha256"], "executables": seed["executables"], "limits": LIMITS, "database": observed_db})
 
 
-def capture_attachment(seed, attached, database):
+def capture_attachment(seed, attached, database, *, mode='runtime', protocol=3):
     from native_ownership_records import validate_record
     record = attached["record"]
     validate_record(record)
     require(record["installation"] == seed["installation"] and record["operation"] == seed["ownership_operation"])
-    require(record["candidate"] == seed["candidate"] and record["mode"] == "runtime")
+    require(record["candidate"] == seed["candidate"] and record["mode"] == mode and record['protocol'] == protocol)
     require(attached["distinct_attached_heartbeat_samples"] >= 5)
     require(attached["beam_pid"] == record["owner"]["pid"])
     owner = process(attached["beam_pid"])
     helper = process(attached["helper_pid"])
     descendant = process(attached["descendant_pid"])
-    group = "0::/system.slice/" + seed["unit"] + "/native"
+    group = "0::/system.slice/" + seed["unit"] + ("/native" if mode == 'runtime' else '/maintenance')
     for item in [owner, helper, descendant]:
         require(item["uid"] == seed["uid"] and item["state"] not in ["Z", "X"] and item["cgroup"] == group)
     require(owner["birth"] == record["owner"]["birth"])
@@ -514,8 +525,8 @@ def capture_attachment(seed, attached, database):
     require(database.query("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND granted "
                            f"AND pid={backend['pid']} AND classid::bigint=1197034575 AND objid::bigint=1 AND objsubid=2 AND mode='ExclusiveLock'") == "1")
     storage = Path(seed["root"]) / "storage"
-    retained = storage / ".gitgood-ownership-v2" / (seed["ownership_operation"] + ".json")
-    marker = storage / ".gitgood-runtime-v2.json"
+    retained = storage / ".gitgood-ownership-v2" / ((record['claim'] if protocol == 4 else seed["ownership_operation"]) + ".json")
+    marker = storage / (".gitgood-runtime-v2.json" if mode == 'runtime' else '.gitgood-maintenance-v2.json')
     require(read_json(retained) == record)
     require(read_json(marker)["record_sha256"] == hashlib.sha256(canonical(record)).hexdigest())
     return {"owner": owner, "helper": helper, "descendant": descendant, "backend": backend,
@@ -606,6 +617,131 @@ def run_case(seed, config, password, database, server_scope):
             "lifecycle_policy_absent": True, "native_application_acceptance": False, "product_controller_verified": False}
 
 
+def run_successor_case(seed, config, password, database, server_scope):
+    """Independent witness of actual protected same-controller handoffs."""
+    run, seal = Path(seed['run']), Path(seed['seal_directory'])
+    storage = Path(seed['root']) / 'storage'
+    transition = storage / '.gitgood-successors-v4'
+    command(['/usr/bin/systemctl', 'daemon-reload'])
+    command(['/usr/bin/systemctl', 'start', seed['unit']])
+    seed['proof_phase'] = 'successor-independent-binding-seal'
+    observed = wait_for(run / 'observed.json', run, 40)
+    seal_observation(seed, config, password, observed, database, server_scope)
+    published = wait_for(run / 'published.json', run, 50)
+    require(published['generation_publication_established'] is True)
+    require(published['installation_readiness_established'] is False)
+    write_new(seal / 'fixture-start.json', {'start': True})
+    opened = wait_for(run / 'controller-open.json', run, 15)
+    manager = process(opened['actual_main_pid'])
+    require(opened['controller_identity'] == observed['scope']['manager'])
+    require(manager['pid'] == opened['controller_identity']['pid'] and manager['birth'] == opened['controller_identity']['birth'])
+    require(manager['uid'] == seed['uid'] and manager['cgroup'] == '0::/system.slice/' + seed['unit'] + '/driver')
+    require(command(['/usr/bin/systemctl', 'show', seed['unit'], '--property=MainPID', '--value']).strip() == str(manager['pid']).encode())
+    stages = []
+    captured_records = []
+    pointer = None
+    previous_sha = None
+    for label, mode, fault in [('migration-owner', 'migrate', 'helper-loss'),
+                              ('bootstrap-owner', 'migrate', 'original-backend-loss'),
+                              ('runtime-owner', 'runtime', 'helper-loss')]:
+        seed['proof_phase'] = label + ':held-writer-exclusion'
+        stage = run / label
+        pending = wait_for(stage / 'reserved.json', run, 20)
+        reservation = read_json(transition / (pending['claim'] + '.reservation.json'))
+        require(pending['reservation_sha256'] == hashlib.sha256(canonical(reservation)).hexdigest())
+        require(reservation['mode'] == mode and reservation['predecessor_sha256'] == previous_sha)
+        require(set(reservation['absence']) == {entry['sha'] for entry in captured_records})
+        exclusion = reservation['exclusion_kernel']
+        session = exclusion['database_session']
+        excluded = process(session['backend_pid'])
+        require(excluded['birth'] == exclusion['kernel_birth'] and excluded['uid'] == server_scope['postgres_uid'])
+        require(database.query('SELECT count(*) FROM pg_stat_activity WHERE ' + database.predicate(session)) == '1')
+        require(database.query("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND granted "
+            f"AND pid={excluded['pid']} AND classid::bigint=1197034575 AND objid::bigint=1 AND objsubid=2 AND mode='ExclusiveLock'") == '1')
+        write_new(seal / ('fixture-launch-' + label + '.json'), {'exclusion_observed': True})
+        seed['proof_phase'] = label + ':protected-handoff-and-heartbeats'
+        attached = wait_for(stage / 'attached.json', run, 100)
+        captured = capture_attachment(seed, attached, database, mode=mode, protocol=4)
+        record = attached['record']
+        require(record['claim'] == pending['claim'] and record['reservation_sha256'] == pending['reservation_sha256'])
+        require(record['predecessor_sha256'] == previous_sha)
+        if pointer is None:
+            pointer = record['pointer']
+        require(record['pointer'] == pointer and record['scope'] == observed['scope'])
+        require(attached['repeated_admission_refused'] is True)
+        refused = wait_for(stage / 'repeat-admission-refused.json', run, 5)
+        require(refused == {'actual_endpoint_refused': True, 'controller_state': 'complete',
+                           'assignment_preserved': True, 'claim': record['claim']})
+        assignment = read_json(transition / (record['claim'] + '.assignment.json'))
+        require(assignment['owner'] == record['owner'] and assignment['claim'] == record['claim'])
+        require(assignment['peer']['uid'] == seed['uid'] and assignment['peer']['pid'] != manager['pid'])
+        require(absent(excluded) and database.backend_absent(session))
+        for prior in captured_records:
+            require(fingerprint(prior['captured']['retained']) == prior['captured']['record_file'])
+        if captured_records:
+            archive = transition / (record['claim'] + '.old-marker.json')
+            require(fingerprint(archive) == captured_records[-1]['captured']['marker_file'])
+        write_new(seal / ('fixture-sentinel-' + label + '.json'), {'publication_observed': True})
+        sibling = wait_for(stage / 'sentinel.json', run, 5)
+        sentinel = process(sibling['sentinel_pid'])
+        require(sentinel['uid'] == seed['uid'] and sentinel['cgroup'] == '0::/system.slice/' + seed['unit'] + '/web')
+        seed['proof_phase'] = label + ':original-owner-and-backend-loss'
+        inject_loss(fault, captured, record['database_session'], database)
+        exited = wait_for(stage / 'owner-exited.json', run, 15)
+        require(exited['fixture_signalled_beam'] is False and exited['exit_code'] != 0)
+        until = time.monotonic() + 10
+        while not (absent(captured['owner']) and absent(captured['backend']) and database.backend_absent(record['database_session'])):
+            require(time.monotonic() < until, 'original successor owner/backend not absent')
+            time.sleep(.1)
+        require(not absent(captured['descendant']) and not absent(sentinel))
+        require(fingerprint(captured['retained']) == captured['record_file'])
+        require(fingerprint(captured['marker']) == captured['marker_file'])
+        write_new(seal / ('fixture-cleanup-' + label + '.json'), {'original_owner_and_backend_absent': True})
+        quiescent = wait_for(stage / 'quiescent.json', run, 12)
+        require(quiescent == {'selected_leaf_empty': True, 'sibling_preserved': True,
+            'cleanup_actor': 'fixture-manager', 'product_controller_cleanup_verified': False})
+        leaf = Path('/sys/fs/cgroup/system.slice') / seed['unit'] / ('native' if mode == 'runtime' else 'maintenance')
+        require('populated 0' in (leaf / 'cgroup.events').read_text() and not absent(sentinel))
+        until = time.monotonic() + 5
+        while not (absent(captured['descendant']) and absent(captured['helper'])):
+            require(time.monotonic() < until, 'original successor descendants remain')
+            time.sleep(.1)
+        write_new(seal / ('fixture-reap-sentinel-' + label + '.json'), {'sibling_preservation_observed': True})
+        wait_for(stage / 'sibling-reaped.json', run, 5)
+        require(absent(sentinel))
+        require(fingerprint(captured['retained']) == captured['record_file'])
+        require(fingerprint(captured['marker']) == captured['marker_file'])
+        digest = hashlib.sha256(canonical(record)).hexdigest()
+        captured_records.append({'sha': digest, 'record': record, 'captured': captured})
+        previous_sha = digest
+        stages.append({'stage': label, 'mode': mode, 'claim': record['claim'], 'record_sha256': digest,
+            'distinct_attached_heartbeat_samples': attached['distinct_attached_heartbeat_samples'],
+            'held_exclusion_observed_before_owner_launch': True, 'original_exclusion_sql_and_kernel_backend_absent': True,
+            'actual_protected_handoff_completed': True, 'repeated_assignment_refused_by_actual_endpoint': True,
+            'original_owner_sql_and_kernel_backend_absent': True, 'record_and_marker_retained': True,
+            'selected_descendants_quiesced_by_fixture_manager': True, 'sibling_preserved_then_exactly_reaped': True})
+        write_new(seal / ('fixture-next-' + label + '.json'), {'old_owner_backend_and_leaves_absent': True})
+    complete = wait_for(run / 'controller-chain-complete.json', run, 10)
+    require(complete == {'actual_controller_handoff_completed': True, 'claims': 3, 'same_controller': True,
+        'same_boot_and_generation': True, 'business_lifecycle_stages_executed': False})
+    require(process(manager['pid'])['birth'] == manager['birth'])
+    require(len({item['record']['claim'] for item in captured_records}) == 3)
+    require(len({(item['record']['owner']['pid'], item['record']['owner']['birth']) for item in captured_records}) == 3)
+    require(len({(item['record']['database_session']['backend_pid'], item['record']['database_session']['backend_birth']) for item in captured_records}) == 3)
+    require({path.name for path in (storage / '.gitgood-ownership-v2').iterdir()} == {item['record']['claim'] + '.json' for item in captured_records})
+    for index, item in enumerate(captured_records):
+        require(fingerprint(item['captured']['retained']) == item['captured']['record_file'])
+        marker = item['captured']['marker'] if index == 2 else transition / (captured_records[index + 1]['record']['claim'] + '.old-marker.json')
+        require(fingerprint(marker) == item['captured']['marker_file'])
+    require(not (seal / 'lifecycle-worker-admission-v2.json').exists())
+    require(not (Path(seed['root']) / 'history/lifecycle-responsibility-v2').exists())
+    return {'case': 'same-controller-successor', 'status': 'passed', 'stages': stages,
+        'actual_same_boot_same_generation_controller_handoff_verified': True,
+        'migration_bootstrap_runtime_modes_observed': True, 'business_lifecycle_stages_executed': False,
+        'all_original_records_and_marker_inodes_retained': True, 'native_application_acceptance': False,
+        'complete_journey_acceptance': False, 'product_controller_cleanup_verified': False}
+
+
 def preflight(args):
     require(sys.platform == "linux" and platform.machine() == "x86_64" and os.geteuid() == 0)
     require(os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted")
@@ -633,7 +769,9 @@ def preflight(args):
     require(command([str((args.postgres / "bin/psql").resolve(strict=True)), "--version"]).strip() == b"psql (PostgreSQL) 18.4")
     require(command([str(args.caddy.resolve(strict=True)), "version"]).startswith(b"v2.11.7"))
     require(Path("/usr/bin/patchelf").is_file())
-    total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git")])
+    extra = [workspace / 'tools/ci' / name for name in ('native-owned-manager.py', 'native-owned-worker.exs', 'native-successor-manager.py')]
+    extra += [workspace / 'tools/deployment' / name for name in module_closure(workspace / 'tools/deployment')]
+    total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git"), *extra])
     require(total <= COPY_LIMIT and shutil.disk_usage("/opt").free >= total + 1024**3, "bounded disk preflight")
     return workspace, total
 
@@ -682,7 +820,7 @@ def main(args):
                              (Path("/usr/bin/git"), "git")]:
             phase = "copy-private-" + name
             copy_runtime(source, runtime / name)
-        for name in ["native-owned-manager.py", "native-owned-worker.exs"]:
+        for name in ["native-owned-manager.py", "native-owned-worker.exs", "native-successor-manager.py"]:
             phase = "copy-fixture-" + name.removeprefix("native-owned-").split(".")[0]
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
         phase = "relocate-private-postgresql-client"
@@ -723,6 +861,17 @@ def main(args):
             require(not group.exists() or "populated 0" in (group / "cgroup.events").read_text())
             result["owned_unit_stopped"] = True
             receipt["cases"].append(result)
+        phase = 'same-controller-successor:allocate'
+        seed, config, password = allocate_case('same-controller-successor', runtime, database, args.candidate, controller=True)
+        units.append(seed['unit'])
+        phase = 'same-controller-successor:protected-handoffs'
+        result = run_successor_case(seed, config, password, database, server_scope)
+        command(['/usr/bin/systemctl', 'stop', seed['unit']], timeout=25)
+        group = Path('/sys/fs/cgroup/system.slice') / seed['unit']
+        require(not group.exists() or 'populated 0' in (group / 'cgroup.events').read_text())
+        result['owned_unit_stopped'] = True
+        receipt['cases'].append(result)
+        receipt['same_boot_same_generation_successor_handoff_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:

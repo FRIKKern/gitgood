@@ -31,6 +31,7 @@ def parse_request(raw):
     require(type(request['protocol']) is int and request['protocol']==3)
     require(raw==canonical(request))
     validate_record(request['record'])
+    require(request['record']['protocol']==3)
     return request['record']
 
 
