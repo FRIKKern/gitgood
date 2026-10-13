@@ -11,7 +11,7 @@ from generation_publication import stopped
 from native_backend_scope import NativeBackendScope
 from native_command_endpoint import NativeCommandEndpoint
 from native_durable_binding import configuration, persistent_identity
-from native_durable_database import unique
+from native_durable_database import DatabaseRefused, unique
 from native_generation_lease_guard import persistent_fingerprint
 from native_kernel_backend import (capture_backend_kernel_identity,
     observe_held_backend_kernel_identity,observe_prior_backend_identity_absence,_validate_record as validate_kernel)
@@ -24,6 +24,7 @@ from native_writer_exclusion import NativeWriterExclusion
 from resource_generations import canonical, identifier, validate_scope
 
 RESERVATION_SECONDS=120.0
+EXCLUSION_EXIT_SECONDS=2.0
 
 
 def original_owner_absent(record):
@@ -284,15 +285,38 @@ class NativeOwnershipController:
         require(self._peer_owner(peer,request['owner_pid'])==owner)
         self._absent();self.exclusion.check();self._base()
         exclusion,self.exclusion=self.exclusion,None;exclusion.close()
-        gone=observe_prior_backend_identity_absence(self.seal['executables']['psql'],self.url,self.exclusion_kernel,
-            self.binding['database'],self.backend_scope.check())
-        require(gone['original_backend_absent'] and gone['kernel_backend_absence_observed'])
-        self._base();require(self._peer_owner(peer,request['owner_pid'])==owner)
+        self._released_exclusion_absent(peer,owner)
         self.state='assigned'
         return {'protocol':4,'status':'admitted','installation':self.installation,
             'operation':self.authority['operation'],'candidate':self.authority['candidate'],'claim':self.claim,'mode':self.mode,
             'pointer':self.snapshot['pointer'],'predecessor_sha256':self.reservation['predecessor_sha256'],
             'reservation_sha256':sha(self.reservation),'owner':owner,'controller':self.scope['manager']}
+
+    def _released_exclusion_absent(self, peer, owner):
+        """Client reaping is not server exit; wait only for the captured birth.
+
+        Refusal never counts as absence. Every attempt retains the assignment,
+        original reservation deadline, live custody, prior absence and peer.
+        The read-only observer keeps its own bounded query timeout; a result
+        arriving after either deadline cannot authorize admission.
+        """
+        deadline=min(self.deadline,time.monotonic()+EXCLUSION_EXIT_SECONDS)
+        def current():
+            self._base();self._absent()
+            require(self._peer_owner(peer,owner['pid'])==owner)
+            require(time.monotonic()<deadline)
+        while True:
+            current()
+            try:
+                gone=observe_prior_backend_identity_absence(self.seal['executables']['psql'],self.url,
+                    self.exclusion_kernel,self.binding['database'],self.backend_scope.check())
+            except DatabaseRefused:
+                current()
+                remaining=deadline-time.monotonic();require(remaining>0)
+                time.sleep(min(0.05,remaining))
+            else:
+                require(gone['original_backend_absent'] is True and gone['kernel_backend_absence_observed'] is True)
+                current();return
 
     def _publication_check(self):
         self._base();self._absent()

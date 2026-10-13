@@ -2,7 +2,7 @@
   "id": "native-successor-reconciliation",
   "category": "Added",
   "impact": "operator",
-  "summary": "Add an authenticated controller handoff for successive native workers within one lifecycle operation, preserving original ownership records and interrupted marker transitions. Add a bounded hosted exercise of three original owners under one live controller. Native product startup and recovery when a worker disappears before its original database identity is known remain unavailable.",
+  "summary": "Add an authenticated controller handoff for successive native workers within one lifecycle operation, preserving original ownership records and interrupted marker transitions. Bound the wait for the released exclusion backend's original SQL and kernel identity to disappear. Add a bounded hosted exercise of three original owners under one live controller. Native product startup and recovery when a worker disappears before its original database identity is known remain unavailable.",
   "journeys": ["J14", "J15"],
   "references": ["docs/implementation/native-ownership-publication.md", "docs/implementation/native-hosted-ownership.md", "tools/deployment/native_ownership_controller.py", "tools/deployment/native_ownership_handoff.py"],
   "withdrawn": false

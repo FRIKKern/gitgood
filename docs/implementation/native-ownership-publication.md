@@ -38,7 +38,14 @@ The explicit controller path is:
    independently checks the kernel peer UID, GID, PID, birth, helper-to-BEAM ancestry
    and selected cgroup. The first exact BEAM birth is assigned once. Only then does
    the controller release its exclusion and prove that original exclusion backend
-   absent. The unfinished handoff has an absolute 120-second deadline. Fully
+   absent. Reaping the owned psql client does not prove the server backend exited.
+   The controller retries the same captured SQL/kernel absence observation for up
+   to two seconds, bounded by the original reservation deadline. Each attempt
+   rechecks custody, generation, prior absence and the assigned owner; refusal is
+   never absence. Read-only queries retain their separate bounded timeout, and a
+   late result refuses even if it reports absence. An unresolved exit keeps the
+   immutable assignment and cannot admit another owner. The unfinished handoff
+   has an absolute 120-second deadline. Fully
    verified publication retires that deadline; the live controller can keep serving
    for the runtime's lifetime. A later successor receives a fresh finite deadline.
 3. The worker opens its own original held database lease and publishes its protocol-4
@@ -90,7 +97,9 @@ Ordinary Linux tests exercise real directory custody, locking, peer credentials,
 original-inode preservation, all six publication renames and every file/directory
 sync interruption. Controller order tests use explicit service/database stand-ins;
 they cover migration, bootstrap and runtime claims, lost admission replies, deadlines,
-capacity refusal and borrowed-flock preservation. Elixir tests cover record construction,
+capacity refusal and borrowed-flock preservation. Delayed exclusion exit checks
+also cover unresolved absence, changed owner or generation, late results, missing
+SQL or kernel proof and retained first assignment. Elixir tests cover record construction,
 closed handoff replies, the existing startup refusal and monitor attachment deadline.
 These checks do not establish actual protected systemd/BEAM/database integration or
 installed journey acceptance. The hosted installed proof must establish that path

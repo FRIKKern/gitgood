@@ -250,6 +250,96 @@ class ControllerCustodyTest(unittest.TestCase):
         with self.assertRaises(OwnershipRecordRefused):reopened._prior()
         self.assertEqual(self.retained_files(),before)
 
+    def test_delayed_exclusion_backend_exit_rechecks_the_original_birth_without_reassignment(self):
+        self.subject.reserve('migrate');deadline=self.subject.deadline
+        kernel=copy.deepcopy(self.subject.exclusion_kernel)
+        clock=[controller.time.monotonic()]
+        def wait(seconds):clock[0]+=seconds
+        with patch.object(controller.time,'monotonic',side_effect=lambda:clock[0]),\
+             patch.object(controller.time,'sleep',side_effect=wait) as sleep,\
+             patch.object(controller,'observe_prior_backend_identity_absence',
+                side_effect=[controller.DatabaseRefused('still present'),controller.DatabaseRefused('still present'),absent_result()]) as absence:
+            result=self.subject.admit(self.request(),self.peer)
+        self.assertEqual(result['owner'],self.new_owner);self.assertEqual(self.subject.state,'assigned')
+        self.assertEqual(sleep.call_count,2);self.assertEqual(absence.call_count,3)
+        self.assertTrue(all(call.args[2]==kernel for call in absence.call_args_list))
+        self.assertEqual(self.subject.deadline,deadline)
+        self.assertEqual(self.events.count('release-exclusion'),1)
+        self.assertEqual(len(self.retained_files()),2)
+
+    def test_unknown_exclusion_backend_times_out_and_retains_first_assignment(self):
+        self.subject.reserve('migrate');deadline=self.subject.deadline
+        clock=[controller.time.monotonic()];started=clock[0]
+        with patch.object(controller.time,'monotonic',side_effect=lambda:clock[0]),\
+             patch.object(controller.time,'sleep',side_effect=lambda seconds:clock.__setitem__(0,clock[0]+seconds)),\
+             patch.object(controller,'observe_prior_backend_identity_absence',side_effect=controller.DatabaseRefused('unknown')):
+            with self.assertRaises(OwnershipRecordRefused):self.subject.admit(self.request(),self.peer)
+        self.assertLessEqual(clock[0]-started,controller.EXCLUSION_EXIT_SECONDS+0.001)
+        self.assertEqual(self.subject.state,'assigning');self.assertEqual(self.subject.deadline,deadline)
+        self.assertIsNone(self.subject.exclusion);before=self.retained_files()
+        self.assertEqual(len(before),2);self.assertEqual(self.subject.assignment['owner'],self.new_owner)
+        with self.assertRaises(OwnershipRecordRefused):self.subject.admit(self.request(),self.peer)
+        with self.assertRaises(OwnershipRecordRefused):self.subject.reserve('migrate')
+        self.assertEqual(self.retained_files(),before);self.custody.check()
+        self.assertEqual(self.events.count('release-exclusion'),1)
+
+    def test_exclusion_exit_wait_cannot_extend_the_original_reservation_deadline(self):
+        self.subject.reserve('migrate');clock=[controller.time.monotonic()]
+        self.subject.deadline=clock[0]+0.08;deadline=self.subject.deadline
+        with patch.object(controller.time,'monotonic',side_effect=lambda:clock[0]),\
+             patch.object(controller.time,'sleep',side_effect=lambda seconds:clock.__setitem__(0,clock[0]+seconds)),\
+             patch.object(controller,'observe_prior_backend_identity_absence',side_effect=controller.DatabaseRefused('still present')):
+            with self.assertRaises(OwnershipRecordRefused):self.subject.admit(self.request(),self.peer)
+        self.assertEqual(clock[0],deadline);self.assertEqual(self.subject.deadline,deadline)
+        self.assertEqual(self.subject.state,'assigning');self.assertEqual(len(self.retained_files()),2)
+
+    def test_exclusion_exit_wait_refuses_changed_assigned_owner_before_retry(self):
+        self.subject.reserve('migrate');original=copy.deepcopy(self.new_owner)
+        def wait(seconds):self.new_owner['birth']=str(int(self.new_owner['birth'])+1)
+        with patch.object(controller.time,'sleep',side_effect=wait),\
+             patch.object(controller,'observe_prior_backend_identity_absence',side_effect=controller.DatabaseRefused('still present')) as absence:
+            with self.assertRaises(OwnershipRecordRefused):self.subject.admit(self.request(),self.peer)
+        self.assertEqual(absence.call_count,1);self.assertEqual(self.subject.assignment['owner'],original)
+        self.assertEqual(self.subject.state,'assigning');self.assertEqual(len(self.retained_files()),2)
+
+    def test_exclusion_exit_wait_refuses_changed_generation_before_retry(self):
+        self.subject.reserve('migrate');original=self.subject.reader._snapshot
+        def wait(seconds):self.subject.reader._snapshot=lambda scope:{**original(scope),'pointer':{}}
+        with patch.object(controller.time,'sleep',side_effect=wait),\
+             patch.object(controller,'observe_prior_backend_identity_absence',side_effect=controller.DatabaseRefused('still present')) as absence:
+            with self.assertRaises(OwnershipRecordRefused):self.subject.admit(self.request(),self.peer)
+        self.assertEqual(absence.call_count,1);self.assertEqual(self.subject.state,'assigning')
+        self.assertEqual(len(self.retained_files()),2)
+
+    def assert_exclusion_absence_refuses(self, missing):
+        self.subject.reserve('migrate')
+        with patch.object(controller,'observe_prior_backend_identity_absence',return_value={**absent_result(),missing:False}),\
+             patch.object(controller.time,'sleep') as sleep:
+            with self.assertRaises(OwnershipRecordRefused):self.subject.admit(self.request(),self.peer)
+        self.assertEqual(self.subject.state,'assigning');sleep.assert_not_called()
+
+    def test_exclusion_exit_wait_needs_positive_sql_absence(self):
+        self.assert_exclusion_absence_refuses('original_backend_absent')
+
+    def test_exclusion_exit_wait_needs_positive_kernel_absence(self):
+        self.assert_exclusion_absence_refuses('kernel_backend_absence_observed')
+
+    def test_exclusion_absence_result_after_wait_deadline_refuses(self):
+        self.subject.reserve('migrate');clock=[controller.time.monotonic()]
+        def late(*args):clock[0]+=controller.EXCLUSION_EXIT_SECONDS;return absent_result()
+        with patch.object(controller.time,'monotonic',side_effect=lambda:clock[0]),\
+             patch.object(controller,'observe_prior_backend_identity_absence',side_effect=late):
+            with self.assertRaises(OwnershipRecordRefused):self.subject.admit(self.request(),self.peer)
+        self.assertEqual(self.subject.state,'assigning');self.assertEqual(len(self.retained_files()),2)
+
+    def test_exclusion_exit_wait_does_not_retry_unclassified_errors(self):
+        self.subject.reserve('migrate')
+        with patch.object(controller,'observe_prior_backend_identity_absence',side_effect=ValueError('invalid observer')) as absence,\
+             patch.object(controller.time,'sleep') as sleep:
+            with self.assertRaises(ValueError):self.subject.admit(self.request(),self.peer)
+        self.assertEqual(absence.call_count,1);sleep.assert_not_called()
+        self.assertEqual(self.subject.state,'assigning');self.assertEqual(len(self.retained_files()),2)
+
     def test_full_record_inventory_refuses_before_new_reservation_or_exclusion(self):
         store=OwnershipTransitionStore(self.storage,self.base['installation'],self.identity)
         store.close()
