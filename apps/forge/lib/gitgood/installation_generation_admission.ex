@@ -188,6 +188,7 @@ defmodule Gitgood.InstallationGenerationAdmission do
 
         is_map(observed) and MapSet.new(Map.keys(observed)) == MapSet.new(fields) and
           is_binary(observed["operation"]) and Regex.match?(@uuid, observed["operation"]) and
+          observed["operation"] !== "00000000-0000-0000-0000-000000000000" and
           observed["operation"] !== value["installation"] and
           is_binary(observed["candidate"]) and
           Regex.match?(~r/\A[0-9a-f]{40}\z/, observed["candidate"]) and

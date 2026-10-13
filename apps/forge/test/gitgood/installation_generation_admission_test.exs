@@ -83,6 +83,7 @@ defmodule Gitgood.InstallationGenerationAdmissionTest do
   test "malformed, unknown, uncertain and foreign-generation lifecycle observations refuse" do
     for changes <- [
           %{"operation" => @installation},
+          %{"operation" => "00000000-0000-0000-0000-000000000000"},
           %{"operation" => "foreign"},
           %{"candidate" => true},
           %{"candidate" => String.duplicate("x", 40)},
