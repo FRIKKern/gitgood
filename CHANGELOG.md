@@ -138,6 +138,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Added scoped and revocable Git credentials, authenticated native smart HTTP clone/push/fetch, protected main enforcement, durable push records and bounded subprocess supervision.
   Sources: [details 1](docs/decisions/0003-native-http-transport.md), [details 2](apps/forge/README.md), [source 3](https://github.com/FRIKKern/gitgood/pull/8)
 
+- Added a bounded disposable hosted-runner proof for actual systemd native ownership attachment and original helper, marker and PostgreSQL backend loss, with finite BEAM-compatible file limits, retained records, closed startup diagnostics and explicit component-only receipts.
+  Sources: [details 1](docs/implementation/native-hosted-ownership.md), [details 2](tools/ci/native-owned-proof.py)
+
 - Added fixed native enrollment/resume commands with installation-wide custody, actual resource/runtime checks, retained partial staging, packaged migration and owner observation, access probes and an initial baseline bound to every stage observation. Actual CLI staging and partial migration recovery, committed owner recovery, a first upgrade between distinct artifacts and direct initial retirement passed; current integration, other interrupted stages, supervision, allocation, Cloud and full journeys remain pending.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/decisions/0017-native-initial-lifecycle.md)
 
@@ -294,6 +297,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Added an in-repository tour of the actual web interface: five screenshots, an animated README preview, browser video and ASCII companion, captured with clearly labelled synthetic API data. Added a reproducible capture command and source/media freshness checks.
   Sources: [details 1](README.md), [details 2](docs/WEB-TOUR.md), [details 3](apps/web/tour/capture.mjs), [details 4](scripts/web-tour.mjs)
 
+- Add a Windows preflight command for a fixed 20 GiB reserve after planned allocations, gate missing runtime downloads automatically, and verify both with small hosted Windows checks.
+  Sources: [details 1](docs/DEVELOPMENT.md), [details 2](scripts/windows-storage-preflight.ps1), [details 3](scripts/windows-storage.test.ps1)
+
 ### Changed
 
 - Delegated project progression to agents and replaced human acceptance gates with recorded evidence-based verification across decisions, milestones, merges, and releases.
@@ -316,6 +322,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Route required planning and forge jobs to the measured isolated ephemeral Linux runner after real GitHub dispatch proof, verifying the build platform and installer image identity while preserving tests and full production recovery.
   Sources: [details 1](docs/implementation/isolated-ci.md)
+
+- Require a local disk-space reserve before large development allocations and prefer hosted verification while preserving source, recovery material and retained evidence during cache cleanup.
+  Sources: [details 1](AGENTS.md), [details 2](docs/DEVELOPMENT.md)
 
 - Hash the five Root-controlled executables once per generation-guard capture, with repeated original file custody checks and both configuration/database observations retained; actual service timing remains unverified.
   Sources: [details 1](docs/implementation/native-generation-lease-guard.md), [details 2](docs/implementation/native-durable-bindings.md), [details 3](tools/deployment/native_durable_binding.py)

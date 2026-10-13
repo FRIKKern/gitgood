@@ -1,0 +1,41 @@
+name: Verify Windows storage preflight
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/windows-storage*'
+      - 'scripts/windows-runtime*'
+      - '.github/workflows/windows-storage.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/windows-storage*'
+      - 'scripts/windows-runtime*'
+      - '.github/workflows/windows-storage.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-storage:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check boundaries without allocating payloads
+        shell: pwsh
+        run: |
+          ./scripts/windows-storage.test.ps1
+          ./scripts/windows-runtime.test.ps1
+      - name: Read actual host capacity
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module ./scripts/windows-storage.psm1 -Force
+          $result = Test-GitgoodLocalStorage
+          $result.Volumes | Format-Table Drive, FreeBytes, EstimatedBytes, RemainingBytes, ReserveBytes, Passed
+          if ($result.Passed) {
+            Write-Host 'The hosted Windows system volume has the required reserve.'
+          } else {
+            Write-Host 'The host is below the reserve: local allocations are refused. This expected capacity result does not fail the boundary tests.'
+          }

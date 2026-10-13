@@ -10,6 +10,10 @@ The commands below were checked against the repository's configuration and workf
 
 Use a separate checkout or worktree for your change. The shell examples use Bash on Linux or WSL; Ubuntu 24.04 on x86_64 is the production build target.
 
+Check local disk space before installing dependencies or building. Keep at least 20 GiB free on the system drive and each output drive after allowing for the build and its temporary copies. On Windows, `Get-PSDrive -PSProvider FileSystem | Select-Object Name,Free` reports free bytes. Inside WSL, also check the Windows drive that holds the distribution: free space reported inside Linux is not the host drive's available capacity. When local headroom is low, use the hosted CI workflows and keep local work to source edits and small checks. Do not create another VM or copy dependency trees to work around a full disk.
+
+For cleanup, identify inactive, reproducible caches first. Preserve source and lockfiles, database/storage directories, release evidence, VM images and recovery archives. Check running processes before removing a cache, and refuse paths that link into another repository. Do not apply blanket cleanup to the temporary directory; production experiments may retain data and evidence there.
+
 | Dependency | Repository baseline | Why it is needed |
 |---|---|---|
 | Erlang/OTP | 29.1.1 | Elixir runtime |
@@ -134,7 +138,28 @@ If the page reports that the forge is unavailable, check `/health/ready`, the AP
 
 The Bash sequence above is intended to run entirely inside Linux or WSL. Keep that checkout, toolchain, database and processes in the same environment.
 
+Before local installs, builds, exports or runtime copies, run the [Windows storage preflight](../scripts/windows-storage-preflight.ps1) on the Windows host. It requires **20 GiB remaining on the system volume and every planned output volume**, including peak temporary copies. It uses Windows' built-in Storage module and needs no package installation. Run it from PowerShell, in the repository root:
+
+```powershell
+# Read current capacity with zero allocation estimates (system drive included).
+.\scripts\windows-storage-preflight.ps1 -Path C:\, E:\
+
+# Replace these illustrative estimates and the output path for your operation.
+.\scripts\windows-storage-preflight.ps1 -Allocation @(
+    @{ Path = $env:TEMP; Bytes = 2GB }
+    @{ Path = 'E:\Gitgood-Work'; Bytes = 6GB }
+)
+```
+
+Use existing absolute directories and whole byte counts; PowerShell's `GB` suffix means GiB. Estimates for directories on the same actual volume are added together, with one reserve for that volume. The system volume is always checked, even when all output is on E:. Include downloads, extraction, caches and temporary copies; when using WSL, include growth on the Windows volume holding its virtual disk as well as checking space inside Linux. Running without arguments checks only the system volume with a zero estimate; that inventory is not a substitute for estimating the intended work.
+
+Stop if the command throws or exits nonzero. It refuses unknown volumes, UNC paths, drive aliases, junctions, mounted folders and other reparse points. Use each volume's real drive-letter path to an ordinary directory. The fixed reserve has no override. A passing result is a snapshot, not a reservation or an interceptor of OS writes: coordinate concurrent jobs, rerun immediately before starting, and use hosted verification when local headroom is insufficient. The command does not change or clean up any files.
+
+The small boundary suites are `./scripts/windows-storage.test.ps1` and `./scripts/windows-runtime.test.ps1`; [Windows CI](../.github/workflows/windows-storage.yml) runs them plus a read-only host-capacity probe without installing packages or allocating build payloads. A low-space result blocks local work; it does not invalidate the suite's simulated boundary tests.
+
 For native PowerShell development, [scripts/windows-runtime.ps1](../scripts/windows-runtime.ps1) downloads and checksum-verifies the pinned Windows OTP, Elixir and Node archives. From the repository root, dot-source `. ./scripts/windows-runtime.ps1` in the shell that will run Mix. The helper sets that process's `PATH`, `MIX_HOME` and `HEX_HOME`; it does not install PostgreSQL, Git or Python. Set variables using PowerShell's `$env:NAME = 'value'` syntax and supply real executable paths for `GITGOOD_GIT` and `GITGOOD_PYTHON`.
+
+The runtime helper automatically runs the preflight before each missing runtime's directory creation, download and extraction, with a conservative **4 GiB peak allowance per sequential install** on its temporary/output volume. Existing cached runtimes remain usable below the reserve. This allowance covers the pinned ZIP and expanded files; reassess it when changing runtime pins. Other installers and build commands still require the explicit preflight above.
 
 Windows development is distinct from native deployment proof. Production packaging, process ownership and replacement-host recovery are verified against the Linux target described in the [production instructions](deployment/production.md).
 
