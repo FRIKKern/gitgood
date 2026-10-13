@@ -85,13 +85,13 @@ defmodule Gitgood.NativeOwnershipStartup do
 
   defp admit_controller(false, _, _, _), do: {:ok, nil}
 
+  defp admit_controller(true, admission, authority, mode),
+    do: Gitgood.NativeOwnershipPublication.admit_owner(admission, authority, mode)
+
   defp validate_lifecycle(nil, _, _), do: :ok
 
   defp validate_lifecycle(action, admission, authority),
     do: Gitgood.NativeLifecycleAction.validate(admission, authority, action)
-
-  defp admit_controller(true, admission, authority, mode),
-    do: Gitgood.NativeOwnershipPublication.admit_owner(admission, authority, mode)
 
   @doc false
   def validate_artifact(identity, authority) do
