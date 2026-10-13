@@ -90,6 +90,7 @@ This work connects application processes to their actual host, database and serv
 | Read about… | Document |
 |---|---|
 | The isolated Linux environment used by CI | [Development CI](isolated-ci.md) |
+| Attaching real systemd ownership and observing original owner loss on disposable CI | [Hosted ownership component proof](native-hosted-ownership.md) |
 | Measuring a realistic private-team workload | [Pilot workload](pilot-workload.md) |
 | Cleaning disposable retirement test databases within separate time bounds | [Retirement fixture cleanup](native-retirement-fixture-cleanup.md) |
 

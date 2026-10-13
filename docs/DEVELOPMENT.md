@@ -10,6 +10,10 @@ The commands below were checked against the repository's configuration and workf
 
 Use a separate checkout or worktree for your change. The shell examples use Bash on Linux or WSL; Ubuntu 24.04 on x86_64 is the production build target.
 
+Check local disk space before installing dependencies or building. Keep at least 20 GiB free on the system drive and each output drive after allowing for the build and its temporary copies. On Windows, `Get-PSDrive -PSProvider FileSystem | Select-Object Name,Free` reports free bytes. Inside WSL, also check the Windows drive that holds the distribution: free space reported inside Linux is not the host drive's available capacity. When local headroom is low, use the hosted CI workflows and keep local work to source edits and small checks. Do not create another VM or copy dependency trees to work around a full disk.
+
+For cleanup, identify inactive, reproducible caches first. Preserve source and lockfiles, database/storage directories, release evidence, VM images and recovery archives. Check running processes before removing a cache, and refuse paths that link into another repository. Do not apply blanket cleanup to the temporary directory; production experiments may retain data and evidence there.
+
 | Dependency | Repository baseline | Why it is needed |
 |---|---|---|
 | Erlang/OTP | 29.1.1 | Elixir runtime |
