@@ -1,11 +1,11 @@
-# Native ownership on a disposable hosted runner
+# Native ownership and handoff on a disposable hosted runner
 
 This fixture answers a specific unfinished question: can the packaged native
 ownership components attach to a real systemd service and PostgreSQL backend,
 then stop the original BEAM when that ownership is lost? It replaces large local
 VM experiments with a bounded job on a fresh GitHub-hosted Ubuntu 24.04 runner.
 
-**This is a publication-only component proof.** A passing receipt does not mean
+**This is an ownership component proof.** A passing receipt does not mean
 the native product can be enrolled, upgraded, activated, restarted, or deployed.
 It starts a small permanent fixture application from the production release;
 the product's `Gitgood.Application` native-startup refusal stays in place. There
@@ -13,9 +13,10 @@ are no forge HTTP, SSH, web, or edge listeners. The private Node and Caddy binar
 are checked as part of the durable binding, rather than started as services.
 
 The fixture requires an absent lifecycle worker policy and lifecycle history.
-It never removes a policy, fabricates successful lifecycle stages, deletes an
-ownership marker, or admits a replacement owner. Integrating real lifecycle
-stages and reconciling retained predecessors remain separate work.
+It never removes a policy, fabricates successful lifecycle stages or deletes an
+ownership marker. The successor case uses the actual live controller to admit
+three owners within one boot and generation. Product lifecycle execution,
+controller restart and replacement-host recovery remain separate work.
 
 ## What a passing run observes
 
@@ -59,6 +60,43 @@ Descendant cleanup is explicitly attributed to the fixture manager. This does
 not verify the production controller's termination or successor reconciliation.
 No deletion or empty marker directory is accepted as a replacement for proving
 the old owner and backend absent.
+
+## Same-controller successor case
+
+A fourth independent installation retains one actual ordinary systemd MainPID,
+protected Unix endpoint, original installation flock and production
+`NativeOwnershipController`. It starts three separate packaged BEAMs in
+`migrate`, `migrate`, then `runtime` mode. The first two represent migration and
+bootstrap ownership boundaries; the fixture executes no business migration or
+bootstrap and grants no lifecycle-stage completion.
+
+For each owner, Root first observes the live reservation's exact SQL/kernel
+backend and existing writer lock before authorizing that fixture process to
+launch. The actual fixed handoff entry authenticates the controller and its
+peer, assigns one BEAM birth, releases the captured exclusion, and publishes a
+protocol-4 claim backed by that BEAM's new original lease. The witness requires
+five distinct attached heartbeat updates. A repeated admission must reach the
+actual endpoint and refuse while its completed assignment remains unchanged.
+
+Root independently checks that the original exclusion backend is gone, the
+new lease and process births match the retained record, and all claims share
+one operation, controller, boot, generation and pointer. Original monitor or
+backend loss terminates each BEAM. The fixture manager quiesces its surviving
+descendants after Root proves owner/backend absence; Root observes the sibling
+alive before authorizing its exact owned reaping. All leaves must then be empty
+before the controller's next reservation can succeed.
+
+The immutable ownership records remain at their original inodes. Each previous
+marker is archived by the production transition store at the next claim's
+`old-marker` path, preserving its bytes and inode. The final runtime marker
+remains. No receipt substitutes for the live controller's reservation authority.
+An unknown backend after interrupted assignment, controller restart, another
+boot/generation and complete startup recovery are outside this case.
+
+Only a passing current hosted receipt with this fourth case establishes these
+observations. Its `same_boot_same_generation_successor_handoff_verified` flag
+has this component scope. Full product `successor_reconciliation_verified` and
+`complete_journey_acceptance` stay false.
 
 ## Entry contract
 
@@ -131,6 +169,7 @@ Fixture source is split by responsibility:
 | --- | --- |
 | `tools/ci/native-owned-proof.py` | Root allocation, independent observation, bounded faults, redacted receipt and final owned-unit cleanup. |
 | `tools/ci/native-owned-manager.py` | Actual ordinary systemd MainPID, production generation publication, fixture subprocess custody and descendant cleanup. |
+| `tools/ci/native-successor-manager.py` | Actual ordinary controller MainPID, original flock and endpoint custody, real protocol-4 reservations, handoff serving and bounded fixture descendant cleanup. |
 | `tools/ci/native-owned-worker.exs` | Permanent fixture OTP application around actual production startup/claim/fence, plus a read-only witness and real descendant. |
 | `tools/ci/native-owned-test.py` | Local regressions for bounded copies, original-birth targeting, zombie refusal and failed cleanup exit status. |
 
@@ -183,3 +222,8 @@ BEAM termination, or PostgreSQL kernel absence. Only a fresh hosted execution's
 passing receipt establishes those specific observations. The receipt always
 keeps `native_application_acceptance`, `complete_journey_acceptance`,
 `reboot_verified`, and `successor_reconciliation_verified` false.
+
+Executable local Elixir checks require the version pinned in `.tool-versions`.
+An unsupported local installation is reported as skipped; the hosted job must
+run these checks with the pinned version and fails if that runtime is absent or
+wrong. No local package installation is needed for static checks.

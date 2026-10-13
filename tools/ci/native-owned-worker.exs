@@ -165,6 +165,21 @@ defmodule GitgoodOwnedProof.Witness do
       true = session == owner.ownership.record["database_session"]
       :ok = Gitgood.NativeOwnershipStartup.current(startup)
 
+      repeated_admission_refused =
+        if owner.ownership.record["protocol"] == 4 do
+          {:ok, admission} = Gitgood.InstallationGenerationMonitor.admission(owner.monitor)
+          {:ok, inputs} =
+            Gitgood.NativeOwnershipInputs.read_application(System.fetch_env!("GITGOOD_STORAGE"), admission)
+
+          mode = if owner.ownership.record["mode"] == "runtime", do: :runtime, else: :migrate
+          {:error, :native_ownership_publication_unavailable} =
+            Gitgood.NativeOwnershipPublication.admit_owner(admission, inputs.authority, mode)
+
+          true
+        else
+          false
+        end
+
       write!(state.directory, "attached.json", %{
         protocol: 1,
         scope: "publication-only-component",
@@ -173,6 +188,7 @@ defmodule GitgoodOwnedProof.Witness do
         helper_pid: helper,
         descendant_pid: descendant,
         distinct_attached_heartbeat_samples: count,
+        repeated_admission_refused: repeated_admission_refused,
         record: owner.ownership.record,
         publication: owner.ownership.receipt
       })
@@ -204,11 +220,13 @@ defmodule GitgoodOwnedProof.Application do
 
   @impl true
   def start(_, _) do
-    Gitgood.NativeOwnershipSupervisor.start_native_link(
-      System.fetch_env!("GITGOOD_STORAGE"),
-      :runtime,
-      [{GitgoodOwnedProof.Witness, directory: System.fetch_env!("GITGOOD_OWNED_PROOF_DIRECTORY")}]
-    )
+    workers = [{GitgoodOwnedProof.Witness, directory: System.fetch_env!("GITGOOD_OWNED_PROOF_DIRECTORY")}]
+
+    case System.get_env("GITGOOD_OWNED_PROOF_CONTROLLER_MODE") do
+      nil -> Gitgood.NativeOwnershipSupervisor.start_native_link(System.fetch_env!("GITGOOD_STORAGE"), :runtime, workers)
+      "migrate" -> Gitgood.NativeOwnershipSupervisor.start_controller_link(System.fetch_env!("GITGOOD_STORAGE"), :migrate, workers)
+      "runtime" -> Gitgood.NativeOwnershipSupervisor.start_controller_link(System.fetch_env!("GITGOOD_STORAGE"), :runtime, workers)
+    end
   end
 end
 

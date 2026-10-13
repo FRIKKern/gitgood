@@ -96,6 +96,14 @@ These checks do not establish actual protected systemd/BEAM/database integration
 installed journey acceptance. The hosted installed proof must establish that path
 before enabling native product startup.
 
+The [hosted ownership fixture](native-hosted-ownership.md#same-controller-successor-case)
+now includes a candidate test of three real protocol-4 owners under one live
+ordinary controller. It independently observes held writer exclusion, original
+SQL/kernel births, authenticated fixed-entry handoff, repeated-assignment refusal,
+and retained record/marker inodes. The test uses migration/bootstrap/runtime
+ownership modes without fabricating business lifecycle stages. Until its current
+hosted receipt passes, installed successor integration remains unverified.
+
 ## Marker custody
 
 `NativeOwnershipMarkers` publishes a runtime or maintenance marker referencing an
