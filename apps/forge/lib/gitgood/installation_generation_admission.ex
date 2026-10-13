@@ -130,6 +130,11 @@ defmodule Gitgood.InstallationGenerationAdmission do
     fields =
       ~w(protocol installation worker pointer binding_sha256 worker_observation database seal_file published_generation_admitted writer_exclusion_established installation_readiness_established lifecycle_responsibility_admitted)
 
+    fields =
+      if is_map(value) and Map.has_key?(value, "lifecycle_observation"),
+        do: ["lifecycle_observation" | fields],
+        else: fields
+
     with true <- is_map(value) and MapSet.new(Map.keys(value)) == MapSet.new(fields),
          true <-
            value["protocol"] === 2 and value["installation"] === installation and
@@ -154,6 +159,7 @@ defmodule Gitgood.InstallationGenerationAdmission do
            pointer["installation"] === installation and pointer["protocol"] === 2 and
              is_binary(pointer["operation"]) and Regex.match?(@uuid, pointer["operation"]) and
              digest?(pointer["generation_sha256"]) and digest?(pointer["transition_sha256"]),
+         true <- valid_lifecycle?(value, pointer, worker),
          true <- digest?(value["binding_sha256"]),
          seal when is_map(seal) <- value["seal_file"],
          true <- MapSet.new(Map.keys(seal)) == MapSet.new(~w(path device inode bytes sha256)),
@@ -169,6 +175,59 @@ defmodule Gitgood.InstallationGenerationAdmission do
     end
   rescue
     _ -> {:error, :invalid_generation_admission}
+  end
+
+  defp valid_lifecycle?(value, pointer, worker) do
+    case Map.fetch(value, "lifecycle_observation") do
+      :error ->
+        true
+
+      {:ok, observed} ->
+        fields =
+          ~w(operation purpose candidate request_sha256 origin_sha256 snapshot_sha256 generation_sha256 epoch stage recorded_status worker)
+
+        is_map(observed) and MapSet.new(Map.keys(observed)) == MapSet.new(fields) and
+          is_binary(observed["operation"]) and Regex.match?(@uuid, observed["operation"]) and
+          observed["operation"] !== value["installation"] and
+          is_binary(observed["candidate"]) and
+          Regex.match?(~r/\A[0-9a-f]{40}\z/, observed["candidate"]) and
+          Enum.all?(
+            ~w(request_sha256 origin_sha256 snapshot_sha256 generation_sha256),
+            &digest?(observed[&1])
+          ) and
+          is_integer(observed["epoch"]) and observed["epoch"] > 0 and
+          observed["epoch"] < 18_446_744_073_709_551_616 and
+          observed["worker"] === worker and lifecycle_window?(observed, pointer, worker)
+    end
+  end
+
+  defp lifecycle_window?(observed, pointer, worker) do
+    case {observed["purpose"], observed["recorded_status"], worker} do
+      {"native_initial_enrollment", "running", "maintenance"} ->
+        observed["stage"] in ["migrate", "bootstrap"] and
+          observed["generation_sha256"] === pointer["generation_sha256"]
+
+      {"native_initial_enrollment", "running", "native"} ->
+        observed["stage"] in ["verify", "activate", "enroll"] and
+          observed["generation_sha256"] === pointer["generation_sha256"]
+
+      {"native_upgrade_execution", "running", "maintenance"} ->
+        observed["stage"] === "migrate" and
+          observed["generation_sha256"] === pointer["generation_sha256"]
+
+      {"native_upgrade_execution", "running", "native"} ->
+        observed["stage"] in ["verify", "activate", "public_verify"] and
+          observed["generation_sha256"] === pointer["generation_sha256"]
+
+      {"native_initial_enrollment", "complete", "native"} ->
+        observed["stage"] === "enroll"
+
+      {"native_upgrade_execution", "complete", "native"} ->
+        observed["stage"] === "public_verify"
+
+      _ ->
+        false
+    end
   end
 
   defp digest?(value), do: is_binary(value) and Regex.match?(~r/\A[0-9a-f]{64}\z/, value)

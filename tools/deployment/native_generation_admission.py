@@ -50,12 +50,15 @@ def admit_request(raw):
     require(result["binding_sha256"] == seal["binding_sha256"])
     require(not result["installation_readiness_established"] and not result["lifecycle_responsibility_admitted"])
     require(root_file(path, 16_384) == (seal_file, sealed))
-    return {"protocol": 2, "installation": installation, "worker": request["worker"],
+    value = {"protocol": 2, "installation": installation, "worker": request["worker"],
             "pointer": result["pointer"], "binding_sha256": result["binding_sha256"],
             "worker_observation": result["worker_observation"], "database": database,
             "seal_file": seal_file, "published_generation_admitted": True,
             "writer_exclusion_established": False, "installation_readiness_established": False,
             "lifecycle_responsibility_admitted": False}
+    if 'lifecycle_observation' in result:
+        value['lifecycle_observation'] = result['lifecycle_observation']
+    return value
 
 
 def main():

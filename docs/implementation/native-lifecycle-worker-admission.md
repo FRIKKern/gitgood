@@ -39,6 +39,23 @@ operation from an older generation requires its exact terminal snapshot referenc
 in the current transition and retained ancestry; an old running operation cannot
 provide current worker admission.
 
+Admission and the monitor's initial reply retain an optional closed
+`lifecycle_observation` when this explicit Root policy is present. It contains
+the original operation, purpose, candidate, request/origin/snapshot digests,
+recorded generation, epoch, stage, status and worker. A terminal ancestor keeps
+its original generation; it is never relabelled as the current one. The Elixir
+consumer checks the closed schema, typed identities and fixed stage/role windows.
+Running observations must name the current pointer's generation. Unknown,
+pending and uncertain observations refuse. No caller request can supply this
+field, and the publication-only path omits it.
+
+The monitor's original history digest already binds this observation. Returning
+or editing a caller's copy grants no lifecycle effect authority and changes no
+captured guard. Stage advancement still poisons that guard. Business startup must
+also match its requested action to this original observation before effects;
+that application/controller integration remains unfinished. Writer exclusion,
+lifecycle responsibility and readiness flags remain false in this read-only reply.
+
 The reader admits only complete, bounded, canonical history. It performs no
 partial recovery, journal claim, write or effect reconciliation. The default
 publication-only reader continues to refuse lifecycle history and also refuses

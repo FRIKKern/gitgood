@@ -1,5 +1,6 @@
 """Poisoning read-only guard; database exclusion stays on the held app session."""
 from pathlib import Path
+import copy
 import stat
 import subprocess
 
@@ -128,6 +129,8 @@ class NativeGenerationLeaseGuard:
                         'installation_readiness_established':False, 'lifecycle_responsibility_admitted':False,
                         'pointer':snapshot['pointer'], 'binding_sha256':self.reader.expected,
                         'worker_observation':owner}
+            if 'lifecycle' in snapshot:
+                admitted['lifecycle_observation'] = copy.deepcopy(snapshot['lifecycle'])
             self.observed, self.snapshot, self.files = observed, snapshot, before
             self.usable = True
             return {'admission':admitted, 'scope_sha256':sha(observed),

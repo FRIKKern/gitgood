@@ -84,6 +84,8 @@ def main():
                  'seal_file':identity,'published_generation_admitted':True,
                  'writer_exclusion_established':False,'installation_readiness_established':False,
                  'lifecycle_responsibility_admitted':False}
+        if 'lifecycle_observation' in admitted:
+            value['lifecycle_observation'] = admitted['lifecycle_observation']
         token = {name:captured[name] for name in ['scope_sha256','history_sha256','persistent_files_sha256']}
         send({'protocol':2,'status':'admitted','admission':value,'guard':token})
         attachment = MonitorOwnershipAttachment(guard,captured,seal)
