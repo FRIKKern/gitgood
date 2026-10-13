@@ -151,6 +151,10 @@ def main(seed_path):
             time.sleep(.25)
         raise TimeoutError('Fixture observer did not stop its unit')
     except Exception as error:
+        if controller is not None and controller.state in {'preparing', 'reserved', 'assigning', 'assigned', 'publishing', 'complete'}:
+            # Closed state vocabulary locates the failed boundary without
+            # exception messages, SQL, credentials, arguments or stack traces.
+            phase = 'handoff-' + controller.state
         fixture.write(run / 'manager-failed.json', {'phase': phase, 'error_type': type(error).__name__})
         while time.monotonic() < deadline:
             time.sleep(.25)
