@@ -94,6 +94,7 @@ This work connects application processes to their actual host, database and serv
 | Root comparing live files, binaries and database with the original sealed binding | [Root live resource observation](native-root-live-binding.md) |
 | Root authenticating the original controller and its held history descriptor | [Original controller requests](native-root-controller-request.md) |
 | Root observing the original controller's actual database lease, client and backend | [Original database exclusion](native-root-database-exclusion.md) |
+| Allocating an inspected artifact stage seal under original exclusion | [Root artifact policy allocation](native-root-artifact-policy.md) |
 | Binding enrollment and upgrade commands to their original protected inputs | [Operation input custody](native-operation-inputs.md) |
 
 ## Verification environment

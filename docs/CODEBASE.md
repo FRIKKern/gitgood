@@ -126,6 +126,12 @@ client, socket and database lease/kernel identity. Read [original database
 exclusion](implementation/native-root-database-exclusion.md) for its sampled
 cooperative scope and the artifact authority/dispatch/recovery still needed.
 
+[native_root_artifact_policy.py](../tools/deployment/native_root_artifact_policy.py)
+owns fixed stage-policy preparation and exclusive Root publication under the
+original exclusion and independently provisioned allocation lock. Read
+[Root artifact policy allocation](implementation/native-root-artifact-policy.md)
+for its unfinished live stage dispatch, provisioning and recovery integration.
+
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 
 TanStack generates `apps/web/src/routeTree.gen.ts` from the route files. Local `.gitgood/` directories hold ignored development state and may contain private verification or recovery materials. They are not a scratch directory to delete blindly. The [evidence contract](../evidence/README.md) explains what may be published.
