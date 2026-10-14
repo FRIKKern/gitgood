@@ -3,8 +3,11 @@
 `NativeArtifactInspectionController` executes archive inspection while the
 original ordinary systemd controller retains its installation history lock and
 database writer session. It records the actual inspection receipt before
-beginning `stage`. Root policy allocation, protected extraction and a production
-listener still need to be connected to this controller path.
+beginning `stage`. The fixed Root socket path now connects that request to
+serialized policy allocation and protected extraction. The controller validates
+actual published code before recording durable stage completion. This source
+path remains unverified on a live systemd controller until hosted evidence passes;
+production provisioning and the long-lived Root listener remain unfinished.
 
 ## Original controller custody
 
@@ -24,8 +27,8 @@ Application worker groups must remain stopped.
 ## Controller windows and real inspection
 
 A separate private reader reuses the complete generation/lifecycle validators.
-It accepts only running `inspect`, pending inspection completion and running
-`stage` for this original operation. It supplies no worker admission and does not
+It accepts only running `inspect`, pending inspection completion, running `stage`
+and pending stage completion for this original operation. It supplies no worker admission and does not
 expand the maintenance/runtime worker stage lists. Other incomplete operations,
 changed inputs, generation/publication or journal state refuse.
 
@@ -47,23 +50,52 @@ generation/publication/input metadata, prior lifecycle record identities and
 directory inodes must remain unchanged. This permits the controller's actual
 transition without adopting a replacement generation, input or old record.
 
-## Stage request and pending integration
+## Serialized staging and completion
 
 `begin_stage()` requires successful actual inspection, begins the durable stage
 and retains the same writer session/history custody. It returns the existing
 bounded canonical Root controller request with installation/operation and the
 original history descriptor. Returning that frame neither sends it nor admits a
-Root effect. The production listener, response validation, protected stage
-dispatch and durable stage completion remain unfinished.
+Root effect. `stage()` connects only to the independently provisioned
+`/run/gitgood/root-artifacts/INSTALLATION.sock`, whose original Root owner, ordinary
+group, `0620` mode, inode and protected parents must match. The actual socket peer
+must have Root UID/GID. Its bounded canonical response binds this installation,
+operation, candidate and stage receipt hash. A refusal or changed peer/path
+retains the running stage and every effect.
+
+[The Root dispatcher](native-root-artifact-dispatch.md) authenticates the actual
+ordinary MainPID and its original history descriptor, observes its original SQL
+writer exclusion, allocates the fixed policy under an actual Root flock, and
+brackets every extraction check with that retained original custody. Root SQL
+observers close before success is acknowledged; the ordinary controller then
+checks its same original writer session again.
+
+The ordinary controller reads only the fixed published Root output. It checks
+the response hash against the actual read-only receipt, original request/scope
+and running-stage snapshot, archive digest and byte count, inspection-derived
+allocation budget, original directory/file identities, exact entry sets, every
+regular file's content hash, confined Forge symlinks and the full inventory hash.
+Only after those checks and another original-custody check does its owned journal
+record `succeed('stage', ...)`. An immutable record and controlled head refresh
+then expose pending stage completion. No response alone supplies completion.
 
 Closing or observed loss permanently invalidates the controller and releases only
 its owned reader/archive/writer session. Original endpoint, OS lock, journal,
 inputs, archive and every retained record remain. Interrupted running stages
 still require explicit actual-effect reconciliation.
 
-Twelve local admission/window/refresh/transition checks include a real archive
-read with explicit controller and journal stand-ins. They do not prove live
-ordinary systemd custody or controller-to-Root dispatch. Those observations,
-normal runtime from staged code, activation/enrollment, public readiness and full
-reboot/replacement recovery remain required before J14/J15 acceptance or original
-VM retirement.
+Thirteen portable admission/window/refresh/transition checks include a real archive
+read with explicit controller and journal stand-ins. Four Linux Root output tests
+use actual extraction, read-only files, content hashes and original identities,
+with explicit controller and fixed-path stand-ins. Eight dispatch boundary/socket
+tests keep their authority stand-ins explicit. These checks do not prove live
+ordinary systemd custody or complete controller-to-Root dispatch.
+
+The hosted default-release case now selects the complete actual production Forge
+and web archive, performs this controller/Root path, records actual inspection and
+stage receipts, and launches migration, bootstrap and normal packaged runtime
+from the staged code directory. Its public web policy binds the staged web tree.
+That expanded case is unverified until its exact source, log and artifact are
+reviewed. Production provisioning/listener, interrupted-effect reconciliation,
+activation/enrollment and full reboot/replacement recovery remain required before
+J14/J15 acceptance or original VM retirement.

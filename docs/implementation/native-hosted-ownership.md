@@ -276,6 +276,22 @@ Fixture source is split by responsibility:
 | `tools/ci/native-owned-worker.exs` | Permanent fixture OTP application around production startup/claim/fence, plus a witness, real descendant and fixed maintenance requests after Root observation. |
 | `tools/ci/native-owned-test.py` | Local regressions for bounded copies, original-birth targeting, zombie refusal and failed cleanup exit status. |
 
+The expanded default-release case now packages the complete actual copied Forge
+and web payload into an independently selected, digest-pinned Root archive. Before
+the ordinary journal starts, Root provisions only this fresh fixture's fixed
+input/output/policy parents and allocation lock, seals the original declaration,
+and creates the fixed Root-owned socket. The actual ordinary systemd MainPID
+inspects while retaining its original history/database custody and sends the
+stage request. The Root dispatcher retains original peer/lock/SQL observation
+through policy allocation and extraction. Root closes its SQL observers before
+replying; the ordinary owner then validates complete fixed output and records
+actual inspection/stage receipts. Migration, bootstrap, normal release startup
+and public web service use the staged code, with public policy binding the staged
+web inventory. Remaining maintenance/runtime journal receipts still describe
+fixture metadata. Actual acceptance requires exact passing hosted evidence for
+this expanded case; production provisioning/listener and interrupted-stage
+reconciliation remain separate work.
+
 ## Bounds, receipts and failure handling
 
 - Combined runtime copies are capped at 2 GiB, with a further 1 GiB free-space
@@ -301,6 +317,11 @@ Fixture source is split by responsibility:
   reader cannot observe an empty final JSON filename during writing. Manager
   receipts follow the same publication rule. Foreign destinations and failed
   partials are retained; this fixture rule grants no product lifecycle effects.
+  The hosted ownership step has a 20-minute budget for the expanded full archive
+  staging/content-read case; the ordinary manager's 300-second lifetime and all
+  existing production admission, ownership, heartbeat and SQL deadlines remain
+  unchanged. Archive preparation and extraction separately retain the 20 GiB
+  system/output reserve after estimated allocations, including temporary copies.
 - Root always attempts to stop every unit it started. A stop failure makes both
   the receipt and process exit fail. No unrelated service, database, process,
   or path is stopped or deleted. Allocations and retained records are left on

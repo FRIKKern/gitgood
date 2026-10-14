@@ -130,13 +130,18 @@ cooperative scope and the artifact authority/dispatch/recovery still needed.
 owns fixed stage-policy preparation and exclusive Root publication under the
 original exclusion and independently provisioned allocation lock. Read
 [Root artifact policy allocation](implementation/native-root-artifact-policy.md)
-for its unfinished live stage dispatch, provisioning and recovery integration.
+for its original exclusion, allocation flock and retained publication custody.
 
 [native_artifact_controller.py](../tools/deployment/native_artifact_controller.py)
-owns ordinary MainPID inspection and its controlled journal transition while
-retaining original history/writer custody. Its separate reader does not admit
-application workers. Read [the artifact inspection controller](implementation/native-artifact-controller.md)
-for the live Root dispatch and recovery integration still required.
+owns ordinary MainPID inspection, fixed Root socket dispatch, independent staged
+output validation and controlled journal completion while retaining original
+history/writer custody. Its separate reader does not admit application workers.
+[native_root_artifact_dispatch.py](../tools/deployment/native_root_artifact_dispatch.py)
+owns authenticated request/exclusion observation and retains the Root allocation
+flock through protected extraction, closing Root SQL observers before the reply.
+Read [the artifact controller](implementation/native-artifact-controller.md) and
+[Root dispatch](implementation/native-root-artifact-dispatch.md) for the unverified
+live integration, provisioning/listener and recovery requirements.
 
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 

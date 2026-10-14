@@ -25,6 +25,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tarfile
 import time
 import uuid
 import urllib.error
@@ -667,7 +668,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False, runtime_effects=False, runtime_schema_refusal=False, public_runtime=False, default_release=False):
+def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False, runtime_effects=False, runtime_schema_refusal=False, public_runtime=False, default_release=False, artifact_stage=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -746,6 +747,9 @@ def allocate_case(label, runtime, database, candidate, *, controller=False, life
     if default_release:
         require(public_runtime)
         seed['default_release_fixture'] = True
+    if artifact_stage:
+        require(default_release)
+        seed['artifact_stage_fixture'] = True
     if controller:
         directory = Path('/run/gitgood/installations') / installation
         root_directory(directory.parent)
@@ -1044,6 +1048,56 @@ def run_case(seed, config, password, database, server_scope):
             "lifecycle_policy_absent": True, "native_application_acceptance": False, "product_controller_verified": False}
 
 
+def provision_stage_archive(seed):
+    """Only the fresh hosted fixture: original complete production payload."""
+    from native_protected_artifact import MAX_ARCHIVE,MAX_CONTENT,MAX_MEMBERS,RESERVE
+    from inspect_native_artifact import inspect_native_artifact
+    source = Path('/var/lib/gitgood/artifact-inputs')/seed['installation']/seed['ownership_operation']
+    policy = Path(seed['seal_directory'])/'artifacts'
+    destination = Path('/opt/gitgood/artifacts')/seed['installation']
+    for directory in (source,policy,destination):
+        require(not directory.exists());root_directory(directory)
+    write_new(policy/'allocation-lock-v1',b'',0o600)
+    payloads = [];total = 0
+    for name,path in (('forge',Path(seed['release'])),('web',Path(seed['web']))):
+        paths,amount = copy_inventory(path);total += amount
+        payloads.append((path,name))
+        payloads.extend((entry,name+'/'+str(entry.relative_to(path))) for entry in paths)
+    require(len(payloads) <= MAX_MEMBERS and total <= MAX_CONTENT)
+    estimate = total+len(payloads)*8192+1048576
+    for directory in (Path('/'),source):
+        capacity = os.statvfs(directory);require(capacity.f_bavail*capacity.f_frsize >= RESERVE+estimate)
+    archive = source/'archive.tar.gz'
+    originals = {path:tuple(getattr(path.lstat(),field) for field in
+        ('st_dev','st_ino','st_uid','st_gid','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns')) for path,_ in payloads}
+    with archive.open('xb') as output:
+        with tarfile.open(fileobj=output,mode='w:gz',format=tarfile.PAX_FORMAT) as target:
+            for path,name in payloads:
+                info = target.gettarinfo(str(path),name);info.uid=info.gid=0;info.uname=info.gname=''
+                if info.isfile():
+                    with path.open('rb') as content:target.addfile(info,content)
+                else:require(info.isdir());target.addfile(info)
+        output.flush();os.fchmod(output.fileno(),0o444);os.fsync(output.fileno())
+    require(0 < archive.stat().st_size <= MAX_ARCHIVE)
+    for path,original in originals.items():
+        require(tuple(getattr(path.lstat(),field) for field in
+            ('st_dev','st_ino','st_uid','st_gid','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns')) == original)
+    sha = digest(archive);inspected = inspect_native_artifact(archive,sha,seed['candidate'])
+    require(inspected['members'] == len(payloads))
+    return {'protocol':2,'kind':'native_artifact_declaration','installation':seed['installation'],
+        'operation':seed['ownership_operation'],'candidate':seed['candidate'],'sha256':sha,'bytes':archive.stat().st_size}
+
+
+def seal_public_runtime(seed,binding_sha256):
+    from native_public_runtime import web_inventory
+    from native_service_scope import root_file
+    web,_ = web_inventory(seed['web'],seed['candidate'])
+    edge_template,_ = root_file(Path(seed['edge_template']),16384)
+    write_new(Path(seed['seal_directory'])/'public-runtime-v2.json',{'protocol':2,'kind':'native_public_runtime_seal',
+        'installation':seed['installation'],'operation':seed['ownership_operation'],
+        'candidate':seed['candidate'],'binding_sha256':binding_sha256,'web':web,'edge_template':edge_template})
+
+
 def seal_lifecycle_fixture(seed, binding_sha256):
     """Real Root/input custody, with explicitly synthetic stage observations."""
     from native_operation_inputs import file_identity, file_record
@@ -1052,6 +1106,7 @@ def seal_lifecycle_fixture(seed, binding_sha256):
     root_directory(directory.parent)
     directory.mkdir(mode=0o700)
     os.chown(directory, seed['uid'], seed['gid'])
+    artifact = provision_stage_archive(seed) if seed.get('artifact_stage_fixture') else None
     for name in ('allocation.json', 'inputs.json'):
         payload = {'protocol': 2, 'fixture_only': True, 'business_stage_effects_verified': False}
         if name == 'inputs.json' and seed.get('business_inputs_fixture'):
@@ -1068,6 +1123,7 @@ def seal_lifecycle_fixture(seed, binding_sha256):
                 'migrations': {'before_versions': [], 'target_versions': target_versions},
                 'bootstrap': {'installation': seed['installation'], 'request': seed['ownership_operation'],
                     'username': 'owner', 'team': 'pilot', 'password': 'synthetic-secret-éé'}}
+        if name == 'inputs.json' and artifact is not None:payload['artifact'] = artifact
         write_new(directory / name, payload, 0o600, seed['uid'], seed['gid'])
     declared = {name: {'bytes': (directory / name).stat().st_size,
                       'sha256': hashlib.sha256((directory / name).read_bytes()).hexdigest()}
@@ -1091,15 +1147,7 @@ def seal_lifecycle_fixture(seed, binding_sha256):
         'candidate': seed['candidate'], 'request_sha256': hashlib.sha256(canonical(request)).hexdigest(),
         'inputs_seal_sha256': hashlib.sha256(canonical(operation)).hexdigest(), 'uid': seed['uid'], 'gid': seed['gid']}
     write_new(seal / 'lifecycle-worker-admission-v2.json', policy)
-    if seed.get('public_runtime_fixture'):
-        from native_public_runtime import web_inventory
-        from native_service_scope import root_file
-        web, _ = web_inventory(seed['web'], seed['candidate'])
-        edge_template, _ = root_file(Path(seed['edge_template']), 16384)
-        write_new(seal / 'public-runtime-v2.json', {'protocol': 2, 'kind': 'native_public_runtime_seal',
-            'installation': seed['installation'], 'operation': seed['ownership_operation'],
-            'candidate': seed['candidate'], 'binding_sha256': binding_sha256,
-            'web': web, 'edge_template': edge_template})
+    if seed.get('public_runtime_fixture') and artifact is None:seal_public_runtime(seed,binding_sha256)
     paths = [seal / 'lifecycle-worker-admission-v2.json',
              seal / 'operations' / (seed['ownership_operation'] + '.json'),
              *(directory / name for name in ('request.json', 'allocation.json', 'inputs.json'))]
@@ -1160,6 +1208,9 @@ def observe_fixture_lifecycle_history(seed, pointer, preserved):
     receipts = {stage: sha({'fixture_only': True, 'business_stage_effects_verified': False,
         **({'ownership_boundary_observed': label} if label else {})})
         for stage, label in zip(stages, (None, None, 'migration-owner', 'bootstrap-owner', 'runtime-owner'))}
+    if seed.get('artifact_stage_fixture'):
+        actual = read_json(Path(seed['run'])/'artifact-stage-complete.json')
+        receipts.update(inspect=actual['inspection_receipt_sha256'],stage=actual['stage_receipt_sha256'])
     require([(event['stage'], event['evidence']['receipt_sha256']) for event in tip['events']
              if event['kind'] == 'succeeded'] == [(stage, receipts[stage]) for stage in stages])
     check_inputs()
@@ -1195,7 +1246,28 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
     if seed.get('schema_refusal_fixture'):
         database.query('CREATE TABLE public.fixture_unexpected_relation (id integer)',
             database=business_database, role=seed['account'], password=password)
+    staged_artifact_observation = None
+    if seed.get('artifact_stage_fixture'):
+        from native_root_artifact_dispatch import serve_artifact_stage
+        root_directory(Path('/run/gitgood/root-artifacts'))
+        listener = root_views.enter_context(socket.socket(socket.AF_UNIX,socket.SOCK_STREAM))
+        path = Path('/run/gitgood/root-artifacts')/(seed['installation']+'.sock')
+        require(not path.exists());listener.bind(str(path));os.chown(path,0,seed['gid']);os.chmod(path,0o620)
+        listener.listen(1);listener.settimeout(30)
     write_new(seal / 'fixture-start.json', {'start': True})
+    if seed.get('artifact_stage_fixture'):
+        seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
+        connection,_ = listener.accept()
+        served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
+        require(served['status'] == 'staged')
+        staged_artifact_observation = wait_for(run/'artifact-stage-complete.json',run,20)
+        require(staged_artifact_observation['actual_ordinary_controller_inspection'] is True
+            and staged_artifact_observation['actual_root_stage_output_independently_checked'] is True
+            and staged_artifact_observation['complete_journey_acceptance'] is False
+            and staged_artifact_observation['stage_receipt_sha256'] == served['receipt_sha256'])
+        code = Path('/opt/gitgood/artifacts')/seed['installation']/('native-'+seed['ownership_operation'])/'code'
+        seed['release'] = str(code/'forge');seed['web'] = str(code/'web')
+        seal_public_runtime(seed,observed['binding_sha256'])
     opened = wait_for(run / 'controller-open.json', run, 15)
     manager = process(opened['actual_main_pid'])
     require(opened['controller_identity'] == observed['scope']['manager'])
@@ -1608,6 +1680,10 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         'root_original_controller_database_exclusion_observed': root_database_exclusion_observation is not None,
         'root_original_database_client_loss_refused': root_database_exclusion_loss_refused,
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
+        'inspection_and_stage_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture') and not seed.get('artifact_stage_fixture')),
+        'actual_ordinary_inspection_and_serialized_root_stage_verified': staged_artifact_observation is not None,
+        'actual_runtime_from_staged_output_verified': staged_artifact_observation is not None and bool(seed.get('default_release_fixture')),
+        **({'artifact_stage_observation':staged_artifact_observation} if staged_artifact_observation is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -1803,7 +1879,7 @@ def main(args):
         phase = 'native-default-release:allocate'
         seed, config, password = allocate_case('native-default-release', runtime, database,
             args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True,
-            runtime_effects=True, public_runtime=True, default_release=True)
+            runtime_effects=True, public_runtime=True, default_release=True, artifact_stage=True)
         units.append(seed['unit'])
         phase = 'native-default-release:ordinary-boot-public-function-and-original-loss'
         result = run_successor_case(seed, config, password, database, server_scope)

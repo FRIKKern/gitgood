@@ -7,7 +7,7 @@ import sys
 
 REQUIRED_MODULES = frozenset({
     'enrollment_journal.py', 'generation_custody.py', 'generation_publication.py',
-    'inspect_native_artifact.py', 'native_actions.py', 'native_backend_observation.py',
+    'inspect_native_artifact.py', 'native_actions.py', 'native_artifact_controller.py', 'native_backend_observation.py',
     'native_backend_observation_entry.py', 'native_backend_scope.py', 'native_command_wire.py', 'native_command_endpoint.py',
     'native_controller_scope.py', 'native_durable_binding.py', 'native_durable_database.py',
     'native_generation_admission.py', 'native_generation_admission_entry.py',
@@ -19,7 +19,7 @@ REQUIRED_MODULES = frozenset({
     'native_operation_inputs.py', 'native_public_runtime.py', 'native_ownership_database.py', 'native_ownership_marker_guard.py',
     'native_ownership_markers.py', 'native_ownership_observation.py',
     'native_ownership_publication.py', 'native_ownership_publication_entry.py',
-    'native_ownership_records.py', 'native_prior_backend.py', 'native_root_artifact_policy.py', 'native_root_controller.py', 'native_root_controller_request.py', 'native_root_database_exclusion.py', 'native_root_lifecycle.py', 'native_root_live_binding.py', 'native_service_scope.py',
+    'native_ownership_records.py', 'native_prior_backend.py', 'native_root_artifact_dispatch.py', 'native_root_artifact_policy.py', 'native_root_controller.py', 'native_root_controller_request.py', 'native_root_database_exclusion.py', 'native_root_lifecycle.py', 'native_root_live_binding.py', 'native_service_scope.py',
     'native_ownership_controller.py', 'native_ownership_transition.py',
     'native_ownership_handoff.py', 'native_ownership_handoff_entry.py',
     'native_systemd_properties.py', 'native_worker_scope.py', 'native_writer_exclusion.py',

@@ -5,9 +5,11 @@ interrupted stage effects. A stage request remains unexecuted until Root accepts
 """
 import gzip
 import hashlib
+import itertools
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import socket
 import stat
 import tarfile
 import threading
@@ -74,7 +76,8 @@ class _ArtifactControllerReader(NativeLifecycleGenerationReader):
         require(record['origin']['request_sha256'] == inputs['request_sha256'])
         require(record['generation_sha256'] == snapshot['pointer']['generation_sha256'])
         require((record['status'],record['stage'],record['completed']) in (
-            ('running','inspect',[]),('pending','inspect',['inspect']),('running','stage',['inspect'])))
+            ('running','inspect',[]),('pending','inspect',['inspect']),('running','stage',['inspect']),
+            ('pending','stage',['inspect','stage'])))
         for operation in view.heads:
             if operation != request['operation']:require(view.snapshot(operation)['status'] == 'complete')
         snapshot['lifecycle'] = json.loads(canonical(record))
@@ -164,7 +167,7 @@ class NativeArtifactInspectionController:
             stopped(self.scope);require(self.exclusion.check() == self.held)
             return {'installation':self.installation,'operation':self.operation,'candidate':self.inputs['candidate'],
                 'stage':self.state,'original_controller_and_exclusion_observed':True,
-                'artifact_inspected':self.state in {'inspected','stage'},'artifact_staged':False,
+                'artifact_inspected':self.state in {'inspected','stage','staged'},'artifact_staged':self.state == 'staged',
                 'stage_effect_authorized':False,'complete_journey_acceptance':False}
         except BaseException:
             self.close();raise ArtifactControllerRefused('Original native artifact controller unavailable or changed') from None
@@ -182,6 +185,7 @@ class NativeArtifactInspectionController:
             inspected = inspect_native_artifact(self.source,self.declaration['sha256'],self.inputs['candidate'])
             self.check()
             receipt = _inspection_receipt(self.installation,self.operation,inspected)
+            self.inspection_result = json.loads(canonical(inspected))
             self.journal.succeed('inspect',hashlib.sha256(canonical(receipt)).hexdigest())
             self._open_reader();self.state = 'inspected';self.check()
             return receipt
@@ -196,6 +200,156 @@ class NativeArtifactInspectionController:
                 'operation':self.operation,'history_lock_fd':self.custody.lock})+b'\n'
         except BaseException:
             self.close();raise ArtifactControllerRefused('Original native artifact stage request unavailable; retain responsibility') from None
+
+    def _staged_output(self, response):
+        """Independently read fixed Root output before the owned journal advances."""
+        require(type(response) is dict and set(response) == {'protocol','kind','status','installation',
+            'operation','candidate','receipt_sha256'})
+        require(type(response['protocol']) is int and response['protocol'] == 2
+            and response['kind'] == 'native_root_artifact_result' and response['status'] == 'staged')
+        require((response['installation'],response['operation'],response['candidate']) ==
+            (self.installation,self.operation,self.inputs['candidate']))
+        require(type(response['receipt_sha256']) is str and len(response['receipt_sha256']) == 64
+            and all(char in '0123456789abcdef' for char in response['receipt_sha256']))
+        base = Path('/opt/gitgood/artifacts')/self.installation/('native-'+self.operation)
+        directories = {}
+        def directory(path):
+            info = path.lstat()
+            require(path.resolve(strict=True) == path and stat.S_ISDIR(info.st_mode)
+                and info.st_uid == info.st_gid == 0 and not info.st_mode & 0o222)
+            directories[path] = fingerprint(info)
+            return {'device':info.st_dev,'inode':info.st_ino,'uid':0}
+        for path in base.parents:
+            info = path.lstat();require(path.resolve(strict=True) == path and stat.S_ISDIR(info.st_mode)
+                and info.st_uid == info.st_gid == 0 and not info.st_mode & 0o022)
+            directories[path] = fingerprint(info)[:5]
+        output_identity = directory(base)
+        def document(name,maximum):
+            path = base/name;before = fingerprint(path.lstat());_,raw = root_file(path,maximum)
+            require(before == fingerprint(path.lstat()) and before[2] == before[3] == 0 and not before[4] & 0o222)
+            value = json.loads(raw);require(canonical(value) == raw)
+            return value,raw,before
+        receipt,raw,receipt_identity = document('receipt.json',8*1024**2)
+        inventory,inventory_raw,inventory_identity = document('inventory.json',16*1024**2)
+        require(set(receipt) == {'protocol','kind','status','installation','operation','candidate','scope_sha256',
+            'request_sha256','snapshot_sha256','artifact_sha256','inventory_sha256','allocation_budget_bytes',
+            'output_directory_identity','code_directories','root_controlled_code','complete_journey_acceptance'})
+        require(type(receipt['protocol']) is int and receipt['protocol'] == 2
+            and receipt['kind'] == 'native_protected_artifact_stage_receipt' and receipt['status'] == 'staged')
+        require((receipt['installation'],receipt['operation'],receipt['candidate']) ==
+            (self.installation,self.operation,self.inputs['candidate']))
+        require(hashlib.sha256(raw).hexdigest() == response['receipt_sha256'])
+        require(receipt['artifact_sha256'] == self.declaration['sha256']
+            and receipt['scope_sha256'] == hashlib.sha256(canonical(self.scope)).hexdigest()
+            and receipt['request_sha256'] == self.inputs['request_sha256']
+            and receipt['snapshot_sha256'] == self.journal.head['snapshot_sha256'])
+        require(receipt['root_controlled_code'] is True and receipt['complete_journey_acceptance'] is False
+            and receipt['output_directory_identity'] == output_identity)
+        require(hashlib.sha256(inventory_raw).hexdigest() == receipt['inventory_sha256'])
+        require(type(inventory) is list and 0 < len(inventory) <= MAX_MEMBERS)
+        indexed = {}
+        for item in inventory:
+            require(type(item) is dict and type(item.get('path')) is str and item['path'] not in indexed)
+            indexed[item['path']] = item
+        code = base/'code';declared_directories = receipt['code_directories']
+        require(type(declared_directories) is dict and '' in declared_directories
+            and len(declared_directories) <= MAX_MEMBERS)
+        def relative(name,empty=False):
+            require(type(name) is str and len(name) <= 1024 and '\\' not in name and '\0' not in name)
+            require(empty and name == '' or name and not name.startswith('/')
+                and str(PurePosixPath(name)) == name and all(part not in {'.','..'} for part in name.split('/')))
+            return name
+        expected = {name:set() for name in declared_directories}
+        for name,identity in declared_directories.items():
+            relative(name,empty=True);require(directory(code/name) == identity)
+            if name:
+                parent = str(PurePosixPath(name).parent);parent = '' if parent == '.' else parent
+                require(parent in expected);expected[parent].add(PurePosixPath(name).name)
+        files = {};total = 0;names = []
+        for item in inventory:
+            require(type(item) is dict and set(item) in ({'path','bytes','sha256','executable','identity'},
+                {'path','symlink','identity'}))
+            name = relative(item['path']);require(name not in files and name not in declared_directories)
+            names.append(name);parent = str(PurePosixPath(name).parent);parent = '' if parent == '.' else parent
+            require(parent in expected);expected[parent].add(PurePosixPath(name).name)
+            path = code/name;before = fingerprint(path.lstat())
+            require(list(before) == item['identity'] and before[2] == before[3] == 0 and before[5] == 1)
+            if 'symlink' in item:
+                require(name.startswith('forge/') and stat.S_ISLNK(before[4])
+                    and os.readlink(path) == item['symlink'])
+                resolved = path.resolve(strict=True);require(resolved.is_relative_to(code))
+                target = str(resolved.relative_to(code));require(target in indexed and 'bytes' in indexed[target])
+            else:
+                require(stat.S_ISREG(before[4]) and type(item['bytes']) is int
+                    and 0 <= item['bytes'] <= 128*1024**2 and item['bytes'] == before[6]
+                    and type(item['executable']) is bool
+                    and stat.S_IMODE(before[4]) == (0o555 if item['executable'] else 0o444))
+                fd = os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_NONBLOCK)
+                with os.fdopen(fd,'rb') as source:
+                    require(fingerprint(os.fstat(source.fileno())) == before)
+                    require(hashlib.file_digest(source,'sha256').hexdigest() == item['sha256'])
+                    require(fingerprint(os.fstat(source.fileno())) == before)
+                total += item['bytes'];require(total <= MAX_CONTENT)
+            require(fingerprint(path.lstat()) == before);files[path] = before
+        require(names == sorted(names))
+        for name in declared_directories:
+            with os.scandir(code/name) as entries:
+                observed = {entry.name for entry in itertools.islice(entries,MAX_MEMBERS+1)}
+            require(observed == expected[name])
+        inspection = self.inspection_result
+        actual_inspect_sha = hashlib.sha256(canonical(_inspection_receipt(self.installation,self.operation,inspection))).hexdigest()
+        require(any(event['stage'] == 'inspect' and event['kind'] == 'succeeded'
+            and event['evidence']['receipt_sha256'] == actual_inspect_sha for event in self.snapshot['lifecycle']['events']))
+        require(total <= inspection['declared_bytes'] and len(inventory)+len(declared_directories)-1 == inspection['members'])
+        require(type(receipt['allocation_budget_bytes']) is int and receipt['allocation_budget_bytes'] ==
+            self.declaration['bytes']+inspection['declared_bytes']+inspection['members']*8192+33554432)
+        archive = base/'archive.tar.gz';before = fingerprint(archive.lstat())
+        require(stat.S_ISREG(before[4]) and before[2] == before[3] == 0 and before[5] == 1
+            and stat.S_IMODE(before[4]) == 0o444 and before[6] == self.declaration['bytes'])
+        fd = os.open(archive,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as source:
+            require(fingerprint(os.fstat(source.fileno())) == before)
+            require(hashlib.file_digest(source,'sha256').hexdigest() == self.declaration['sha256'])
+            require(fingerprint(os.fstat(source.fileno())) == before)
+        files[archive] = before;files[base/'receipt.json'] = receipt_identity;files[base/'inventory.json'] = inventory_identity
+        with os.scandir(base) as entries:require({entry.name for entry in itertools.islice(entries,5)} == {'code','archive.tar.gz','receipt.json','inventory.json'})
+        for path,original in directories.items():require(fingerprint(path.lstat())[:len(original)] == original)
+        for path,original in files.items():require(fingerprint(path.lstat()) == original)
+        self.check();return receipt
+
+    def stage(self):
+        """Fixed Root endpoint, actual peer and output; no caller authority data."""
+        try:
+            frame = self.begin_stage()
+            path = Path('/run/gitgood/root-artifacts')/(self.installation+'.sock')
+            parents = {}
+            for parent in path.parents:
+                info = parent.lstat();require(parent.resolve(strict=True) == parent and stat.S_ISDIR(info.st_mode)
+                    and info.st_uid == info.st_gid == 0 and not info.st_mode & 0o022)
+                parents[parent] = fingerprint(info)[:5]
+            original = fingerprint(path.lstat())
+            require(stat.S_ISSOCK(original[4]) and original[2] == 0 and original[3] == self.scope['gid']
+                and stat.S_IMODE(original[4]) == 0o620 and original[5] == 1)
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
+                connection.settimeout(240);connection.connect(str(path))
+                import struct
+                peer = struct.unpack('3i',connection.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+                require(peer[0] > 0 and peer[1:] == (0,0))
+                require(fingerprint(path.lstat()) == original);self.check()
+                connection.sendall(frame);connection.shutdown(socket.SHUT_WR)
+                raw = bytearray()
+                while b'\n' not in raw:
+                    block = connection.recv(513-len(raw));require(block);raw.extend(block);require(len(raw) <= 512)
+                require(raw.endswith(b'\n') and raw.count(b'\n') == 1)
+                response = json.loads(raw);require(canonical(response)+b'\n' == raw)
+                require(struct.unpack('3i',connection.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12)) == peer)
+            require(fingerprint(path.lstat()) == original)
+            for parent,identity in parents.items():require(fingerprint(parent.lstat())[:5] == identity)
+            self.check();receipt = self._staged_output(response)
+            self.journal.succeed('stage',hashlib.sha256(canonical(receipt)).hexdigest())
+            self._open_reader();self.state = 'staged';self.check();return receipt
+        except BaseException:
+            self.close();raise ArtifactControllerRefused('Original native artifact stage unavailable; retain responsibility and effects') from None
 
     def close(self):
         self.usable = False

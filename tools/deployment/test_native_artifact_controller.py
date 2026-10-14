@@ -1,6 +1,10 @@
 import copy
 import hashlib
 import os
+from pathlib import Path
+import shutil
+import sys
+import tempfile
 import unittest
 from contextlib import ExitStack
 from unittest.mock import Mock, patch
@@ -10,6 +14,7 @@ from native_generation_reader import NativeGenerationReader
 from native_lifecycle_generation_reader import STAGE_WORKERS
 from resource_generations import canonical
 import test_inspect_native_artifact as artifact_fixture
+import test_native_protected_artifact as stage_fixture
 
 
 class ArtifactControllerReaderTest(unittest.TestCase):
@@ -28,7 +33,8 @@ class ArtifactControllerReaderTest(unittest.TestCase):
         return value,record,base
 
     def test_only_original_controller_inspect_pending_and_running_stage_windows_are_admitted(self):
-        for status,stage,completed in (('running','inspect',[]),('pending','inspect',['inspect']),('running','stage',['inspect'])):
+        for status,stage,completed in (('running','inspect',[]),('pending','inspect',['inspect']),
+                                     ('running','stage',['inspect']),('pending','stage',['inspect','stage'])):
             value,record,base=self.fixture();record.update(status=status,stage=stage,completed=completed)
             with patch.object(NativeGenerationReader,'_snapshot',return_value=base):
                 result=value._snapshot(value.scope)
@@ -141,6 +147,74 @@ class InspectionTransitionTest(unittest.TestCase):
         value=self.fixture();value.check.side_effect=controller.ArtifactControllerRefused()
         with patch.object(controller,'inspect_native_artifact') as inspect,self.assertRaises(controller.ArtifactControllerRefused):value.inspect()
         inspect.assert_not_called();value.journal.succeed.assert_not_called()
+
+    def test_foreign_result_or_caller_selected_path_refuses_before_reading_output(self):
+        value=self.fixture()
+        response={'protocol':2,'kind':'native_root_artifact_result','status':'staged',
+            'installation':value.installation,'operation':value.operation,'candidate':value.inputs['candidate'],
+            'receipt_sha256':'a'*64}
+        for changed in ('protocol','installation','operation','candidate','path','receipt_sha256'):
+            foreign=copy.deepcopy(response)
+            if changed=='path':foreign['path']='/caller/selected/output'
+            elif changed=='protocol':foreign[changed]=True
+            elif changed=='receipt_sha256':foreign[changed]='not-a-digest'
+            else:foreign[changed]='foreign'
+            with patch.object(controller,'root_file') as opened,self.assertRaises(controller.ArtifactControllerRefused):
+                value._staged_output(foreign)
+            opened.assert_not_called();value.journal.succeed.assert_not_called()
+
+
+@unittest.skipUnless(sys.platform == 'linux' and os.getuid() == 0,'Actual isolated Root staged output')
+class RootStagedOutputTest(unittest.TestCase):
+    def setUp(self):
+        # Controller authority and fixed-path mapping are explicit stand-ins.
+        # The stage, Root files, retained identities and content reads are real.
+        fixture=stage_fixture.RootExtractionTest();fixture.setUp();self.addCleanup(fixture.doCleanups)
+        scratch=tempfile.TemporaryDirectory(dir='/root');self.addCleanup(scratch.cleanup)
+        self.prefix=Path(scratch.name)/'artifacts';self.prefix.mkdir(mode=0o755)
+        self.parent=self.prefix/stage_fixture.INSTALLATION;self.parent.mkdir(mode=0o755)
+        stage=fixture.stage();stage.parent=self.parent;os.close(stage.parent_fd)
+        stage.parent_fd=os.open(self.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+        scope={'fixture_scope':'original-controller'}
+        stage.policy['scope_sha256']=hashlib.sha256(canonical(scope)).hexdigest()
+        receipt=stage.stage();self.target=self.parent/('native-'+stage_fixture.OPERATION)
+        value=controller.NativeArtifactInspectionController.__new__(controller.NativeArtifactInspectionController)
+        value.installation=stage_fixture.INSTALLATION;value.operation=stage_fixture.OPERATION
+        value.scope=scope;value.inputs={'candidate':fixture.fixture.candidate,'request_sha256':stage.policy['request_sha256']}
+        value.declaration={'sha256':fixture.digest,'bytes':fixture.fixture.path.stat().st_size}
+        value.journal=Mock();value.journal.head={'snapshot_sha256':stage.policy['snapshot_sha256']};value.check=Mock()
+        value.inspection_result=controller.inspect_native_artifact(fixture.fixture.path,fixture.digest,fixture.fixture.candidate)
+        inspect_sha=hashlib.sha256(canonical(controller._inspection_receipt(value.installation,value.operation,value.inspection_result))).hexdigest()
+        value.snapshot={'lifecycle':{'events':[{'stage':'inspect','kind':'succeeded','evidence':{'receipt_sha256':inspect_sha}}]}}
+        self.value=value;self.receipt=receipt
+        self.response={'protocol':2,'kind':'native_root_artifact_result','status':'staged',
+            'installation':value.installation,'operation':value.operation,'candidate':value.inputs['candidate'],
+            'receipt_sha256':hashlib.sha256(canonical(receipt)).hexdigest()}
+        def path(name):
+            return self.prefix if name == '/opt/gitgood/artifacts' else Path(name)
+        self.addCleanup(patch.stopall);patch.object(controller,'Path',side_effect=path).start()
+
+    def test_actual_root_output_identity_inventory_hashes_and_archive_are_independently_verified(self):
+        self.assertEqual(self.value._staged_output(self.response),self.receipt)
+        self.value.check.assert_called_once();self.value.journal.succeed.assert_not_called()
+
+    def test_changed_original_content_refuses_without_journal_completion(self):
+        path=self.target/'code/web/package.json';path.chmod(0o644);path.write_bytes(b'foreign');path.chmod(0o444)
+        with self.assertRaises(controller.ArtifactControllerRefused):self.value._staged_output(self.response)
+        self.value.journal.succeed.assert_not_called()
+
+    def test_unexpected_root_entry_refuses_without_journal_completion(self):
+        self.target.chmod(0o755)
+        path=self.target/'foreign.json';path.write_bytes(b'foreign');path.chmod(0o444)
+        self.target.chmod(0o555)
+        with self.assertRaises(controller.ArtifactControllerRefused):self.value._staged_output(self.response)
+        self.value.journal.succeed.assert_not_called();self.assertTrue(path.exists())
+
+    def test_replaced_output_with_same_bytes_cannot_be_adopted(self):
+        old=self.target.with_name('retained-original');self.target.rename(old)
+        shutil.copytree(old,self.target,symlinks=True)
+        with self.assertRaises(controller.ArtifactControllerRefused):self.value._staged_output(self.response)
+        self.value.journal.succeed.assert_not_called();self.assertTrue(old.exists())
 
 
 if __name__=='__main__':unittest.main()

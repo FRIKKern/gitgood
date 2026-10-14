@@ -188,8 +188,16 @@ jobs:
         # Controller/exclusion, capacity and scratch ancestors are stand-ins;
         # inspection, descriptor custody, flock and publication are actual.
         run: sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_artifact_policy.py' -v
+      - name: Verify ordinary artifact output and Root dispatch components
+        # Controller admission/path mapping are stand-ins for output tests;
+        # Root extraction, output identities and content reads are actual.
+        run: |
+          sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_artifact_controller.py' -v
+          sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_artifact_dispatch.py' -v
       - name: Verify protected native ownership on actual systemd
-        timeout-minutes: 12
+        # Adds complete production archive staging and content verification;
+        # this hosted test budget does not alter production operation deadlines.
+        timeout-minutes: 20
         run: |
           set -euo pipefail
           "$GITGOOD_PYTHON" -B tools/ci/native-owned-test.py

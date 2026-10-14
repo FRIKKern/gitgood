@@ -26,6 +26,7 @@ from native_ownership_records import OwnershipRecordRefused
 from native_lifecycle_responsibility import NativeLifecycleResponsibility, sha
 from native_service_scope import group_identity
 from native_public_runtime import NativePublicRuntime, PublicRuntimeRefused
+from native_artifact_controller import NativeArtifactInspectionController
 from resource_generations import canonical
 
 spec = importlib.util.spec_from_file_location('owned_fixture', Path(__file__).with_name('native-owned-manager.py'))
@@ -56,7 +57,7 @@ def main(seed_path):
     run, root, seal = (Path(seed[name]) for name in ('run', 'root', 'seal_directory'))
     deadline = time.monotonic() + 300
     phase = 'delegation'
-    controller = endpoint = custody = journal = None
+    controller = endpoint = custody = journal = artifact = None
     os.umask(0o077)
     try:
         assert os.getuid() == os.geteuid() == seed['uid'] > 0
@@ -100,9 +101,26 @@ def main(seed_path):
             journal = NativeLifecycleResponsibility(custody, request, policy['inputs_seal_sha256'],
                 published['pointer']['generation_sha256'])
             journal.claim()
-            fixture_observation = {'fixture_only': True, 'business_stage_effects_verified': False}
-            for stage in ('inspect', 'stage'):
-                journal.begin(stage);journal.succeed(stage, sha(fixture_observation))
+            if seed.get('artifact_stage_fixture'):
+                phase = 'actual-controller-artifact-inspection'
+                journal.begin('inspect')
+                artifact = NativeArtifactInspectionController(seed['installation'],custody,endpoint,journal)
+                inspected = artifact.inspect()
+                phase = 'actual-controller-root-artifact-stage'
+                staged = artifact.stage()
+                assert staged['candidate'] == seed['candidate'] and staged['root_controlled_code'] is True
+                assert journal.snapshot['status'] == 'pending' and journal.snapshot['completed'] == ['inspect','stage']
+                code = Path('/opt/gitgood/artifacts')/seed['installation']/('native-'+seed['ownership_operation'])/'code'
+                seed['release'] = str(code/'forge');seed['web'] = str(code/'web')
+                fixture.write(run/'artifact-stage-complete.json',{
+                    'actual_ordinary_controller_inspection':True,'actual_root_stage_output_independently_checked':True,
+                    'inspection_receipt_sha256':sha(inspected),'stage_receipt_sha256':sha(staged),
+                    'lifecycle_snapshot_sha256':journal.head['snapshot_sha256'],'complete_journey_acceptance':False})
+                artifact.close();artifact = None
+            else:
+                fixture_observation = {'fixture_only': True, 'business_stage_effects_verified': False}
+                for stage in ('inspect', 'stage'):
+                    journal.begin(stage);journal.succeed(stage, sha(fixture_observation))
         fixture.write(run / 'controller-open.json', {'actual_main_pid': os.getpid(),
                        'controller_identity': controller.scope['manager']})
         configuration = json.loads((root / 'configuration/installation.json').read_bytes())
@@ -279,6 +297,7 @@ def main(seed_path):
             time.sleep(.25)
         return 0
     finally:
+        if artifact is not None:artifact.close()
         if journal is not None:journal.close()
         if controller is not None:
             controller.close()
