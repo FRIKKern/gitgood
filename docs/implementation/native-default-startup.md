@@ -45,6 +45,13 @@ owner's TCP socket inode/descriptor. It does not call or weaken the production
 observer's ordinary-user requirement. An absent lock/socket or changed original
 identity refuses; the fixture acquires no lease or replacement authority.
 
+Native-group discovery tolerates ENOENT/ESRCH only while reading an unselected
+member's command line: short-lived release processes may disappear after group
+enumeration. It still requires exactly one fixed monitor entry under the pinned
+Python. Permission or other I/O failures refuse. Once selected, original owner,
+helper, ancestry, UID, birth and held lease checks remain strict; selected-process
+loss cannot be skipped or converted into a replacement observation.
+
 The same production web/edge launcher then undergoes real verified TLS, frontend
 identity/assets, owner cookie/login, anonymous denial, HTTPS Git push/readback,
 strict SSH readback and revocation checks. After original helper loss, fixture

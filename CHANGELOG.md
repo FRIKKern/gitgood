@@ -240,6 +240,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Compare authenticated retained exports with live file/database fingerprints under continuously owned retirement custody, with independently bound materials and changed-writer refusals; usable restoration and complete installed retirement remain separate work.
   Sources: [details 1](tools/deployment/retirement_snapshot.py), [details 2](apps/forge/priv/operations/retirement-snapshot.mjs), [details 3](docs/implementation/installation-retirement.md)
 
+- Add a fixed read-only Root view of the original ordinary native controller as a prerequisite for protected artifact staging. Preserve ordinary worker admission and permanently refuse changed service, policy or directory custody. Actual staging and complete installation/recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-root-controller.md), [details 2](tools/deployment/native_root_controller.py), [details 3](tools/deployment/native_service_scope.py), [details 4](tools/ci/native-owned-proof.py)
+
 - Recorded the completed native foundation run with criterion-level observations, exact candidate/runtime evidence, clean-start instructions, integration references and remaining private-forge/Cloud milestones.
   Sources: [details 1](docs/RUN-72H-FINISH.md)
 
@@ -406,6 +409,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Navigate repository cards, files, history and pull-request lists through the web router while retaining shareable URLs and disabling speculative reads.
   Sources: [details 1](docs/implementation/browsing.md)
 
+- Preserve completed Git command outcomes when the command adapter exits during port cleanup. Streaming and buffered workers close their captured port directly and tolerate prior closure, avoiding a spurious interrupted result.
+  Sources: [details 1](apps/forge/lib/gitgood/command_port.ex), [details 2](apps/forge/lib/gitgood/command_stream_worker.ex), [details 3](apps/forge/lib/gitgood/command_worker.ex), [details 4](apps/forge/test/gitgood/command_port_test.exs), [details 5](docs/implementation/ssh.md)
+
 - Preserve exact evidence requests in encrypted native custody across reload, navigation and panel unmount, with actor-only recovery, separate receipt acknowledgement and safe retirement.
   Sources: [details 1](docs/implementation/criterion-evidence.md)
 
@@ -421,8 +427,14 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Accept and preserve the exact first-install UUID in encrypted export and recovery configuration, reject mismatched identity before publication, and rebind it only for an independently allocated retirement verification target. Fresh packaged enrollment and direct five-stage retirement passed without any prior upgrade; terminal/refusal checks and 77-log credential checks passed. Actual partial migration recovery resumed after three of sixteen commits; current integration CI and broader lifecycle/Cloud acceptance remain separate.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/installation-retirement.md)
 
+- Bound installed application-backend discovery to five seconds and require two stable SQL observations plus matching kernel identity checks before committing captures. Preserve post-effect original connection retention, strict selected loss and cleanup requirements without changing production deadlines.
+  Sources: [details 1](docs/implementation/native-hosted-ownership.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Pin native ownership database observations and the held lease connection to the PostgreSQL catalog search path and read-only statements.
   Sources: [details 1](docs/implementation/native-database-namespace.md), [details 2](apps/forge/lib/gitgood/native_database_lease.ex), [details 3](tools/deployment/native_ownership_database.py)
+
+- Handle disappearing unselected native-group processes while discovering the normal release monitor in installed verification. Still require one pinned entry and refuse selected helper loss, identity changes, permissions and other I/O errors.
+  Sources: [details 1](docs/implementation/native-default-startup.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
 - Reject native ownership acknowledgements after their absolute attachment deadline even when the timer message is delayed; retain the three-second limit and native startup refusal pending installed proof.
   Sources: [details 1](apps/forge/lib/gitgood/installation_generation_monitor.ex), [details 2](docs/implementation/native-ownership-monitor-attachment.md)

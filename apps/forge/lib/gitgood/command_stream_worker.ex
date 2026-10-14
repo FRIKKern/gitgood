@@ -169,14 +169,14 @@ defmodule Gitgood.CommandStreamWorker do
   end
 
   defp close_port(%{port: port} = state) when is_port(port) do
-    if Port.info(port), do: Port.close(port)
+    :ok = Gitgood.CommandPort.close(port)
     %{state | port: nil}
   end
 
   defp close_port(state), do: state
 
   def terminate(_, %{port: port}) when is_port(port) do
-    if Port.info(port), do: Port.close(port)
+    :ok = Gitgood.CommandPort.close(port)
     :ok
   end
 

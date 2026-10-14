@@ -1,0 +1,9 @@
+{
+  "id": "command-adapter-close-race",
+  "category": "Fixed",
+  "impact": "product",
+  "summary": "Preserve completed Git command outcomes when the command adapter exits during port cleanup. Streaming and buffered workers close their captured port directly and tolerate prior closure, avoiding a spurious interrupted result.",
+  "journeys": ["J02"],
+  "references": ["apps/forge/lib/gitgood/command_port.ex", "apps/forge/lib/gitgood/command_stream_worker.ex", "apps/forge/lib/gitgood/command_worker.ex", "apps/forge/test/gitgood/command_port_test.exs", "docs/implementation/ssh.md"],
+  "withdrawn": false
+}

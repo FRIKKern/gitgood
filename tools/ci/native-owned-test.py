@@ -24,6 +24,87 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
+        seed = {'installation': 'fixture', 'account': 'gg_fixture'}
+        database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',
+            '12:100\n13:101\n14:102', '12:100\n13:101\n14:102', '12:100\n13:101\n14:102']))
+        kernel = lambda pid: {'pid': pid, 'birth': str(pid+100), 'uid': 1000, 'cgroup': 'original'}
+        with patch.object(proof, 'process', side_effect=kernel), patch.object(proof.time, 'sleep') as wait:
+            captured = proof.capture_application_backends(database, seed, {'postgres_uid': 1000})
+        self.assertEqual([item['session'] for item in captured], [
+            {'backend_pid': 12, 'backend_birth': '100'}, {'backend_pid': 13, 'backend_birth': '101'},
+            {'backend_pid': 14, 'backend_birth': '102'}])
+        self.assertEqual([item['kernel']['birth'] for item in captured], ['112', '113', '114'])
+        self.assertTrue(all(call.args[0].startswith('SELECT ') for call in database.query.call_args_list))
+        self.assertTrue(all(0 < call.kwargs['timeout'] <= 5 for call in database.query.call_args_list))
+        wait.assert_called()
+
+    def test_backend_discovery_remains_bounded_and_never_skips_selected_kernel_loss_or_wrong_uid(self):
+        seed = {'installation': 'fixture', 'account': 'gg_fixture'}
+        database = Mock(query=Mock(return_value='12:100'))
+        with patch.object(proof.time, 'monotonic', side_effect=[0, 0, 6]), patch.object(proof.time, 'sleep'), \
+                patch.object(proof, 'process') as kernel:
+            with self.assertRaises(ValueError):proof.capture_application_backends(database, seed, {'postgres_uid': 1000})
+            kernel.assert_not_called()
+        for observed in (ProcessLookupError(), {'pid': 12, 'birth': '112', 'uid': 1001, 'cgroup': 'wrong'}):
+            database.query.return_value = '12:100\n13:101'
+            with patch.object(proof.time, 'sleep'), patch.object(proof, 'process', side_effect=[observed]):
+                with self.assertRaises((ProcessLookupError, ValueError)):
+                    proof.capture_application_backends(database, seed, {'postgres_uid': 1000})
+
+    def test_default_helper_discovery_skips_only_unselected_disappearance_and_still_requires_one(self):
+        seed = {'unit': 'gitgood-installation-fixture.service', 'executables': {'python': '/usr/bin/python3.12'}}
+        arguments = b'/usr/bin/python3.12\0-I\0-S\0/opt/gitgood/native/v2/native_generation_monitor_entry.py\0'
+
+        def read(path, *_):
+            pid = path.parent.name
+            if pid == '11':raise FileNotFoundError()
+            if pid == '12':raise ProcessLookupError()
+            return io.BytesIO(arguments)
+
+        service = SimpleNamespace(members=Mock(return_value=[11, 12, 13]))
+        with patch.dict(sys.modules, {'native_service_scope': service}), patch.object(Path, 'open', autospec=True, side_effect=read):
+            self.assertEqual(proof.discover_default_helper(seed), 13)
+            service.members.return_value = [11, 12]
+            with self.assertRaises(ValueError):proof.discover_default_helper(seed)
+            service.members.return_value = [13, 14]
+            with self.assertRaises(ValueError):proof.discover_default_helper(seed)
+            service.members.return_value = [13]
+            with patch.object(Path, 'open', side_effect=PermissionError()), self.assertRaises(PermissionError):
+                proof.discover_default_helper(seed)
+            with patch.object(Path, 'open', side_effect=OSError('unexpected fixture I/O failure')), self.assertRaises(OSError):
+                proof.discover_default_helper(seed)
+
+        seed.update(installation='fixture', ownership_operation='operation', candidate='a'*40)
+        record = {'protocol': 4, 'mode': 'runtime', 'installation': 'fixture',
+            'operation': 'operation', 'candidate': 'a'*40, 'owner': {'pid': 10}}
+        launched = {'record': record, 'release_command': 'start', 'fixture_runtime_application_substitution': False}
+        records = SimpleNamespace(validate_record=Mock())
+        with patch.dict(sys.modules, {'native_ownership_records': records}), \
+                patch.object(proof, 'discover_default_helper', return_value=13), \
+                patch.object(proof, 'process', side_effect=[{}, ProcessLookupError()]):
+            with self.assertRaises(ProcessLookupError):
+                proof.capture_default_attachment(seed, launched, {}, None, {})
+
+    def test_check_location_never_forwards_exception_messages_paths_values_or_source_text(self):
+        private = 'private-credential-and-sql-fixture'
+        with patch.object(proof.sys, 'platform', 'unsupported'):
+            try:
+                proof.preflight(SimpleNamespace(private=private))
+            except ValueError as error:
+                error.args = (private, '/private/configuration/credentials.json')
+                result = proof.failure_check_site(error)
+        self.assertEqual(set(result), {'file', 'function', 'line'})
+        self.assertEqual(result['file'], 'native-owned-proof.py')
+        self.assertEqual(result['function'], 'preflight')
+        self.assertIs(type(result['line']), int)
+        self.assertNotIn(private, json.dumps(result))
+        self.assertNotIn('/private/', json.dumps(result))
+        try:
+            raise ValueError(private)
+        except ValueError as error:
+            self.assertEqual(proof.failure_check_site(error), {'status': 'unavailable'})
+
     def test_root_fixture_observes_original_lease_socket_without_ordinary_user_bypass(self):
         seed = {'uid': 1002, 'installation': '12345678-1234-4234-8234-123456789abc', 'account': 'gg_fixture'}
         record = {'owner': {'pid': 4242, 'birth': '111', 'uid': 1002},
@@ -269,6 +350,16 @@ class BoundedProofTests(unittest.TestCase):
                          "pid=27 AND floor(extract(epoch FROM backend_start)*1000000)::bigint=123456")
         with self.assertRaises(ValueError):
             database.predicate({"backend_pid": 27, "backend_birth": "123456 OR true"})
+
+    def test_case_diagnostics_find_actual_fixed_owner_directory_without_phase_path_injection(self):
+        stage = self.directory / 'bootstrap-owner';stage.mkdir()
+        (stage / 'startup-events.txt').write_text('bootstrap:observed\nmonitor:accepted\n', encoding='ascii')
+        result = proof.case_startup_diagnostics({'run': str(self.directory),
+            'proof_phase': 'bootstrap-owner:protected-handoff-and-heartbeats'})
+        self.assertEqual(result, {'status': 'observed', 'events': ['bootstrap:observed', 'monitor:accepted']})
+        for phase in ('../bootstrap-owner:private', '/bootstrap-owner:private', 'unknown:private'):
+            self.assertEqual(proof.case_startup_diagnostics({'run': str(self.directory), 'proof_phase': phase}),
+                {'status': 'unavailable'})
 
     def test_startup_diagnostics_accept_only_closed_events_and_numeric_exit(self):
         (self.directory / "startup-events.txt").write_text("bootstrap:observed\nmonitor:entered\nmonitor:refused\n", encoding="ascii")

@@ -92,7 +92,7 @@ defmodule Gitgood.CommandWorker do
 
   def terminate(_, %{port: port}) when is_port(port) do
     # Closing the adapter's input triggers group/job cancellation; the adapter owns child cleanup.
-    if Port.info(port), do: Port.close(port)
+    :ok = Gitgood.CommandPort.close(port)
     :ok
   end
 

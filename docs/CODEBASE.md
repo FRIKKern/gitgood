@@ -30,6 +30,10 @@ This map describes code in this checkout. It is not a release checklist. Use [cu
 
 Git transport has separate HTTP and SSH entries but uses the same backend access and write rules. Read [architecture](architecture.md) for ownership boundaries and [QUALITY.md](../QUALITY.md) for the invariants every path must preserve.
 
+[CommandPort](../apps/forge/lib/gitgood/command_port.ex) closes captured command
+adapter ports for buffered and streaming workers. It tolerates prior closure so
+an adapter's normal exit during cleanup cannot erase its completed command result.
+
 ## Find a feature
 
 | Working on… | Backend entry points | Interface or contract |
@@ -85,6 +89,12 @@ ownership prerequisites, internal API/Git evidence and remaining acceptance gate
 web/edge launch, protected copied web inventory, current original runtime checks
 and bounded original-leaf quiescence. Read [native public runtime](implementation/native-public-runtime.md)
 for its TLS/frontend/Git component proof and unfinished activation/recovery gates.
+
+[native_root_controller.py](../tools/deployment/native_root_controller.py) owns
+Root's fixed read-only observation of the original ordinary controller. It shares
+host/service checks while preserving ordinary caller admission. Read
+[Root controller observation](implementation/native-root-controller.md) for the
+remaining protected artifact staging and operation-binding requirements.
 
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 

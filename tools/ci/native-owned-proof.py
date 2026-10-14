@@ -283,6 +283,22 @@ def wait_for(path, run, seconds):
     raise TimeoutError("fixture receipt deadline")
 
 
+def failure_check_site(error):
+    """Only a fixed fixture source location; no messages, values or source text."""
+    result = {'status': 'unavailable'}
+    cursor = error.__traceback__
+    for _ in range(128):
+        if cursor is None:
+            return result
+        code = cursor.tb_frame.f_code
+        if (code.co_filename == __file__ and code.co_name != 'require' and
+                re.fullmatch(r'[a-zA-Z_][a-zA-Z_0-9]{0,63}', code.co_name) and
+                type(cursor.tb_lineno) is int and 0 < cursor.tb_lineno < 10000):
+            result = {'file': 'native-owned-proof.py', 'function': code.co_name, 'line': cursor.tb_lineno}
+        cursor = cursor.tb_next
+    return {'status': 'unavailable'}
+
+
 def bounded_diagnostic_read(path, maximum=4096):
     before = path.lstat()
     require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and before.st_size <= maximum)
@@ -332,6 +348,16 @@ def startup_diagnostics(run):
     return result
 
 
+def case_startup_diagnostics(seed):
+    # Owners write in fixed stage directories. An arbitrary phase never selects
+    # another pathname and the existing closed event vocabulary still applies.
+    label = seed.get('proof_phase', '').partition(':')[0]
+    run = Path(seed['run'])
+    if label in {'migration-owner', 'bootstrap-owner', 'runtime-owner'}:
+        run = run / label
+    return startup_diagnostics(run)
+
+
 class Database:
     def __init__(self, psql):
         self.psql = str(psql)
@@ -344,12 +370,13 @@ class Database:
                             "PGDATABASE": "postgres", "PGPASSFILE": "/dev/null", "PGCONNECT_TIMEOUT": "3",
                             "PGOPTIONS": "-c statement_timeout=5000"}
 
-    def query(self, sql, *, database="postgres", role=None, password=None):
+    def query(self, sql, *, database="postgres", role=None, password=None, timeout=12):
+        require(type(timeout) in {int, float} and 0 < timeout <= 12)
         environment = {**self.environment, "PGDATABASE": database}
         if role:
             environment.update(PGUSER=role, PGPASSWORD=password)
         return command([self.psql, "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "--file=-"],
-                       environment=environment, input_bytes=sql.encode(), timeout=12).decode().strip()
+                       environment=environment, input_bytes=sql.encode(), timeout=timeout).decode().strip()
 
     def predicate(self, session):
         require(type(session["backend_pid"]) is int and 1 < session["backend_pid"] < 2**31)
@@ -365,19 +392,38 @@ def capture_application_backends(database, seed, server_scope):
     dbname = 'gg_proof_' + seed['installation'].replace('-', '')
     predicate = "datname='" + dbname + "' AND usename='" + seed['account'] + "'"
     sql = "SELECT pid::text||':'||floor(extract(epoch FROM backend_start)*1000000)::bigint::text FROM pg_stat_activity WHERE " + predicate + ' ORDER BY pid'
-    rows = database.query(sql)
-    captured = []
-    for row in rows.splitlines():
-        pid, birth = row.split(':')
-        session = {'backend_pid': int(pid), 'backend_birth': birth}
-        kernel = process(int(pid))
-        require(kernel['uid'] == server_scope['postgres_uid'])
-        # Running/sleeping process state can change during legitimate SQL work.
-        # Compare immutable original identity, while retaining both birth fences.
-        captured.append({'session': session,
-            'kernel': {name: kernel[name] for name in ('pid', 'birth', 'uid', 'cgroup')}})
-    require(len(captured) >= 2 and database.query(sql) == rows)
-    return captured
+    deadline = time.monotonic() + 5
+    previous = None
+
+    def query():
+        remaining = deadline - time.monotonic()
+        require(remaining > 0, 'application backend discovery did not stabilize')
+        return database.query(sql, timeout=remaining)
+
+    while True:
+        require(time.monotonic() < deadline, 'application backend discovery did not stabilize')
+        rows = query()
+        if rows != previous or len(rows.splitlines()) < 2:
+            previous = rows
+            time.sleep(.05)
+            continue
+        captured = []
+        for row in rows.splitlines():
+            pid, birth = row.split(':')
+            session = {'backend_pid': int(pid), 'backend_birth': birth}
+            kernel = process(int(pid))
+            require(kernel['uid'] == server_scope['postgres_uid'])
+            # Only commit this discovery after two equal SQL observations,
+            # kernel checks and a final unchanged SQL list. No effects or
+            # original-identity replacement are allowed by a pending discovery.
+            captured.append({'session': session,
+                'kernel': {name: kernel[name] for name in ('pid', 'birth', 'uid', 'cgroup')}})
+        current = query()
+        if current == rows:
+            require(time.monotonic() < deadline, 'application backend discovery did not stabilize')
+            return captured
+        previous = current
+        time.sleep(.05)
 
 
 def listeners_absent(config):
@@ -807,29 +853,34 @@ def observe_default_lease(seed, record, database, server_scope):
     return {'client_port': port, 'socket_inode': sockets[0], 'descriptor': descriptors[0]}
 
 
-def capture_default_attachment(seed, launched, config, database, server_scope):
-    """Root's actual normal-release observations; no fixture witness or fake samples."""
-    from native_ownership_records import validate_record
+def discover_default_helper(seed):
+    """Bounded discovery tolerates only disappearance of an unselected member."""
     from native_service_scope import members
-    record = launched['record'];validate_record(record)
-    require(launched['release_command'] == 'start' and launched['fixture_runtime_application_substitution'] is False)
-    require(record['protocol'] == 4 and record['mode'] == 'runtime')
-    require(all(record[name] == seed[{'installation':'installation','operation':'ownership_operation','candidate':'candidate'}[name]]
-                for name in ('installation', 'operation', 'candidate')))
     native = Path('/sys/fs/cgroup/system.slice') / seed['unit'] / 'native'
     helper_pids = []
     for pid in members(native):
         text = str(pid)
         try:
             with (Path('/proc') / text / 'cmdline').open('rb') as source:command_line = source.read(4097)
-        except FileNotFoundError:continue
+        except (FileNotFoundError, ProcessLookupError):continue
         require(len(command_line) <= 4096)
         arguments = command_line.split(b'\0')
         if b'/opt/gitgood/native/v2/native_generation_monitor_entry.py' in arguments:
             require(arguments[0] == seed['executables']['python'].encode())
             helper_pids.append(pid)
     require(len(helper_pids) == 1, 'normal release original monitor not unique')
-    owner = process(record['owner']['pid']);helper = process(helper_pids[0])
+    return helper_pids[0]
+
+
+def capture_default_attachment(seed, launched, config, database, server_scope):
+    """Root's actual normal-release observations; no fixture witness or fake samples."""
+    from native_ownership_records import validate_record
+    record = launched['record'];validate_record(record)
+    require(launched['release_command'] == 'start' and launched['fixture_runtime_application_substitution'] is False)
+    require(record['protocol'] == 4 and record['mode'] == 'runtime')
+    require(all(record[name] == seed[{'installation':'installation','operation':'ownership_operation','candidate':'candidate'}[name]]
+                for name in ('installation', 'operation', 'candidate')))
+    owner = process(record['owner']['pid']);helper = process(discover_default_helper(seed))
     require(owner['birth'] == record['owner']['birth'] and descendant_of(helper['pid'], owner['pid']))
     require(all(item['uid'] == seed['uid'] and item['cgroup'] == '0::/system.slice/' + seed['unit'] + '/native'
                 for item in (owner, helper)))
@@ -1112,6 +1163,15 @@ def run_successor_case(seed, config, password, database, server_scope):
     require(manager['pid'] == opened['controller_identity']['pid'] and manager['birth'] == opened['controller_identity']['birth'])
     require(manager['uid'] == seed['uid'] and manager['cgroup'] == '0::/system.slice/' + seed['unit'] + '/driver')
     require(command(['/usr/bin/systemctl', 'show', seed['unit'], '--property=MainPID', '--value']).strip() == str(manager['pid']).encode())
+    # Root's production observer independently reuses the allocated unit policy;
+    # it cannot impersonate an ordinary worker or receive fixture authority maps.
+    from native_root_controller import NativeRootControllerObservation
+    root_view = NativeRootControllerObservation(seed['installation'])
+    try:
+        require(root_view.check() == observed['scope'])
+        require(root_view.check() == observed['scope'])
+    finally:
+        root_view.close()
     stages = []
     captured_records = []
     pointer = None
@@ -1357,6 +1417,7 @@ def run_successor_case(seed, config, password, database, server_scope):
                 retained_marker = prior['captured']['marker'] if index == len(captured_records)-1 else transition / (captured_records[index+1]['record']['claim'] + '.old-marker.json')
                 require(fingerprint(retained_marker) == prior['captured']['marker_file'])
             return {'case': seed['case'], 'status': 'passed', 'stages': stages,
+                'root_original_controller_scope_observed': True,
                 'actual_nonempty_schema_refused_without_migrations': bool(seed.get('schema_refusal_fixture')),
                 'actual_nested_migration_entry_refused_without_effects': bool(seed.get('inventory_refusal_fixture')),
                 'actual_runtime_schema_refused_before_product_workers': runtime_refusal,
@@ -1395,6 +1456,7 @@ def run_successor_case(seed, config, password, database, server_scope):
         'all_original_records_and_marker_inodes_retained': True, 'native_application_acceptance': False,
         'complete_journey_acceptance': False, 'product_controller_cleanup_verified': False,
         'actual_lifecycle_startup_boundary_verified': bool(seed.get('lifecycle_fixture')),
+        'root_original_controller_scope_observed': True,
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -1636,13 +1698,16 @@ def main(args):
         require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
         receipt['cases'].append({**result, 'owned_unit_stopped': True})
         receipt['actual_nested_migration_entry_refusal_verified'] = True
+        require(all(case['root_original_controller_scope_observed'] is True for case in receipt['cases'][3:]))
+        receipt['root_original_controller_scope_observation_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:
-        receipt["failure"] = {"phase": phase, "error_type": type(error).__name__}
+        receipt["failure"] = {"phase": phase, "error_type": type(error).__name__,
+                              "check_site": failure_check_site(error)}
         if seed is not None:
             receipt["failure"]["component_phase"] = seed.get("proof_phase", "allocation")
-            receipt["failure"]["startup"] = startup_diagnostics(Path(seed["run"]))
+            receipt["failure"]["startup"] = case_startup_diagnostics(seed)
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
                 detail = read_json(failed, 1024)

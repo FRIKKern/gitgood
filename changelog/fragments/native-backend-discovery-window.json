@@ -1,0 +1,9 @@
+{
+  "id": "native-backend-discovery-window",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Bound installed application-backend discovery to five seconds and require two stable SQL observations plus matching kernel identity checks before committing captures. Preserve post-effect original connection retention, strict selected loss and cleanup requirements without changing production deadlines.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-hosted-ownership.md", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}
