@@ -79,9 +79,11 @@ closed migration/bootstrap subdocuments under the original held guard. Its outpu
 contains private bootstrap material and grants no effects. The attached monitor
 stream delivers it privately once to the original lifecycle startup, under the
 original ownership/lease/fence and closed response checks.
-Actual business effects, fixed lifecycle dispatch and interruption recovery still
-require implementation and installed verification. Matching fixture metadata is
-not proof of a migration, bootstrap or complete installation.
+The [fixed maintenance application](native-maintenance-effects.md) applies
+migration/bootstrap with independent package/schema checks under this startup.
+Its installed evidence is separate from the metadata-only startup cases. Whole
+lifecycle dispatch and interruption reconciliation still require implementation
+and verification. Matching fixture metadata is not proof of a complete installation.
 
 The [hosted startup-boundary case](native-hosted-ownership.md) tests the actual
 Root seals, protected inputs, journal transport, live controller and three

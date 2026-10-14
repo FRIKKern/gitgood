@@ -313,6 +313,52 @@ IO.puts("fixture-application-spec-loaded")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout.strip(), "fixture-application-spec-loaded", result.stderr)
 
+    def test_actual_maintenance_application_loads_fixed_spec_before_original_startup(self):
+        executable = self.fixture_elixir()
+        script = '''
+defmodule Gitgood.NativeOwnershipStartup do
+  def validate_lifecycle_options(root: "/fixture", action: action)
+      when action in [:migrate, :bootstrap], do: :ok
+end
+defmodule Gitgood.NativeMaintenanceWorker do
+  def execute, do: {:error, :fixture_worker_must_not_run}
+end
+defmodule Gitgood.NativeOwnershipSupervisor do
+  def start_lifecycle_link("/fixture", action,
+        [{Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]},
+         {Gitgood.NativeMaintenanceWorker, action}]) do
+    {Gitgood.NativeMaintenanceApplication, ^action} =
+      Application.spec(:gitgood_native_maintenance, :mod)
+    [:kernel, :stdlib, :elixir, :logger] =
+      Application.spec(:gitgood_native_maintenance, :applications)
+    IO.puts("actual-maintenance-spec-loaded-before-original-refusal")
+    {:error, :fixture_original_startup_refused}
+  end
+end
+:ok = :logger.set_primary_config(:level, :none)
+dependencies = [:kernel, :stdlib, :elixir, :logger]
+:ok = :application.load({:application, :gitgood,
+  [vsn: ~c"fixture", applications: dependencies]})
+Application.put_env(:gitgood, :supervision_profile, "systemd-v2")
+Application.put_env(:gitgood, :storage_root, "/fixture")
+Code.compile_file(System.fetch_env!("GITGOOD_MAINTENANCE_SOURCE"))
+Gitgood.NativeMaintenance.start(:migrate)
+# The actual permanent start failure must end this original BEAM without a
+# fixture halt/signal. If it merely returns, the bounded subprocess times out.
+Process.sleep(:infinity)
+'''
+        environment = {**os.environ,
+            "GITGOOD_MAINTENANCE_SOURCE": str(HERE.parents[1] / 'apps/forge/lib/gitgood/native_maintenance.ex'),
+            "ERL_FLAGS": "+S 2:2 +SDio 1 +SDcpu 1"}
+        source = self.directory / 'maintenance-loader.exs'
+        source.write_text(script, encoding='utf-8')
+        result = subprocess.run([executable, str(source)], text=True, capture_output=True,
+                                timeout=20, env=environment)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(),
+            'actual-maintenance-spec-loaded-before-original-refusal', result.stderr)
+        self.assertNotIn('warning:', result.stderr)
+
     @unittest.skipUnless(sys.platform == "linux", "real Linux JIT file-limit check runs on the hosted runner")
     def test_real_beam_jit_boots_with_the_finite_fixture_file_limit(self):
         import resource

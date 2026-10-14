@@ -4,6 +4,15 @@ defmodule Gitgood.Release do
   def export, do: Gitgood.OfflineRecovery.run(:backup)
   def retirement_checkpoint, do: Gitgood.OfflineRecovery.run(:checkpoint)
   def restore, do: Gitgood.OfflineRecovery.run(:restore)
+  def native_migrate, do: native_maintenance(:migrate)
+  def native_bootstrap_owner, do: native_maintenance(:bootstrap)
+
+  defp native_maintenance(action) do
+    case Gitgood.NativeMaintenance.run(action) do
+      {:ok, result} -> IO.puts(Jason.encode!(result))
+      _ -> raise "Native maintenance unavailable"
+    end
+  end
 
   def migrate do
     Application.load(@app)

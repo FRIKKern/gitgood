@@ -159,6 +159,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Admit native and maintenance workers only in fixed recorded lifecycle windows with original protected inputs and permanently fenced guards.
   Sources: [details 1](docs/implementation/native-lifecycle-worker-admission.md), [details 2](tools/deployment/native_lifecycle_generation_reader.py)
 
+- Add fixed permanent native migration and first-owner workers using original private inputs, pinned public SQL namespace, exact packaged/schema expectations and current ownership. Hosted cases independently observe real effects, backend disappearance, shadow-namespace exclusion, nonempty-schema refusal and unexpected nested-migration refusal; complete lifecycle dispatch and native runtime/recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-maintenance-effects.md), [details 2](docs/implementation/native-hosted-ownership.md), [details 3](apps/forge/lib/gitgood/native_maintenance.ex), [details 4](apps/forge/lib/gitgood/native_maintenance_worker.ex)
+
 - Introduce fixed TLS maintenance and bounded SSH routing under the installation-owned edge group; complete upgrade activation remains under verification.
   Sources: [details 1](tools/deployment/native_edge.py), [details 2](tools/deployment/test_native_edge.py), [details 3](docs/implementation/installation-upgrade.md)
 

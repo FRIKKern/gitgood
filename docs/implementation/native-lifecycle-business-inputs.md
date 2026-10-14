@@ -3,7 +3,9 @@
 The native maintenance workers need original migration expectations and first-owner
 inputs before applying effects. Their existing input reader checks sealed file
 custody and protocol, while the guarded startup API checks the requested action.
-Neither currently dispatches business effects.
+These input APIs do not dispatch business effects themselves; the
+[fixed maintenance worker](native-maintenance-effects.md) consumes them under
+original permanent ownership and independently checks its execution prerequisites.
 
 `NativeGenerationLeaseGuard.private_business_inputs(action)` takes only `migrate`
 or `bootstrap`. It brackets a private projection with checks of the original
@@ -17,8 +19,9 @@ This is private engine data, with **no stage effects or exclusion granted**. It 
 not a status result or public artifact and must never be logged or returned to an
 operator. Bootstrap projections contain the original password and its ordered
 request digest. Migration projections omit both. The monitor's attached private
-stream can now deliver this data to the original BEAM. The packaged application
-callback and fixed business-worker execution remain unwired.
+stream can now deliver this data to the original BEAM. The default runtime
+application callback remains unwired. Fixed migration and first-owner execution
+now has its own permanent maintenance application.
 
 ## Attached private stream
 
@@ -64,8 +67,9 @@ Kinds are `native_initial_business_inputs` and `native_upgrade_business_inputs`.
 Installation, operation and candidate must equal the original sealed observation.
 The enclosing file must have integer protocol 2. Fixture metadata without the
 business subdocument refuses; its synthetic stage receipts cannot authorize a
-business effects. Valid synthetic private payloads may exercise transport, while
-their stage observations and actual effects remain explicitly unverified.
+business effect. The private-input transport case uses synthetic expectations
+without executing effects. Separate maintenance cases require the actual package
+inventory and independent database observations.
 
 `migrations` contains exactly `before_versions` and `target_versions`. Each is a
 sorted list of distinct positive integers below 2^63, capped at 1024 entries. The
@@ -100,5 +104,7 @@ The installed private-input case exercises actual Root/input/journal custody,
 attached guarded transport, private bootstrap validation and redacted OTP status,
 but executes no stage effect. Its passing current receipt is required to establish
 those observations; unit checks alone do not verify installed transport.
-Full native startup, effects,
-reboot/replacement-host recovery and J14/J15 acceptance remain unverified.
+The separate [maintenance effect cases](native-maintenance-effects.md) exercise
+fixed migration/bootstrap and schema refusal. Complete native runtime startup,
+lifecycle interruption reconciliation, reboot/replacement-host recovery and
+J14/J15 acceptance remain unverified.
