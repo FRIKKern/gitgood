@@ -8,6 +8,7 @@ import datetime
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -18,6 +19,7 @@ from generation_publication import GenerationPublication
 from native_durable_binding import observe_durable_binding
 from native_service_scope import group_identity
 from resource_generations import canonical
+from stage_native_artifact import publish_directory, sync_directory
 
 
 def write(path, value):
@@ -26,8 +28,25 @@ def write(path, value):
         raise ValueError("fixture receipt limit")
     with path.with_suffix(".partial").open("xb") as target:
         target.write(raw)
-    os.chmod(path.with_suffix(".partial"), 0o600)
-    os.rename(path.with_suffix(".partial"), path)
+        target.flush();os.fchmod(target.fileno(),0o600);os.fsync(target.fileno())
+    publish_directory(path.with_suffix(".partial"),path)
+    sync_directory(path.parent)
+
+
+def failure_site(error):
+    """At most one fixed fixture source location, never arguments or messages."""
+    allowed = {str(Path(__file__)): 'native-owned-manager.py',
+        str(Path(__file__).with_name('native-successor-manager.py')): 'native-successor-manager.py'}
+    result = {'status':'unavailable'};cursor = error.__traceback__
+    for _ in range(128):
+        if cursor is None:return result
+        code = cursor.tb_frame.f_code
+        if (code.co_filename in allowed and code.co_name != 'require'
+                and re.fullmatch(r'[a-zA-Z_][a-zA-Z_0-9]{0,63}',code.co_name)
+                and type(cursor.tb_lineno) is int and 0 < cursor.tb_lineno < 10000):
+            result = {'file':allowed[code.co_filename],'function':code.co_name,'line':cursor.tb_lineno}
+        cursor = cursor.tb_next
+    return {'status':'unavailable'}
 
 
 def wait(path, deadline):
@@ -137,7 +156,8 @@ def main(seed_path):
                 time.sleep(.25)
             raise TimeoutError("fixture was not stopped")
     except Exception as error:
-        write(run / "manager-failed.json", {"phase": phase, "error_type": type(error).__name__})
+        write(run / "manager-failed.json", {"phase": phase, "error_type": type(error).__name__,
+            'check_site':failure_site(error)})
         # No automatic Restart=on-failure retry over retained responsibility.
         # Leave this MainPID present until the bounded root cleanup stops it.
         while time.monotonic() < deadline:

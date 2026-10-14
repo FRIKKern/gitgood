@@ -1,0 +1,9 @@
+{
+  "id": "native-fixture-atomic-publication",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Publish disposable hosted fixture handshakes and manager receipts atomically after content, permissions and sync, preserving foreign targets and failed partials. Add closed manager source-location diagnostics without private messages or paths. Product admission, lifecycle effects and deadlines remain unchanged.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-hosted-ownership.md", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-manager.py", "tools/ci/native-successor-manager.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}

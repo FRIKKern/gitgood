@@ -8,6 +8,7 @@ starts a VM, or removes a retained marker. See native-hosted-ownership.md.
 import argparse
 import ast
 import base64
+import ctypes
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
@@ -60,13 +61,29 @@ def read_json(path, maximum=65536):
 def write_new(path, value, mode=0o644, uid=0, gid=0):
     raw = value if isinstance(value, bytes) else canonical(value)
     require(len(raw) <= 131072)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+    partial = path.parent / ('.fixture-' + str(uuid.uuid4()) + '.partial')
+    descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(descriptor, "wb") as target:
         target.write(raw)
         target.flush()
-        os.fsync(target.fileno())
-        os.fchmod(target.fileno(), mode)
         os.fchown(target.fileno(), uid, gid)
+        os.fchmod(target.fileno(), mode)
+        os.fsync(target.fileno())
+    if sys.platform == 'linux':
+        rename = ctypes.CDLL(None, use_errno=True).renameat2
+        rename.argtypes = [ctypes.c_int,ctypes.c_char_p,ctypes.c_int,ctypes.c_char_p,ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        if rename(-100,os.fsencode(partial),-100,os.fsencode(path),1) != 0:
+            raise OSError(ctypes.get_errno(),'Fixture publication refused')
+        directory = os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+        try:os.fsync(directory)
+        finally:os.close(directory)
+    elif os.name == 'nt':
+        # Windows rename refuses an existing destination. This path permits
+        # small local fixture tests, never a hosted ownership proof.
+        os.rename(partial,path)
+    else:
+        raise ValueError('Unsupported fixture publication platform')
 
 
 def command(arguments, *, environment=None, input_bytes=None, timeout=20):
@@ -297,6 +314,22 @@ def failure_check_site(error):
             result = {'file': 'native-owned-proof.py', 'function': code.co_name, 'line': cursor.tb_lineno}
         cursor = cursor.tb_next
     return {'status': 'unavailable'}
+
+
+def manager_failure(detail):
+    """Closed metadata only, including an optional fixed manager source site."""
+    if type(detail) is not dict or set(detail) not in ({'phase','error_type'},{'phase','error_type','check_site'}):return None
+    if not all(type(detail[name]) is str and re.fullmatch(r'[a-zA-Z-]{1,64}',detail[name]) for name in ('phase','error_type')):return None
+    result = {name:detail[name] for name in ('phase','error_type')}
+    if 'check_site' in detail:
+        site = detail['check_site']
+        if site == {'status':'unavailable'}:result['check_site'] = site
+        elif (type(site) is dict and set(site) == {'file','function','line'}
+                and type(site['file']) is str and site['file'] in {'native-owned-manager.py','native-successor-manager.py'}
+                and type(site['function']) is str and re.fullmatch(r'[a-zA-Z_][a-zA-Z_0-9]{0,63}',site['function'])
+                and type(site['line']) is int and 0 < site['line'] < 10000):result['check_site'] = dict(site)
+        else:return None
+    return result
 
 
 def bounded_diagnostic_read(path, maximum=4096):
@@ -1711,9 +1744,8 @@ def main(args):
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
                 detail = read_json(failed, 1024)
-                if (set(detail) == {"phase", "error_type"} and
-                        all(isinstance(value, str) and re.fullmatch(r"[a-zA-Z-]{1,64}", value) for value in detail.values())):
-                    receipt["failure"]["manager"] = detail
+                observed_manager = manager_failure(detail)
+                if observed_manager is not None:receipt["failure"]["manager"] = observed_manager
         # No exception string, stack, configuration, private logs, SQL or secret
         # environment is written into the publishable receipt.
     finally:
