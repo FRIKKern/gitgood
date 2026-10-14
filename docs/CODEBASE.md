@@ -30,6 +30,10 @@ This map describes code in this checkout. It is not a release checklist. Use [cu
 
 Git transport has separate HTTP and SSH entries but uses the same backend access and write rules. Read [architecture](architecture.md) for ownership boundaries and [QUALITY.md](../QUALITY.md) for the invariants every path must preserve.
 
+[CommandPort](../apps/forge/lib/gitgood/command_port.ex) closes captured command
+adapter ports for buffered and streaming workers. It tolerates prior closure so
+an adapter's normal exit during cleanup cannot erase its completed command result.
+
 ## Find a feature
 
 | Working on… | Backend entry points | Interface or contract |

@@ -43,6 +43,12 @@ OTP channel sends apply flow control and a five-second send deadline. The receiv
 
 No shell, PTY, SFTP, arbitrary command/environment, password authentication or TCP forwarding is granted. Command grammar accepts only canonical Git upload-pack/receive-pack repository paths. Current HTTPS restrictions also apply: protected main, no force rewrites/deletes, LFS or repository-supplied executable hooks. New immutable tags are supported for private releases; tag replacement/deletion is denied.
 
+Completed adapter frames retain their actual command outcome even when the
+adapter exits during cleanup. Streaming and buffered workers close only their
+captured port directly and tolerate prior closure; they do not rely on a separate
+port observation that can race with exit. This preserves the result while keeping
+the adapter responsible for its child-process cleanup.
+
 ## Repeatable evidence
 
 - `mix precommit`: registration ownership/retry/duplicate/expiry/revocation, CSRF, command grammar, stream byte preservation and EOF regression, limits, descendant cleanup, and revocation on an existing OTP SSH connection.

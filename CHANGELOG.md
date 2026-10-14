@@ -409,6 +409,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Navigate repository cards, files, history and pull-request lists through the web router while retaining shareable URLs and disabling speculative reads.
   Sources: [details 1](docs/implementation/browsing.md)
 
+- Preserve completed Git command outcomes when the command adapter exits during port cleanup. Streaming and buffered workers close their captured port directly and tolerate prior closure, avoiding a spurious interrupted result.
+  Sources: [details 1](apps/forge/lib/gitgood/command_port.ex), [details 2](apps/forge/lib/gitgood/command_stream_worker.ex), [details 3](apps/forge/lib/gitgood/command_worker.ex), [details 4](apps/forge/test/gitgood/command_port_test.exs), [details 5](docs/implementation/ssh.md)
+
 - Preserve exact evidence requests in encrypted native custody across reload, navigation and panel unmount, with actor-only recovery, separate receipt acknowledgement and safe retirement.
   Sources: [details 1](docs/implementation/criterion-evidence.md)
 
