@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import time
@@ -25,6 +26,7 @@ from native_ownership_records import OwnershipRecordRefused
 from native_lifecycle_responsibility import NativeLifecycleResponsibility, sha
 from native_service_scope import group_identity
 from native_public_runtime import NativePublicRuntime, PublicRuntimeRefused
+from resource_generations import canonical
 
 spec = importlib.util.spec_from_file_location('owned_fixture', Path(__file__).with_name('native-owned-manager.py'))
 fixture = importlib.util.module_from_spec(spec)
@@ -112,6 +114,18 @@ def main(seed_path):
                 journal.begin({'migration-owner': 'migrate', 'bootstrap-owner': 'bootstrap', 'runtime-owner': 'verify'}[label])
             reservation = controller.reserve(mode)
             fixture.write(stage / 'reserved.json', reservation)
+            if seed.get('lifecycle_fixture') and label == 'migration-owner':
+                phase = 'original-controller-root-request'
+                fixture.wait(seal / 'fixture-root-request-start.json',deadline)
+                for rejected in (True,False):
+                    operation = '00000000-0000-4000-8000-000000000099' if rejected else seed['ownership_operation']
+                    assert operation != seed['ownership_operation'] if rejected else operation == seed['ownership_operation']
+                    with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
+                        connection.settimeout(2);connection.connect(str(stage/'root-request.sock'))
+                        payload = {'protocol':2,'kind':'native_root_controller_request','installation':seed['installation'],
+                            'operation':operation,'history_lock_fd':custody.lock}
+                        connection.sendall(canonical(payload)+b'\n');connection.shutdown(socket.SHUT_WR)
+                        fixture.wait(seal/('fixture-root-request-'+('refused' if rejected else 'accepted')+'.json'),deadline)
             # Root observes the actual held SQL/kernel exclusion before this
             # new owner exists. This is fixture scheduling, not admission.
             fixture.wait(seal / ('fixture-launch-' + label + '.json'), deadline)

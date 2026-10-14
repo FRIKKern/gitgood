@@ -114,6 +114,12 @@ refusal. Its private Root admission entry shares persistent validation with the
 unchanged ordinary caller gate. Read [Root live resource observation](implementation/native-root-live-binding.md)
 for the separate exclusion, allocation, actual dispatch and recovery requirements.
 
+[native_root_controller_request.py](../tools/deployment/native_root_controller_request.py)
+owns the closed original-controller socket request and Linux history-descriptor
+observation, bracketing peer and kernel checks with the original live view. Read
+[original controller requests](implementation/native-root-controller-request.md)
+for the database exclusion, effect authority and production dispatch still needed.
+
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 
 TanStack generates `apps/web/src/routeTree.gen.ts` from the route files. Local `.gitgood/` directories hold ignored development state and may contain private verification or recovery materials. They are not a scratch directory to delete blindly. The [evidence contract](../evidence/README.md) explains what may be published.
