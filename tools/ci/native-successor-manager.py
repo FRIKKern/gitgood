@@ -158,8 +158,12 @@ def main(seed_path):
                 fixture.wait(seal / 'fixture-correct-action.json', deadline)
             phase = label + '-actual-admission-and-publication'
             with (stage / 'worker.private.log').open('xb') as output:
-                beam = fixture.launch([seed['release'] + '/bin/gitgood', 'eval',
-                    'Code.eval_file("' + seed['worker'] + '")'], leaf, environment=environment, output=output)
+                default_stage = seed.get('default_release_fixture') and label == 'runtime-owner'
+                arguments = [seed['release'] + '/bin/gitgood', 'start'] if default_stage else [
+                    seed['release'] + '/bin/gitgood', 'eval', 'Code.eval_file("' + seed['worker'] + '")']
+                if default_stage:
+                    environment = {key: value for key, value in environment.items() if not key.startswith('GITGOOD_OWNED_PROOF_')}
+                beam = fixture.launch(arguments, leaf, environment=environment, output=output)
                 fixture.write(stage / 'launched.json', {'launcher_pid': beam.pid})
                 sentinel = None
                 public = None
@@ -167,12 +171,16 @@ def main(seed_path):
                 while beam.poll() is None:
                     assert time.monotonic() < deadline
                     serve(controller, stage)
+                    if default_stage and controller.state == 'complete' and not (stage / 'default-owner.json').exists():
+                        fixture.write(stage / 'default-owner.json', {'record': controller.record,
+                            'release_command': 'start', 'fixture_runtime_application_substitution': False})
                     if public_stage and (seal / 'fixture-start-public-runtime.json').exists() and public is None:
                         public = NativePublicRuntime(controller)
                         public.start()
                         fixture.write(stage / 'public-services.json', {'web': public.births['web'], 'edge': public.births['edge'],
                             'fixed_production_launcher_used': True, 'public_activation_verified': False})
-                    if public is not None and public.state == 'running':
+                    observe_native_abort_first = default_stage and (seal / 'fixture-observe-native-abort-first.json').exists()
+                    if public is not None and public.state == 'running' and not observe_native_abort_first:
                         try:
                             public.check()
                         except PublicRuntimeRefused:
@@ -181,8 +189,12 @@ def main(seed_path):
                         sentinel = fixture.launch(['/usr/bin/sleep', '300'], parent / 'web',
                             environment={'PATH': '/usr/bin:/bin'}, output=subprocess.DEVNULL)
                         fixture.write(stage / 'sentinel.json', {'sentinel_pid': sentinel.pid})
+                if default_stage:
+                    assert public is not None and public.state == 'running' and public.closed_receipt is None
+                    assert (seal / 'fixture-observe-native-abort-first.json').exists()
                 fixture.write(stage / 'owner-exited.json', {'exit_code': beam.returncode,
-                                                           'fixture_signalled_beam': False})
+                    'fixture_signalled_beam': False,
+                    'public_stop_deferred_until_native_release_exit': bool(default_stage)})
                 if public_stage:
                     assert public is not None
                     if not (stage / 'public-quiescent.json').exists():

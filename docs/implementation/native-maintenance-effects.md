@@ -5,8 +5,9 @@ and `Gitgood.Release.native_bootstrap_owner/0`. They start a separate permanent
 application with the original lifecycle ownership startup first, then the fixed
 Repo and maintenance worker. They accept no worker list, program, callback,
 input path or authority map. A running product or maintenance application is
-refused rather than reused. The default product application still refuses native
-runtime startup; these commands do not establish installation readiness.
+refused rather than reused. [Normal native runtime startup](native-default-startup.md)
+uses its own fixed callback and prerequisites; maintenance commands do not
+establish installation readiness.
 
 The fixed Repo child pins every connection to `pg_catalog, public`, independently
 of role/database search-path defaults. Both actions require that exact effective

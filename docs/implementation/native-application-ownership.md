@@ -1,7 +1,10 @@
 # Native application ownership
 
-Implementation work under decision 0018. Complete application startup, native
-leases, generation-aware markers and lifecycle admission remain unfinished.
+Historical prerequisite notes under decision 0018. The early observations below
+describe component development and its initial development-only application gate.
+Read [default native startup](native-default-startup.md), [runtime effects](native-runtime-effects.md)
+and [hosted ownership](native-hosted-ownership.md) for current integration and
+installed evidence boundaries. Complete lifecycle and recovery remain unfinished.
 
 The [publication integration](native-ownership-publication.md) now includes marker
 custody, original backend/owner-socket observation and a protected fixed entry.

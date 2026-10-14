@@ -1,0 +1,9 @@
+{
+  "id": "native-default-startup",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Connect normal packaged native release boot to original ownership, the fixed runtime root and one-use schema-checked activation. Refusal stops only the newly created root. Add installed public-function and permanent-release failure checks without a fixture runtime substitution; full lifecycle, activation and recovery remain unfinished.",
+  "journeys": ["J14", "J15", "J01", "J02"],
+  "references": ["docs/implementation/native-default-startup.md", "apps/forge/lib/gitgood/application.ex", "apps/forge/lib/gitgood/native_runtime.ex", "tools/ci/native-owned-proof.py"],
+  "withdrawn": false
+}

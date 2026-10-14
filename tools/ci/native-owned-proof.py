@@ -587,7 +587,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False, runtime_effects=False, runtime_schema_refusal=False, public_runtime=False):
+def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False, runtime_effects=False, runtime_schema_refusal=False, public_runtime=False, default_release=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -663,6 +663,9 @@ def allocate_case(label, runtime, database, candidate, *, controller=False, life
         seed['public_runtime_fixture'] = True
         seed['web'] = str(runtime / 'web')
         seed['edge_template'] = str(runtime / 'Caddyfile.example')
+    if default_release:
+        require(public_runtime)
+        seed['default_release_fixture'] = True
     if controller:
         directory = Path('/run/gitgood/installations') / installation
         root_directory(directory.parent)
@@ -759,6 +762,66 @@ def capture_attachment(seed, attached, database, *, mode='runtime', protocol=3):
     require(read_json(marker)["record_sha256"] == hashlib.sha256(canonical(record)).hexdigest())
     return {"owner": owner, "helper": helper, "descendant": descendant, "backend": backend,
             "retained": retained, "marker": marker, "record_file": fingerprint(retained), "marker_file": fingerprint(marker)}
+
+
+def capture_default_attachment(seed, launched, config, database, server_scope):
+    """Root's actual normal-release observations; no fixture witness or fake samples."""
+    from native_kernel_backend import observe_held_backend_kernel_identity
+    from native_ownership_records import validate_record
+    from native_service_scope import members
+    record = launched['record'];validate_record(record)
+    require(launched['release_command'] == 'start' and launched['fixture_runtime_application_substitution'] is False)
+    require(record['protocol'] == 4 and record['mode'] == 'runtime')
+    require(all(record[name] == seed[{'installation':'installation','operation':'ownership_operation','candidate':'candidate'}[name]]
+                for name in ('installation', 'operation', 'candidate')))
+    native = Path('/sys/fs/cgroup/system.slice') / seed['unit'] / 'native'
+    helper_pids = []
+    for pid in members(native):
+        text = str(pid)
+        try:
+            with (Path('/proc') / text / 'cmdline').open('rb') as source:command_line = source.read(4097)
+        except FileNotFoundError:continue
+        require(len(command_line) <= 4096)
+        arguments = command_line.split(b'\0')
+        if b'/opt/gitgood/native/v2/native_generation_monitor_entry.py' in arguments:
+            require(arguments[0] == seed['executables']['python'].encode())
+            helper_pids.append(pid)
+    require(len(helper_pids) == 1, 'normal release original monitor not unique')
+    owner = process(record['owner']['pid']);helper = process(helper_pids[0])
+    require(owner['birth'] == record['owner']['birth'] and descendant_of(helper['pid'], owner['pid']))
+    require(all(item['uid'] == seed['uid'] and item['cgroup'] == '0::/system.slice/' + seed['unit'] + '/native'
+                for item in (owner, helper)))
+    backend = process(record['database_session']['backend_pid'])
+    require(backend['birth'] == record['backend_kernel']['kernel_birth'] and backend['uid'] == server_scope['postgres_uid'])
+    samples = 0
+    deadline = time.monotonic() + 30
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    ready_url = 'http://127.0.0.1:' + config['forge']['PORT'] + '/health/ready'
+    while samples < 5:
+        require(time.monotonic() < deadline)
+        for original in (owner, helper):
+            actual = process(original['pid'])
+            require(actual['state'] not in {'Z','X'} and all(actual[name] == original[name]
+                for name in ('pid','birth','uid','parent','cgroup','session')))
+        current = observe_held_backend_kernel_identity(seed['executables']['psql'], config['forge']['DATABASE_URL'],
+            record['backend_kernel'], record['database_session']['database'], server_scope,
+            owner={name: record['owner'][name] for name in ('pid','birth','uid')})
+        require(current['owner_connection_observed'] and current['original_backend_kernel_observed'] and current['lease_acquired'] is False)
+        try:
+            with opener.open(ready_url, timeout=3) as response:
+                require(response.geturl() == ready_url)
+                raw = response.read(65537);require(len(raw) <= 65536)
+                ready = json.loads(raw)
+                require(response.status == 200 and ready['candidate'] == seed['candidate'] and ready['dirty'] is False)
+                require(ready['status'] == 'ready' and all(ready['checks'].values()))
+        except urllib.error.URLError:
+            time.sleep(.1);continue
+        samples += 1;time.sleep(.2)
+    retained = Path(seed['root']) / 'storage/.gitgood-ownership-v2' / (record['claim'] + '.json')
+    marker = Path(seed['root']) / 'storage/.gitgood-runtime-v2.json'
+    require(read_json(retained) == record and read_json(marker)['record_sha256'] == hashlib.sha256(canonical(record)).hexdigest())
+    return {'owner': owner, 'helper': helper, 'backend': backend, 'retained': retained, 'marker': marker,
+        'record_file': fingerprint(retained), 'marker_file': fingerprint(marker), 'independent_current_samples': samples}
 
 
 def inject_loss(label, captured, session, database):
@@ -1043,8 +1106,13 @@ def run_successor_case(seed, config, password, database, server_scope):
             require(database.query("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND granted "
                 f"AND pid={excluded['pid']} AND classid::bigint=1197034575 AND objid::bigint=1 AND objsubid=2 AND mode='ExclusiveLock'") == '1')
             write_new(seal / 'fixture-correct-action.json', {'original_reservation_retained': True})
-        attached = wait_for(stage / 'attached.json', run, 100)
-        captured = capture_attachment(seed, attached, database, mode=mode, protocol=4)
+        default_stage = bool(seed.get('default_release_fixture') and label == 'runtime-owner')
+        if default_stage:
+            attached = wait_for(stage / 'default-owner.json', run, 100)
+            captured = capture_default_attachment(seed, attached, config, database, server_scope)
+        else:
+            attached = wait_for(stage / 'attached.json', run, 100)
+            captured = capture_attachment(seed, attached, database, mode=mode, protocol=4)
         if seed.get('business_inputs_fixture') and not seed.get('business_effects_fixture') and label != 'runtime-owner':
             private = wait_for(stage / 'private-inputs-observed.json', run, 5)
             require(private == {'action': 'migrate' if label == 'migration-owner' else 'bootstrap',
@@ -1058,10 +1126,11 @@ def run_successor_case(seed, config, password, database, server_scope):
         if pointer is None:
             pointer = record['pointer']
         require(record['pointer'] == pointer and record['scope'] == observed['scope'])
-        require(attached['repeated_admission_refused'] is True)
-        refused = wait_for(stage / 'repeat-admission-refused.json', run, 5)
-        require(refused == {'actual_endpoint_refused': True, 'controller_state': 'complete',
-                           'assignment_preserved': True, 'claim': record['claim']})
+        if not default_stage:
+            require(attached['repeated_admission_refused'] is True)
+            refused = wait_for(stage / 'repeat-admission-refused.json', run, 5)
+            require(refused == {'actual_endpoint_refused': True, 'controller_state': 'complete',
+                               'assignment_preserved': True, 'claim': record['claim']})
         assignment = read_json(transition / (record['claim'] + '.assignment.json'))
         require(assignment['owner'] == record['owner'] and assignment['claim'] == record['claim'])
         require(assignment['peer']['uid'] == seed['uid'] and assignment['peer']['pid'] != manager['pid'])
@@ -1102,14 +1171,17 @@ def run_successor_case(seed, config, password, database, server_scope):
                 application_backends = after_backends
             require(not (stage / 'private-inputs-observed.json').exists())
         if seed.get('runtime_effects_fixture') and label == 'runtime-owner':
-            require(listeners_absent(config), 'product listeners started before runtime prerequisites')
+            if not default_stage:
+                require(listeners_absent(config), 'product listeners started before runtime prerequisites')
             application_backends = capture_application_backends(database, seed, server_scope)
-            write_new(stage / 'runtime-activate.json', {'original_backends_captured': True}, 0o600, seed['uid'], seed['gid'])
+            if not default_stage:
+                write_new(stage / 'runtime-activate.json', {'original_backends_captured': True}, 0o600, seed['uid'], seed['gid'])
             seed['proof_phase'] = label + ':actual-product-runtime-activation'
             if not runtime_refusal:
-                active = wait_for(stage / 'runtime-workers-observed.json', run, 65)
-                require(active == {'fixed_native_runtime_entrypoint_used': True, 'schema_before_workers_verified': True,
-                    'actual_product_workers_started': True, 'internal_readiness_observed': True, 'public_activation_verified': False})
+                if not default_stage:
+                    active = wait_for(stage / 'runtime-workers-observed.json', run, 65)
+                    require(active == {'fixed_native_runtime_entrypoint_used': True, 'schema_before_workers_verified': True,
+                        'actual_product_workers_started': True, 'internal_readiness_observed': True, 'public_activation_verified': False})
                 if public_stage:
                     write_new(seal / 'fixture-start-public-runtime.json', {'original_runtime_prerequisites_observed': True})
                     public_services = wait_for(stage / 'public-services.json', run, 40)
@@ -1121,6 +1193,10 @@ def run_successor_case(seed, config, password, database, server_scope):
                         require(actual['cgroup'] == '0::/system.slice/' + seed['unit'] + '/' + name)
                         public_births[name] = actual
                 runtime_observation = probe_native_runtime(seed, config, stage, public=bool(public_stage))
+                if default_stage:
+                    runtime_observation.update(default_packaged_release_start_verified=True,
+                        fixture_runtime_application_substitution=False,
+                        independent_original_owner_kernel_sql_readiness_samples=captured['independent_current_samples'])
                 require(database.query("SELECT count(*) FROM public.repositories WHERE team='pilot' AND name='native-runtime' AND status='ready'", database=business_database) == '1')
                 require(database.query("SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='fixture_shadow'", database=business_database) == '0')
                 after_backends = capture_application_backends(database, seed, server_scope)
@@ -1128,10 +1204,15 @@ def run_successor_case(seed, config, password, database, server_scope):
                 application_backends = after_backends
         if not stage_refusal:
             seed['proof_phase'] = label + ':inject-original-helper-or-backend-loss'
+            if default_stage:
+                write_new(seal / 'fixture-observe-native-abort-first.json', {'observe_original_permanent_release_abort': True})
             inject_loss(fault, captured, record['database_session'], database)
         seed['proof_phase'] = label + ':owner-exit-acknowledgement'
         exited = wait_for(stage / 'owner-exited.json', run, 15)
         require(exited['fixture_signalled_beam'] is False and exited['exit_code'] != 0)
+        if default_stage:
+            require(exited['public_stop_deferred_until_native_release_exit'] is True)
+            runtime_observation['original_permanent_default_release_abort_verified'] = True
         seed['proof_phase'] = label + ':original-owner-sql-kernel-absence'
         until = time.monotonic() + 10
         while not (absent(captured['owner']) and absent(captured['backend']) and database.backend_absent(record['database_session']) and
@@ -1145,7 +1226,8 @@ def run_successor_case(seed, config, password, database, server_scope):
             public_cleanup = wait_for(stage / 'public-quiescent.json', run, 12)
             require(public_cleanup == {'original_native_web_edge_leaves_empty': True,
                 'cleanup_actor': 'native-public-runtime', 'retained_responsibility_untouched': True})
-            require(all(absent(value) for value in public_births.values()) and absent(captured['descendant']))
+            require(all(absent(value) for value in public_births.values()))
+            if not default_stage:require(absent(captured['descendant']))
             for name in ('native', 'web', 'edge'):
                 group = Path('/sys/fs/cgroup/system.slice') / seed['unit'] / name
                 require('populated 0' in (group / 'cgroup.events').read_text())
@@ -1172,7 +1254,7 @@ def run_successor_case(seed, config, password, database, server_scope):
         if not public_stage:require(not absent(sentinel))
         seed['proof_phase'] = label + ':original-helper-and-descendant-absence'
         until = time.monotonic() + 5
-        while not (absent(captured['descendant']) and absent(captured['helper'])):
+        while not (absent(captured['helper']) and (default_stage or absent(captured['descendant']))):
             require(time.monotonic() < until, 'original successor descendants remain')
             time.sleep(.1)
         write_new(seal / ('fixture-reap-sentinel-' + label + '.json'), {'sibling_preservation_observed': True})
@@ -1186,9 +1268,10 @@ def run_successor_case(seed, config, password, database, server_scope):
         captured_records.append({'sha': digest, 'record': record, 'captured': captured})
         previous_sha = digest
         stages.append({'stage': label, 'mode': mode, 'claim': record['claim'], 'record_sha256': digest,
-            'distinct_attached_heartbeat_samples': attached['distinct_attached_heartbeat_samples'],
+            'distinct_attached_heartbeat_samples': None if default_stage else attached['distinct_attached_heartbeat_samples'],
+            'independent_original_owner_kernel_sql_readiness_samples': captured['independent_current_samples'] if default_stage else None,
             'held_exclusion_observed_before_owner_launch': True, 'original_exclusion_sql_and_kernel_backend_absent': True,
-            'actual_protected_handoff_completed': True, 'repeated_assignment_refused_by_actual_endpoint': True,
+            'actual_protected_handoff_completed': True, 'repeated_assignment_refused_by_actual_endpoint': not default_stage,
             'original_owner_sql_and_kernel_backend_absent': True, 'record_and_marker_retained': True,
             'captured_application_sql_and_kernel_backends_absent': bool(application_backends),
             'actual_product_runtime_workers_executed': bool(seed.get('runtime_effects_fixture') and label == 'runtime-owner' and not runtime_refusal),
@@ -1452,6 +1535,17 @@ def main(args):
         require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
         receipt['cases'].append({**result, 'owned_unit_stopped': True})
         receipt['fixed_public_runtime_tls_frontend_and_loss_verified'] = True
+        phase = 'native-default-release:allocate'
+        seed, config, password = allocate_case('native-default-release', runtime, database,
+            args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True,
+            runtime_effects=True, public_runtime=True, default_release=True)
+        units.append(seed['unit'])
+        phase = 'native-default-release:ordinary-boot-public-function-and-original-loss'
+        result = run_successor_case(seed, config, password, database, server_scope)
+        command(['/usr/bin/systemctl', 'stop', seed['unit']], timeout=25)
+        require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
+        receipt['cases'].append({**result, 'owned_unit_stopped': True})
+        receipt['actual_default_packaged_release_start_verified'] = True
         phase = 'native-runtime-schema-refusal:allocate'
         seed, config, password = allocate_case('native-runtime-schema-refusal', runtime, database,
             args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True, runtime_effects=True, runtime_schema_refusal=True)

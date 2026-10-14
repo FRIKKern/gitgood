@@ -48,6 +48,7 @@ These are operational implementation references. Begin with the [packaging exper
 | Applying fixed migrations and creating the first owner | [Native maintenance effects](native-maintenance-effects.md) |
 | Starting actual product workers under native ownership | [Native runtime effects](native-runtime-effects.md) |
 | Running the fixed frontend and TLS edge under the original controller | [Native public runtime](native-public-runtime.md) |
+| Booting the ordinary packaged release under native ownership | [Default native startup](native-default-startup.md) |
 | Installing an upgrade and recovering a failure | [Controlled upgrades](installation-upgrade.md) |
 | Coordinating Git, Postgres and configuration backups | [Offline backup and recovery](offline-backup.md) |
 | Exporting and removing an installation | [Installation retirement](installation-retirement.md) |

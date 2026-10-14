@@ -484,6 +484,82 @@ IO.puts("actual-runtime-schema-refused-before-product-children")
         self.assertEqual(result.stdout.strip(), 'actual-runtime-schema-refused-before-product-children', result.stderr)
         self.assertNotIn('warning:', result.stderr)
 
+    def test_actual_default_application_callback_activates_fixed_root_without_nested_application(self):
+        executable = self.fixture_elixir()
+        script = '''
+defmodule Gitgood.InstallationProfile do
+  def resolve("systemd-v2", "/fixture", :runtime), do: {:ok, %{profile: :systemd_v2}}
+end
+defmodule Gitgood.NativeOwnershipStartup do
+  def validate_lifecycle_options(root: "/fixture", action: :runtime), do: :ok
+end
+defmodule Gitgood.NativeOwnershipSupervisor do
+  def start_lifecycle_link("/fixture", :runtime,
+      [{Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]}, Gitgood.NativeRuntimeWorker]) do
+    false = Enum.any?(Application.started_applications(), fn {app, _, _} -> app == :gitgood_native_runtime end)
+    Supervisor.start_link([], strategy: :one_for_all, max_restarts: 0, name: Gitgood.Supervisor)
+  end
+end
+defmodule Gitgood.NativeRuntimeWorker do
+  def activate do
+    root = Process.whereis(Gitgood.Supervisor)
+    true = is_pid(root) and Process.alive?(root)
+    false = Enum.any?(Application.started_applications(), fn {app, _, _} -> app == :gitgood_native_runtime end)
+    case Application.get_env(:gitgood, :fixture_activation, :success) do
+      :success -> {:ok, %{product_workers_started: true, internal_readiness_observed: true}}
+      :refuse -> {:error, :synthetic_refusal}
+      :wrong_outcome -> {:ok, %{product_workers_started: false, internal_readiness_observed: false}}
+      :exit -> exit(:synthetic_refusal)
+      :must_not_run -> raise("existing root was adopted")
+    end
+  end
+end
+defmodule Gitgood.InstallationLease do
+  def enabled?, do: raise("development branch called for native startup")
+end
+defmodule Gitgood.RuntimeWorkers do
+  def children, do: raise("development branch called for native startup")
+end
+defmodule GitgoodWeb.Endpoint do
+  def config_change(_, _), do: :ok
+end
+Code.compile_file(System.fetch_env!("GITGOOD_RUNTIME_SOURCE"))
+Code.compile_file(System.fetch_env!("GITGOOD_APPLICATION_SOURCE"))
+:ok = :application.load({:application, :gitgood,
+  [vsn: ~c"fixture", mod: {Gitgood.Application, []}, applications: [:kernel, :stdlib, :elixir, :logger]]})
+Application.put_env(:gitgood, :supervision_profile, "systemd-v2")
+Application.put_env(:gitgood, :storage_root, "/fixture")
+:ok = Application.start(:gitgood, :permanent)
+true = Process.alive?(Process.whereis(Gitgood.Supervisor))
+IO.puts("actual-default-callback-fixed-root-activated-without-nested-application")
+:ok = Application.stop(:gitgood)
+nil = Process.whereis(Gitgood.Supervisor)
+Process.flag(:trap_exit, true)
+for mode <- [:refuse, :wrong_outcome, :exit] do
+  Application.put_env(:gitgood, :fixture_activation, mode)
+  {:error, :native_runtime_unavailable} = Gitgood.NativeRuntime.start_application()
+  nil = Process.whereis(Gitgood.Supervisor)
+end
+{:ok, existing} = Supervisor.start_link([], strategy: :one_for_all, max_restarts: 0, name: Gitgood.Supervisor)
+Application.put_env(:gitgood, :fixture_activation, :must_not_run)
+{:error, :native_runtime_unavailable} = Gitgood.NativeRuntime.start_application()
+{:error, :native_runtime_unavailable} = Gitgood.Application.start({:takeover, :other}, [])
+{:error, :native_runtime_unavailable} = Gitgood.Application.start(:normal, [:caller_argument])
+true = Process.alive?(existing)
+:ok = Supervisor.stop(existing)
+IO.puts("actual-default-callback-refusal-stops-only-created-root")
+'''
+        environment = {**os.environ,
+            'GITGOOD_RUNTIME_SOURCE': str(HERE.parents[1] / 'apps/forge/lib/gitgood/native_runtime.ex'),
+            'GITGOOD_APPLICATION_SOURCE': str(HERE.parents[1] / 'apps/forge/lib/gitgood/application.ex'),
+            'ERL_FLAGS': '+S 2:2 +SDio 1 +SDcpu 1'}
+        source = self.directory / 'default-runtime-callback.exs';source.write_text(script, encoding='utf-8')
+        result = subprocess.run([executable, str(source)], text=True, capture_output=True, timeout=20, env=environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('actual-default-callback-fixed-root-activated-without-nested-application', result.stdout)
+        self.assertIn('actual-default-callback-refusal-stops-only-created-root', result.stdout)
+        self.assertNotIn('warning:', result.stderr)
+
     @unittest.skipUnless(sys.platform == "linux", "real Linux JIT file-limit check runs on the hosted runner")
     def test_real_beam_jit_boots_with_the_finite_fixture_file_limit(self):
         import resource
