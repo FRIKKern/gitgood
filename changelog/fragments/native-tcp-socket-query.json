@@ -1,0 +1,9 @@
+{
+  "id": "native-tcp-socket-query",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Observe each original database TCP socket through a fresh bounded individual kernel query instead of a complete TCP table scan. Preserve independent caller admission, exact process namespace, expected UID/loopback tuple, sole original descriptor and existing SQL/lease loss checks; actual Linux behavior and full staging still require hosted verification.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-tcp-socket-observation.md", "tools/deployment/native_ownership_database.py", "tools/deployment/test_native_tcp_socket_observation.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

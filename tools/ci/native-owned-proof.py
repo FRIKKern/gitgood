@@ -350,7 +350,8 @@ def artifact_failure(detail):
     functions = {'__init__','check','stage','begin_stage','allocate',
         '_preflight_archive','_check_archive_input','_inspect','_base','_current','_observe','_query',
         '_query_database','_lease','_socket','_client','_lock','_validate_stage',
-        '_staged_output','serve_artifact_stage','_exchange','identity','exclusion'}
+        '_staged_output','serve_artifact_stage','_exchange','identity','exclusion',
+        '_socket_for_process','_tcp_socket_inode','_tcp_socket_reply'}
     types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',
         'RootArtifactPolicyRefused','ProtectedArtifactRefused','RootControllerRequestRefused',
         'RootDatabaseExclusionRefused','RootLiveBindingRefused','RootLifecycleRefused',

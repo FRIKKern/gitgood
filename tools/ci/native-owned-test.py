@@ -98,6 +98,10 @@ class BoundedProofTests(unittest.TestCase):
         original={'chain':[{'error_type':'TimeoutError','check_site':{
             'file':'native_artifact_controller.py','function':'stage','line':344}}],'elapsed_ms':240001}
         self.assertEqual(proof.artifact_failure(original),original)
+        for function in ('_socket_for_process','_tcp_socket_inode','_tcp_socket_reply'):
+            observed={'chain':[{'error_type':'other','check_site':{
+                'file':'native_ownership_database.py','function':function,'line':123}}],'elapsed_ms':15}
+            self.assertEqual(proof.artifact_failure(observed),observed)
         bad=[{**original,'elapsed_ms':True},{**original,'elapsed_ms':1200001},
             {**original,'message':'private'},{**original,'chain':original['chain']*17},
             {**original,'chain':[{'error_type':'private-secret','check_site':{'status':'unavailable'}}]},

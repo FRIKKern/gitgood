@@ -33,11 +33,15 @@ ordinary UID/GID, capability limits, original driver cgroup and mount/cgroup/
 network/PID/time namespaces are checked. Disappearance may be skipped only
 before selection; a selected client is never replaced.
 
-The original client's actual TCP row and descriptor must match the discovered
+The original client's actual kernel TCP identity and descriptor must match the discovered
 loopback client/server ports and ordinary UID. The existing socket primitive is
 shared behind separate admission. The ordinary owner route retains its original
 UID/EUID check before reaching that primitive. Root checks the original admitted
 client before and after socket observation.
+
+[Targeted kernel socket observation](native-tcp-socket-observation.md) performs a
+fresh fixed-connection query while preserving original descriptor and namespace
+checks; it supplies no caller admission, SQL identity or exclusion on its own.
 
 The existing backend observer captures the server's distinct SQL and kernel
 births while the original held lease is present. Every later check brackets fixed

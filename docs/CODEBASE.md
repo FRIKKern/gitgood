@@ -132,6 +132,11 @@ and exclusion views share it without removing effect checks or changing ordinary
 handoff connection rules. Read [retained staging observations](implementation/native-root-database-reader.md)
 for its fixed statements, loss fences and pending actual verification.
 
+[native_ownership_database.py](../tools/deployment/native_ownership_database.py)
+owns the shared, fresh fixed-connection kernel socket query behind independent
+ordinary and Root admission. Read [targeted TCP observation](implementation/native-tcp-socket-observation.md)
+for kernel framing, original process/descriptor checks and pending Linux evidence.
+
 [native_root_artifact_policy.py](../tools/deployment/native_root_artifact_policy.py)
 owns fixed stage-policy preparation and exclusive Root publication under the
 original exclusion and independently provisioned allocation lock. Read

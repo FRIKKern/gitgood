@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import re
 import selectors
+import socket
+import struct
 import subprocess
 import time
 
@@ -91,25 +93,62 @@ def _owner_socket(owner, client_port, server_port):
     return result
 
 
-def _socket_for_process(process, network, uid, client_port, server_port):
-    """Private socket primitive; independent caller admission remains required."""
+def _tcp_socket_reply(raw, sequence, port_id, uid, client_port, server_port):
+    """Decode one bounded kernel reply; never accept a dump or partial identity."""
+    require(type(raw) is bytes and 88 <= len(raw) <= 4096)
+    length,kind,flags,observed_sequence,observed_port = struct.unpack_from('=IHHII',raw)
+    require(kind == 20 and flags == 0 and observed_sequence == sequence and observed_port == port_id)
+    require(88 <= length <= len(raw) and ((length+3)&~3) == len(raw))
+    require(not any(raw[length:]))
+    body = raw[16:length]
+    require(body[0] == socket.AF_INET and body[1] == 1)
+    require(struct.unpack_from('!HH',body,4) == (client_port,server_port))
+    loopback = socket.inet_pton(socket.AF_INET,'127.0.0.1')+bytes(12)
+    require(body[8:24] == loopback and body[24:40] == loopback)
+    require(struct.unpack_from('=I',body,40)[0] == 0)
+    observed_uid,inode = struct.unpack_from('=II',body,64)
+    require(observed_uid == uid and inode > 0)
+    # Kernels add bounded attributes even when no extensions are requested.
+    # They are not identity/authority inputs, but their complete framing must
+    # be valid. Never read a partial or concatenated netlink message as success.
+    offset = 72;seen = set()
+    while offset < len(body):
+        require(len(seen) < 64 and len(body)-offset >= 4)
+        size,attribute = struct.unpack_from('=HH',body,offset)
+        require(size >= 4 and attribute > 0 and attribute not in seen and size <= len(body)-offset)
+        seen.add(attribute);aligned = (size+3)&~3
+        require(aligned <= len(body)-offset and not any(body[offset+size:offset+aligned]))
+        offset += aligned
+    require(offset == len(body))
+    return str(inode)
+
+
+def _tcp_socket_inode(uid, client_port, server_port):
+    """Fresh read-only SOCK_DIAG_BY_FAMILY query for a fixed IPv4 TCP tuple."""
+    require(type(uid) is int and 0 <= uid < 2**32)
     require(type(client_port) is int and 0<client_port<65536)
     require(type(server_port) is int and 0<server_port<65536)
-    with (process/'net/tcp').open('rb') as source:
-        raw = source.read(1048577)
-    require(0<len(raw)<=1048576)
-    rows = raw.decode('ascii').splitlines()
-    require(len(rows)<=8193)
-    expected_local = '0100007F:'+format(client_port,'04X')
-    expected_remote = '0100007F:'+format(server_port,'04X')
-    matching = []
-    for line in rows[1:]:
-        columns = line.split()
-        require(len(columns)>=10)
-        if columns[1]==expected_local and columns[2]==expected_remote and columns[3]=='01':
-            require(columns[7]==str(uid) and re.fullmatch(r'[1-9][0-9]{0,19}',columns[9]))
-            matching.append(columns[9])
-    require(len(matching)==1)
+    loopback = socket.inet_pton(socket.AF_INET,'127.0.0.1')+bytes(12)
+    identity = struct.pack('!HH',client_port,server_port)+loopback+loopback+struct.pack('=III',0,2**32-1,2**32-1)
+    request = struct.pack('=BBBBI',socket.AF_INET,socket.IPPROTO_TCP,0,0,2)+identity
+    require(len(request) == 56)
+    sequence = int.from_bytes(os.urandom(4),'little') or 1
+    # Type20 is observation; no dump, ACK, multicast or destroy flag exists.
+    with socket.socket(socket.AF_NETLINK,socket.SOCK_RAW,4) as observer:
+        observer.settimeout(2);observer.bind((0,0))
+        port_id,groups = observer.getsockname()
+        require(type(port_id) is int and 0 < port_id < 2**32 and groups == 0)
+        message = struct.pack('=IHHII',72,20,1,sequence,port_id)+request
+        require(observer.sendto(message,(0,0)) == len(message))
+        raw,ancillary,flags,address = observer.recvmsg(4096)
+        require(not ancillary and flags == 0 and address == (0,0))
+        return _tcp_socket_reply(raw,sequence,port_id,uid,client_port,server_port)
+
+
+def _socket_for_process(process, network, uid, client_port, server_port):
+    """Private socket primitive; independent caller admission remains required."""
+    require(os.readlink(process/'ns/net') == network == os.readlink('/proc/self/ns/net'))
+    inode = _tcp_socket_inode(uid,client_port,server_port)
     with os.scandir(process/'fd') as iterator:
         entries = []
         for index,entry in enumerate(iterator):
@@ -118,13 +157,14 @@ def _socket_for_process(process, network, uid, client_port, server_port):
     found = []
     for entry in entries:
         try:
-            if os.readlink(process/'fd'/entry)=='socket:['+matching[0]+']':
+            if os.readlink(process/'fd'/entry)=='socket:['+inode+']':
                 found.append(entry)
         except FileNotFoundError:
             continue
     require(len(found)==1)
-    require(os.readlink(process/'fd'/found[0])=='socket:['+matching[0]+']')
-    return {'network_namespace':network,'socket_inode':matching[0],'descriptor':found[0],
+    require(os.readlink(process/'fd'/found[0])=='socket:['+inode+']')
+    require(os.readlink(process/'ns/net') == network == os.readlink('/proc/self/ns/net'))
+    return {'network_namespace':network,'socket_inode':inode,'descriptor':found[0],
             'client_port':client_port,'server_port':server_port}
 
 

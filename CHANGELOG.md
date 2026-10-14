@@ -410,6 +410,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record actual ordinary-user systemd delegation, whole-unit descendant cleanup and bounded manager-loss restart. Select a distinct resource-generation profile with immutable original lifecycle history and explicit continuity. The product supervisor, generation protocol, actual reboot, allocation and Cloud acceptance remain unfinished.
   Sources: [details 1](docs/decisions/0018-native-supervision-generations.md), [details 2](docs/implementation/native-supervision-profile.md)
 
+- Observe each original database TCP socket through a fresh bounded individual kernel query instead of a complete TCP table scan. Preserve independent caller admission, exact process namespace, expected UID/loopback tuple, sole original descriptor and existing SQL/lease loss checks; actual Linux behavior and full staging still require hosted verification.
+  Sources: [details 1](docs/implementation/native-tcp-socket-observation.md), [details 2](tools/deployment/native_ownership_database.py), [details 3](tools/deployment/test_native_tcp_socket_observation.py), [details 4](.github/workflows/product.yml)
+
 - Added permission-filtered native search and activity, opaque collaboration links, shared browser access invalidation and audited owner controls for team membership; corrected merge crash proof to bind the clean source candidate and requirement.
   Sources: [details 1](docs/implementation/activity.md), [details 2](docs/decisions/0008-private-discovery.md)
 

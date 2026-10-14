@@ -21,6 +21,11 @@ checks. Lost original custody permanently refuses and closes only its own SQL
 child. It never reconnects, adopts a replacement, acquires a writer lease, closes
 the ordinary writer or completes a stage.
 
+The shared [targeted TCP observer](native-tcp-socket-observation.md) performs a
+fresh bounded kernel query for the already admitted loopback connection. It
+still verifies the original process namespace and sole matching descriptor;
+no connection identity is cached across checks.
+
 Only the running archive stage retains this reader. Ordinary handoff windows
 keep their short-lived observations so the extra connection cannot interfere
 with the ordinary writer's one-client check. During Root extraction, identity and
