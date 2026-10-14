@@ -329,6 +329,7 @@ class RootExtractionTest(unittest.TestCase):
         value.parent = self.parent;value.source = self.fixture.path
         value.parent_fd = os.open(self.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
         value.archive_fd = os.open(self.fixture.path,os.O_RDONLY|os.O_NOFOLLOW)
+        value.archive_original = fingerprint(os.fstat(value.archive_fd))
         value.work_fd = None;value.code_fd = None;value.snapshot_fd = None;value.controller = None
         value.code_directories = {};value.output_files = {};value.state = 'ready';value.usable = True
         value.policy = dict(policy(),candidate=self.fixture.candidate)
