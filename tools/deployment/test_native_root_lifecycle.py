@@ -4,6 +4,7 @@ from pathlib import Path
 import stat
 import sys
 import tempfile
+import threading
 import unittest
 from contextlib import ExitStack
 from types import SimpleNamespace
@@ -112,7 +113,8 @@ class RootOriginalViewTest(unittest.TestCase):
         value.usable = True;value.owner = (42,43);value.installation = 'fixed-installation';value.operation = 'fixed-operation'
         value.worker = {'candidate':'c'*40,'request_sha256':'d'*64}
         value.original = {'lifecycle':{'generation_sha256':'e'*64,'epoch':1,'stage':'stage','status':'running'}}
-        value._snapshot = Mock(return_value=copy.deepcopy(value.original))
+        value.original_raw = canonical(value.original);value._current = Mock()
+        value._snapshot = Mock(side_effect=AssertionError('Immutable history must not be replayed again'))
         value.inputs = Mock();value.history = Mock();value.controller = Mock()
         return value
 
@@ -126,21 +128,178 @@ class RootOriginalViewTest(unittest.TestCase):
         self.assertFalse({'inputs','request','password','database','configuration'} & set(observed))
 
     def test_changed_history_permanently_poisons_view_and_closes_owned_observers(self):
-        value = self.view();value._snapshot.return_value = {'changed':'history'}
+        value = self.view();value.original['lifecycle']['epoch'] = 2
         with patch('native_root_lifecycle.root_owner',return_value=value.owner):
             with self.assertRaises(RootLifecycleRefused):value.check()
             self.assertFalse(value.usable)
             value.inputs.close.assert_called_once_with();value.history.close.assert_called_once_with()
             value.controller.close.assert_called_once_with()
-            value._snapshot.return_value = value.original
+            value.original['lifecycle']['epoch'] = 1
             with self.assertRaises(RootLifecycleRefused):value.check()
-            self.assertEqual(value._snapshot.call_count,1)
+            value._snapshot.assert_not_called();self.assertEqual(value._current.call_count,1)
 
     def test_different_process_or_thread_refuses_before_history_read(self):
         value = self.view()
         with patch('native_root_lifecycle.root_owner',return_value=(42,44)):
             with self.assertRaises(RootLifecycleRefused):value.check()
         value._snapshot.assert_not_called()
+        value._current.assert_not_called()
+
+    def test_each_observation_rechecks_actual_resources_before_and_after_cached_history(self):
+        value = self.view()
+        with patch('native_root_lifecycle.root_owner',return_value=value.owner):
+            first = value.check();self.assertEqual(first,value.check())
+        self.assertEqual(value._current.call_count,4)
+        self.assertEqual(value.history.custody.check.call_count,2)
+        value._snapshot.assert_not_called()
+
+    def test_original_descriptor_loss_poisoning_does_not_adopt_restored_resources(self):
+        value = self.view();value.history.custody.check.side_effect = OSError('Lost original descriptor')
+        with patch('native_root_lifecycle.root_owner',return_value=value.owner):
+            with self.assertRaises(RootLifecycleRefused):value.check()
+            value.history.custody.check.side_effect = None
+            with self.assertRaises(RootLifecycleRefused):value.check()
+        self.assertFalse(value.usable);value._snapshot.assert_not_called()
+
+
+@unittest.skipUnless(sys.platform == 'linux' and os.getuid() == 0,'Actual isolated Root history descriptors')
+class RootRetainedHistoryDescriptorTest(unittest.TestCase):
+    """Real original descriptors; snapshot semantics and ancestor policy stand-ins.
+
+    Complete generation/lifecycle replay is exercised by installed hosted cases,
+    not inferred from these deliberately small filesystem custody fixtures.
+    """
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)/'installation';root.mkdir(mode=0o700)
+        self.uid,self.gid = 65503,1000;os.chown(root,self.uid,self.gid)
+        value = _RootReadOnlyCustody.__new__(_RootReadOnlyCustody)
+        value.usable = False;value.owner = (os.getpid(),threading.get_ident())
+        value.uid,value.gid = self.uid,self.gid;value.root = root
+        value.directory = root/'history';value.store = value.directory/'generation-records-v2'
+        value.lock_path = value.directory/'.upgrade-history-lock-v1'
+        value.lock = None;value.directories = {};value.known = {};value.retained = {}
+        value.entries = None;value.directory_metadata = {}
+        for relative in ('history','history/generation-records-v2','history/generation-transitions-v2',
+                'history/generation-receipts-v2','history/lifecycle-responsibility-v2',
+                'history/lifecycle-responsibility-v2/heads','history/lifecycle-responsibility-v2/records'):
+            path = root/relative;path.mkdir(mode=0o700);os.chown(path,self.uid,self.gid)
+        self.paths = []
+        for relative in ('.upgrade-history-lock-v1','durable-binding-v2.json','current-generation-v2.json',
+                'generation-records-v2/generation.json','generation-transitions-v2/transition.json',
+                'generation-receipts-v2/receipt.json','lifecycle-responsibility-v2/heads/operation.json',
+                'lifecycle-responsibility-v2/records/snapshot.json'):
+            path = value.directory/relative;self.write(path);self.paths.append(path)
+        policy = self.enterContext(patch('native_root_lifecycle.private_directory',
+            side_effect=lambda path,uid,gid:(self.identity(path),())))
+        value.root_custody = policy(root,self.uid,self.gid)
+        value._identity(value.directory);value.usable = True
+        value.lock = value._open(value.lock_path,os.O_RDONLY)
+        self.value = value;self.addCleanup(value.__exit__,None,None,None)
+        lifecycle = value.directory/'lifecycle-responsibility-v2'
+        fields = ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink')
+        self.snapshot = {'generation':{'files':{str(path.relative_to(value.directory)):
+                tuple(getattr(path.stat(),field) for field in fields) for path in self.paths if not path.is_relative_to(lifecycle)}},
+            'lifecycle_files':{'directories':{role:(*self.directory_identity(path),path.stat().st_mtime_ns,path.stat().st_ctime_ns)
+                for role,path in (('lifecycle',lifecycle),('heads',lifecycle/'heads'),('records',lifecycle/'records'))},
+                'files':{str(path.relative_to(lifecycle)):value._file(path.stat()) for path in self.paths if path.is_relative_to(lifecycle)}}}
+
+    def identity(self,path):
+        info = path.stat();return {'device':info.st_dev,'inode':info.st_ino,'uid':info.st_uid}
+
+    @staticmethod
+    def directory_identity(path):
+        return tuple(getattr(path.stat(),field) for field in ('st_dev','st_ino','st_uid','st_gid','st_mode'))
+
+    def write(self,path,raw=b'{"fixture":true}'):
+        path.write_bytes(raw);path.chmod(0o600);os.chown(path,self.uid,self.gid)
+
+    def pin(self):self.value._pin_snapshot(self.snapshot)
+
+    def test_original_descriptors_and_bytes_are_retained_without_replaying_or_writing(self):
+        before = {path:(path.stat().st_ino,path.read_bytes(),path.stat().st_mode) for path in self.paths}
+        self.pin()
+        with patch.object(self.value,'_records',side_effect=AssertionError('Replay')):
+            for _ in range(3):self.value.check()
+        self.assertEqual(set(self.value.retained),set(self.paths))
+        self.assertTrue(all(os.fstat(fd).st_uid == self.uid for fd in self.value.retained.values()))
+        self.value.__exit__(None,None,None)
+        self.assertEqual(self.value.retained,{})
+        self.assertEqual({path:(path.stat().st_ino,path.read_bytes(),path.stat().st_mode) for path in self.paths},before)
+
+    def test_same_bytes_generation_replacement_retains_original_but_refuses(self):
+        self.pin();path = self.paths[3];raw = path.read_bytes()
+        retained = path.with_name('retained-original.json');path.rename(retained);self.write(path,raw)
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+        self.assertEqual(retained.read_bytes(),raw);self.assertEqual(path.read_bytes(),raw)
+
+    def test_in_place_lifecycle_rewrite_with_restored_mtime_refuses(self):
+        self.pin();path = self.paths[-1];before = path.stat()
+        path.write_bytes(b'{"fixture":fals}');os.utime(path,ns=(before.st_atime_ns,before.st_mtime_ns))
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_generation_mode_change_refuses_without_a_content_change(self):
+        self.pin();self.paths[3].chmod(0o400)
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_new_hardlink_refuses_even_outside_the_recorded_history(self):
+        self.pin();os.link(self.paths[-1],self.value.root/'external-link')
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_additional_generation_entry_refuses_even_when_original_files_are_unchanged(self):
+        self.pin();self.write(self.value.store/'unknown.json')
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_transient_lifecycle_entry_refuses_after_name_set_is_restored(self):
+        self.pin();path = self.paths[-1].with_name('.partial-interrupted')
+        self.write(path);path.unlink()
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_rebound_original_file_descriptor_refuses(self):
+        self.pin();fd = self.value.retained[self.paths[3]]
+        other = os.open(self.paths[4],os.O_RDONLY)
+        try:os.dup2(other,fd)
+        finally:os.close(other)
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_lost_descriptor_poisons_public_view_and_closes_other_owned_observers(self):
+        self.pin();descriptors = list(self.value.retained.values())
+        os.close(descriptors[0])
+        public = RootOriginalViewTest().view();public.owner = self.value.owner
+        public.history = SimpleNamespace(custody=self.value,close=self.value.__exit__)
+        with patch('native_root_lifecycle.root_owner',return_value=public.owner):
+            with self.assertRaises(RootLifecycleRefused):public.check()
+            with self.assertRaises(RootLifecycleRefused):public.check()
+        self.assertFalse(public.usable);self.assertFalse(self.value.usable)
+        for fd in descriptors:
+            with self.assertRaises(OSError):os.fstat(fd)
+        self.assertTrue(all(path.exists() for path in self.paths))
+
+    def test_same_bytes_history_directory_replacement_refuses(self):
+        self.pin();directory = self.value.store;directory.rename(directory.with_name('retained-store'))
+        directory.mkdir(mode=0o700);os.chown(directory,self.uid,self.gid);self.write(directory/'generation.json')
+        with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_changed_metadata_between_replay_and_pinning_refuses(self):
+        self.paths[-1].chmod(0o400)
+        with self.assertRaises(RootLifecycleRefused):self.pin()
+
+    def test_same_bytes_generation_rewrite_between_replay_and_pinning_refuses(self):
+        path = self.paths[3];before = path.stat();path.write_bytes(path.read_bytes())
+        os.utime(path,ns=(before.st_atime_ns,before.st_mtime_ns))
+        with self.assertRaises(RootLifecycleRefused):self.pin()
+
+    def test_pinning_interruption_closes_only_owned_original_descriptors(self):
+        original_open = self.value._open;calls = []
+        def interrupted(path,flags):
+            if len(calls) == 2:raise KeyboardInterrupt('Fixture interruption')
+            fd = original_open(path,flags);calls.append(fd);return fd
+        with patch.object(self.value,'_open',side_effect=interrupted):
+            with self.assertRaises(KeyboardInterrupt):self.pin()
+        self.value.__exit__(None,None,None)
+        for fd in calls:
+            with self.assertRaises(OSError):os.fstat(fd)
+        self.assertTrue(all(path.exists() for path in self.paths))
 
 
 @unittest.skipUnless(sys.platform == 'linux' and os.getuid() == 0,'Actual isolated Root input descriptors')

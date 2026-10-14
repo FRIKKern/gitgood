@@ -383,6 +383,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Deliver original private lifecycle inputs once through the attached generation monitor, with fixed action, ownership/stage binding, bounded deadlines, independent BEAM validation and credential-redacted OTP status. Add an installed private-input exercise with synthetic payloads; actual business effects and complete native startup/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-business-inputs.md), [details 2](docs/implementation/native-hosted-ownership.md), [details 3](tools/deployment/native_monitor_business_inputs.py), [details 4](apps/forge/lib/gitgood/native_lifecycle_business_inputs.ex)
 
+- Retain validated original generation and lifecycle descriptors for Root staging checks instead of repeatedly replaying unchanged history. Recheck every original file identity, complete directory entry set and change time; preserve effect guards and refuse replacements, edits or lost descriptors. Full production staging and recovery remain subject to hosted verification.
+  Sources: [details 1](docs/implementation/native-root-lifecycle.md), [details 2](tools/deployment/native_root_lifecycle.py), [details 3](tools/deployment/test_native_root_lifecycle.py)
+
 - Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py)
 

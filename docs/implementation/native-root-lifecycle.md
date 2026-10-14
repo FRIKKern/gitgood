@@ -42,6 +42,25 @@ original sealed request and input seal, be recorded as running, and refer to the
 current complete generation. Its status and metadata remain the captured original
 snapshot; later progress requires a separate explicitly admitted observation.
 
+The complete replay runs when the Root view is constructed. After validation,
+the view retains a read-only descriptor for every generation and lifecycle file,
+including the current pointer, transitions, receipts and operation heads. It
+pins their original device, inode, owner/group, mode, link count, size and change
+times, along with every original directory descriptor, complete bounded entry
+set and directory change times. Pinning must match the metadata captured during
+replay; interruption or any mismatch closes the owned view rather than adopting
+new files. Descriptor exhaustion refuses the observation.
+
+Every subsequent check compares the original opened and named objects and exact
+entry sets before and after checking the live controller, Root policies and
+sealed inputs. Cached parsed history must still match its original canonical
+bytes. This avoids reopening and replaying an unchanged history for each nested
+staging guard. It does not skip an effect guard, take the ordinary history lock,
+reconnect a lost database reader, accept a same-byte replacement or permit later
+history progress. A transient entry that is removed again changes directory
+metadata and also refuses. Ordinary history readers and replay validation remain
+unchanged.
+
 Any original-resource change permanently poisons the public view and closes its
 owned descriptors. An interrupted history constructor also closes temporary
 reader descriptors. All policies, inputs, locks and retained history remain.
@@ -53,6 +72,12 @@ controller/account/filesystem stand-ins. Root-only input tests use actual
 ordinary-owned files and Root descriptors with an explicit scratch ancestor
 policy stand-in. They check byte/mode/inode preservation and refusal after a
 same-byte replacement; their hosted execution remains required. The workflow
+also runs retained-history descriptor tests using actual ordinary-owned files
+and Root descriptors. Their small snapshot and scratch ancestor policy are
+explicit stand-ins: they establish filesystem change detection and cleanup,
+not complete lifecycle replay or stage authority. Full replay and the unchanged
+production payload still require the installed hosted lifecycle/staging case.
+The workflow
 also installs the production module and constructs this view in lifecycle cases
 after the ordinary manager records its first maintenance reservation. It compares
 repeated observations of the actual controller, fixed policies, original private
