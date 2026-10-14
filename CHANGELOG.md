@@ -362,6 +362,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Require a local disk-space reserve before large development allocations and prefer hosted verification while preserving source, recovery material and retained evidence during cache cleanup.
   Sources: [details 1](AGENTS.md), [details 2](docs/DEVELOPMENT.md)
 
+- Bracket read-only archive preflight with full original custody checks and verify the held and named archive at every member. Refuse controller or archive loss before extraction. Preserve every write/publication guard, archive bound and deadline; full production staging remains subject to hosted verification.
+  Sources: [details 1](docs/implementation/native-protected-artifact.md), [details 2](tools/deployment/native_protected_artifact.py), [details 3](tools/deployment/test_native_protected_artifact.py)
+
 - Hash the five Root-controlled executables once per generation-guard capture, with repeated original file custody checks and both configuration/database observations retained; actual service timing remains unverified.
   Sources: [details 1](docs/implementation/native-generation-lease-guard.md), [details 2](docs/implementation/native-durable-bindings.md), [details 3](tools/deployment/native_durable_binding.py)
 

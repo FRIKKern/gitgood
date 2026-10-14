@@ -29,7 +29,7 @@ def failure_observation(error):
         'native_root_controller.py','native_ownership_database.py','native_root_database_reader.py'}
     allowed = {str(Path(__file__).with_name(name)):name for name in files}
     functions = {'__init__','check','stage','begin_stage','allocate',
-        '_preflight_archive','_inspect','_base','_current','_observe','_query',
+        '_preflight_archive','_check_archive_input','_inspect','_base','_current','_observe','_query',
         '_query_database','_lease','_socket','_client','_lock','_validate_stage',
         '_staged_output','serve_artifact_stage','_exchange','identity','exclusion'}
     types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',

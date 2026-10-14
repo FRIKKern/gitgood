@@ -122,6 +122,58 @@ class ProtectedPolicyTest(unittest.TestCase):
             close.assert_called_once_with(13)
 
 
+class ArchiveReadGuardTest(unittest.TestCase):
+    """Actual bounded archive reads; explicit controller/custody stand-ins.
+
+    These fixtures do not establish Root authority or complete staging. They
+    verify original archive pinning and that a lost observation cannot write.
+    """
+    def setUp(self):
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        path=Path(temporary.name)/'archive.tar.gz'
+        with tarfile.open(path,'w:gz') as archive:
+            for index in range(3):
+                info=tarfile.TarInfo('forge/file'+str(index));info.size=3
+                archive.addfile(info,io.BytesIO(b'abc'))
+        self.stage=NativeProtectedArtifactStage.__new__(NativeProtectedArtifactStage)
+        self.stage.source=Mock(wraps=path);self.stage.archive_fd=os.open(path,os.O_RDONLY)
+        self.addCleanup(os.close,self.stage.archive_fd)
+        if sys.platform=='win32':
+            # Windows pathname ctime is creation time while fstat uses change
+            # time. Supply Linux-equivalent named metadata only; byte reads
+            # and the held descriptor remain actual, and no Root grant is made.
+            self.stage.source.lstat.side_effect=lambda:os.fstat(self.stage.archive_fd)
+        self.stage.archive_original=fingerprint(os.fstat(self.stage.archive_fd))
+        self.stage.check=Mock();self.stage.close=Mock();self.stage.state='ready'
+
+    def test_read_only_parse_brackets_custody_and_pins_every_original_member(self):
+        before=self.stage.source.read_bytes()
+        with patch.object(self.stage,'_check_archive_input',wraps=self.stage._check_archive_input) as archive_check:
+            self.stage._preflight_archive()
+        self.assertEqual(self.stage.check.call_count,2);self.assertEqual(archive_check.call_count,3)
+        self.assertEqual(self.stage.source.read_bytes(),before)
+
+    def test_controller_loss_before_parse_refuses_without_reader_or_effects(self):
+        self.stage.check.side_effect=ProtectedArtifactRefused('Original controller lost')
+        with patch('native_protected_artifact.gzip.GzipFile') as reader,patch('native_protected_artifact.os.mkdir') as mkdir:
+            with self.assertRaises(ProtectedArtifactRefused):self.stage.stage()
+        reader.assert_not_called();mkdir.assert_not_called();self.stage.close.assert_called_once()
+
+    def test_controller_loss_after_parse_refuses_before_inspection_or_any_write(self):
+        self.stage.check.side_effect=[None,None,ProtectedArtifactRefused('Original controller lost')]
+        with patch('native_protected_artifact.inspect_native_artifact') as inspection,patch('native_protected_artifact.os.mkdir') as mkdir:
+            with self.assertRaises(ProtectedArtifactRefused):self.stage.stage()
+        inspection.assert_not_called();mkdir.assert_not_called();self.stage.close.assert_called_once()
+
+    def test_replaced_named_archive_refuses_even_when_original_descriptor_is_retained(self):
+        info=self.stage.source.lstat()
+        fields=('st_dev','st_ino','st_uid','st_gid','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns')
+        changed=SimpleNamespace(**{name:getattr(info,name) for name in fields});changed.st_ino+=1
+        with patch.object(self.stage.source,'lstat',side_effect=lambda:changed),patch('native_protected_artifact.os.mkdir') as mkdir:
+            with self.assertRaises(ProtectedArtifactRefused):self.stage.stage()
+        mkdir.assert_not_called();self.stage.close.assert_called_once()
+
+
 class CurrentOutputGuardTest(unittest.TestCase):
     def test_changed_published_output_poisons_check_and_cannot_be_revived(self):
         # Authority/metadata observations are stand-ins; exercise the public
@@ -213,6 +265,7 @@ class BoundedArchiveHeadersTest(unittest.TestCase):
         def preflight():
             stage = NativeProtectedArtifactStage.__new__(NativeProtectedArtifactStage)
             stage.check = Mock()
+            stage._check_archive_input = Mock()  # Identity is covered by ArchiveReadGuardTest.
             stage.archive_fd = os.open(fixture.path,os.O_RDONLY)
             try:stage._preflight_archive()
             finally:os.close(stage.archive_fd)
@@ -232,7 +285,8 @@ class BoundedArchiveHeadersTest(unittest.TestCase):
                 member = tarfile.TarInfo('forge/oversized');member.size = 128*1024**2+1
                 archive.addfile(member)
             stage = NativeProtectedArtifactStage.__new__(NativeProtectedArtifactStage)
-            stage.check = Mock();stage.archive_fd = os.open(path,os.O_RDONLY)
+            stage.check = Mock();stage._check_archive_input = Mock()
+            stage.archive_fd = os.open(path,os.O_RDONLY)
             try:
                 with self.assertRaises(ProtectedArtifactRefused):stage._preflight_archive()
             finally:os.close(stage.archive_fd)

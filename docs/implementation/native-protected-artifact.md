@@ -38,6 +38,16 @@ decompressed offsets at declared content plus bounded header overhead before the
 shared inspector reads gzip/PAX metadata. Web links refuse; inspected internal
 forge links may remain. The opened destination descriptor must match the policy,
 including when its pathname changes between observation and opening.
+
+Preflight only parses the held archive; it creates no staging output. Full live
+custody checks bracket that read-only pass, and every member checks the original
+opened and named archive fingerprint. This matches policy allocation's read-only
+inspection window while avoiding a complete recursive observation for each
+header. A lost controller, exclusion or history observed after parsing refuses
+before inspection or extraction. Every subsequent guard around allocation,
+archive copying, entry writes, metadata changes and publication remains intact.
+All original member/parser bounds and response deadlines remain unchanged.
+
 Before any large allocation, the system and output filesystems must each have
 20 GiB free after the complete estimated archive copy, extraction, block/metadata
 overhead and receipt allocations. The private archive copy is included.
@@ -46,7 +56,7 @@ An exclusive `.native-OPERATION.partial` remains private during extraction.
 Files, directories, links and receipts are created relative to held original
 work/code descriptors; traversed directories must match the created original
 inode. Candidate code is never executed by staging. Regular files become 0444 or
-0555, directories 0555, and the retained archive copy 0400, all under Root custody.
+0555, directories 0555, and the retained archive copy 0444, all under Root custody.
 Content inventory and metadata capture are synced before descriptor-relative
 `renameat2(RENAME_NOREPLACE)` publication as `native-OPERATION`. Existing targets
 and partials refuse; no original or foreign entry is deleted or replaced.
@@ -69,7 +79,12 @@ reconciliation remains required; retained output is not automatic retry authorit
 ## Verification boundaries
 
 Local closed-format, reserve and descriptor-traversal tests use explicit account
-and syscall stand-ins where the host lacks Linux facilities. Root-only hosted
+and syscall stand-ins where the host lacks Linux facilities.
+Read-only parsing tests use actual bounded archive reads with explicit authority
+stand-ins. On Windows, pathname change-time metadata is also an explicit stand-in
+for Linux semantics; held descriptors and byte reads remain actual. They check
+loss before/after parsing and refuse a changed named archive before any write.
+Root-only hosted
 tests exercise actual descriptors, archive copy/extraction, read-only modes,
 no-replace publication and original output metadata with explicit authority and
 budget stand-ins. Concurrent destination creation preserves both the foreign

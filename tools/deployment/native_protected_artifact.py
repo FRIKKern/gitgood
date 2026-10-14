@@ -279,16 +279,23 @@ class NativeProtectedArtifactStage:
     def _preflight_archive(self):
         # The shared inspector remains responsible for the complete inventory
         # and build identity. First bound its gzip/PAX inputs under this seal.
+        # Parsing has no staging effects. Bracket it with full live custody,
+        # as policy inspection does, and pin the archive at every member.
+        self.check()
         os.lseek(self.archive_fd,0,os.SEEK_SET)
         count = 0;total = 0
         with os.fdopen(os.dup(self.archive_fd),'rb') as source, gzip.GzipFile(fileobj=source,mode='rb') as expanded:
             with tarfile.open(fileobj=_BoundedTarHeaders(expanded),mode='r:') as archive:
                 for member in archive:
-                    self.check();count += 1;total += member.size
+                    self._check_archive_input();count += 1;total += member.size
                     require(count <= MAX_MEMBERS and 0 <= total <= MAX_CONTENT)
                     require(len(member.name) <= 1024 and 0 <= member.size <= 128*1024**2)
                     require(not member.issym() or member.name.startswith('forge/'))
         self.check()
+
+    def _check_archive_input(self):
+        require(fingerprint(os.fstat(self.archive_fd)) == self.archive_original
+            == fingerprint(self.source.lstat()))
 
     def stage(self):
         try:

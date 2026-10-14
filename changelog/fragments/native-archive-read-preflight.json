@@ -1,0 +1,9 @@
+{
+  "id": "native-archive-read-preflight",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Bracket read-only archive preflight with full original custody checks and verify the held and named archive at every member. Refuse controller or archive loss before extraction. Preserve every write/publication guard, archive bound and deadline; full production staging remains subject to hosted verification.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-protected-artifact.md", "tools/deployment/native_protected_artifact.py", "tools/deployment/test_native_protected_artifact.py"],
+  "withdrawn": false
+}

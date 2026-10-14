@@ -349,7 +349,7 @@ def artifact_failure(detail):
         'native_root_live_binding.py','native_root_lifecycle.py',
         'native_root_controller.py','native_ownership_database.py','native_root_database_reader.py'}
     functions = {'__init__','check','stage','begin_stage','allocate',
-        '_preflight_archive','_inspect','_base','_current','_observe','_query',
+        '_preflight_archive','_check_archive_input','_inspect','_base','_current','_observe','_query',
         '_query_database','_lease','_socket','_client','_lock','_validate_stage',
         '_staged_output','serve_artifact_stage','_exchange','identity','exclusion'}
     types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',
@@ -1329,7 +1329,7 @@ def root_reader_loss_checks(seed, database, server_scope):
 def root_stage_profile(profile):
     """Fixed installed function counters only; no stacks, callers or values."""
     allowed = {
-        'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_output'},
+        'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_archive_input','_check_output'},
         'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
         'native_root_artifact_policy.py':{'allocate','check','_inspect'},
         'native_root_database_exclusion.py':{'check','_base','_query','_socket','_client'},
