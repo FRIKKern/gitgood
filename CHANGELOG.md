@@ -475,6 +475,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Bound disposable retirement input-fixture cleanup with the existing production database-removal limits while preserving identity checks, no-force behavior and product deadlines.
   Sources: [details 1](docs/implementation/native-retirement-fixture-cleanup.md), [details 2](tools/deployment/test_native_retirement.py)
 
+- Reuse one original read-only database observer during archive staging while keeping fresh checks before every effect. Actual staging performance and original-reader loss verification remain pending.
+  Sources: [details 1](tools/deployment/native_root_database_reader.py), [details 2](tools/deployment/test_native_root_database_reader.py), [details 3](docs/implementation/native-root-database-reader.md)
+
 - Require native ownership startup to match its clean compiled build candidate to the Root seal before database lease acquisition and publication.
   Sources: [details 1](docs/implementation/native-ownership-startup.md), [details 2](apps/forge/lib/gitgood/native_ownership_startup.ex)
 

@@ -20,7 +20,7 @@ REQUIRED_MODULES = frozenset({
     'native_ownership_markers.py', 'native_ownership_observation.py',
     'native_ownership_publication.py', 'native_ownership_publication_entry.py',
     'native_ownership_records.py', 'native_prior_backend.py', 'native_root_artifact_dispatch.py', 'native_root_artifact_policy.py', 'native_root_controller.py', 'native_root_controller_request.py', 'native_root_database_exclusion.py', 'native_root_lifecycle.py', 'native_root_live_binding.py', 'native_service_scope.py',
-    'native_ownership_controller.py', 'native_ownership_transition.py',
+    'native_root_database_reader.py', 'native_ownership_controller.py', 'native_ownership_transition.py',
     'native_ownership_handoff.py', 'native_ownership_handoff_entry.py',
     'native_systemd_properties.py', 'native_worker_scope.py', 'native_writer_exclusion.py',
     'resource_generations.py', 'stage_native_artifact.py', 'upgrade_journal.py',

@@ -345,15 +345,15 @@ def artifact_failure(detail):
         'native_root_artifact_policy.py','native_protected_artifact.py',
         'native_root_controller_request.py','native_root_database_exclusion.py',
         'native_root_live_binding.py','native_root_lifecycle.py',
-        'native_root_controller.py','native_ownership_database.py'}
+        'native_root_controller.py','native_ownership_database.py','native_root_database_reader.py'}
     functions = {'__init__','check','stage','begin_stage','allocate',
         '_preflight_archive','_inspect','_base','_current','_observe','_query',
         '_query_database','_lease','_socket','_client','_lock','_validate_stage',
-        '_staged_output','serve_artifact_stage'}
+        '_staged_output','serve_artifact_stage','_exchange','identity','exclusion'}
     types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',
         'RootArtifactPolicyRefused','ProtectedArtifactRefused','RootControllerRequestRefused',
         'RootDatabaseExclusionRefused','RootLiveBindingRefused','RootLifecycleRefused',
-        'RootControllerRefused','OwnershipDatabaseRefused','TimeoutError',
+        'RootControllerRefused','OwnershipDatabaseRefused','RootDatabaseReaderRefused','TimeoutError',
         'BrokenPipeError','ConnectionResetError','OSError','ValueError','AssertionError','other'}
     if (type(detail) is not dict or set(detail) != {'chain','elapsed_ms'}
             or type(detail['elapsed_ms']) is not int or not 0 <= detail['elapsed_ms'] <= 1200000
@@ -1259,6 +1259,57 @@ def run_successor_case(seed, config, password, database, server_scope):
         return _run_successor_case(seed,config,password,database,server_scope,root_views)
 
 
+def root_reader_loss_checks(seed, database, server_scope):
+    """Disposable fixture faults target only its newly owned Root SQL readers."""
+    from native_root_live_binding import NativeRootLiveBindingObservation, RootLiveBindingRefused
+    name = 'gg_proof_'+seed['installation'].replace('-','')
+    def writer():
+        rows = database.query("SELECT a.pid::text||':'||floor(extract(epoch FROM a.backend_start)*1000000)::bigint::text "
+            "FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid WHERE a.datname='"+name+
+            "' AND a.usename='"+seed['account']+"' AND l.locktype='advisory' AND l.granted "
+            "AND l.classid::bigint=1197034575 AND l.objid::bigint=1 AND l.objsubid=2 "
+            "AND l.mode='ExclusiveLock'").splitlines()
+        require(len(rows) == 1 and re.fullmatch(r'[1-9][0-9]{0,9}:[1-9][0-9]{0,19}',rows[0]))
+        pid = int(rows[0].split(':')[0]);require(pid < 2**31)
+        actual = process(pid);require(actual['uid'] == server_scope['postgres_uid'] and actual['state'] not in {'Z','X'})
+        return rows[0],{name:actual[name] for name in ('pid','birth','uid','cgroup')}
+    original_writer = writer();results = {}
+    for fault in ('owned-client-loss','owned-backend-loss'):
+        view = NativeRootLiveBindingObservation(seed['installation'],seed['ownership_operation'])
+        try:
+            require(view.check() == view.check())
+            reader = view.database_reader;require(reader is not None)
+            client = process(reader.child.pid);backend = process(reader.reader['backend_pid'])
+            require(client['uid'] == 0 and client['birth'] == reader.client['birth'] and client['state'] not in {'Z','X'})
+            require(backend['uid'] == server_scope['postgres_uid'] and backend['birth'] == reader.kernel
+                and backend['state'] not in {'Z','X'})
+            require(reader.reader['read_only'] == 'on' and reader.reader['isolation'] == 'read committed'
+                and reader.reader['held'] is False and writer() == original_writer)
+            pid = reader.reader['backend_pid'];birth = reader.reader['backend_birth']
+            require(type(pid) is int and 0 < pid < 2**31 and re.fullmatch(r'[1-9][0-9]{0,19}',birth))
+            predicate = (f"pid={pid} AND floor(extract(epoch FROM backend_start)*1000000)::bigint={birth} "
+                "AND datname='"+name+"' AND usename='"+seed['account']+
+                "' AND application_name='gitgood native root read-only observer v2'")
+            require(database.query('SELECT count(*) FROM pg_stat_activity WHERE '+predicate) == '1')
+            if fault == 'owned-client-loss':
+                reader.child.kill();reader.child.wait(timeout=5)
+            else:
+                require(database.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE '+predicate) == 't')
+            try:view.check()
+            except RootLiveBindingRefused:require(not view.usable and not reader.usable)
+            else:require(False)
+            try:view.check()
+            except RootLiveBindingRefused:require(not view.usable and not reader.usable)
+            else:require(False)
+            require(writer() == original_writer and not absent(original_writer[1]))
+            results[fault] = True
+        finally:view.close()
+    require(set(results) == {'owned-client-loss','owned-backend-loss'} and all(results.values()))
+    return {'owned_root_client_loss_refused':True,'owned_root_backend_loss_refused':True,
+        'original_ordinary_writer_retained':True,'reconnection_or_replacement':False,
+        'complete_journey_acceptance':False}
+
+
 def _run_successor_case(seed, config, password, database, server_scope, root_views):
     """Independent witness of actual protected same-controller handoffs."""
     run, seal = Path(seed['run']), Path(seed['seal_directory'])
@@ -1295,6 +1346,9 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
         connection,_ = listener.accept()
         seed['artifact_stage_started'] = time.monotonic()
+        seed['proof_phase'] = 'original-root-read-only-observer-loss-checks'
+        seed['root_reader_refusal_observation'] = root_reader_loss_checks(seed,database,server_scope)
+        seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
         served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         require(served['status'] == 'staged')
         staged_artifact_observation = wait_for(run/'artifact-stage-complete.json',run,20)
@@ -1720,7 +1774,8 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         'inspection_and_stage_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture') and not seed.get('artifact_stage_fixture')),
         'actual_ordinary_inspection_and_serialized_root_stage_verified': staged_artifact_observation is not None,
         'actual_runtime_from_staged_output_verified': staged_artifact_observation is not None and bool(seed.get('default_release_fixture')),
-        **({'artifact_stage_observation':staged_artifact_observation} if staged_artifact_observation is not None else {}),
+        **({'artifact_stage_observation':staged_artifact_observation,
+            'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -1994,6 +2049,8 @@ def main(args):
                     'elapsed_ms':min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))}
                 observed = artifact_failure(detail)
                 if observed is not None:receipt['failure']['artifact_failure'] = observed
+            if seed.get('root_reader_refusal_observation') is not None:
+                receipt['failure']['root_reader_refusal_observation'] = seed['root_reader_refusal_observation']
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
                 detail = read_json(failed, 8192)

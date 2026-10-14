@@ -94,6 +94,7 @@ This work connects application processes to their actual host, database and serv
 | Root comparing live files, binaries and database with the original sealed binding | [Root live resource observation](native-root-live-binding.md) |
 | Root authenticating the original controller and its held history descriptor | [Original controller requests](native-root-controller-request.md) |
 | Root observing the original controller's actual database lease, client and backend | [Original database exclusion](native-root-database-exclusion.md) |
+| Keeping every staging check while reusing one original read-only SQL observer | [Retained staging database reader](native-root-database-reader.md) |
 | Allocating an inspected artifact stage seal under original exclusion | [Root artifact policy allocation](native-root-artifact-policy.md) |
 | Inspecting and completing a staged archive under original controller custody | [Artifact inspection and staging controller](native-artifact-controller.md) |
 | Retaining authenticated controller exclusion through Root extraction | [Serialized Root artifact dispatch](native-root-artifact-dispatch.md) |

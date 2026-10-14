@@ -26,16 +26,16 @@ def failure_observation(error):
         'native_root_artifact_policy.py','native_protected_artifact.py',
         'native_root_controller_request.py','native_root_database_exclusion.py',
         'native_root_live_binding.py','native_root_lifecycle.py',
-        'native_root_controller.py','native_ownership_database.py'}
+        'native_root_controller.py','native_ownership_database.py','native_root_database_reader.py'}
     allowed = {str(Path(__file__).with_name(name)):name for name in files}
     functions = {'__init__','check','stage','begin_stage','allocate',
         '_preflight_archive','_inspect','_base','_current','_observe','_query',
         '_query_database','_lease','_socket','_client','_lock','_validate_stage',
-        '_staged_output','serve_artifact_stage'}
+        '_staged_output','serve_artifact_stage','_exchange','identity','exclusion'}
     types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',
         'RootArtifactPolicyRefused','ProtectedArtifactRefused','RootControllerRequestRefused',
         'RootDatabaseExclusionRefused','RootLiveBindingRefused','RootLifecycleRefused',
-        'RootControllerRefused','OwnershipDatabaseRefused','TimeoutError',
+        'RootControllerRefused','OwnershipDatabaseRefused','RootDatabaseReaderRefused','TimeoutError',
         'BrokenPipeError','ConnectionResetError','OSError','ValueError','AssertionError'}
     result = [];seen = set()
     for _ in range(16):

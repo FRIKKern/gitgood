@@ -126,6 +126,12 @@ client, socket and database lease/kernel identity. Read [original database
 exclusion](implementation/native-root-database-exclusion.md) for its sampled
 cooperative scope and the artifact authority/dispatch/recovery still needed.
 
+[native_root_database_reader.py](../tools/deployment/native_root_database_reader.py)
+owns one original read-only SQL client only during archive staging. Live identity
+and exclusion views share it without removing effect checks or changing ordinary
+handoff connection rules. Read [retained staging observations](implementation/native-root-database-reader.md)
+for its fixed statements, loss fences and pending actual verification.
+
 [native_root_artifact_policy.py](../tools/deployment/native_root_artifact_policy.py)
 owns fixed stage-policy preparation and exclusive Root publication under the
 original exclusion and independently provisioned allocation lock. Read

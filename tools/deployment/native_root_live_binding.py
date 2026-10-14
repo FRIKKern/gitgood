@@ -6,6 +6,7 @@ import threading
 from native_durable_binding import _CapturedExecutableDigests, _root_persistent_identity
 from native_generation_lease_guard import persistent_fingerprint
 from native_root_lifecycle import NativeRootLifecycleObservation
+from native_root_database_reader import NativeRootDatabaseReader
 from resource_generations import canonical, identifier
 
 
@@ -21,7 +22,7 @@ def require(value):
 class NativeRootLiveBindingObservation:
     """UUID-only view; compare live files/database with the original Root seal."""
     def __init__(self, installation, operation):
-        self.usable = False;self.lifecycle = None;self.executables = None
+        self.usable = False;self.lifecycle = None;self.executables = None;self.database_reader = None
         try:
             identifier(installation);identifier(operation);require(installation != operation)
             require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
@@ -35,6 +36,11 @@ class NativeRootLiveBindingObservation:
             self.root = Path('/var/lib/gitgood/installations')/installation
             self.files = persistent_fingerprint(self.binding)
             self.executables = _CapturedExecutableDigests(self.lifecycle.generation_seal['executables'])
+            # Staging keeps the ordinary owner idle until Root acknowledgement.
+            # Handoff windows must retain short-lived observers: a persistent
+            # second client would correctly trip the ordinary writer's guard.
+            if self.observed_lifecycle['stage'] == 'stage' and self.observed_lifecycle['recorded_status'] == 'running':
+                self.database_reader = NativeRootDatabaseReader(self.lifecycle)
             self.usable = True
             self._observe();self.executables.freeze();self.check()
         except BaseException:
@@ -49,8 +55,9 @@ class NativeRootLiveBindingObservation:
 
     def _observe(self):
         self._current()
-        value = _root_persistent_identity(self.root,self.scope,self.lifecycle.generation_seal['executables'],
-            _executable_files=self.executables)
+        options = {'_executable_files':self.executables}
+        if self.database_reader is not None:options['_database_reader'] = self.database_reader
+        value = _root_persistent_identity(self.root,self.scope,self.lifecycle.generation_seal['executables'],**options)
         require(value == self.binding and canonical(value) == self.binding_raw)
         self._current()
 
@@ -66,6 +73,7 @@ class NativeRootLiveBindingObservation:
 
     def close(self):
         self.usable = False
+        if self.database_reader is not None:self.database_reader.close()
         if self.executables is not None:self.executables.close()
         if self.lifecycle is not None:self.lifecycle.close()
         # Every original policy, file, directory, database and history remains.

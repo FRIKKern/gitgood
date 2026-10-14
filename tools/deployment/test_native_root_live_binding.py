@@ -68,7 +68,7 @@ class RootBindingObservationTest(unittest.TestCase):
     def view(self):
         value = root.NativeRootLiveBindingObservation.__new__(root.NativeRootLiveBindingObservation)
         value.usable = True;value.owner = (os.getpid(),threading.get_ident())
-        value.lifecycle = Mock();value.executables = Mock()
+        value.lifecycle = Mock();value.executables = Mock();value.database_reader = Mock()
         value.observed_lifecycle = {'installation':'fixed','operation':'fixed-operation',
             'candidate':'a'*40,'stage':'stage','recorded_status':'running'}
         value.binding = {'private':'not returned'};value.binding_raw = canonical(value.binding)
@@ -90,7 +90,7 @@ class RootBindingObservationTest(unittest.TestCase):
             result = value.check()
             self.assertEqual(value.lifecycle.check.call_count,2);self.assertEqual(files.call_count,2)
             observe.assert_called_once_with(value.root,value.scope,value.lifecycle.generation_seal['executables'],
-                _executable_files=value.executables)
+                _executable_files=value.executables,_database_reader=value.database_reader)
         self.assertTrue(result['live_durable_resource_identity_verified'])
         self.assertIs(result['stage_effect_authorized'],False)
         self.assertIs(result['lifecycle_exclusion_established'],False)

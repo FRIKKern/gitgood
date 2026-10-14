@@ -173,16 +173,22 @@ def persistent_identity(root, scope, executables, *, _executable_files=None):
     return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
 
 
-def _root_persistent_identity(root, scope, executables, *, _executable_files=None):
+def _root_persistent_identity(root, scope, executables, *, _executable_files=None, _database_reader=None):
     """Internal Root observation; fixed policy/original scope are caller duties."""
     validate_scope(scope)
     require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
     require(os.readlink('/proc/self/ns/mnt') == scope['manager']['mount_namespace'])
     require(os.readlink('/proc/self/ns/cgroup') == scope['manager']['cgroup_namespace'])
-    return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
+    if _database_reader is None:
+        return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
+    from native_root_database_reader import NativeRootDatabaseReader
+    require(type(_database_reader) is NativeRootDatabaseReader
+        and _database_reader.installation == scope['installation'] and _database_reader.scope == scope)
+    return _persistent_identity(root, scope, executables, _executable_files=_executable_files,
+        _database_reader=_database_reader)
 
 
-def _persistent_identity(root, scope, executables, *, _executable_files=None):
+def _persistent_identity(root, scope, executables, *, _executable_files=None, _database_reader=None):
     """Shared fixed-resource/hash/database validation; supplies no admission."""
     uid = scope['uid']
     root = Path(root)
@@ -208,7 +214,16 @@ def _persistent_identity(root, scope, executables, *, _executable_files=None):
     for name, path in executables.items():
         binaries[name] = executable(path) if _executable_files is None else _executable_files.read(path)
     require(len({(item["device"], item["inode"]) for item in binaries.values()}) == 5)
-    database = observe_durable_database(binaries["psql"]["path"], database_url)
+    if _database_reader is None:
+        database = observe_durable_database(binaries["psql"]["path"], database_url)
+    else:
+        from native_root_database_reader import NativeRootDatabaseReader
+        require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+        require(type(_database_reader) is NativeRootDatabaseReader
+            and _database_reader.installation == scope['installation']
+            and _database_reader.scope == scope and _database_reader.psql == binaries['psql']['path']
+            and _database_reader.files == files and _database_reader.url == database_url)
+        database = _database_reader.identity()
     return {"protocol": 2, "kind": "durable_installation_binding", "installation": scope["installation"],
             "host": {"machine_id": machine.decode("ascii").strip(), "profile": "ubuntu-24.04-linux-x86_64", "os_release": release},
             "account": {"name": "gg_" + base64.b32encode(uuid.UUID(scope["installation"]).bytes).decode("ascii").lower().rstrip("="), "uid": uid, "gid": scope["gid"]}, "resources": resources,

@@ -87,7 +87,7 @@ still require explicit actual-effect reconciliation.
 Thirteen portable admission/window/refresh/transition checks include a real archive
 read with explicit controller and journal stand-ins. Four Linux Root output tests
 use actual extraction, read-only files, content hashes and original identities,
-with explicit controller and fixed-path stand-ins. Eight dispatch boundary/socket
+with explicit controller and fixed-path stand-ins. Ten dispatch boundary/socket
 tests keep their authority stand-ins explicit. These checks do not prove live
 ordinary systemd custody or complete controller-to-Root dispatch.
 

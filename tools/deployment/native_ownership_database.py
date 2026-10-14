@@ -18,6 +18,18 @@ def require(value):
 
 OBSERVATION_OPTIONS = '-c statement_timeout=3000 -c default_transaction_read_only=on -c search_path=pg_catalog'
 
+ROOT_EXCLUSION_SQL = """SELECT json_build_object('database',("""+SQL+"""),
+ 'holders',(SELECT coalesce(json_agg(json_build_object(
+  'backend_pid',a.pid,'backend_birth',floor(extract(epoch FROM a.backend_start)*1000000)::bigint::text,
+  'client_address',host(a.client_addr),'client_port',a.client_port) ORDER BY a.pid),'[]'::json)
+  FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid
+  WHERE l.locktype='advisory' AND l.classid::bigint=1197034575 AND l.objid::bigint=1
+   AND l.objsubid=2 AND l.mode='ExclusiveLock' AND l.granted
+   AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND a.backend_type='client backend' AND a.usename=current_user AND a.datname=current_database()),
+ 'clients',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database()
+  AND backend_type='client backend'))"""
+
 
 def _query_database(psql, environment, statement):
     """Bound a trusted internal statement; no external entry accepts SQL."""
