@@ -181,6 +181,9 @@ jobs:
       - name: Verify protected artifact Root filesystem effects
         # Admission and budgeting are stand-ins; filesystem effects are actual.
         run: sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_protected_artifact.py' -v
+      - name: Verify Root lifecycle input descriptors
+        # Scratch ancestor policy is a stand-in; UID/file descriptors are actual.
+        run: sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_lifecycle.py' -v
       - name: Verify protected native ownership on actual systemd
         timeout-minutes: 12
         run: |

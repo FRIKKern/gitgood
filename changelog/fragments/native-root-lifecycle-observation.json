@@ -4,6 +4,6 @@
   "impact": "operator",
   "summary": "Add a fixed read-only Root view of the original sealed request and complete generation/lifecycle history before protected artifact allocation. Preserve ordinary-reader admission, refuse changed original resources and close interrupted readers. Actual Root observation, exclusion, allocation, stage dispatch and complete recovery remain unfinished.",
   "journeys": ["J14", "J15"],
-  "references": ["docs/implementation/native-root-lifecycle.md", "tools/deployment/native_root_lifecycle.py", "tools/deployment/test_native_root_lifecycle.py"],
+  "references": ["docs/implementation/native-root-lifecycle.md", "tools/deployment/native_root_lifecycle.py", "tools/deployment/test_native_root_lifecycle.py", "tools/ci/native-owned-proof.py", ".github/workflows/product.yml"],
   "withdrawn": false
 }

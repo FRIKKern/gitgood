@@ -52,9 +52,14 @@ Local closed-policy, refusal, metadata-race and interruption tests use explicit
 controller/account/filesystem stand-ins. Root-only input tests use actual
 ordinary-owned files and Root descriptors with an explicit scratch ancestor
 policy stand-in. They check byte/mode/inode preservation and refusal after a
-same-byte replacement; their hosted execution remains required. Actual Root observation of an installed
-ordinary controller, request and complete history remains to be verified on the
-disposable hosted environment.
+same-byte replacement; their hosted execution remains required. The workflow
+also installs the production module and constructs this view in lifecycle cases
+after the ordinary manager records its first maintenance reservation. It compares
+repeated observations of the actual controller, fixed policies, original private
+inputs and complete recorded histories before allowing the fixture to launch its
+owner. This is read-only fixture scheduling, with every effect/exclusion grant
+still false. Successful execution of those cases remains required; actual Root
+observation is not yet verified by the source or local tests.
 
 Recorded history is not evidence of actual stage effects. This component does
 not re-observe the live durable resource/database identity, authenticate a stage
