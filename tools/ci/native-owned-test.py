@@ -24,6 +24,26 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_default_native_fault_requires_actual_observation_acknowledgment(self):
+        seed = {'seal_directory': str(self.directory), 'run': str(self.directory)}
+        ready = {'original_release_running': True, 'public_stop_deferred_until_native_exit': True}
+        for returned in [None, {}, {**ready, 'public_stop_deferred_until_native_exit': False}]:
+            with self.subTest(returned=returned), patch.object(proof, 'write_new'), \
+                    patch.object(proof, 'wait_for', return_value=returned), patch.object(proof, 'inject_loss') as inject:
+                with self.assertRaises(ValueError):
+                    proof.inject_default_release_loss(seed, self.directory, {}, {}, None)
+                inject.assert_not_called()
+        with patch.object(proof, 'write_new'), patch.object(proof, 'wait_for', side_effect=TimeoutError), \
+                patch.object(proof, 'inject_loss') as inject:
+            with self.assertRaises(TimeoutError):proof.inject_default_release_loss(seed, self.directory, {}, {}, None)
+            inject.assert_not_called()
+        events = []
+        with patch.object(proof, 'write_new', side_effect=lambda *args: events.append('request')), \
+                patch.object(proof, 'wait_for', side_effect=lambda *args: events.append('ack') or ready), \
+                patch.object(proof, 'inject_loss', side_effect=lambda *args: events.append('loss')):
+            proof.inject_default_release_loss(seed, self.directory, {}, {}, None)
+        self.assertEqual(events, ['request', 'ack', 'loss'])
+
     def tls_context(self, failure=None):
         return SimpleNamespace(verify_mode=proof.ssl.CERT_REQUIRED, check_hostname=True,
                                wrap_socket=Mock(side_effect=failure))

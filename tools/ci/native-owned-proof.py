@@ -845,6 +845,15 @@ def inject_loss(label, captured, session, database):
         raise ValueError("unknown fault")
 
 
+def inject_default_release_loss(seed, stage, captured, session, database):
+    """The fixture must enter and acknowledge its observation window before loss."""
+    seal, run = Path(seed['seal_directory']), Path(seed['run'])
+    write_new(seal / 'fixture-observe-native-abort-first.json', {'observe_original_permanent_release_abort': True})
+    ready = wait_for(stage / 'native-abort-observation-ready.json', run, 15)
+    require(ready == {'original_release_running': True, 'public_stop_deferred_until_native_exit': True})
+    inject_loss('helper-loss', captured, session, database)
+
+
 def run_case(seed, config, password, database, server_scope):
     run = Path(seed["run"])
     seal = Path(seed["seal_directory"])
@@ -1205,8 +1214,9 @@ def run_successor_case(seed, config, password, database, server_scope):
         if not stage_refusal:
             seed['proof_phase'] = label + ':inject-original-helper-or-backend-loss'
             if default_stage:
-                write_new(seal / 'fixture-observe-native-abort-first.json', {'observe_original_permanent_release_abort': True})
-            inject_loss(fault, captured, record['database_session'], database)
+                inject_default_release_loss(seed, stage, captured, record['database_session'], database)
+            else:
+                inject_loss(fault, captured, record['database_session'], database)
         seed['proof_phase'] = label + ':owner-exit-acknowledgement'
         exited = wait_for(stage / 'owner-exited.json', run, 15)
         require(exited['fixture_signalled_beam'] is False and exited['exit_code'] != 0)

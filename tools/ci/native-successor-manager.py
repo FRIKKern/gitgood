@@ -180,6 +180,10 @@ def main(seed_path):
                         fixture.write(stage / 'public-services.json', {'web': public.births['web'], 'edge': public.births['edge'],
                             'fixed_production_launcher_used': True, 'public_activation_verified': False})
                     observe_native_abort_first = default_stage and (seal / 'fixture-observe-native-abort-first.json').exists()
+                    if observe_native_abort_first and not (stage / 'native-abort-observation-ready.json').exists():
+                        assert public is not None and public.state == 'running' and public.closed_receipt is None
+                        fixture.write(stage / 'native-abort-observation-ready.json',
+                            {'original_release_running': True, 'public_stop_deferred_until_native_exit': True})
                     if public is not None and public.state == 'running' and not observe_native_abort_first:
                         try:
                             public.check()

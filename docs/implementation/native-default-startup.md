@@ -44,7 +44,9 @@ The same production web/edge launcher then undergoes real verified TLS, frontend
 identity/assets, owner cookie/login, anonymous denial, HTTPS Git push/readback,
 strict SSH readback and revocation checks. After original helper loss, fixture
 scheduling observes the ordinary permanent native release exit before asking the
-public runtime component to quiesce its original groups. The controller therefore
+public runtime component to quiesce its original groups. Root waits for the
+controller's acknowledgment of that observation window before injecting loss,
+so an earlier in-flight current check cannot race with the fault. The controller therefore
 cannot kill the native process first and manufacture permanent-application abort
 evidence. All captured SQL/kernel/web/edge identities must be absent and original
 responsibility and marker inodes retained. No public requests are issued during
