@@ -96,6 +96,12 @@ host/service checks while preserving ordinary caller admission. Read
 [Root controller observation](implementation/native-root-controller.md) for the
 remaining protected artifact staging and operation-binding requirements.
 
+[native_protected_artifact.py](../tools/deployment/native_protected_artifact.py)
+owns the fixed Root staging boundary, allocation budget, descriptor-relative
+extraction, read-only code publication and original output metadata checks. Read
+[protected artifact staging](implementation/native-protected-artifact.md) for
+authority allocation, actual dispatch and interruption verification still needed.
+
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 
 TanStack generates `apps/web/src/routeTree.gen.ts` from the route files. Local `.gitgood/` directories hold ignored development state and may contain private verification or recovery materials. They are not a scratch directory to delete blindly. The [evidence contract](../evidence/README.md) explains what may be published.

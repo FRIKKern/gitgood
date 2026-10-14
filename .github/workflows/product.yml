@@ -178,6 +178,9 @@ jobs:
           cp -R apps/web/dist .gitgood/native-web-product/dist
           cp apps/web/{server.mjs,client-address.mjs,package.json,package-lock.json} .gitgood/native-web-product/
           npm ci --omit=dev --ignore-scripts --prefix .gitgood/native-web-product
+      - name: Verify protected artifact Root filesystem effects
+        # Admission and budgeting are stand-ins; filesystem effects are actual.
+        run: sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_protected_artifact.py' -v
       - name: Verify protected native ownership on actual systemd
         timeout-minutes: 12
         run: |

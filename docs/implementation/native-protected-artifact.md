@@ -1,0 +1,74 @@
+# Protected native artifact staging
+
+Native runtime code must be controlled by Root. The existing ordinary-user
+stager cannot supply that custody. `NativeProtectedArtifactStage` copies an
+independently pinned archive, inspects its actual build identity, and publishes
+read-only Root-owned code without replacement. Root policy allocation, ordinary
+controller dispatch and complete installation/recovery remain unfinished.
+
+## Original authority and input custody
+
+The Root-only constructor accepts only an installation UUID and operation UUID.
+Its fixed policy is `/etc/gitgood/installations/INSTALLATION/artifacts/OPERATION.json`.
+Canonical protocol 2, unique fields, the original request/hash, original observed
+controller scope/hash, candidate, running-stage snapshot hash, original directory
+identities and original archive metadata/digest are mandatory. There are no caller
+paths, programs, environments, callbacks or authority maps.
+
+The archive is fixed at
+`/var/lib/gitgood/artifact-inputs/INSTALLATION/OPERATION/archive.tar.gz` and the
+destination parent at `/opt/gitgood/artifacts/INSTALLATION`. Protected Root parents
+and original destination device/inode are required. The archive is an original
+single-link Root-owned read-only file; original descriptor/path metadata is
+rechecked around streaming. The independently sealed lifecycle request and exact
+ordinary-owned current head/snapshot must remain running at `stage` after
+`inspect`. Their directory and file identities, canonical bytes and hashes remain
+fixed. This component does not replay journal history or allocate that policy.
+The future allocator must independently validate original request/history and
+stage admission before issuing it; a snapshot receipt alone grants no effects.
+
+## Bounded extraction and publication
+
+Inspection requires the expected clean candidate, independent digest, safe closed
+archive paths, matching native/web identities, ordered migrations, required entry
+points and Linux x86-64 runtime. Staging additionally caps the archive at 1 GiB,
+declared content at 4 GiB, entries at 30,000, paths at 1024 characters and individual
+members at 128 MiB. A held-input preflight caps parser header reads at 8 KiB and
+decompressed offsets at declared content plus bounded header overhead before the
+shared inspector reads gzip/PAX metadata. Web links refuse; inspected internal
+forge links may remain. The opened destination descriptor must match the policy,
+including when its pathname changes between observation and opening.
+Before any large allocation, the system and output filesystems must each have
+20 GiB free after the complete estimated archive copy, extraction, block/metadata
+overhead and receipt allocations. The private archive copy is included.
+
+An exclusive `.native-OPERATION.partial` remains private during extraction.
+Files, directories, links and receipts are created relative to held original
+work/code descriptors; traversed directories must match the created original
+inode. Candidate code is never executed by staging. Regular files become 0444 or
+0555, directories 0555, and the retained archive copy 0400, all under Root custody.
+Content inventory and metadata capture are synced before descriptor-relative
+`renameat2(RENAME_NOREPLACE)` publication as `native-OPERATION`. Existing targets
+and partials refuse; no original or foreign entry is deleted or replaced.
+
+Published-output checks require exact directory entries and original file
+metadata. Same-content replacement, permission restoration, changed files or
+added entries cannot revive a poisoned original instance. Controller, policy,
+stage, source or custody failure closes observation descriptors and retains every
+input and incomplete/published effect. Explicit observed interruption
+reconciliation remains required; retained output is not automatic retry authority.
+
+## Verification boundaries
+
+Local closed-format, reserve and descriptor-traversal tests use explicit account
+and syscall stand-ins where the host lacks Linux facilities. Root-only hosted
+tests exercise actual descriptors, archive copy/extraction, read-only modes,
+no-replace publication and original output metadata with explicit authority and
+budget stand-ins. Concurrent destination creation preserves both the foreign
+target and completed partial; an injected interruption preserves the original
+input and incomplete copy while closing owned descriptors. These retention checks
+do not establish reconciliation or safe retry. They do not prove Root allocation,
+lifecycle dispatch or complete
+stage authority. Actual installed inspection/staging effects, interrupted-effect
+reconciliation and runtime use of the inspected output remain mandatory before
+those components or full J14/J15 can be accepted.

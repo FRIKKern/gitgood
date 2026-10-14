@@ -201,6 +201,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Observe the exact original native PostgreSQL backend's absence without signalling reused PIDs, adopting a new holder or granting replacement authority; complete controller reconciliation remains required.
   Sources: [details 1](docs/implementation/native-prior-backend-observation.md), [details 2](tools/deployment/native_prior_backend.py), [details 3](tools/deployment/native_ownership_database.py)
 
+- Add a fixed Root-only inspected archive staging boundary with original controller/running-stage policy, complete allocation reserve, held-directory extraction and read-only no-replace publication. Guard original output metadata and retain uncertain effects. Root policy allocation, actual lifecycle dispatch and interruption/recovery acceptance remain unfinished.
+  Sources: [details 1](docs/implementation/native-protected-artifact.md), [details 2](tools/deployment/native_protected_artifact.py), [details 3](tools/deployment/test_native_protected_artifact.py), [details 4](.github/workflows/product.yml)
+
 - Run fixed protected frontend and TLS edge services under the original live native controller, with bounded quiescence on ownership or service loss. Add hosted CA/hostname, frontend identity, owner login, HTTPS Git and original-process absence checks. Default native startup, public activation and complete lifecycle/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-public-runtime.md), [details 2](tools/deployment/native_public_runtime.py), [details 3](tools/ci/native-owned-proof.py)
 

@@ -1,0 +1,9 @@
+{
+  "id": "native-protected-artifact-staging",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add a fixed Root-only inspected archive staging boundary with original controller/running-stage policy, complete allocation reserve, held-directory extraction and read-only no-replace publication. Guard original output metadata and retain uncertain effects. Root policy allocation, actual lifecycle dispatch and interruption/recovery acceptance remain unfinished.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-protected-artifact.md", "tools/deployment/native_protected_artifact.py", "tools/deployment/test_native_protected_artifact.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}
