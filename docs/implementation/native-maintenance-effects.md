@@ -34,7 +34,9 @@ Root-controlled files. Symlinks are refused.
 Migration reads the actual `public.schema_migrations` and requires the exact
 sealed before versions. An initial empty history also requires an empty user
 relation inventory; an existing application table with missing/empty migration
-history refuses. The fixed Ecto migrator runs forward only. Its applied versions
+history refuses. Before versions must be the exact ordered prefix of the package,
+not merely a subset; an older missing migration cannot run below an already
+applied newer version. The fixed Ecto migrator runs forward only. Its applied versions
 and the independently reread schema must equal the expected difference and target.
 No downgrade or compatibility claim follows from that equality.
 

@@ -3,7 +3,10 @@ defmodule Gitgood.NativeMaintenanceWorkerTest do
   alias Gitgood.NativeMaintenanceWorker, as: Worker
 
   defp inputs do
-    %{"candidate" => String.duplicate("b", 40), "migrations" => %{"target_versions" => [1, 2]}}
+    %{
+      "candidate" => String.duplicate("b", 40),
+      "migrations" => %{"before_versions" => [], "target_versions" => [1, 2]}
+    }
   end
 
   defp build,
@@ -40,6 +43,26 @@ defmodule Gitgood.NativeMaintenanceWorkerTest do
                  1,
                  2
                ])
+    end
+  end
+
+  test "forward execution requires the exact ordered prefix, not only a subset" do
+    for before <- [[], [1], [1, 2]] do
+      assert :ok =
+               Worker.validate_inventory(
+                 put_in(inputs(), ["migrations", "before_versions"], before),
+                 build(),
+                 [1, 2]
+               )
+    end
+
+    for before <- [[2], [2, 1], [1, 1], [3], nil] do
+      assert :error =
+               Worker.validate_inventory(
+                 put_in(inputs(), ["migrations", "before_versions"], before),
+                 build(),
+                 [1, 2]
+               )
     end
   end
 

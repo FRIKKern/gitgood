@@ -59,7 +59,9 @@ defmodule Gitgood.NativeMaintenanceWorker do
              Enum.all?(declared, &(is_binary(&1) and Regex.match?(~r/\A[0-9]+\z/, &1))),
          versions <- Enum.map(declared, &String.to_integer/1),
          true <- versions === Enum.sort(Enum.uniq(versions)),
-         true <- versions === packaged and versions === inputs["migrations"]["target_versions"] do
+         true <- versions === packaged and versions === inputs["migrations"]["target_versions"],
+         before when is_list(before) <- inputs["migrations"]["before_versions"],
+         true <- before === Enum.take(versions, length(before)) do
       :ok
     else
       _ -> :error
