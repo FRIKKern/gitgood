@@ -49,7 +49,10 @@ reader descriptors. All policies, inputs, locks and retained history remain.
 ## Evidence and remaining authority
 
 Local closed-policy, refusal, metadata-race and interruption tests use explicit
-controller/account/filesystem stand-ins. Actual Root observation of an installed
+controller/account/filesystem stand-ins. Root-only input tests use actual
+ordinary-owned files and Root descriptors with an explicit scratch ancestor
+policy stand-in. They check byte/mode/inode preservation and refusal after a
+same-byte replacement; their hosted execution remains required. Actual Root observation of an installed
 ordinary controller, request and complete history remains to be verified on the
 disposable hosted environment.
 

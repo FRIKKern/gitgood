@@ -2,6 +2,8 @@ import copy
 import os
 from pathlib import Path
 import stat
+import sys
+import tempfile
 import unittest
 from contextlib import ExitStack
 from types import SimpleNamespace
@@ -10,7 +12,9 @@ from unittest.mock import Mock, patch
 from native_root_lifecycle import (NativeRootLifecycleObservation, RootLifecycleRefused,
     _RootGenerationHistory, _RootLifecycleHistory, _RootPrivateInputs, _RootReadOnlyCustody, parse_generation_seal)
 from resource_generations import canonical
+from native_operation_inputs import OperationInputsRefused, file_identity, file_record, parse_request
 import test_native_durable_database as database_fixture
+import test_native_operation_inputs as input_fixture
 import test_resource_generations as generation_fixture
 
 
@@ -137,6 +141,59 @@ class RootOriginalViewTest(unittest.TestCase):
         with patch('native_root_lifecycle.root_owner',return_value=(42,44)):
             with self.assertRaises(RootLifecycleRefused):value.check()
         value._snapshot.assert_not_called()
+
+
+@unittest.skipUnless(sys.platform == 'linux' and os.getuid() == 0,'Actual isolated Root input descriptors')
+class RootPrivateInputDescriptorTest(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)/'inputs';self.directory.mkdir(mode=0o700)
+        self.uid,self.gid = 65503,1000
+        os.chown(self.directory,self.uid,self.gid)
+        self.seal,_,self.request,self.payloads = input_fixture.fixture()
+        self.seal.update(uid=self.uid,gid=self.gid)
+        self.seal['directory_identity'] = self.identity(self.directory)
+        for name,raw in self.payloads.items():
+            path = self.directory/name;path.write_bytes(raw);path.chmod(0o600);os.chown(path,self.uid,self.gid)
+            self.seal['files'][name] = file_record(file_identity(path.stat(),self.uid,self.gid,131072),raw)
+
+    @staticmethod
+    def identity(path):
+        info = path.stat();return {'device':info.st_dev,'inode':info.st_ino,'uid':info.st_uid}
+
+    def view(self):
+        # The test scratch ancestor policy is a stand-in; actual files belong
+        # to an ordinary UID and are captured through real Root descriptors.
+        with patch('native_root_lifecycle.private_directory',
+                side_effect=lambda path,uid,gid:(self.identity(path),())):
+            value = _RootPrivateInputs(self.directory,self.uid,self.gid,self.seal)
+        self.addCleanup(value.close)
+        return value
+
+    def test_actual_root_read_preserves_ordinary_input_bytes_modes_and_inode_identities(self):
+        before = {name:(path.stat().st_ino,path.read_bytes(),path.stat().st_mode) for name in self.payloads
+            for path in (self.directory/name,)}
+        value = self.view()
+        with patch('native_root_lifecycle.private_directory',
+                side_effect=lambda path,uid,gid:(self.identity(path),())):
+            self.assertEqual(value.check(),self.payloads)
+            self.assertEqual(parse_request(value.check()['request.json'],self.seal),self.request)
+        self.assertEqual(os.getuid(),0)
+        self.assertTrue(all(os.fstat(fd).st_uid == self.uid for fd in value.files.values()))
+        self.assertEqual({name:(path.stat().st_ino,path.read_bytes(),path.stat().st_mode) for name in self.payloads
+            for path in (self.directory/name,)},before)
+        value.close();self.assertEqual(value.files,{})
+        self.assertTrue(all((self.directory/name).exists() for name in self.payloads))
+
+    def test_same_bytes_replacement_refuses_and_retains_both_original_and_new_input(self):
+        value = self.view();path = self.directory/'inputs.json';raw = path.read_bytes()
+        retained = self.directory/'retained-original-input.json';path.rename(retained)
+        path.write_bytes(raw);path.chmod(0o600);os.chown(path,self.uid,self.gid)
+        with patch('native_root_lifecycle.private_directory',
+                side_effect=lambda path,uid,gid:(self.identity(path),())):
+            with self.assertRaises((RootLifecycleRefused,OperationInputsRefused)):value.check()
+        value.close()
+        self.assertEqual(retained.read_bytes(),raw);self.assertEqual(path.read_bytes(),raw)
 
 
 if __name__ == '__main__':unittest.main()
