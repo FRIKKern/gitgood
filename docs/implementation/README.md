@@ -93,6 +93,7 @@ This work connects application processes to their actual host, database and serv
 | Root reading the original request, complete generation and lifecycle history | [Root lifecycle observation](native-root-lifecycle.md) |
 | Root comparing live files, binaries and database with the original sealed binding | [Root live resource observation](native-root-live-binding.md) |
 | Root authenticating the original controller and its held history descriptor | [Original controller requests](native-root-controller-request.md) |
+| Root observing the original controller's actual database lease, client and backend | [Original database exclusion](native-root-database-exclusion.md) |
 | Binding enrollment and upgrade commands to their original protected inputs | [Operation input custody](native-operation-inputs.md) |
 
 ## Verification environment

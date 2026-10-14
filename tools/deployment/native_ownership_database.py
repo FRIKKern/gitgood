@@ -74,7 +74,15 @@ def _owner(owner):
 
 def _owner_socket(owner, client_port, server_port):
     process,network = _owner(owner)
+    result = _socket_for_process(process,network,owner['uid'],client_port,server_port)
+    require(_owner(owner) == (process,network))
+    return result
+
+
+def _socket_for_process(process, network, uid, client_port, server_port):
+    """Private socket primitive; independent caller admission remains required."""
     require(type(client_port) is int and 0<client_port<65536)
+    require(type(server_port) is int and 0<server_port<65536)
     with (process/'net/tcp').open('rb') as source:
         raw = source.read(1048577)
     require(0<len(raw)<=1048576)
@@ -87,7 +95,7 @@ def _owner_socket(owner, client_port, server_port):
         columns = line.split()
         require(len(columns)>=10)
         if columns[1]==expected_local and columns[2]==expected_remote and columns[3]=='01':
-            require(columns[7]==str(owner['uid']) and re.fullmatch(r'[1-9][0-9]{0,19}',columns[9]))
+            require(columns[7]==str(uid) and re.fullmatch(r'[1-9][0-9]{0,19}',columns[9]))
             matching.append(columns[9])
     require(len(matching)==1)
     with os.scandir(process/'fd') as iterator:
@@ -102,7 +110,7 @@ def _owner_socket(owner, client_port, server_port):
                 found.append(entry)
         except FileNotFoundError:
             continue
-    require(len(found)==1 and _owner(owner)[1]==network)
+    require(len(found)==1)
     require(os.readlink(process/'fd'/found[0])=='socket:['+matching[0]+']')
     return {'network_namespace':network,'socket_inode':matching[0],'descriptor':found[0],
             'client_port':client_port,'server_port':server_port}

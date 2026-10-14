@@ -249,6 +249,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Authenticate an original controller's bounded local request to Root and observe its actual held history descriptor against protected original identity. Refuse foreign peers, changed operations and lost locks; keep database exclusion, artifact authority, production dispatch and complete recovery unverified.
   Sources: [details 1](docs/implementation/native-root-controller-request.md), [details 2](tools/deployment/native_root_controller_request.py), [details 3](tools/deployment/test_native_root_controller_request.py), [details 4](tools/ci/native-owned-proof.py)
 
+- Add Root observation of an authenticated original controller's actual writer lease, pinned ordinary client socket and database kernel birth. Discover from fixed read-only SQL, retain original identity and refuse loss without acquiring a replacement. Actual installed evidence, serialized artifact effects and complete recovery remain unverified.
+  Sources: [details 1](docs/implementation/native-root-database-exclusion.md), [details 2](tools/deployment/native_root_database_exclusion.py), [details 3](tools/deployment/test_native_root_database_exclusion.py), [details 4](tools/ci/native-owned-proof.py)
+
 - Add a fixed read-only Root view of the original sealed request and complete generation/lifecycle history before protected artifact allocation. Preserve ordinary-reader admission, refuse changed original resources and close interrupted readers. Actual Root observation, exclusion, allocation, stage dispatch and complete recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-root-lifecycle.md), [details 2](tools/deployment/native_root_lifecycle.py), [details 3](tools/deployment/test_native_root_lifecycle.py), [details 4](tools/ci/native-owned-proof.py), [details 5](.github/workflows/product.yml)
 
