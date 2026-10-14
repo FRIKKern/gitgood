@@ -780,6 +780,9 @@ def run_successor_case(seed, config, password, database, server_scope):
     if seed.get('lifecycle_fixture'):
         preserved_lifecycle = seal_lifecycle_fixture(seed, observed['binding_sha256'])
     business_database = 'gg_proof_' + seed['installation'].replace('-', '')
+    if seed.get('business_effects_fixture'):
+        database.query('CREATE SCHEMA fixture_shadow AUTHORIZATION ' + seed['account'], database=business_database)
+        database.query('ALTER ROLE ' + seed['account'] + ' IN DATABASE ' + business_database + ' SET search_path TO fixture_shadow, public')
     if seed.get('schema_refusal_fixture'):
         database.query('CREATE TABLE public.fixture_unexpected_relation (id integer)',
             database=business_database, role=seed['account'], password=password)
@@ -875,6 +878,7 @@ def run_successor_case(seed, config, password, database, server_scope):
                 target = preserved_lifecycle['target_versions']
                 actual_versions = database.query('SELECT coalesce(string_agg(version::text,\',\' ORDER BY version),\'\') FROM public.schema_migrations', database=business_database)
                 require(actual_versions == ','.join(map(str, target)))
+                require(database.query("SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='fixture_shadow'", database=business_database) == '0')
                 if label == 'bootstrap-owner':
                     require(database.query("SELECT count(*) FROM public.installation_owner_bootstraps WHERE installation='" + seed['installation'] + "'::uuid AND request='" + seed['ownership_operation'] + "'::uuid AND username='owner' AND team='pilot'", database=business_database) == '1')
                     require(database.query("SELECT count(*) FROM public.users u JOIN public.memberships m ON m.user_id=u.id WHERE u.username='owner' AND m.team='pilot' AND m.role='owner'", database=business_database) == '1')
@@ -980,6 +984,7 @@ def run_successor_case(seed, config, password, database, server_scope):
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
+        'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
         **lifecycle_observation}
 
 

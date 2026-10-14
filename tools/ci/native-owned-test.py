@@ -325,7 +325,8 @@ defmodule Gitgood.NativeMaintenanceWorker do
 end
 defmodule Gitgood.NativeOwnershipSupervisor do
   def start_lifecycle_link("/fixture", action,
-        [Gitgood.Repo, {Gitgood.NativeMaintenanceWorker, action}]) do
+        [{Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]},
+         {Gitgood.NativeMaintenanceWorker, action}]) do
     {Gitgood.NativeMaintenanceApplication, ^action} =
       Application.spec(:gitgood_native_maintenance, :mod)
     [:kernel, :stdlib, :elixir, :logger] =

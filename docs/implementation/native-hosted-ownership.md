@@ -58,6 +58,9 @@ effects, product startup and recovery stay unverified.
 The seventh `maintenance-effects-boundary` case uses the fixed production
 maintenance application and actual Repo/worker for migration and bootstrap.
 Its sealed target comes from the clean copied release's migration inventory.
+The actual role has a conflicting default search path and an empty shadow schema.
+The fixed maintenance Repo and migrator must still use public; Root independently
+requires the shadow namespace to receive no relations after either action.
 The fixture witness waits for Root to capture original SQL/kernel backends, then
 requests the fixed action. Root independently observes the complete schema,
 durable first-owner receipt and current owner membership in the allocated private

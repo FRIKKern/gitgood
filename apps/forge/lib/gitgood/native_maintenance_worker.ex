@@ -104,6 +104,7 @@ defmodule Gitgood.NativeMaintenanceWorker do
 
   @doc false
   def validate_database(:migrate, migrations) do
+    true = namespace_valid?()
     before = migrations["before_versions"]
     true = schema_versions() === before
 
@@ -121,6 +122,7 @@ defmodule Gitgood.NativeMaintenanceWorker do
   end
 
   def validate_database(:bootstrap, migrations) do
+    true = namespace_valid?()
     if schema_versions() === migrations["target_versions"], do: :ok, else: :error
   rescue
     _ -> :error
@@ -128,13 +130,19 @@ defmodule Gitgood.NativeMaintenanceWorker do
 
   def validate_database(_, _), do: :error
 
+  defp namespace_valid? do
+    Repo.query!("SELECT pg_catalog.current_schemas(true)", []).rows === [
+      [["pg_catalog", "public"]]
+    ]
+  end
+
   defp apply_fixed(:migrate, inputs, startup) do
     before = inputs["migrations"]["before_versions"]
     target = inputs["migrations"]["target_versions"]
     :ok = validate_database(:migrate, inputs["migrations"])
 
     :ok = NativeOwnershipStartup.current(startup)
-    applied = Ecto.Migrator.run(Repo, :up, all: true)
+    applied = Ecto.Migrator.run(Repo, :up, all: true, prefix: "public")
     true = applied === target -- before
     true = schema_versions() === target
     {:ok, outcome(inputs, applied, false)}

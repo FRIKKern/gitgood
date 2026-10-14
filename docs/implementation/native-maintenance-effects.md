@@ -8,6 +8,14 @@ input path or authority map. A running product or maintenance application is
 refused rather than reused. The default product application still refuses native
 runtime startup; these commands do not establish installation readiness.
 
+The fixed Repo child pins every connection to `pg_catalog, public`, independently
+of role/database search-path defaults. Both actions require that exact effective
+namespace before effects, and the migrator explicitly selects `public`. Checking
+public migration versions cannot authorize writes into a different namespace.
+The pinned [Postgrex connection API](https://github.com/elixir-ecto/postgrex/blob/v0.22.4/lib/postgrex.ex)
+accepts connection parameters; the pinned [Ecto migrator](https://github.com/elixir-ecto/ecto_sql/blob/v3.14.0/lib/ecto/migrator.ex)
+passes its explicit prefix through migration execution.
+
 ## Prerequisites and effects
 
 The worker executes once, only on an explicit request after startup. It obtains
@@ -53,6 +61,9 @@ application. Root independently queries the private fixture database for schema,
 receipt and current membership. It captures the lease and Repo SQL/kernel backend
 identities before execution and after effects, injects original helper/backend
 loss, and requires all captured identities absent before the next owner.
+The fixture gives the actual role a conflicting default search path with an
+empty shadow schema. Migrations and first-owner data must still appear in public,
+and Root independently checks that the shadow namespace received no relations.
 
 `maintenance-schema-refusal` starts with one unexpected table and an empty sealed
 before history. The actual worker must refuse without creating the migration,

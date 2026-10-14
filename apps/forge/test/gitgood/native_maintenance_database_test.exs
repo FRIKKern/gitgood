@@ -28,6 +28,20 @@ defmodule Gitgood.NativeMaintenanceDatabaseTest do
     assert Repo.query!("SELECT to_regclass('public.users') IS NOT NULL", []).rows == [[true]]
   end
 
+  test "another search namespace cannot redirect verified public-schema effects" do
+    actual = versions()
+    Repo.query!("CREATE SCHEMA fixture_shadow", [])
+    Repo.query!("SET LOCAL search_path TO fixture_shadow, public", [])
+    assert :error = Worker.validate_database(:migrate, %{"before_versions" => actual})
+    assert :error = Worker.validate_database(:bootstrap, %{"target_versions" => actual})
+    assert versions() == actual
+
+    assert Repo.query!(
+             "SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='fixture_shadow'",
+             []
+           ).rows == [[0]]
+  end
+
   test "missing migration table also refuses an existing application schema" do
     Repo.query!("DROP TABLE public.schema_migrations", [])
     assert :error = Worker.validate_database(:migrate, %{"before_versions" => []})

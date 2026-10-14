@@ -64,7 +64,10 @@ defmodule Gitgood.NativeMaintenanceApplication do
     Gitgood.NativeOwnershipSupervisor.start_lifecycle_link(
       Application.fetch_env!(:gitgood, :storage_root),
       action,
-      [Gitgood.Repo, {Gitgood.NativeMaintenanceWorker, action}]
+      [
+        {Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]},
+        {Gitgood.NativeMaintenanceWorker, action}
+      ]
     )
   end
 end
