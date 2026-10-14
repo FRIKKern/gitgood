@@ -390,6 +390,28 @@ def listeners_absent(config):
     return True
 
 
+def require_tls_refusal(context, hostname, *, server_name=False):
+    """A wrong SNI can be refused by Caddy before any certificate is delivered.
+
+    Keep client CA/hostname validation enabled. Accept only certificate refusal
+    or a closed server-name handshake-alert vocabulary after positive TLS proof;
+    network errors, unrelated TLS errors and a successful handshake still fail.
+    The untrusted-issuer test must always fail client certificate verification.
+    """
+    require(context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname is True)
+    with socket.create_connection(('127.0.0.1', 4443), timeout=3) as connection:
+        try:
+            context.wrap_socket(connection, server_hostname=hostname)
+        except ssl.SSLCertVerificationError:
+            return 'certificate-verification'
+        except ssl.SSLError as error:
+            require(server_name and error.reason in {'TLSV1_ALERT_UNRECOGNIZED_NAME',
+                'TLSV1_ALERT_INTERNAL_ERROR', 'SSLV3_ALERT_HANDSHAKE_FAILURE'}, 'unexpected TLS refusal')
+            return 'server-name-handshake-alert'
+        else:
+            raise ValueError('Wrong TLS hostname or untrusted issuer accepted')
+
+
 def probe_native_runtime(seed, config, stage, *, public=False):
     """Actual API/Git, with a separately requested real CA/hostname-verified edge."""
     class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -421,6 +443,7 @@ def probe_native_runtime(seed, config, stage, *, public=False):
             return json.loads(raw), response.headers
 
     if public:
+        seed['proof_phase'] = 'public-runtime:verified-tls-readiness'
         deadline = time.monotonic() + 30
         while True:
             try:
@@ -428,6 +451,7 @@ def probe_native_runtime(seed, config, stage, *, public=False):
                     if response.status == 200:break
             except (urllib.error.URLError, OSError):pass
             require(time.monotonic() < deadline, 'public TLS readiness deadline');time.sleep(.1)
+        seed['proof_phase'] = 'public-runtime:frontend-html-and-packaged-assets'
         with opener.open(base + '/', timeout=5) as response:
             html = response.read(262145)
             require(response.status == 200 and len(html) <= 262144 and b'gitgood' in html.lower())
@@ -442,17 +466,17 @@ def probe_native_runtime(seed, config, stage, *, public=False):
                 require(asset_path.is_relative_to(client) and asset_path.stat().st_size <= 8388608)
                 expected = asset_path.read_bytes()
                 require(hashlib.sha256(payload).digest() == hashlib.sha256(expected).digest(), 'served frontend differs from sealed artifact')
+        seed['proof_phase'] = 'public-runtime:internal-route-denial'
         try:
             opener.open(base + '/internal/readiness', timeout=5)
         except urllib.error.HTTPError as error:
             require(error.code == 404)
         else:raise ValueError('Internal route exposed at public edge')
-        for hostname, tls_context in [('localhost', context), ('127.0.0.1', ssl.create_default_context())]:
-            with socket.create_connection(('127.0.0.1', 4443), timeout=3) as connection:
-                try:
-                    tls_context.wrap_socket(connection, server_hostname=hostname)
-                except ssl.SSLCertVerificationError:pass
-                else:raise ValueError('Wrong TLS hostname or untrusted issuer accepted')
+        seed['proof_phase'] = 'public-runtime:wrong-hostname-refusal'
+        wrong_hostname_refusal = require_tls_refusal(context, 'localhost', server_name=True)
+        seed['proof_phase'] = 'public-runtime:untrusted-issuer-refusal'
+        require(require_tls_refusal(ssl.create_default_context(), '127.0.0.1') == 'certificate-verification')
+        seed['proof_phase'] = 'public-runtime:owner-login-and-private-api'
     ready, _ = request('GET', '/health/ready', 200)
     require(ready['candidate'] == seed['candidate'] and ready['dirty'] is False and ready['status'] == 'ready')
     require(ready['operational_mode'] == 'active')
@@ -490,6 +514,7 @@ def probe_native_runtime(seed, config, stage, *, public=False):
         'GIT_CONFIG_VALUE_0': 'Authorization: Basic ' + base64.b64encode(('owner:' + credential['token']).encode()).decode(),
         'GIT_CONFIG_KEY_1': 'credential.helper', 'GIT_CONFIG_VALUE_1': ''}
     if public:environment.update({'GIT_SSL_CAINFO': str(certificate), 'GIT_SSL_NO_VERIFY': 'false'})
+    if public:seed['proof_phase'] = 'public-runtime:https-git-push-and-readback'
     checkout = probe / 'http-client'
     command([git, 'clone', base + '/git/pilot/native-runtime.git', str(checkout)], environment=environment, timeout=30)
     command([git, '-C', str(checkout), 'symbolic-ref', 'HEAD', 'refs/heads/main'], environment=environment)
@@ -504,6 +529,7 @@ def probe_native_runtime(seed, config, stage, *, public=False):
     command([git, 'clone', base + '/git/pilot/native-runtime.git', str(cloned)], environment=environment, timeout=30)
     require(command([git, '-C', str(cloned), 'rev-parse', 'HEAD'], environment=environment).strip() == revision)
     key = probe / 'ssh-key'
+    if public:seed['proof_phase'] = 'public-runtime:ssh-readback-and-session-revocation'
     command(['/usr/bin/ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)])
     request('POST', '/api/ssh-keys', 201, {'label': 'native-runtime-fixture', 'public_key': key.with_suffix('.pub').read_text()},
         token=session, extra={'idempotency-key': str(uuid.uuid4())})
@@ -525,7 +551,8 @@ def probe_native_runtime(seed, config, stage, *, public=False):
         'internal_http_git_push_and_readback_verified': not public, 'ssh_git_readback_verified': True,
         'session_revocation_verified': True, 'public_tls_and_frontend_verified': public,
         'public_https_git_push_and_readback_verified': public, 'public_cookie_and_owner_login_verified': public,
-        'wrong_hostname_and_untrusted_issuer_refused': public, 'complete_browser_journey_verified': False}
+        'wrong_hostname_and_untrusted_issuer_refused': public, 'complete_browser_journey_verified': False,
+        'wrong_hostname_refusal': wrong_hostname_refusal if public else None}
 
 
 def unit_text(seed, manager):

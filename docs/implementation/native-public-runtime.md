@@ -60,6 +60,12 @@ clean web/forge identities, internal-route denial, signed owner login through
 forged caller headers, secure cookie access, anonymous denial, real HTTPS Git
 push/readback, strict SSH readback and session revocation. Original helper loss
 must leave all captured BEAM, SQL/kernel, web/edge births and listeners absent.
+The wrong-hostname probe records whether client certificate verification or a
+closed server-name TLS alert refused it; Caddy can reject an unmatched SNI before
+delivering a certificate. Positive CA/hostname verification always runs first,
+all client validation stays enabled, and an untrusted issuer must fail client
+certificate verification. Successful handshakes, connection failures and
+unrelated TLS errors cannot count as negative evidence.
 The production component must empty all three original leaves before fixture
 cleanup, while responsibility records and marker inodes remain unchanged.
 

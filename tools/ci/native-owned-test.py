@@ -24,6 +24,37 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def tls_context(self, failure=None):
+        return SimpleNamespace(verify_mode=proof.ssl.CERT_REQUIRED, check_hostname=True,
+                               wrap_socket=Mock(side_effect=failure))
+
+    def test_wrong_tls_name_can_be_refused_before_certificate_delivery(self):
+        for reason in ['TLSV1_ALERT_UNRECOGNIZED_NAME', 'TLSV1_ALERT_INTERNAL_ERROR', 'SSLV3_ALERT_HANDSHAKE_FAILURE']:
+            failure = proof.ssl.SSLError(1, 'synthetic server-name alert');failure.reason = reason
+            context = self.tls_context(failure)
+            with self.subTest(reason=reason), patch.object(proof.socket, 'create_connection', return_value=contextlib.nullcontext(Mock())):
+                self.assertEqual(proof.require_tls_refusal(context, 'localhost', server_name=True), 'server-name-handshake-alert')
+                with self.assertRaises(ValueError):proof.require_tls_refusal(context, '127.0.0.1')
+
+    def test_untrusted_tls_issuer_requires_client_certificate_refusal(self):
+        context = self.tls_context(proof.ssl.SSLCertVerificationError(1, 'synthetic certificate refusal'))
+        with patch.object(proof.socket, 'create_connection', return_value=contextlib.nullcontext(Mock())):
+            self.assertEqual(proof.require_tls_refusal(context, '127.0.0.1'), 'certificate-verification')
+            self.assertEqual(proof.require_tls_refusal(context, 'localhost', server_name=True), 'certificate-verification')
+
+    def test_tls_negative_cannot_accept_success_network_errors_or_disabled_validation(self):
+        failure = proof.ssl.SSLError(1, 'synthetic unrelated error');failure.reason = 'DECRYPTION_FAILED_OR_BAD_RECORD_MAC'
+        for failure in [None, failure]:
+            with patch.object(proof.socket, 'create_connection', return_value=contextlib.nullcontext(Mock())):
+                with self.assertRaises(ValueError):proof.require_tls_refusal(self.tls_context(failure), 'localhost', server_name=True)
+        with patch.object(proof.socket, 'create_connection', side_effect=ConnectionRefusedError):
+            with self.assertRaises(ConnectionRefusedError):proof.require_tls_refusal(self.tls_context(), 'localhost', server_name=True)
+        for field, value in [('check_hostname', False), ('verify_mode', proof.ssl.CERT_NONE)]:
+            context = self.tls_context();setattr(context, field, value)
+            with patch.object(proof.socket, 'create_connection') as connect:
+                with self.assertRaises(ValueError):proof.require_tls_refusal(context, 'localhost', server_name=True)
+                connect.assert_not_called()
+
     def fixture_elixir(self):
         expected = next(line.split()[1].split('-otp-')[0]
                         for line in (HERE.parents[1] / '.tool-versions').read_text().splitlines()
