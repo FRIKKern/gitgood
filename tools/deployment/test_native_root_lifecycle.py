@@ -198,7 +198,10 @@ class RootRetainedHistoryDescriptorTest(unittest.TestCase):
         self.value = value;self.addCleanup(value.__exit__,None,None,None)
         lifecycle = value.directory/'lifecycle-responsibility-v2'
         fields = ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink')
-        self.snapshot = {'generation':{'files':{str(path.relative_to(value.directory)):
+        self.snapshot = {'directories':{str(path.relative_to(value.directory)):value._directory_metadata(path.stat())
+                for path in (value.directory,value.store,value.directory/'generation-transitions-v2',
+                    value.directory/'generation-receipts-v2',lifecycle,lifecycle/'heads',lifecycle/'records')},
+            'generation':{'files':{str(path.relative_to(value.directory)):
                 tuple(getattr(path.stat(),field) for field in fields) for path in self.paths if not path.is_relative_to(lifecycle)}},
             'lifecycle_files':{'directories':{role:(*self.directory_identity(path),path.stat().st_mtime_ns,path.stat().st_ctime_ns)
                 for role,path in (('lifecycle',lifecycle),('heads',lifecycle/'heads'),('records',lifecycle/'records'))},
@@ -254,6 +257,10 @@ class RootRetainedHistoryDescriptorTest(unittest.TestCase):
         self.pin();path = self.paths[-1].with_name('.partial-interrupted')
         self.write(path);path.unlink()
         with self.assertRaises(RootLifecycleRefused):self.value.check()
+
+    def test_transient_generation_entry_between_replay_and_pinning_refuses(self):
+        path = self.value.store/'.partial-interrupted';self.write(path);path.unlink()
+        with self.assertRaises(RootLifecycleRefused):self.pin()
 
     def test_rebound_original_file_descriptor_refuses(self):
         self.pin();fd = self.value.retained[self.paths[3]]

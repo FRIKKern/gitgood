@@ -187,8 +187,7 @@ class _RootReadOnlyCustody(GenerationRecordCustody):
                 self.retained[path] = fd
             except BaseException:os.close(fd);raise
         require(set(self.known) == set(paths))
-        self.directory_metadata = {path:self._directory_metadata(os.fstat(fd))
-            for path,(fd,_) in self.directories.items()}
+        self.directory_metadata = {self.directory/name:identity for name,identity in snapshot['directories'].items()}
         self.entries = {path:sorted(names) for path,names in expected_names.items()}
         require(set(self.entries) == set(self.directories));self.check()
 
@@ -357,7 +356,13 @@ class NativeRootLifecycleObservation:
         self.history.custody.check()
 
     def _snapshot(self):
-        self._current();generation = self.history._snapshot(self.scope)
+        self._current();custody = self.history.custody
+        lifecycle_root = custody.directory/'lifecycle-responsibility-v2'
+        for path in (custody.directory,custody.store,self.history.transitions,self.history.receipts,
+                lifecycle_root,lifecycle_root/'records',lifecycle_root/'heads'):custody._identity(path)
+        directories = {str(path.relative_to(custody.directory)):custody._directory_metadata(os.fstat(fd))
+            for path,(fd,_) in custody.directories.items()}
+        generation = self.history._snapshot(self.scope)
         view = self.history._lifecycle_view()
         try:
             record = view.snapshot(self.operation)
@@ -371,7 +376,9 @@ class NativeRootLifecycleObservation:
             lifecycle_files = view.fingerprint();view.check()
         finally:view.close()
         self._current()
-        return {'generation':generation,'lifecycle':record,'lifecycle_files':lifecycle_files}
+        require({str(path.relative_to(custody.directory)):custody._directory_metadata(os.fstat(fd))
+            for path,(fd,_) in custody.directories.items()} == directories)
+        return {'generation':generation,'lifecycle':record,'lifecycle_files':lifecycle_files,'directories':directories}
 
     def check(self):
         try:
