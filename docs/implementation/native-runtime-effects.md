@@ -4,8 +4,9 @@
 product workers and HTTP/SSH listeners to original lifecycle ownership. It does
 not accept a worker list, program, callback, input path or authority override.
 Running product, maintenance or runtime applications refuse rather than being
-reused. The default `Gitgood.Application` native gate remains closed until its
-installed startup and functional activation requirements are proven.
+reused. The [default application startup](native-default-startup.md) now shares
+this fixed runtime factory; its actual normal-release startup and failure require
+current installed evidence, separate from complete lifecycle acceptance.
 `Gitgood.Release.native_runtime/0` prints only the safe activation outcome and
 keeps that original BEAM running; ownership loss must terminate it.
 

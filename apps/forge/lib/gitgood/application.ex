@@ -6,16 +6,25 @@ defmodule Gitgood.Application do
   use Application
 
   @impl true
-  def start(_type, _args) do
+  def start(type, args) do
     root = Application.fetch_env!(:gitgood, :storage_root)
 
-    with :ok <-
-           Gitgood.InstallationProfile.ensure_development(
-             Application.get_env(:gitgood, :supervision_profile),
-             root,
-             :runtime
-           ) do
-      start_development(root)
+    case Gitgood.InstallationProfile.resolve(
+           Application.get_env(:gitgood, :supervision_profile),
+           root,
+           :runtime
+         ) do
+      {:ok, %{profile: :development_v1}} ->
+        start_development(root)
+
+      {:ok, %{profile: :systemd_v2}} when type == :normal and args == [] ->
+        Gitgood.NativeRuntime.start_application()
+
+      {:ok, %{profile: :systemd_v2}} ->
+        {:error, :native_runtime_unavailable}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

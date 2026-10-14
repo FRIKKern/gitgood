@@ -43,7 +43,7 @@ Git transport has separate HTTP and SSH entries but uses the same backend access
 | Search and recent activity | [Discovery](../apps/forge/lib/gitgood/discovery.ex) | [Discovery UI](../apps/web/src/lib/discovery.tsx), [activity contract](implementation/activity.md) |
 | Startup, readiness and recovery | [Application](../apps/forge/lib/gitgood/application.ex), [Readiness](../apps/forge/lib/gitgood/readiness.ex), [OfflineRecovery](../apps/forge/lib/gitgood/offline_recovery.ex) | [Native supervision](implementation/native-supervision-profile.md), [backup and restore](implementation/offline-backup.md) |
 
-The native installation code is substantial and still being integrated. In this checkout, `Gitgood.Application` starts through `InstallationProfile.ensure_development/3`; it refuses the managed native startup path. Component files and their isolated experiments do not mean that the complete Cloud installation works.
+The native installation code is substantial and still being integrated. `Gitgood.Application` selects development or original native ownership through `InstallationProfile.resolve/3`; normal native release boot uses the fixed runtime root and one-use activation. Read [default native startup](implementation/native-default-startup.md) for its installed proof and remaining gates. Component files and isolated experiments do not mean that the complete Cloud installation works.
 
 ## Where to make a change
 

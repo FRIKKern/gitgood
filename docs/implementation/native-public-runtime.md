@@ -3,7 +3,8 @@
 An installed team needs its actual frontend and Git routes behind verified TLS.
 `NativePublicRuntime` adds fixed Node and Caddy services to the original native
 controller boundary. This component does not grant installation, enrollment or
-public activation acceptance. Default native application admission remains closed.
+public activation acceptance. [Normal native release startup](native-default-startup.md)
+uses the same original admission prerequisites and requires its own installed proof.
 
 ## Original authority and protected artifacts
 
@@ -71,8 +72,8 @@ cleanup, while responsibility records and marker inodes remain unchanged.
 
 Only a current passing installed artifact establishes those outcomes. Local tests
 use explicit service/database stand-ins and prove refusal/control behavior only.
-The suite has twelve cases; the nested migration fault remains last. Existing
+The normal-release case brings the suite to thirteen cases; the nested migration fault remains last. Existing
 inspection/staging/lifecycle receipts are still explicitly synthetic metadata.
-Default native startup, complete browser journeys, lifecycle dispatch and effect
-reconciliation, public activation/enrollment and reboot/replacement-host recovery
+Complete browser journeys, lifecycle dispatch and effect reconciliation,
+public activation/enrollment and reboot/replacement-host recovery
 remain required for full J14/J15 acceptance.

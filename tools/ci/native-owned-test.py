@@ -24,6 +24,55 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_root_fixture_observes_original_lease_socket_without_ordinary_user_bypass(self):
+        seed = {'uid': 1002, 'installation': '12345678-1234-4234-8234-123456789abc', 'account': 'gg_fixture'}
+        record = {'owner': {'pid': 4242, 'birth': '111', 'uid': 1002},
+                  'database_session': {'backend_pid': 4243, 'backend_birth': '222', 'database': {'port': 5440}},
+                  'backend_kernel': {'kernel_birth': '222'}}
+        database = SimpleNamespace(environment={'PGPORT': '5440'}, predicate=Mock(return_value='pid=4243'),
+                                   query=Mock(side_effect=['127.0.0.1:12345', '1']))
+        def process(pid):
+            return {'pid': pid, 'uid': 1002 if pid == 4242 else 1001, 'birth': '111' if pid == 4242 else '222', 'state': 'S'}
+        tcp = b'header\n0: 0100007F:3039 0100007F:1540 01 0:0 0:0 0 1002 0 7777\n'
+        def link(path):
+            return 'net:[10]' if str(path).replace('\\','/').endswith('ns/net') else 'socket:[7777]'
+        entries = [SimpleNamespace(name='7', path='/proc/4242/fd/7')]
+        with patch.object(proof, 'process', side_effect=process), patch.object(Path, 'open', return_value=io.BytesIO(tcp)), \
+                patch.object(proof.os, 'readlink', side_effect=link), \
+                patch.object(proof.os, 'scandir', return_value=contextlib.nullcontext(iter(entries))):
+            result = proof.observe_default_lease(seed, record, database, {'postgres_uid': 1001})
+        self.assertEqual(result, {'client_port': 12345, 'socket_inode': '7777', 'descriptor': '7'})
+        self.assertTrue(all(call.args[0].startswith('SELECT ') for call in database.query.call_args_list))
+        database.query = Mock(side_effect=['127.0.0.1:12345', '0'])
+        with patch.object(proof, 'process', side_effect=process), patch.object(Path, 'open') as reads:
+            with self.assertRaises(ValueError):proof.observe_default_lease(seed, record, database, {'postgres_uid': 1001})
+            reads.assert_not_called()
+        database.query = Mock(side_effect=['127.0.0.1:12345', '1'])
+        with patch.object(proof, 'process', side_effect=process), patch.object(Path, 'open', return_value=io.BytesIO(tcp)), \
+                patch.object(proof.os, 'readlink', return_value='net:[10]'), \
+                patch.object(proof.os, 'scandir', return_value=contextlib.nullcontext(iter(entries))):
+            with self.assertRaises(ValueError):proof.observe_default_lease(seed, record, database, {'postgres_uid': 1001})
+
+    def test_default_native_fault_requires_actual_observation_acknowledgment(self):
+        seed = {'seal_directory': str(self.directory), 'run': str(self.directory)}
+        ready = {'original_release_running': True, 'public_stop_deferred_until_native_exit': True}
+        for returned in [None, {}, {**ready, 'public_stop_deferred_until_native_exit': False}]:
+            with self.subTest(returned=returned), patch.object(proof, 'write_new'), \
+                    patch.object(proof, 'wait_for', return_value=returned), patch.object(proof, 'inject_loss') as inject:
+                with self.assertRaises(ValueError):
+                    proof.inject_default_release_loss(seed, self.directory, {}, {}, None)
+                inject.assert_not_called()
+        with patch.object(proof, 'write_new'), patch.object(proof, 'wait_for', side_effect=TimeoutError), \
+                patch.object(proof, 'inject_loss') as inject:
+            with self.assertRaises(TimeoutError):proof.inject_default_release_loss(seed, self.directory, {}, {}, None)
+            inject.assert_not_called()
+        events = []
+        with patch.object(proof, 'write_new', side_effect=lambda *args: events.append('request')), \
+                patch.object(proof, 'wait_for', side_effect=lambda *args: events.append('ack') or ready), \
+                patch.object(proof, 'inject_loss', side_effect=lambda *args: events.append('loss')):
+            proof.inject_default_release_loss(seed, self.directory, {}, {}, None)
+        self.assertEqual(events, ['request', 'ack', 'loss'])
+
     def tls_context(self, failure=None):
         return SimpleNamespace(verify_mode=proof.ssl.CERT_REQUIRED, check_hostname=True,
                                wrap_socket=Mock(side_effect=failure))
@@ -482,6 +531,82 @@ IO.puts("actual-runtime-schema-refused-before-product-children")
         result = subprocess.run([executable, str(source)], text=True, capture_output=True, timeout=20, env=environment)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout.strip(), 'actual-runtime-schema-refused-before-product-children', result.stderr)
+        self.assertNotIn('warning:', result.stderr)
+
+    def test_actual_default_application_callback_activates_fixed_root_without_nested_application(self):
+        executable = self.fixture_elixir()
+        script = '''
+defmodule Gitgood.InstallationProfile do
+  def resolve("systemd-v2", "/fixture", :runtime), do: {:ok, %{profile: :systemd_v2}}
+end
+defmodule Gitgood.NativeOwnershipStartup do
+  def validate_lifecycle_options(root: "/fixture", action: :runtime), do: :ok
+end
+defmodule Gitgood.NativeOwnershipSupervisor do
+  def start_lifecycle_link("/fixture", :runtime,
+      [{Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]}, Gitgood.NativeRuntimeWorker]) do
+    false = Enum.any?(Application.started_applications(), fn {app, _, _} -> app == :gitgood_native_runtime end)
+    Supervisor.start_link([], strategy: :one_for_all, max_restarts: 0, name: Gitgood.Supervisor)
+  end
+end
+defmodule Gitgood.NativeRuntimeWorker do
+  def activate do
+    root = Process.whereis(Gitgood.Supervisor)
+    true = is_pid(root) and Process.alive?(root)
+    false = Enum.any?(Application.started_applications(), fn {app, _, _} -> app == :gitgood_native_runtime end)
+    case Application.get_env(:gitgood, :fixture_activation, :success) do
+      :success -> {:ok, %{product_workers_started: true, internal_readiness_observed: true}}
+      :refuse -> {:error, :synthetic_refusal}
+      :wrong_outcome -> {:ok, %{product_workers_started: false, internal_readiness_observed: false}}
+      :exit -> exit(:synthetic_refusal)
+      :must_not_run -> raise("existing root was adopted")
+    end
+  end
+end
+defmodule Gitgood.InstallationLease do
+  def enabled?, do: raise("development branch called for native startup")
+end
+defmodule Gitgood.RuntimeWorkers do
+  def children, do: raise("development branch called for native startup")
+end
+defmodule GitgoodWeb.Endpoint do
+  def config_change(_, _), do: :ok
+end
+Code.compile_file(System.fetch_env!("GITGOOD_RUNTIME_SOURCE"))
+Code.compile_file(System.fetch_env!("GITGOOD_APPLICATION_SOURCE"))
+:ok = :application.load({:application, :gitgood,
+  [vsn: ~c"fixture", mod: {Gitgood.Application, []}, applications: [:kernel, :stdlib, :elixir, :logger]]})
+Application.put_env(:gitgood, :supervision_profile, "systemd-v2")
+Application.put_env(:gitgood, :storage_root, "/fixture")
+:ok = Application.start(:gitgood, :permanent)
+true = Process.alive?(Process.whereis(Gitgood.Supervisor))
+IO.puts("actual-default-callback-fixed-root-activated-without-nested-application")
+:ok = Application.stop(:gitgood)
+nil = Process.whereis(Gitgood.Supervisor)
+Process.flag(:trap_exit, true)
+for mode <- [:refuse, :wrong_outcome, :exit] do
+  Application.put_env(:gitgood, :fixture_activation, mode)
+  {:error, :native_runtime_unavailable} = Gitgood.NativeRuntime.start_application()
+  nil = Process.whereis(Gitgood.Supervisor)
+end
+{:ok, existing} = Supervisor.start_link([], strategy: :one_for_all, max_restarts: 0, name: Gitgood.Supervisor)
+Application.put_env(:gitgood, :fixture_activation, :must_not_run)
+{:error, :native_runtime_unavailable} = Gitgood.NativeRuntime.start_application()
+{:error, :native_runtime_unavailable} = Gitgood.Application.start({:takeover, :other}, [])
+{:error, :native_runtime_unavailable} = Gitgood.Application.start(:normal, [:caller_argument])
+true = Process.alive?(existing)
+:ok = Supervisor.stop(existing)
+IO.puts("actual-default-callback-refusal-stops-only-created-root")
+'''
+        environment = {**os.environ,
+            'GITGOOD_RUNTIME_SOURCE': str(HERE.parents[1] / 'apps/forge/lib/gitgood/native_runtime.ex'),
+            'GITGOOD_APPLICATION_SOURCE': str(HERE.parents[1] / 'apps/forge/lib/gitgood/application.ex'),
+            'ERL_FLAGS': '+S 2:2 +SDio 1 +SDcpu 1'}
+        source = self.directory / 'default-runtime-callback.exs';source.write_text(script, encoding='utf-8')
+        result = subprocess.run([executable, str(source)], text=True, capture_output=True, timeout=20, env=environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('actual-default-callback-fixed-root-activated-without-nested-application', result.stdout)
+        self.assertIn('actual-default-callback-refusal-stops-only-created-root', result.stdout)
         self.assertNotIn('warning:', result.stderr)
 
     @unittest.skipUnless(sys.platform == "linux", "real Linux JIT file-limit check runs on the hosted runner")

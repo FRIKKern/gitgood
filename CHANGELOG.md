@@ -102,6 +102,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Added immutable native evidence attached to linked task criteria and exact source/Git revisions, checksummed private text artifacts, explicit reassessment history and unavailable-artifact events; full J11 acceptance remains under verification.
   Sources: [details 1](docs/implementation/criterion-evidence.md)
 
+- Connect normal packaged native release boot to original ownership, the fixed runtime root and one-use schema-checked activation. Refusal stops only the newly created root. Add installed public-function and permanent-release failure checks without a fixture runtime substitution; full lifecycle, activation and recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-default-startup.md), [details 2](apps/forge/lib/gitgood/application.ex), [details 3](apps/forge/lib/gitgood/native_runtime.ex), [details 4](tools/ci/native-owned-proof.py)
+
 - Observe native persistent installation identity separately from kernel resource generations. Bind private directory, configuration/key, host and root-controlled executable identities to an actual ordinary PostgreSQL owner; reject administrative role privileges, memberships and changed observations. Writer exclusion, publication and lifecycle recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-durable-bindings.md), [details 2](tools/deployment/native_durable_binding.py), [details 3](tools/deployment/native_durable_database.py)
 

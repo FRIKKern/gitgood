@@ -51,6 +51,62 @@ defmodule Gitgood.NativeRuntime do
   catch
     :exit, _ -> {:error, @failure}
   end
+
+  @doc false
+  def start_pending_root do
+    with true <- Application.get_env(:gitgood, :supervision_profile) === "systemd-v2",
+         root when is_binary(root) <- Application.fetch_env!(:gitgood, :storage_root),
+         :ok <-
+           Gitgood.NativeOwnershipStartup.validate_lifecycle_options(root: root, action: :runtime) do
+      Gitgood.NativeOwnershipSupervisor.start_lifecycle_link(root, :runtime, [
+        {Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]},
+        Gitgood.NativeRuntimeWorker
+      ])
+    else
+      _ -> {:error, @failure}
+    end
+  rescue
+    _ -> {:error, @failure}
+  end
+
+  @doc false
+  def start_application do
+    # The ordinary :gitgood application is already being started by OTP. Never
+    # load/ensure a nested application here or recurse into its controller.
+    case start_pending_root() do
+      {:ok, root} ->
+        case activate_application() do
+          :ok -> {:ok, root}
+          :error -> abort_application(root)
+        end
+
+      _ ->
+        {:error, @failure}
+    end
+  end
+
+  defp activate_application do
+    case Gitgood.NativeRuntimeWorker.activate() do
+      {:ok, %{product_workers_started: true, internal_readiness_observed: true}} -> :ok
+      _ -> :error
+    end
+  rescue
+    _ -> :error
+  catch
+    :exit, _ -> :error
+  end
+
+  defp abort_application(root) do
+    # Only the root returned by this attempt can be stopped; an existing named
+    # supervisor is never adopted. Startup failure cannot leave a partial root.
+    try do
+      Supervisor.stop(root, :shutdown, 5_000)
+    catch
+      :exit, _ -> :ok
+    end
+
+    {:error, @failure}
+  end
 end
 
 defmodule Gitgood.NativeRuntimeApplication do
@@ -59,13 +115,6 @@ defmodule Gitgood.NativeRuntimeApplication do
 
   @impl true
   def start(_, []) do
-    Gitgood.NativeOwnershipSupervisor.start_lifecycle_link(
-      Application.fetch_env!(:gitgood, :storage_root),
-      :runtime,
-      [
-        {Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]},
-        Gitgood.NativeRuntimeWorker
-      ]
-    )
+    Gitgood.NativeRuntime.start_pending_root()
   end
 end

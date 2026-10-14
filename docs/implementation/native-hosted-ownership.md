@@ -7,10 +7,12 @@ VM experiments with a bounded job on a fresh GitHub-hosted Ubuntu 24.04 runner.
 
 **This is an ownership component proof.** A passing receipt does not mean
 the native product can be enrolled, upgraded, activated, restarted, or deployed.
-The first six cases start a small permanent fixture application from the production release;
-the product's `Gitgood.Application` native-startup refusal stays in place. There
-are no forge HTTP, SSH, web, or edge listeners. The private Node and Caddy binaries
-are checked as part of the durable binding, rather than started as services.
+The first six cases start a small permanent fixture application from the production
+release without product listeners. Later cases exercise actual maintenance,
+native product workers and protected web/edge services. The separate
+[normal-release case](native-default-startup.md) uses the real `Gitgood.Application`
+callback without a fixture runtime substitution. Node/Caddy provenance is part
+of the durable binding, and current installed public cases verify their services.
 
 The first four cases require an absent lifecycle worker policy and history.
 They never remove a policy or delete an ownership marker. The successor case uses the actual live controller to admit
@@ -98,7 +100,10 @@ owner cookie/login, HTTPS Git and production component cleanup after original
 helper loss. See [native public runtime](native-public-runtime.md) for its current
 artifact requirements and limits. The installed suite has twelve cases; the
 nested-inventory fault remains last. Complete public activation and journey
-acceptance remain unverified.
+acceptance remain unverified. `native-default-release` adds normal packaged boot,
+five independent original owner/SQL/kernel/readiness observations and permanent
+native failure before public component cleanup. The suite has thirteen cases;
+the nested migration fault remains last.
 
 `fixed_migration_and_bootstrap_effects_observed` and
 `actual_nonempty_schema_refusal_verified` describe only these component outcomes.
