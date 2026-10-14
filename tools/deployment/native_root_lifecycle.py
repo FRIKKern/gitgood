@@ -149,7 +149,9 @@ class _RootReadOnlyCustody(GenerationRecordCustody):
 class _RootLifecycleHistory(NativeLifecycleHistory):
     def __init__(self, custody):
         self.uid,self.gid = custody.uid,custody.gid
-        super().__init__(custody)
+        try:super().__init__(custody)
+        except BaseException:
+            self.close();raise
 
     def _directory(self, info):
         require(stat.S_ISDIR(info.st_mode) and info.st_uid == self.uid and info.st_gid == self.gid)

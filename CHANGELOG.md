@@ -246,6 +246,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Add a fixed read-only Root view of the original ordinary native controller as a prerequisite for protected artifact staging. Preserve ordinary worker admission and permanently refuse changed service, policy or directory custody. Actual staging and complete installation/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-root-controller.md), [details 2](tools/deployment/native_root_controller.py), [details 3](tools/deployment/native_service_scope.py), [details 4](tools/ci/native-owned-proof.py)
 
+- Add a fixed read-only Root view of the original sealed request and complete generation/lifecycle history before protected artifact allocation. Preserve ordinary-reader admission, refuse changed original resources and close interrupted readers. Actual Root observation, exclusion, allocation, stage dispatch and complete recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-root-lifecycle.md), [details 2](tools/deployment/native_root_lifecycle.py), [details 3](tools/deployment/test_native_root_lifecycle.py)
+
 - Recorded the completed native foundation run with criterion-level observations, exact candidate/runtime evidence, clean-start instructions, integration references and remaining private-forge/Cloud milestones.
   Sources: [details 1](docs/RUN-72H-FINISH.md)
 

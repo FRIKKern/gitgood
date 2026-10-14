@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from native_root_lifecycle import (NativeRootLifecycleObservation, RootLifecycleRefused,
-    _RootGenerationHistory, _RootPrivateInputs, _RootReadOnlyCustody, parse_generation_seal)
+    _RootGenerationHistory, _RootLifecycleHistory, _RootPrivateInputs, _RootReadOnlyCustody, parse_generation_seal)
 from resource_generations import canonical
 import test_native_durable_database as database_fixture
 import test_resource_generations as generation_fixture
@@ -90,6 +90,16 @@ class RootReadOnlyBoundaryTest(unittest.TestCase):
             close = stack.enter_context(patch('native_root_lifecycle.os.close'))
             with self.assertRaises(RootLifecycleRefused):_RootPrivateInputs(directory,1000,1000,seal)
             self.assertEqual(opened.call_count,1);close.assert_called_once_with(13)
+
+    def test_interrupted_history_constructor_closes_its_owned_descriptors(self):
+        custody = SimpleNamespace(uid=1000,gid=1000)
+        def interrupted(value,_custody):
+            value.usable = True;value.descriptors = {'history':13,'records':14}
+            raise KeyboardInterrupt('fixture interruption')
+        with patch('native_root_lifecycle.NativeLifecycleHistory.__init__',autospec=True,side_effect=interrupted), \
+             patch('native_root_lifecycle.os.close') as close:
+            with self.assertRaises(KeyboardInterrupt):_RootLifecycleHistory(custody)
+            self.assertEqual([item.args[0] for item in close.call_args_list],[13,14])
 
 
 class RootOriginalViewTest(unittest.TestCase):
