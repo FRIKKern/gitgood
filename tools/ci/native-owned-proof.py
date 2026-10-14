@@ -283,6 +283,22 @@ def wait_for(path, run, seconds):
     raise TimeoutError("fixture receipt deadline")
 
 
+def failure_check_site(error):
+    """Only a fixed fixture source location; no messages, values or source text."""
+    result = {'status': 'unavailable'}
+    cursor = error.__traceback__
+    for _ in range(128):
+        if cursor is None:
+            return result
+        code = cursor.tb_frame.f_code
+        if (code.co_filename == __file__ and code.co_name != 'require' and
+                re.fullmatch(r'[a-zA-Z_][a-zA-Z_0-9]{0,63}', code.co_name) and
+                type(cursor.tb_lineno) is int and 0 < cursor.tb_lineno < 10000):
+            result = {'file': 'native-owned-proof.py', 'function': code.co_name, 'line': cursor.tb_lineno}
+        cursor = cursor.tb_next
+    return {'status': 'unavailable'}
+
+
 def bounded_diagnostic_read(path, maximum=4096):
     before = path.lstat()
     require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and before.st_size <= maximum)
@@ -330,6 +346,16 @@ def startup_diagnostics(run):
         # Malformed diagnostics are never copied through, even on fixture failure.
         return {"status": "invalid"}
     return result
+
+
+def case_startup_diagnostics(seed):
+    # Owners write in fixed stage directories. An arbitrary phase never selects
+    # another pathname and the existing closed event vocabulary still applies.
+    label = seed.get('proof_phase', '').partition(':')[0]
+    run = Path(seed['run'])
+    if label in {'migration-owner', 'bootstrap-owner', 'runtime-owner'}:
+        run = run / label
+    return startup_diagnostics(run)
 
 
 class Database:
@@ -1652,10 +1678,11 @@ def main(args):
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:
-        receipt["failure"] = {"phase": phase, "error_type": type(error).__name__}
+        receipt["failure"] = {"phase": phase, "error_type": type(error).__name__,
+                              "check_site": failure_check_site(error)}
         if seed is not None:
             receipt["failure"]["component_phase"] = seed.get("proof_phase", "allocation")
-            receipt["failure"]["startup"] = startup_diagnostics(Path(seed["run"]))
+            receipt["failure"]["startup"] = case_startup_diagnostics(seed)
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
                 detail = read_json(failed, 1024)

@@ -51,6 +51,12 @@ scope with the original independently captured ordinary controller scope before
 the real same-controller handoff cases. No artifact effect is claimed by that
 comparison.
 
+When an installed fixture fails, its receipt can identify a check through only
+the fixed fixture filename, function and source line. No traceback messages,
+private paths, source text, arguments or frame values enter that location.
+This helps diagnose intermittent failures without treating a prior passing
+candidate as evidence that a fresh failed run succeeded.
+
 The next implementation still must inspect authenticated archive bytes, budget
 all extraction and temporary allocations, publish fixed Root-controlled code
 atomically without replacement, retain uncertain partial effects, and perform

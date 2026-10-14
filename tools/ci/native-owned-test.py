@@ -24,6 +24,25 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_check_location_never_forwards_exception_messages_paths_values_or_source_text(self):
+        private = 'private-credential-and-sql-fixture'
+        with patch.object(proof.sys, 'platform', 'unsupported'):
+            try:
+                proof.preflight(SimpleNamespace(private=private))
+            except ValueError as error:
+                error.args = (private, '/private/configuration/credentials.json')
+                result = proof.failure_check_site(error)
+        self.assertEqual(set(result), {'file', 'function', 'line'})
+        self.assertEqual(result['file'], 'native-owned-proof.py')
+        self.assertEqual(result['function'], 'preflight')
+        self.assertIs(type(result['line']), int)
+        self.assertNotIn(private, json.dumps(result))
+        self.assertNotIn('/private/', json.dumps(result))
+        try:
+            raise ValueError(private)
+        except ValueError as error:
+            self.assertEqual(proof.failure_check_site(error), {'status': 'unavailable'})
+
     def test_root_fixture_observes_original_lease_socket_without_ordinary_user_bypass(self):
         seed = {'uid': 1002, 'installation': '12345678-1234-4234-8234-123456789abc', 'account': 'gg_fixture'}
         record = {'owner': {'pid': 4242, 'birth': '111', 'uid': 1002},
@@ -269,6 +288,16 @@ class BoundedProofTests(unittest.TestCase):
                          "pid=27 AND floor(extract(epoch FROM backend_start)*1000000)::bigint=123456")
         with self.assertRaises(ValueError):
             database.predicate({"backend_pid": 27, "backend_birth": "123456 OR true"})
+
+    def test_case_diagnostics_find_actual_fixed_owner_directory_without_phase_path_injection(self):
+        stage = self.directory / 'bootstrap-owner';stage.mkdir()
+        (stage / 'startup-events.txt').write_text('bootstrap:observed\nmonitor:accepted\n', encoding='ascii')
+        result = proof.case_startup_diagnostics({'run': str(self.directory),
+            'proof_phase': 'bootstrap-owner:protected-handoff-and-heartbeats'})
+        self.assertEqual(result, {'status': 'observed', 'events': ['bootstrap:observed', 'monitor:accepted']})
+        for phase in ('../bootstrap-owner:private', '/bootstrap-owner:private', 'unknown:private'):
+            self.assertEqual(proof.case_startup_diagnostics({'run': str(self.directory), 'proof_phase': phase}),
+                {'status': 'unavailable'})
 
     def test_startup_diagnostics_accept_only_closed_events_and_numeric_exit(self):
         (self.directory / "startup-events.txt").write_text("bootstrap:observed\nmonitor:entered\nmonitor:refused\n", encoding="ascii")
