@@ -36,6 +36,7 @@ class BoundedProofTests(unittest.TestCase):
             {'backend_pid': 14, 'backend_birth': '102'}])
         self.assertEqual([item['kernel']['birth'] for item in captured], ['112', '113', '114'])
         self.assertTrue(all(call.args[0].startswith('SELECT ') for call in database.query.call_args_list))
+        self.assertTrue(all(0 < call.kwargs['timeout'] <= 5 for call in database.query.call_args_list))
         wait.assert_called()
 
     def test_backend_discovery_remains_bounded_and_never_skips_selected_kernel_loss_or_wrong_uid(self):

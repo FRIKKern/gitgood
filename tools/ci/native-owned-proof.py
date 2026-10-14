@@ -370,12 +370,13 @@ class Database:
                             "PGDATABASE": "postgres", "PGPASSFILE": "/dev/null", "PGCONNECT_TIMEOUT": "3",
                             "PGOPTIONS": "-c statement_timeout=5000"}
 
-    def query(self, sql, *, database="postgres", role=None, password=None):
+    def query(self, sql, *, database="postgres", role=None, password=None, timeout=12):
+        require(type(timeout) in {int, float} and 0 < timeout <= 12)
         environment = {**self.environment, "PGDATABASE": database}
         if role:
             environment.update(PGUSER=role, PGPASSWORD=password)
         return command([self.psql, "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "--file=-"],
-                       environment=environment, input_bytes=sql.encode(), timeout=12).decode().strip()
+                       environment=environment, input_bytes=sql.encode(), timeout=timeout).decode().strip()
 
     def predicate(self, session):
         require(type(session["backend_pid"]) is int and 1 < session["backend_pid"] < 2**31)
@@ -393,9 +394,15 @@ def capture_application_backends(database, seed, server_scope):
     sql = "SELECT pid::text||':'||floor(extract(epoch FROM backend_start)*1000000)::bigint::text FROM pg_stat_activity WHERE " + predicate + ' ORDER BY pid'
     deadline = time.monotonic() + 5
     previous = None
+
+    def query():
+        remaining = deadline - time.monotonic()
+        require(remaining > 0, 'application backend discovery did not stabilize')
+        return database.query(sql, timeout=remaining)
+
     while True:
         require(time.monotonic() < deadline, 'application backend discovery did not stabilize')
-        rows = database.query(sql)
+        rows = query()
         if rows != previous or len(rows.splitlines()) < 2:
             previous = rows
             time.sleep(.05)
@@ -411,7 +418,7 @@ def capture_application_backends(database, seed, server_scope):
             # original-identity replacement are allowed by a pending discovery.
             captured.append({'session': session,
                 'kernel': {name: kernel[name] for name in ('pid', 'birth', 'uid', 'cgroup')}})
-        current = database.query(sql)
+        current = query()
         if current == rows:
             require(time.monotonic() < deadline, 'application backend discovery did not stabilize')
             return captured
