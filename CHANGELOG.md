@@ -246,6 +246,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Add a fixed read-only Root view of the original ordinary native controller as a prerequisite for protected artifact staging. Preserve ordinary worker admission and permanently refuse changed service, policy or directory custody. Actual staging and complete installation/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-root-controller.md), [details 2](tools/deployment/native_root_controller.py), [details 3](tools/deployment/native_service_scope.py), [details 4](tools/ci/native-owned-proof.py)
 
+- Authenticate an original controller's bounded local request to Root and observe its actual held history descriptor against protected original identity. Refuse foreign peers, changed operations and lost locks; keep database exclusion, artifact authority, production dispatch and complete recovery unverified.
+  Sources: [details 1](docs/implementation/native-root-controller-request.md), [details 2](tools/deployment/native_root_controller_request.py), [details 3](tools/deployment/test_native_root_controller_request.py), [details 4](tools/ci/native-owned-proof.py)
+
 - Add a fixed read-only Root view of the original sealed request and complete generation/lifecycle history before protected artifact allocation. Preserve ordinary-reader admission, refuse changed original resources and close interrupted readers. Actual Root observation, exclusion, allocation, stage dispatch and complete recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-root-lifecycle.md), [details 2](tools/deployment/native_root_lifecycle.py), [details 3](tools/deployment/test_native_root_lifecycle.py), [details 4](tools/ci/native-owned-proof.py), [details 5](.github/workflows/product.yml)
 

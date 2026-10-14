@@ -1213,6 +1213,8 @@ def run_successor_case(seed, config, password, database, server_scope):
     runtime_observation = {}
     root_lifecycle_observation = None
     root_live_binding_observation = None
+    root_controller_request_observation = None
+    root_controller_request_refusals = False
     for label, mode, fault in [('migration-owner', 'migrate', 'helper-loss'),
                               ('bootstrap-owner', 'migrate', 'original-backend-loss'),
                               ('runtime-owner', 'runtime', 'helper-loss')]:
@@ -1246,6 +1248,49 @@ def run_successor_case(seed, config, password, database, server_scope):
                     ('original_live_files_and_database_observed',True),('live_durable_resource_identity_verified',True),
                     ('lifecycle_exclusion_established',False),('stage_effect_authorized',False),('complete_journey_acceptance',False))))
             finally:binding_view.close()
+            from native_root_controller_request import NativeRootControllerRequest, RootControllerRequestRefused
+            from native_command_wire import _peer
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as listener:
+                listener.bind(str(stage/'root-request.sock'))
+                os.chown(stage/'root-request.sock',seed['uid'],seed['gid']);os.chmod(stage/'root-request.sock',0o600)
+                listener.listen(1);listener.settimeout(10)
+                # The same ordinary account in a different process must not
+                # impersonate the original MainPID, even with well-formed data.
+                client_code = ('import json,socket,sys; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); '
+                    's.settimeout(2); s.connect(sys.argv[1]); '
+                    's.sendall(sys.argv[2].encode()); s.shutdown(socket.SHUT_WR); s.close()')
+                foreign_frame = canonical({'protocol':2,'kind':'native_root_controller_request',
+                    'installation':seed['installation'],'operation':seed['ownership_operation'],'history_lock_fd':8})+b'\n'
+                with subprocess.Popen([seed['executables']['python'],'-c',client_code,str(stage/'root-request.sock'),
+                        foreign_frame.decode('ascii')],user=seed['uid'],group=seed['gid'],extra_groups=[],
+                        env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'},stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL) as foreign:
+                    connection,_ = listener.accept()
+                    foreign_peer = _peer(connection,seed['uid'])
+                    require(foreign_peer['pid'] != manager['pid'] and foreign_peer['gid'] == seed['gid'])
+                    try:NativeRootControllerRequest(seed['installation'],seed['ownership_operation'],connection)
+                    except RootControllerRequestRefused:require(connection.fileno() == -1)
+                    else:require(False)
+                    require(foreign.wait(timeout=5) == 0)
+                write_new(seal/'fixture-root-request-start.json',{'start':True})
+                connection,_ = listener.accept()
+                require(_peer(connection,seed['uid']) == {'pid':manager['pid'],'uid':seed['uid'],'gid':seed['gid']})
+                try:NativeRootControllerRequest(seed['installation'],seed['ownership_operation'],connection)
+                except RootControllerRequestRefused:require(connection.fileno() == -1)
+                else:require(False)
+                write_new(seal/'fixture-root-request-refused.json',{'wrong_operation_refused':True})
+                connection,_ = listener.accept()
+                request_view = NativeRootControllerRequest(seed['installation'],seed['ownership_operation'],connection)
+                try:
+                    root_controller_request_observation = request_view.check()
+                    require(request_view.check() == root_controller_request_observation)
+                    require(all(root_controller_request_observation[name] is expected for name,expected in (
+                        ('original_controller_peer_authenticated',True),('original_controller_history_lock_observed',True),
+                        ('database_writer_exclusion_verified',False),('lifecycle_exclusion_established',False),
+                        ('stage_effect_authorized',False),('complete_journey_acceptance',False))))
+                finally:request_view.close()
+                root_controller_request_refusals = True
+                write_new(seal/'fixture-root-request-accepted.json',{'original_peer_and_history_lock_observed':True})
         runtime_refusal = bool(seed.get('runtime_schema_refusal_fixture') and label == 'runtime-owner')
         stage_refusal = maintenance_refusal or runtime_refusal
         if runtime_refusal:
@@ -1482,6 +1527,8 @@ def run_successor_case(seed, config, password, database, server_scope):
                 'root_original_controller_scope_observed': True,
                 'root_original_lifecycle_history_observed': root_lifecycle_observation is not None,
                 'root_original_live_binding_observed': root_live_binding_observation is not None,
+                'root_original_controller_request_and_history_lock_observed': root_controller_request_observation is not None,
+                'root_foreign_peer_and_wrong_operation_refused': root_controller_request_refusals,
                 'actual_nonempty_schema_refused_without_migrations': bool(seed.get('schema_refusal_fixture')),
                 'actual_nested_migration_entry_refused_without_effects': bool(seed.get('inventory_refusal_fixture')),
                 'actual_runtime_schema_refused_before_product_workers': runtime_refusal,
@@ -1523,6 +1570,8 @@ def run_successor_case(seed, config, password, database, server_scope):
         'root_original_controller_scope_observed': True,
         'root_original_lifecycle_history_observed': root_lifecycle_observation is not None,
         'root_original_live_binding_observed': root_live_binding_observation is not None,
+        'root_original_controller_request_and_history_lock_observed': root_controller_request_observation is not None,
+        'root_foreign_peer_and_wrong_operation_refused': root_controller_request_refusals,
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -1772,6 +1821,12 @@ def main(args):
         require(all(case['root_original_live_binding_observed'] is True for case in receipt['cases'][4:]))
         require(receipt['cases'][3]['root_original_live_binding_observed'] is False)
         receipt['root_original_live_binding_observation_verified'] = True
+        require(all(case['root_original_controller_request_and_history_lock_observed'] is True for case in receipt['cases'][4:]))
+        require(receipt['cases'][3]['root_original_controller_request_and_history_lock_observed'] is False)
+        receipt['root_original_controller_request_and_history_lock_verified'] = True
+        require(all(case['root_foreign_peer_and_wrong_operation_refused'] is True for case in receipt['cases'][4:]))
+        require(receipt['cases'][3]['root_foreign_peer_and_wrong_operation_refused'] is False)
+        receipt['root_foreign_peer_and_wrong_operation_refusal_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:

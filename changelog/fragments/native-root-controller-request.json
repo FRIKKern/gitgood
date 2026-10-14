@@ -1,0 +1,9 @@
+{
+  "id": "native-root-controller-request",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Authenticate an original controller's bounded local request to Root and observe its actual held history descriptor against protected original identity. Refuse foreign peers, changed operations and lost locks; keep database exclusion, artifact authority, production dispatch and complete recovery unverified.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-controller-request.md", "tools/deployment/native_root_controller_request.py", "tools/deployment/test_native_root_controller_request.py", "tools/ci/native-owned-proof.py"],
+  "withdrawn": false
+}
