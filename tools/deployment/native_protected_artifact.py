@@ -311,13 +311,13 @@ class NativeProtectedArtifactStage:
             require(self._directory_identity(os.fstat(self.work_fd)) == self.work_identity)
             snapshot = work / 'archive.tar.gz'
             output = os.open('archive.tar.gz', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
-                0o400, dir_fd=self.work_fd)
+                0o444, dir_fd=self.work_fd)
             os.lseek(self.archive_fd, 0, os.SEEK_SET);copied = 0;hashed = hashlib.sha256()
             with os.fdopen(output, 'wb') as destination:
                 while data := os.read(self.archive_fd, 1048576):
                     self.check();copied += len(data);require(copied <= inspected['artifact_bytes'])
                     hashed.update(data);destination.write(data)
-                destination.flush();os.fsync(destination.fileno())
+                destination.flush();os.fchmod(destination.fileno(),0o444);os.fsync(destination.fileno())
             require(copied == inspected['artifact_bytes'] and hashed.hexdigest() == self.policy['archive']['sha256'])
             self.snapshot_fd = os.open('archive.tar.gz', os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=self.work_fd)
             self.archive_snapshot_original = fingerprint(os.fstat(self.snapshot_fd))
@@ -350,7 +350,9 @@ class NativeProtectedArtifactStage:
                         while data := source.read(1048576):
                             self.check();written += len(data);require(written <= member.size)
                             content.update(data);destination.write(data)
-                        require(written == member.size);destination.flush();os.fsync(destination.fileno())
+                        require(written == member.size);destination.flush()
+                        os.fchmod(destination.fileno(),0o555 if member.mode & 0o111 else 0o444)
+                        os.fsync(destination.fileno())
                         original = fingerprint(os.fstat(destination.fileno()))
                         self.output_files['code/'+member.name] = original
                     inventory.append({'path':member.name, 'bytes':written, 'sha256':content.hexdigest(),
@@ -378,7 +380,7 @@ class NativeProtectedArtifactStage:
                 fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
                     0o444, dir_fd=self.work_fd)
                 with os.fdopen(fd, 'wb') as output:
-                    output.write(canonical(value));output.flush();os.fsync(output.fileno())
+                    output.write(canonical(value));output.flush();os.fchmod(output.fileno(),0o444);os.fsync(output.fileno())
                     self.output_files[name] = fingerprint(os.fstat(output.fileno()))
             for name in sorted(self.code_directories, key=lambda name:len(PurePosixPath(name).parts), reverse=True):
                 self.check();fd = self._code_directory(name)

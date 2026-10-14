@@ -51,6 +51,14 @@ Content inventory and metadata capture are synced before descriptor-relative
 `renameat2(RENAME_NOREPLACE)` publication as `native-OPERATION`. Existing targets
 and partials refuse; no original or foreign entry is deleted or replaced.
 
+Before metadata is frozen and synced, the owned archive copy, inventory, receipt
+and regular code files receive explicit `0444` modes; executable code receives
+`0555`. These final modes do not depend on the Root process's umask. The published
+archive contains the same code-only payload already available through the sealed
+input, so the ordinary controller can independently read its digest and complete
+output while no ordinary account can write it. The operation partial remains
+private until publication.
+
 Published-output checks require exact directory entries and original file
 metadata. Same-content replacement, permission restoration, changed files or
 added entries cannot revive a poisoned original instance. Controller, policy,

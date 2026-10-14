@@ -286,16 +286,23 @@ class RootExtractionTest(unittest.TestCase):
 
     def test_actual_root_files_are_readonly_and_exact_original_output_is_guarded(self):
         stage = self.stage();before = self.fixture.path.read_bytes()
-        receipt = stage.stage();target = self.parent/('native-'+OPERATION)
+        original_umask = os.umask(0o077)
+        try:receipt = stage.stage()
+        finally:os.umask(original_umask)
+        target = self.parent/('native-'+OPERATION)
         self.assertTrue(receipt['root_controlled_code'])
         self.assertEqual(self.fixture.path.read_bytes(),before)
         self.assertFalse((self.parent/('.native-'+OPERATION+'.partial')).exists())
+        for name in ('archive.tar.gz','inventory.json','receipt.json'):
+            info=(target/name).stat()
+            self.assertEqual((info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode)),(0,0,0o444))
         inventory = json.loads((target/'inventory.json').read_bytes())
         self.assertEqual(hashlib.sha256(canonical(inventory)).hexdigest(),receipt['inventory_sha256'])
         for item in inventory:
             path = target/'code'/item['path']
             self.assertEqual(path.stat().st_uid,0)
             self.assertEqual(path.stat().st_mode & 0o222,0)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o555 if item['executable'] else 0o444)
             self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),item['sha256'])
         stage._check_output()
         file = target/'code/web/package.json'
