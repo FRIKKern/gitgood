@@ -15,7 +15,7 @@ defmodule Gitgood.NativeMaintenance do
            end),
          dependencies when is_list(dependencies) <- Application.spec(:gitgood, :applications),
          :ok <-
-           Application.load(
+           :application.load(
              {:application, @app,
               [
                 vsn: ~c"1",

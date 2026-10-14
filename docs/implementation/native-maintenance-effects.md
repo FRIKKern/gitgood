@@ -41,7 +41,12 @@ OTP status redacts state, messages, reasons and debug log values.
 ## Evidence and remaining integration
 
 Backend checks cover candidate/package/target mismatches, fixed actions, replay
-refusal, status redaction and actual SQL schema mismatch without mutation. Hosted
+refusal, status redaction and actual SQL schema mismatch without mutation. A
+separate pinned OTP regression compiles the actual maintenance entry, observes its
+fixed application specification inside the original startup factory, then requires
+that factory's refusal to terminate the whole BEAM. Root validation and the
+factory are explicit stand-ins in that loader check; it verifies neither service
+admission nor SQL ownership. Hosted
 verification adds a fresh `maintenance-effects-boundary` installation: actual
 packaged migrations and first-owner creation run under the permanent maintenance
 application. Root independently queries the private fixture database for schema,
