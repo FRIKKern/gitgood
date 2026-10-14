@@ -6,6 +6,7 @@ defmodule Gitgood.InstallationGenerationMonitor do
   @python "/usr/bin/python3.12"
   @entry "/opt/gitgood/native/v2/native_generation_monitor_entry.py"
   @maximum 16_385
+  @private_maximum 32_769
   @initial_timeout 30_000
   @freshness 3_000
   @digest ~r/\A[0-9a-f]{64}\z/
@@ -15,6 +16,9 @@ defmodule Gitgood.InstallationGenerationMonitor do
   def admission(pid), do: GenServer.call(pid, :admission)
   def ownership_context(pid), do: GenServer.call(pid, :ownership_context)
   def current(pid), do: GenServer.call(pid, :current)
+
+  def private_business_inputs(pid, action),
+    do: GenServer.call(pid, {:private_business_inputs, action}, 5_000)
 
   def attach_ownership(pid, record, receipt),
     do: GenServer.call(pid, {:attach_ownership, record, receipt}, 5_000)
@@ -57,6 +61,8 @@ defmodule Gitgood.InstallationGenerationMonitor do
              buffer: pending,
              ownership: nil,
              ownership_pending: nil,
+             business_pending: nil,
+             business_used: false,
              observed_at: now()
            }}
         else
@@ -241,12 +247,20 @@ defmodule Gitgood.InstallationGenerationMonitor do
   end
 
   defp stream_lines(buffer, state, count \\ 0) do
-    if byte_size(buffer) > @maximum or count > 64 do
+    maximum = if Map.get(state, :business_pending), do: @private_maximum, else: @maximum
+
+    if byte_size(buffer) > maximum or count > 64 do
       :error
     else
       case :binary.split(buffer, "\n") do
         [line, rest] ->
           with {:ok, value} <- Jason.decode(line),
+               true <-
+                 byte_size(line) <
+                   if(value["status"] == "private_business_inputs",
+                     do: @private_maximum,
+                     else: @maximum
+                   ),
                true <- line == Gitgood.NativeOwnershipPublication.canonical(value),
                {:ok, next} <- consume_frame(value, state),
                do: stream_lines(rest, next, count + 1)
@@ -262,8 +276,33 @@ defmodule Gitgood.InstallationGenerationMonitor do
   defp consume_frame(value, state) do
     ownership = Map.get(state, :ownership)
     pending = Map.get(state, :ownership_pending)
+    business = Map.get(state, :business_pending)
 
     cond do
+      value["status"] == "private_business_inputs" and not is_nil(business) and
+          not is_nil(ownership) ->
+        with true <- now() < business.deadline,
+             true <-
+               MapSet.new(Map.keys(value)) ==
+                 MapSet.new(~w(protocol status guard ownership inputs)),
+             true <-
+               value["protocol"] === 2 and value["guard"] === state.guard and
+                 value["ownership"] === ownership,
+             :ok <-
+               Gitgood.NativeLifecycleBusinessInputs.validate(
+                 value["inputs"],
+                 state.admission,
+                 business.action
+               ) do
+          {:ok,
+           Map.merge(state, %{
+             business_pending: nil,
+             business_reply: {business.from, value["inputs"]}
+           })}
+        else
+          _ -> :error
+        end
+
       value["status"] == "ownership_attached" and not is_nil(pending) and is_nil(ownership) ->
         with true <- now() < pending.deadline,
              true <-
@@ -300,7 +339,13 @@ defmodule Gitgood.InstallationGenerationMonitor do
     with true <- now() - state.observed_at < @freshness,
          {:ok, rest, next, count} <- stream_lines(state.buffer <> bytes, state) do
       if reply = Map.get(next, :ownership_reply), do: GenServer.reply(reply, :ok)
-      next = Map.delete(next, :ownership_reply)
+
+      if reply = Map.get(next, :business_reply) do
+        {from, inputs} = reply
+        GenServer.reply(from, {:ok, inputs})
+      end
+
+      next = Map.drop(next, [:ownership_reply, :business_reply])
 
       {:noreply,
        %{next | buffer: rest, observed_at: if(count > 0, do: now(), else: state.observed_at)}}
@@ -328,7 +373,46 @@ defmodule Gitgood.InstallationGenerationMonitor do
     end
   end
 
+  def handle_info({:business_deadline, reference}, state) do
+    case Map.get(state, :business_pending) do
+      %{reference: ^reference} -> {:stop, :installation_generation_lost, state}
+      _ -> {:noreply, state}
+    end
+  end
+
   @impl true
+  def handle_call({:private_business_inputs, action}, from, state) do
+    with true <- now() - state.observed_at < @freshness,
+         true <-
+           not is_nil(Map.get(state, :ownership)) and is_nil(Map.get(state, :ownership_pending)),
+         true <-
+           is_nil(Map.get(state, :business_pending)) and not Map.get(state, :business_used, false),
+         true <- Gitgood.NativeLifecycleBusinessInputs.window?(state.admission, action),
+         request <-
+           Gitgood.NativeOwnershipPublication.canonical(%{
+             "protocol" => 2,
+             "action" => "private_business_inputs",
+             "stage" => Atom.to_string(action)
+           }) <> "\n",
+         true <- byte_size(request) <= 512,
+         deadline <- now() + @freshness,
+         true <- Port.command(state.port, request),
+         true <- now() < deadline do
+      reference = make_ref()
+      Process.send_after(self(), {:business_deadline, reference}, max(0, deadline - now()))
+
+      {:noreply,
+       Map.merge(state, %{
+         business_used: true,
+         business_pending: %{from: from, action: action, reference: reference, deadline: deadline}
+       })}
+    else
+      _ -> {:stop, :installation_generation_lost, {:error, :installation_generation_lost}, state}
+    end
+  rescue
+    _ -> {:stop, :installation_generation_lost, {:error, :installation_generation_lost}, state}
+  end
+
   def handle_call({:attach_ownership, record, receipt}, from, state) do
     with true <- now() - state.observed_at < @freshness,
          true <- is_nil(Map.get(state, :ownership)) and is_nil(Map.get(state, :ownership_pending)),
@@ -386,6 +470,18 @@ defmodule Gitgood.InstallationGenerationMonitor do
 
   @impl true
   def terminate(_, state), do: close(state.port)
+
+  @impl true
+  def format_status(status) do
+    Map.new(status, fn
+      {:state, _} -> {:state, :native_generation_status_redacted}
+      {:message, _} -> {:message, :native_generation_message_redacted}
+      {:reason, _} -> {:reason, :installation_generation_lost}
+      {:log, _} -> {:log, []}
+      item -> item
+    end)
+  end
+
   defp now, do: System.monotonic_time(:millisecond)
 
   defp close(port) do

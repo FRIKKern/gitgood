@@ -16,9 +16,37 @@ map, input path, command or alternate owner is accepted by this method.
 This is private engine data, with **no stage effects or exclusion granted**. It is
 not a status result or public artifact and must never be logged or returned to an
 operator. Bootstrap projections contain the original password and its ordered
-request digest. Migration projections omit both. The existing monitor wire and
-packaged application callback remain unchanged; transport into the permanent BEAM
-and fixed business-worker execution are still required.
+request digest. Migration projections omit both. The monitor's attached private
+stream can now deliver this data to the original BEAM. The packaged application
+callback and fixed business-worker execution remain unwired.
+
+## Attached private stream
+
+Only after original ownership attachment succeeds may the monitor accept one
+canonical request containing integer `protocol: 2`, fixed `action:
+"private_business_inputs"` and `stage: "migrate"` or `"bootstrap"`. No paths,
+programs, authority maps or alternate owners are accepted. Requests are capped at
+512 bytes and share a three-second deadline from their first fragment. Extra,
+duplicate, repeated, late and malformed requests terminate the original exchange.
+
+The Python helper checks the original attachment, guard and ownership before and
+after the private projection. The reply retains their original tokens. Only this
+private frame has a 32 KiB bound; metadata frames keep their existing 16 KiB bound.
+No worker admission or ownership deadline is extended.
+
+`NativeOwnershipStartup.private_business_inputs(pid)` derives its action from the
+original lifecycle startup and checks the original monitor, SQL lease and fence
+before and after receiving data. `InstallationGenerationMonitor` accepts one
+response only while its matching request is pending, within the original
+freshness deadline, with exact guard/ownership/stage identity. It independently
+validates the private fields and existing first-owner digest. Unsolicited,
+changed, repeated or late replies stop the original monitor. Responses are
+replied privately and removed from state; they never enter ordinary status.
+
+Both OTP status callbacks redact state, messages, reasons and debug-log entries,
+including partial private buffers. Error paths use fixed reasons. Diagnostics
+must not trace the private response arguments or values. This channel delivers
+data; the executor's independent prerequisites and stage effects remain required.
 
 ## Business payloads
 
@@ -36,7 +64,8 @@ Kinds are `native_initial_business_inputs` and `native_upgrade_business_inputs`.
 Installation, operation and candidate must equal the original sealed observation.
 The enclosing file must have integer protocol 2. Fixture metadata without the
 business subdocument refuses; its synthetic stage receipts cannot authorize a
-business projection.
+business effects. Valid synthetic private payloads may exercise transport, while
+their stage observations and actual effects remain explicitly unverified.
 
 `migrations` contains exactly `before_versions` and `target_versions`. Each is a
 sorted list of distinct positive integers below 2^63, capped at 1024 entries. The
@@ -67,6 +96,9 @@ refusal, forward-only bounded expectations, bootstrap identity/Unicode digest,
 password-free migration projection, detached values and guard poisoning. Guard
 orchestration tests use explicit custody stand-ins. A separate ordinary Linux
 test uses actual sealed private-file descriptors with a Root/service stand-in.
-The existing installed ownership case exercises actual Root/input/journal custody
-but executes no business projection or stage effect. Full native startup, effects,
+The installed private-input case exercises actual Root/input/journal custody,
+attached guarded transport, private bootstrap validation and redacted OTP status,
+but executes no stage effect. Its passing current receipt is required to establish
+those observations; unit checks alone do not verify installed transport.
+Full native startup, effects,
 reboot/replacement-host recovery and J14/J15 acceptance remain unverified.

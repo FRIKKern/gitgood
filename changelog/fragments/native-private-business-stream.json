@@ -1,0 +1,9 @@
+{
+  "id": "native-private-business-stream",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Deliver original private lifecycle inputs once through the attached generation monitor, with fixed action, ownership/stage binding, bounded deadlines, independent BEAM validation and credential-redacted OTP status. Add an installed private-input exercise with synthetic payloads; actual business effects and complete native startup/recovery remain unfinished.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-lifecycle-business-inputs.md", "docs/implementation/native-hosted-ownership.md", "tools/deployment/native_monitor_business_inputs.py", "apps/forge/lib/gitgood/native_lifecycle_business_inputs.ex"],
+  "withdrawn": false
+}

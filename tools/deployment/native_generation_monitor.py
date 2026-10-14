@@ -10,6 +10,7 @@ from native_durable_database import DatabaseRefused, unique, validate_database
 from native_lifecycle_generation_reader import open_reader
 from native_generation_lease_guard import NativeGenerationLeaseGuard
 from native_monitor_ownership_attachment import MonitorOwnershipAttachment
+from native_monitor_business_inputs import MonitorBusinessInputs
 from native_service_scope import root_file
 from resource_generations import GenerationRefused, canonical, identifier
 
@@ -59,14 +60,15 @@ def open_guard(raw):
     return guard, request, seal, identity, sealed
 
 
-def send(value):
-    raw = canonical(value); require(len(raw) <= 16_384)
+def send(value, *, maximum=16_384):
+    raw = canonical(value); require(len(raw) <= maximum)
     sys.stdout.buffer.write(raw + b'\n'); sys.stdout.buffer.flush()
 
 
 def main():
     guard = None
     attachment = None
+    business = None
     selector = None
     try:
         require(len(sys.argv) == 1)
@@ -97,11 +99,18 @@ def main():
             events = selector.select(max(0,next_check-time.monotonic()))
             if events:
                 require(root_file(Path(identity['path']),16_384)==(identity,sealed))
+                if business is not None:
+                    response = business.feed(os.read(sys.stdin.fileno(), business.maximum+1))
+                    if response is not None:
+                        require(root_file(Path(identity['path']),16_384)==(identity,sealed))
+                        send(response, maximum=32_768)
+                    continue
                 attached = attachment.feed(os.read(sys.stdin.fileno(),attachment.maximum+1))
                 if attached is not None:
                     require(attached['current']['current'] is True)
                     require({name:attached['current'][name] for name in token}==token)
                     require(root_file(Path(identity['path']),16_384)==(identity,sealed))
+                    business = MonitorBusinessInputs(attachment, token, attached['ownership'])
                     send({'protocol':2,'status':'ownership_attached','guard':token,'ownership':attached['ownership']})
                 continue
             next_check = time.monotonic() + 1

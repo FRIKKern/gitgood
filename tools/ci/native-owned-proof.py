@@ -387,7 +387,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False):
+def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -439,6 +439,9 @@ def allocate_case(label, runtime, database, candidate, *, controller=False, life
     if lifecycle:
         require(controller)
         seed['lifecycle_fixture'] = True
+    if business_inputs:
+        require(lifecycle)
+        seed['business_inputs_fixture'] = True
     if controller:
         directory = Path('/run/gitgood/installations') / installation
         root_directory(directory.parent)
@@ -630,8 +633,14 @@ def seal_lifecycle_fixture(seed, binding_sha256):
     directory.mkdir(mode=0o700)
     os.chown(directory, seed['uid'], seed['gid'])
     for name in ('allocation.json', 'inputs.json'):
-        write_new(directory / name, {'protocol': 2, 'fixture_only': True,
-            'business_stage_effects_verified': False}, 0o600, seed['uid'], seed['gid'])
+        payload = {'protocol': 2, 'fixture_only': True, 'business_stage_effects_verified': False}
+        if name == 'inputs.json' and seed.get('business_inputs_fixture'):
+            payload['business'] = {'kind': 'native_initial_business_inputs',
+                'installation': seed['installation'], 'operation': seed['ownership_operation'], 'candidate': seed['candidate'],
+                'migrations': {'before_versions': [], 'target_versions': [1, 2]},
+                'bootstrap': {'installation': seed['installation'], 'request': seed['ownership_operation'],
+                    'username': 'owner', 'team': 'pilot', 'password': 'synthetic-secret-éé'}}
+        write_new(directory / name, payload, 0o600, seed['uid'], seed['gid'])
     declared = {name: {'bytes': (directory / name).stat().st_size,
                       'sha256': hashlib.sha256((directory / name).read_bytes()).hexdigest()}
                 for name in ('allocation.json', 'inputs.json')}
@@ -778,6 +787,13 @@ def run_successor_case(seed, config, password, database, server_scope):
             write_new(seal / 'fixture-correct-action.json', {'original_reservation_retained': True})
         attached = wait_for(stage / 'attached.json', run, 100)
         captured = capture_attachment(seed, attached, database, mode=mode, protocol=4)
+        if seed.get('business_inputs_fixture') and label != 'runtime-owner':
+            private = wait_for(stage / 'private-inputs-observed.json', run, 5)
+            require(private == {'action': 'migrate' if label == 'migration-owner' else 'bootstrap',
+                'original_guard_and_ownership_bound': True, 'credential_status_redacted': True,
+                'bootstrap_digest_validated': label == 'bootstrap-owner', 'business_effects_executed': False})
+        else:
+            require(not (stage / 'private-inputs-observed.json').exists())
         record = attached['record']
         require(record['claim'] == pending['claim'] and record['reservation_sha256'] == pending['reservation_sha256'])
         require(record['predecessor_sha256'] == previous_sha)
@@ -866,7 +882,7 @@ def run_successor_case(seed, config, password, database, server_scope):
     else:
         require(not (seal / 'lifecycle-worker-admission-v2.json').exists())
         require(not (Path(seed['root']) / 'history/lifecycle-responsibility-v2').exists())
-    return {'case': 'lifecycle-startup-boundary' if seed.get('lifecycle_fixture') else 'same-controller-successor',
+    return {'case': seed['case'],
         'status': 'passed', 'stages': stages,
         'actual_same_boot_same_generation_controller_handoff_verified': True,
         'migration_bootstrap_runtime_modes_observed': True, 'business_lifecycle_stages_executed': False,
@@ -874,6 +890,7 @@ def run_successor_case(seed, config, password, database, server_scope):
         'complete_journey_acceptance': False, 'product_controller_cleanup_verified': False,
         'actual_lifecycle_startup_boundary_verified': bool(seed.get('lifecycle_fixture')),
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
+        'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         **lifecycle_observation}
 
 
@@ -931,7 +948,7 @@ def finalize(receipt, units, output, phase):
 
 
 def main(args):
-    receipt = {"protocol": 1, "scope": "ownership-and-lifecycle-startup-component", "status": "failed", "candidate": args.candidate,
+    receipt = {"protocol": 1, "scope": "ownership-lifecycle-startup-and-private-inputs-component", "status": "failed", "candidate": args.candidate,
                "native_application_acceptance": False, "complete_journey_acceptance": False,
                "reboot_verified": False, "successor_reconciliation_verified": False,
                "production_deadlines_modified": False, "limits": LIMITS, "cases": []}
@@ -1018,6 +1035,16 @@ def main(args):
         require(not group.exists(), 'owned lifecycle fixture unit remained after stop')
         receipt['cases'].append({**result, 'owned_unit_stopped': True})
         receipt['lifecycle_startup_boundary_verified'] = True
+        phase = 'private-business-inputs-boundary:allocate'
+        seed, config, password = allocate_case('private-business-inputs-boundary', runtime, database,
+            args.candidate, controller=True, lifecycle=True, business_inputs=True)
+        units.append(seed['unit'])
+        phase = 'private-business-inputs-boundary:attached-inputs-and-loss'
+        result = run_successor_case(seed, config, password, database, server_scope)
+        command(['/usr/bin/systemctl', 'stop', seed['unit']], timeout=25)
+        require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
+        receipt['cases'].append({**result, 'owned_unit_stopped': True})
+        receipt['private_business_input_stream_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:

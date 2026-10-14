@@ -148,5 +148,50 @@ class GenerationMonitorTest(unittest.TestCase):
         self.assertTrue(guard.closed)
         self.assertEqual([json.loads(line)['status'] for line in output.buffer.getvalue().splitlines()],['admitted','refused'])
 
+    def private_stream(self, before_attachment=False):
+        # Actual monitor selector/routing and attachment/exchange parsers; live
+        # generation/ownership and Root seal observations are explicit stand-ins.
+        guard=Guard();output=Stream();selector=Mock();selector.select.return_value=[('fixture',)]
+        ownership={'record_sha256':'e'*64}
+        observed={'current':{'current':True,**guard.token},'ownership':ownership}
+        observer=SimpleNamespace(take_initial=Mock(return_value=observed),check=Mock(return_value=observed),close=Mock())
+        payload={'fixture_only':True,'password':'synthetic-private-monitor-secret'}
+        guard.private_business_inputs=Mock(return_value=payload)
+        attach=monitor.canonical({'protocol':2,'action':'attach_ownership','record':{'fixture_only':True}})+b'\n'
+        private=monitor.canonical({'protocol':2,'action':'private_business_inputs','stage':'bootstrap'})+b'\n'
+        chunks=[private] if before_attachment else [attach,private,b'']
+        identity={'path':'/fixed/root/seal'};sealed=b'fixture';seal={'binding_sha256':'d'*64,'database':{}}
+        with patch.object(monitor.sys,'argv',['fixed-entry']),patch.object(monitor.sys,'stdin',Stream(self.raw)), \
+             patch.object(monitor.sys,'stdout',output),patch.object(monitor,'open_guard',return_value=(guard,self.request,seal,identity,sealed)), \
+             patch.object(monitor,'root_file',return_value=(identity,sealed)),patch.object(monitor.os,'set_blocking'), \
+             patch.object(monitor.os,'read',side_effect=chunks),patch.object(monitor.selectors,'DefaultSelector',return_value=selector), \
+             patch('native_monitor_ownership_attachment.NativeOwnershipObservation',return_value=observer):
+            self.assertEqual(monitor.main(),1)
+        self.assertTrue(guard.closed)
+        return [json.loads(line) for line in output.buffer.getvalue().splitlines()],guard,observer
+
+    def test_private_response_requires_original_attachment_and_uses_same_guard(self):
+        values,guard,observer=self.private_stream()
+        self.assertEqual([value['status'] for value in values],['admitted','ownership_attached','private_business_inputs','refused'])
+        self.assertEqual(values[2]['guard'],guard.token)
+        self.assertEqual(values[2]['ownership'],{'record_sha256':'e'*64})
+        self.assertEqual(values[2]['inputs']['password'],'synthetic-private-monitor-secret')
+        guard.private_business_inputs.assert_called_once_with('bootstrap')
+        self.assertEqual(observer.check.call_count,2)
+        self.assertEqual(values[-1],{'protocol':2,'status':'refused'})
+
+    def test_private_request_before_original_attachment_cannot_read_payload(self):
+        values,guard,_=self.private_stream(before_attachment=True)
+        self.assertEqual([value['status'] for value in values],['admitted','refused'])
+        guard.private_business_inputs.assert_not_called()
+
+    def test_private_response_bound_does_not_relax_metadata_frame_bound(self):
+        output=Stream();value={'synthetic_private_payload':'x'*17_000}
+        with patch.object(monitor.sys,'stdout',output):
+            with self.assertRaises(ValueError):monitor.send(value)
+            monitor.send(value,maximum=32_768)
+            with self.assertRaises(ValueError):monitor.send({'synthetic_private_payload':'x'*33_000},maximum=32_768)
+        self.assertEqual(len(output.buffer.getvalue().splitlines()),1)
+
 
 if __name__ == '__main__': unittest.main()

@@ -61,8 +61,11 @@ for the distinction between that startup boundary and complete installation effe
 [native_lifecycle_business_inputs.py](../tools/deployment/native_lifecycle_business_inputs.py)
 validates private migration/first-owner projections under the original held guard.
 Read [business inputs](implementation/native-lifecycle-business-inputs.md) before
-connecting these password-bearing values to fixed workers; transport and effects
-remain unimplemented.
+connecting these password-bearing values to fixed workers. Transport retains the
+original ownership and stage. The attached Python exchange is
+[native_monitor_business_inputs.py](../tools/deployment/native_monitor_business_inputs.py),
+with closed BEAM decoding in [native_lifecycle_business_inputs.ex](../apps/forge/lib/gitgood/native_lifecycle_business_inputs.ex).
+Actual business effects remain unimplemented.
 
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 
