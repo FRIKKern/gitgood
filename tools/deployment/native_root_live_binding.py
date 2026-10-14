@@ -1,0 +1,71 @@
+"""Fixed Root original live binding observation; no exclusion or stage effects."""
+import os
+from pathlib import Path
+import threading
+
+from native_durable_binding import _CapturedExecutableDigests, _root_persistent_identity
+from native_generation_lease_guard import persistent_fingerprint
+from native_root_lifecycle import NativeRootLifecycleObservation
+from resource_generations import canonical, identifier
+
+
+class RootLiveBindingRefused(Exception):
+    pass
+
+
+def require(value):
+    if not value:
+        raise RootLiveBindingRefused('Original live native binding unavailable or changed')
+
+
+class NativeRootLiveBindingObservation:
+    """UUID-only view; compare live files/database with the original Root seal."""
+    def __init__(self, installation, operation):
+        self.usable = False;self.lifecycle = None;self.executables = None
+        try:
+            identifier(installation);identifier(operation);require(installation != operation)
+            require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+            self.owner = (os.getpid(),threading.get_ident())
+            self.installation,self.operation = installation,operation
+            self.lifecycle = NativeRootLifecycleObservation(installation,operation)
+            self.observed_lifecycle = self.lifecycle.check()
+            self.scope = self.lifecycle.scope
+            self.binding = self.lifecycle.original['generation']['binding']
+            self.binding_raw = canonical(self.binding)
+            self.root = Path('/var/lib/gitgood/installations')/installation
+            self.files = persistent_fingerprint(self.binding)
+            self.executables = _CapturedExecutableDigests(self.lifecycle.generation_seal['executables'])
+            self.usable = True
+            self._observe();self.executables.freeze();self.check()
+        except BaseException:
+            self.close();raise RootLiveBindingRefused('Original live native binding unavailable or changed') from None
+
+    def _current(self):
+        require(self.usable and self.owner == (os.getpid(),threading.get_ident()))
+        require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+        require(self.lifecycle.check() == self.observed_lifecycle)
+        require(canonical(self.binding) == self.binding_raw)
+        require(persistent_fingerprint(self.binding) == self.files)
+
+    def _observe(self):
+        self._current()
+        value = _root_persistent_identity(self.root,self.scope,self.lifecycle.generation_seal['executables'],
+            _executable_files=self.executables)
+        require(value == self.binding and canonical(value) == self.binding_raw)
+        self._current()
+
+    def check(self):
+        try:
+            require(self.usable and self.owner == (os.getpid(),threading.get_ident()))
+            self._observe()
+            return {**self.observed_lifecycle,'live_durable_resource_identity_verified':True,
+                'original_live_files_and_database_observed':True,'lifecycle_exclusion_established':False,
+                'stage_effect_authorized':False,'complete_journey_acceptance':False}
+        except BaseException:
+            self.close();raise RootLiveBindingRefused('Original live native binding unavailable or changed') from None
+
+    def close(self):
+        self.usable = False
+        if self.executables is not None:self.executables.close()
+        if self.lifecycle is not None:self.lifecycle.close()
+        # Every original policy, file, directory, database and history remains.

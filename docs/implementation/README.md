@@ -91,6 +91,7 @@ This work connects application processes to their actual host, database and serv
 | Root observing the original controller before protected artifact staging | [Root controller observation](native-root-controller.md) |
 | Copying inspected artifacts into bounded, read-only Root-controlled code | [Protected native artifact staging](native-protected-artifact.md) |
 | Root reading the original request, complete generation and lifecycle history | [Root lifecycle observation](native-root-lifecycle.md) |
+| Root comparing live files, binaries and database with the original sealed binding | [Root live resource observation](native-root-live-binding.md) |
 | Binding enrollment and upgrade commands to their original protected inputs | [Operation input custody](native-operation-inputs.md) |
 
 ## Verification environment

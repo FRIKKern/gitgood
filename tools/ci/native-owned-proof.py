@@ -1212,6 +1212,7 @@ def run_successor_case(seed, config, password, database, server_scope):
     maintenance_refusal = bool(seed.get('schema_refusal_fixture') or seed.get('inventory_refusal_fixture'))
     runtime_observation = {}
     root_lifecycle_observation = None
+    root_live_binding_observation = None
     for label, mode, fault in [('migration-owner', 'migrate', 'helper-loss'),
                               ('bootstrap-owner', 'migrate', 'original-backend-loss'),
                               ('runtime-owner', 'runtime', 'helper-loss')]:
@@ -1234,6 +1235,17 @@ def run_successor_case(seed, config, password, database, server_scope):
                     ('live_durable_resource_identity_verified',False),('lifecycle_exclusion_established',False),
                     ('stage_effect_authorized',False),('complete_journey_acceptance',False))))
             finally:lifecycle_view.close()
+            from native_root_live_binding import NativeRootLiveBindingObservation
+            binding_view = NativeRootLiveBindingObservation(seed['installation'],seed['ownership_operation'])
+            try:
+                root_live_binding_observation = binding_view.check()
+                require(binding_view.check() == root_live_binding_observation)
+                require(all(root_live_binding_observation[name] == expected for name,expected in (
+                    ('installation',seed['installation']),('operation',seed['ownership_operation']),
+                    ('candidate',seed['candidate']),('stage','migrate'),('recorded_status','running'),
+                    ('original_live_files_and_database_observed',True),('live_durable_resource_identity_verified',True),
+                    ('lifecycle_exclusion_established',False),('stage_effect_authorized',False),('complete_journey_acceptance',False))))
+            finally:binding_view.close()
         runtime_refusal = bool(seed.get('runtime_schema_refusal_fixture') and label == 'runtime-owner')
         stage_refusal = maintenance_refusal or runtime_refusal
         if runtime_refusal:
@@ -1469,6 +1481,7 @@ def run_successor_case(seed, config, password, database, server_scope):
             return {'case': seed['case'], 'status': 'passed', 'stages': stages,
                 'root_original_controller_scope_observed': True,
                 'root_original_lifecycle_history_observed': root_lifecycle_observation is not None,
+                'root_original_live_binding_observed': root_live_binding_observation is not None,
                 'actual_nonempty_schema_refused_without_migrations': bool(seed.get('schema_refusal_fixture')),
                 'actual_nested_migration_entry_refused_without_effects': bool(seed.get('inventory_refusal_fixture')),
                 'actual_runtime_schema_refused_before_product_workers': runtime_refusal,
@@ -1509,6 +1522,7 @@ def run_successor_case(seed, config, password, database, server_scope):
         'actual_lifecycle_startup_boundary_verified': bool(seed.get('lifecycle_fixture')),
         'root_original_controller_scope_observed': True,
         'root_original_lifecycle_history_observed': root_lifecycle_observation is not None,
+        'root_original_live_binding_observed': root_live_binding_observation is not None,
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -1755,6 +1769,9 @@ def main(args):
         require(all(case['root_original_lifecycle_history_observed'] is True for case in receipt['cases'][4:]))
         require(receipt['cases'][3]['root_original_lifecycle_history_observed'] is False)
         receipt['root_original_lifecycle_history_observation_verified'] = True
+        require(all(case['root_original_live_binding_observed'] is True for case in receipt['cases'][4:]))
+        require(receipt['cases'][3]['root_original_live_binding_observed'] is False)
+        receipt['root_original_live_binding_observation_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:

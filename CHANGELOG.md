@@ -249,6 +249,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Add a fixed read-only Root view of the original sealed request and complete generation/lifecycle history before protected artifact allocation. Preserve ordinary-reader admission, refuse changed original resources and close interrupted readers. Actual Root observation, exclusion, allocation, stage dispatch and complete recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-root-lifecycle.md), [details 2](tools/deployment/native_root_lifecycle.py), [details 3](tools/deployment/test_native_root_lifecycle.py), [details 4](tools/ci/native-owned-proof.py), [details 5](.github/workflows/product.yml)
 
+- Add a fixed Root live resource/database view bound to the original controller, request and complete history. Reuse persistent validation behind distinct ordinary and Root namespace admission, guard original metadata and keep private data out of status. Actual observation, exclusion, artifact authority, stage dispatch and recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_root_live_binding.py), [details 3](tools/deployment/native_durable_binding.py), [details 4](tools/deployment/test_native_root_live_binding.py), [details 5](tools/ci/native-owned-proof.py)
+
 - Recorded the completed native foundation run with criterion-level observations, exact candidate/runtime evidence, clean-start instructions, integration references and remaining private-forge/Cloud milestones.
   Sources: [details 1](docs/RUN-72H-FINISH.md)
 

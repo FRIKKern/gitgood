@@ -170,6 +170,21 @@ def persistent_identity(root, scope, executables, *, _executable_files=None):
     validate_scope(scope)
     uid = scope["uid"]
     require(os.getuid() == os.geteuid() == uid and os.getgid() == os.getegid() == scope["gid"])
+    return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
+
+
+def _root_persistent_identity(root, scope, executables, *, _executable_files=None):
+    """Internal Root observation; fixed policy/original scope are caller duties."""
+    validate_scope(scope)
+    require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+    require(os.readlink('/proc/self/ns/mnt') == scope['manager']['mount_namespace'])
+    require(os.readlink('/proc/self/ns/cgroup') == scope['manager']['cgroup_namespace'])
+    return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
+
+
+def _persistent_identity(root, scope, executables, *, _executable_files=None):
+    """Shared fixed-resource/hash/database validation; supplies no admission."""
+    uid = scope['uid']
     root = Path(root)
     require(root == Path("/var/lib/gitgood/installations") / scope["installation"])
     for parent in root.parents:
