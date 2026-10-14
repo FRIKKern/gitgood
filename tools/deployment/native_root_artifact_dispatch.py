@@ -5,6 +5,7 @@ owns or replaces the ordinary controller's history/database exclusion.
 """
 import hashlib
 import os
+from pathlib import Path
 import socket
 import threading
 
@@ -17,6 +18,40 @@ from resource_generations import canonical
 
 class RootArtifactDispatchRefused(Exception):
     pass
+
+
+def failure_observation(error):
+    """Bounded fixed-code locations only; never exception messages or values."""
+    files = {'native_artifact_controller.py','native_root_artifact_dispatch.py',
+        'native_root_artifact_policy.py','native_protected_artifact.py',
+        'native_root_controller_request.py','native_root_database_exclusion.py',
+        'native_root_live_binding.py','native_root_lifecycle.py',
+        'native_root_controller.py','native_ownership_database.py'}
+    allowed = {str(Path(__file__).with_name(name)):name for name in files}
+    functions = {'__init__','check','stage','begin_stage','allocate',
+        '_preflight_archive','_inspect','_base','_current','_observe','_query',
+        '_query_database','_lease','_socket','_client','_lock','_validate_stage',
+        '_staged_output','serve_artifact_stage'}
+    types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',
+        'RootArtifactPolicyRefused','ProtectedArtifactRefused','RootControllerRequestRefused',
+        'RootDatabaseExclusionRefused','RootLiveBindingRefused','RootLifecycleRefused',
+        'RootControllerRefused','OwnershipDatabaseRefused','TimeoutError',
+        'BrokenPipeError','ConnectionResetError','OSError','ValueError','AssertionError'}
+    result = [];seen = set()
+    for _ in range(16):
+        if error is None or id(error) in seen:break
+        seen.add(id(error));site = {'status':'unavailable'};cursor = error.__traceback__
+        for _ in range(128):
+            if cursor is None:break
+            code = cursor.tb_frame.f_code
+            if (code.co_filename in allowed and code.co_name in functions
+                    and type(cursor.tb_lineno) is int and 0 < cursor.tb_lineno < 10000):
+                site = {'file':allowed[code.co_filename],'function':code.co_name,'line':cursor.tb_lineno}
+            cursor = cursor.tb_next
+        name = type(error).__name__
+        result.append({'error_type':name if name in types else 'other','check_site':site})
+        error = error.__cause__ if error.__cause__ is not None else error.__context__
+    return result
 
 
 def require(value):
@@ -113,7 +148,7 @@ def serve_artifact_stage(installation, operation, connection):
     must then recheck its same exclusion and independently validate the fixed
     Root output before recording durable stage completion.
     """
-    dispatch = request = reply = None
+    dispatch = request = reply = failure = None
     response = {'protocol':2,'kind':'native_root_artifact_result','status':'refused'}
     try:
         require(type(connection) is socket.socket)
@@ -124,7 +159,8 @@ def serve_artifact_stage(installation, operation, connection):
         response = {'protocol':2,'kind':'native_root_artifact_result','status':'staged',
             'installation':receipt['installation'],'operation':receipt['operation'],'candidate':receipt['candidate'],
             'receipt_sha256':hashlib.sha256(canonical(receipt)).hexdigest()}
-    except BaseException:
+    except BaseException as error:
+        failure = error
         response = {'protocol':2,'kind':'native_root_artifact_result','status':'refused'}
     finally:
         if dispatch is not None:dispatch.close()
@@ -132,7 +168,12 @@ def serve_artifact_stage(installation, operation, connection):
         elif type(connection) is socket.socket:connection.close()
     try:
         raw = canonical(response)+b'\n';require(len(raw) <= 512)
-        if reply is not None:reply.sendall(raw)
+        if reply is not None:
+            try:reply.sendall(raw)
+            except OSError:
+                if failure is not None:
+                    raise RootArtifactDispatchRefused('Original stage refused before reply transport loss; retain effects') from failure
+                raise
         else:require(False)
         return response
     finally:

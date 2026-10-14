@@ -27,6 +27,7 @@ from native_lifecycle_responsibility import NativeLifecycleResponsibility, sha
 from native_service_scope import group_identity
 from native_public_runtime import NativePublicRuntime, PublicRuntimeRefused
 from native_artifact_controller import NativeArtifactInspectionController
+from native_root_artifact_dispatch import failure_observation
 from resource_generations import canonical
 
 spec = importlib.util.spec_from_file_location('owned_fixture', Path(__file__).with_name('native-owned-manager.py'))
@@ -58,6 +59,7 @@ def main(seed_path):
     deadline = time.monotonic() + 300
     phase = 'delegation'
     controller = endpoint = custody = journal = artifact = None
+    artifact_started = None
     os.umask(0o077)
     try:
         assert os.getuid() == os.geteuid() == seed['uid'] > 0
@@ -107,6 +109,7 @@ def main(seed_path):
                 artifact = NativeArtifactInspectionController(seed['installation'],custody,endpoint,journal)
                 inspected = artifact.inspect()
                 phase = 'actual-controller-root-artifact-stage'
+                artifact_started = time.monotonic()
                 staged = artifact.stage()
                 assert staged['candidate'] == seed['candidate'] and staged['root_controlled_code'] is True
                 assert journal.snapshot['status'] == 'pending' and journal.snapshot['completed'] == ['inspect','stage']
@@ -291,8 +294,12 @@ def main(seed_path):
             # Closed state vocabulary locates the failed boundary without
             # exception messages, SQL, credentials, arguments or stack traces.
             phase = 'handoff-' + controller.state
-        fixture.write(run / 'manager-failed.json', {'phase': phase, 'error_type': type(error).__name__,
-            'check_site':fixture.failure_site(error)})
+        detail = {'phase': phase, 'error_type': type(error).__name__,
+            'check_site':fixture.failure_site(error)}
+        if phase == 'actual-controller-root-artifact-stage' and artifact_started is not None:
+            detail['artifact_failure'] = {'chain':failure_observation(error),
+                'elapsed_ms':min(1200000,max(0,int((time.monotonic()-artifact_started)*1000)))}
+        fixture.write(run / 'manager-failed.json', detail)
         while time.monotonic() < deadline:
             time.sleep(.25)
         return 0

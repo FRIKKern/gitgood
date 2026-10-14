@@ -320,7 +320,8 @@ def failure_check_site(error):
 
 def manager_failure(detail):
     """Closed metadata only, including an optional fixed manager source site."""
-    if type(detail) is not dict or set(detail) not in ({'phase','error_type'},{'phase','error_type','check_site'}):return None
+    if type(detail) is not dict or set(detail) not in ({'phase','error_type'},
+            {'phase','error_type','check_site'},{'phase','error_type','check_site','artifact_failure'}):return None
     if not all(type(detail[name]) is str and re.fullmatch(r'[a-zA-Z-]{1,64}',detail[name]) for name in ('phase','error_type')):return None
     result = {name:detail[name] for name in ('phase','error_type')}
     if 'check_site' in detail:
@@ -331,7 +332,42 @@ def manager_failure(detail):
                 and type(site['function']) is str and re.fullmatch(r'[a-zA-Z_][a-zA-Z_0-9]{0,63}',site['function'])
                 and type(site['line']) is int and 0 < site['line'] < 10000):result['check_site'] = dict(site)
         else:return None
+    if 'artifact_failure' in detail:
+        observed = artifact_failure(detail['artifact_failure'])
+        if observed is None or detail['phase'] != 'actual-controller-root-artifact-stage':return None
+        result['artifact_failure'] = observed
     return result
+
+
+def artifact_failure(detail):
+    """Validate bounded fixed source metadata, never a free-form traceback."""
+    files = {'native_artifact_controller.py','native_root_artifact_dispatch.py',
+        'native_root_artifact_policy.py','native_protected_artifact.py',
+        'native_root_controller_request.py','native_root_database_exclusion.py',
+        'native_root_live_binding.py','native_root_lifecycle.py',
+        'native_root_controller.py','native_ownership_database.py'}
+    functions = {'__init__','check','stage','begin_stage','allocate',
+        '_preflight_archive','_inspect','_base','_current','_observe','_query',
+        '_query_database','_lease','_socket','_client','_lock','_validate_stage',
+        '_staged_output','serve_artifact_stage'}
+    types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',
+        'RootArtifactPolicyRefused','ProtectedArtifactRefused','RootControllerRequestRefused',
+        'RootDatabaseExclusionRefused','RootLiveBindingRefused','RootLifecycleRefused',
+        'RootControllerRefused','OwnershipDatabaseRefused','TimeoutError',
+        'BrokenPipeError','ConnectionResetError','OSError','ValueError','AssertionError','other'}
+    if (type(detail) is not dict or set(detail) != {'chain','elapsed_ms'}
+            or type(detail['elapsed_ms']) is not int or not 0 <= detail['elapsed_ms'] <= 1200000
+            or type(detail['chain']) is not list or not 1 <= len(detail['chain']) <= 16):return None
+    for item in detail['chain']:
+        if (type(item) is not dict or set(item) != {'error_type','check_site'}
+                or type(item['error_type']) is not str or item['error_type'] not in types):return None
+        site = item['check_site']
+        if site == {'status':'unavailable'}:continue
+        if (type(site) is not dict or set(site) != {'file','function','line'}
+                or type(site['file']) is not str or site['file'] not in files
+                or type(site['function']) is not str or site['function'] not in functions
+                or type(site['line']) is not int or not 0 < site['line'] < 10000):return None
+    return json.loads(canonical(detail))
 
 
 def bounded_diagnostic_read(path, maximum=4096):
@@ -1258,6 +1294,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
     if seed.get('artifact_stage_fixture'):
         seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
         connection,_ = listener.accept()
+        seed['artifact_stage_started'] = time.monotonic()
         served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         require(served['status'] == 'staged')
         staged_artifact_observation = wait_for(run/'artifact-stage-complete.json',run,20)
@@ -1951,9 +1988,15 @@ def main(args):
         if seed is not None:
             receipt["failure"]["component_phase"] = seed.get("proof_phase", "allocation")
             receipt["failure"]["startup"] = case_startup_diagnostics(seed)
+            if seed.get('artifact_stage_started') is not None:
+                from native_root_artifact_dispatch import failure_observation
+                detail = {'chain':failure_observation(error),
+                    'elapsed_ms':min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))}
+                observed = artifact_failure(detail)
+                if observed is not None:receipt['failure']['artifact_failure'] = observed
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
-                detail = read_json(failed, 1024)
+                detail = read_json(failed, 8192)
                 observed_manager = manager_failure(detail)
                 if observed_manager is not None:receipt["failure"]["manager"] = observed_manager
         # No exception string, stack, configuration, private logs, SQL or secret

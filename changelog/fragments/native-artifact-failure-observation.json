@@ -1,0 +1,9 @@
+{
+  "id": "native-artifact-failure-observation",
+  "category": "Fixed",
+  "impact": "product",
+  "summary": "Preserve the original native artifact staging refusal when its reply connection also fails. Verification can locate the failing boundary without publishing private exception messages or changing stage admission.",
+  "journeys": ["J14", "J15"],
+  "references": ["tools/deployment/native_root_artifact_dispatch.py", "tools/deployment/test_native_root_artifact_dispatch.py", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py", "docs/implementation/native-root-artifact-dispatch.md"],
+  "withdrawn": false
+}

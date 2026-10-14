@@ -78,6 +78,36 @@ class DispatchBoundaryTest(unittest.TestCase):
 
 
 class ConnectedResponseTest(unittest.TestCase):
+    def test_reply_loss_preserves_original_refusal_cause_and_closes_descriptors(self):
+        server,client=socket.socketpair();self.addCleanup(server.close);self.addCleanup(client.close)
+        original=TimeoutError('private SQL and credentials')
+        request=Mock();request.close.side_effect=server.close
+        stage=Mock();stage.stage.side_effect=original;stage.close.side_effect=request.close
+        with patch.object(dispatch,'NativeRootControllerRequest',return_value=request),patch.object(dispatch,'NativeRootArtifactStageDispatch',return_value=stage), \
+                patch.object(socket.socket,'sendall',side_effect=BrokenPipeError('transport closed')):
+            with self.assertRaises(dispatch.RootArtifactDispatchRefused) as raised:
+                dispatch.serve_artifact_stage('i','o',server)
+        self.assertIs(raised.exception.__cause__,original)
+        self.assertNotIn('private',str(raised.exception));self.assertEqual(server.fileno(),-1)
+        stage.close.assert_called_once()
+
+    def test_failure_observation_is_closed_bounded_and_excludes_private_frames(self):
+        namespace={'private':'private credentials and SQL'}
+        exec(compile('def stage():\n    raise TimeoutError(private)\n',dispatch.__file__,'exec'),namespace)
+        try:namespace['stage']()
+        except TimeoutError as error:
+            wrapped=dispatch.RootArtifactDispatchRefused('private wrapper');wrapped.__context__=error
+            error.__context__=wrapped
+            observed=dispatch.failure_observation(wrapped)
+        self.assertEqual(len(observed),2)
+        self.assertEqual(observed[1],{'error_type':'TimeoutError','check_site':{
+            'file':'native_root_artifact_dispatch.py','function':'stage','line':2}})
+        self.assertNotIn(b'private',canonical(observed));self.assertNotIn(os.fsencode(dispatch.__file__),canonical(observed))
+        chain=ValueError('private')
+        for _ in range(30):
+            outer=ValueError('private');outer.__context__=chain;chain=outer
+        self.assertEqual(len(dispatch.failure_observation(chain)),16)
+
     def test_real_socket_response_is_bounded_and_only_sent_after_root_observers_close(self):
         server,client=socket.socketpair();self.addCleanup(server.close);self.addCleanup(client.close);client.settimeout(2)
         request=Mock();request.close.side_effect=server.close

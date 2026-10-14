@@ -31,7 +31,14 @@ does not erase a published stage. [The ordinary controller](native-artifact-cont
 independently checks the original writer session and complete fixed Root output
 before advancing its durable journal.
 
-Eight portable boundary/socket checks use explicit authority and stage stand-ins;
+If sending a refusal also loses its transport, the server retains the original
+refusal as the exception cause. The hosted fixture can record at most sixteen
+closed error classifications and fixed source locations plus bounded elapsed
+time. Messages, arbitrary file paths, source text, SQL, inputs and credentials
+are excluded; the ordinary socket response remains unchanged. These observations
+locate a failed boundary and grant no staging or recovery authority.
+
+Ten portable boundary/socket checks use explicit authority and stage stand-ins;
 the response socket, bounded canonical bytes and close-before-response ordering
 are actual. The hosted default-release case supplies actual systemd MainPID,
 history/SQL custody, Root parents/lock/input declaration, full production archive,

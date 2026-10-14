@@ -94,6 +94,25 @@ class BoundedProofTests(unittest.TestCase):
             with self.subTest(site=site):self.assertIsNone(proof.manager_failure({**original,'check_site':site}))
         self.assertIsNone(proof.manager_failure({**original,'message':'private'}))
 
+    def test_artifact_failure_accepts_only_bounded_closed_chain_and_elapsed_time(self):
+        original={'chain':[{'error_type':'TimeoutError','check_site':{
+            'file':'native_artifact_controller.py','function':'stage','line':344}}],'elapsed_ms':240001}
+        self.assertEqual(proof.artifact_failure(original),original)
+        bad=[{**original,'elapsed_ms':True},{**original,'elapsed_ms':1200001},
+            {**original,'message':'private'},{**original,'chain':original['chain']*17},
+            {**original,'chain':[{'error_type':'private-secret','check_site':{'status':'unavailable'}}]},
+            {**original,'chain':[{'error_type':'TimeoutError','check_site':{
+                'file':'/private/secret.py','function':'stage','line':344}}]},
+            {**original,'chain':[{'error_type':'TimeoutError','check_site':{
+                'file':'native_artifact_controller.py','function':'private-secret','line':344}}]}]
+        for item in bad:
+            with self.subTest(item=item):self.assertIsNone(proof.artifact_failure(item))
+        manager={'phase':'actual-controller-root-artifact-stage','error_type':'ArtifactControllerRefused',
+            'check_site':{'file':'native-successor-manager.py','function':'main','line':112},
+            'artifact_failure':original}
+        self.assertEqual(proof.manager_failure(manager),manager)
+        self.assertIsNone(proof.manager_failure({**manager,'phase':'handoff-reserved'}))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',

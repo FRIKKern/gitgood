@@ -448,6 +448,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Accept and preserve the exact first-install UUID in encrypted export and recovery configuration, reject mismatched identity before publication, and rebind it only for an independently allocated retirement verification target. Fresh packaged enrollment and direct five-stage retirement passed without any prior upgrade; terminal/refusal checks and 77-log credential checks passed. Actual partial migration recovery resumed after three of sixteen commits; current integration CI and broader lifecycle/Cloud acceptance remain separate.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/installation-retirement.md)
 
+- Preserve the original native artifact staging refusal when its reply connection also fails. Verification can locate the failing boundary without publishing private exception messages or changing stage admission.
+  Sources: [details 1](tools/deployment/native_root_artifact_dispatch.py), [details 2](tools/deployment/test_native_root_artifact_dispatch.py), [details 3](tools/ci/native-owned-proof.py), [details 4](tools/ci/native-owned-test.py), [details 5](docs/implementation/native-root-artifact-dispatch.md)
+
 - Bound installed application-backend discovery to five seconds and require two stable SQL observations plus matching kernel identity checks before committing captures. Preserve post-effect original connection retention, strict selected loss and cleanup requirements without changing production deadlines.
   Sources: [details 1](docs/implementation/native-hosted-ownership.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
