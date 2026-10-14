@@ -2,23 +2,61 @@ defmodule Gitgood.Readiness do
   alias Gitgood.{Build, Repo}
 
   def check do
+    native = Application.get_env(:gitgood, :supervision_profile) === "systemd-v2"
+    installation = installation?()
+    admitted = not native or installation
+
     checks = %{
-      database: database?(),
-      installation: Gitgood.InstallationLease.ready?(),
-      storage: storage?(),
+      database: admitted and database?(),
+      installation: installation,
+      storage: admitted and storage?(),
       executables: executables?(),
       ssh: is_nil(Application.get_env(:gitgood, :ssh_port)) or Gitgood.SSHDaemon.public().enabled,
       artifact: Application.get_env(:gitgood, :environment) != :prod or Build.valid?()
     }
 
+    checks =
+      if native,
+        do: Map.put(checks, :installation, installation and installation?()),
+        else: checks
+
     %{ready: Enum.all?(checks, fn {_, value} -> value end), checks: checks}
   end
 
+  defp installation? do
+    if Application.get_env(:gitgood, :supervision_profile) === "systemd-v2" do
+      {Gitgood.NativeOwnershipStartup, startup, _, _} =
+        List.keyfind(
+          Supervisor.which_children(Gitgood.Supervisor),
+          Gitgood.NativeOwnershipStartup,
+          0
+        )
+
+      Gitgood.NativeOwnershipStartup.current(startup) === :ok
+    else
+      Gitgood.InstallationLease.ready?()
+    end
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
+  end
+
   defp database? do
-    case Repo.query("SELECT version::text FROM schema_migrations", [], timeout: 3000) do
+    case Repo.query("SELECT version::text FROM public.schema_migrations ORDER BY version", [],
+           timeout: 3000
+         ) do
       {:ok, %{rows: rows}} ->
         actual = List.flatten(rows)
-        Enum.all?(Build.identity()["migrations"] || [], &(&1 in actual))
+
+        if Application.get_env(:gitgood, :supervision_profile) === "systemd-v2" do
+          actual !== [] and actual === Build.identity()["migrations"] and
+            Gitgood.NativeMaintenanceWorker.validate_database(:bootstrap, %{
+              "target_versions" => Enum.map(actual, &String.to_integer/1)
+            }) === :ok
+        else
+          Enum.all?(Build.identity()["migrations"] || [], &(&1 in actual))
+        end
 
       _ ->
         false

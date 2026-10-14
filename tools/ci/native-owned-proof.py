@@ -9,6 +9,8 @@ import argparse
 import ast
 import base64
 import hashlib
+import hmac
+from http.cookies import SimpleCookie
 import itertools
 import json
 import os
@@ -23,6 +25,9 @@ import subprocess
 import sys
 import time
 import uuid
+import urllib.error
+import urllib.request
+import socket
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -374,6 +379,101 @@ def capture_application_backends(database, seed, server_scope):
     return captured
 
 
+def listeners_absent(config):
+    for port in (int(config['forge']['PORT']), int(config['forge']['GITGOOD_SSH_PORT'])):
+        try:
+            with socket.create_connection(('127.0.0.1', port), timeout=.3):
+                return False
+        except ConnectionRefusedError:
+            pass
+    return True
+
+
+def probe_native_runtime(seed, config, stage):
+    """Actual internal HTTP API and HTTP/SSH Git, never a public TLS/edge claim."""
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None
+
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    base = 'http://127.0.0.1:' + config['forge']['PORT']
+
+    def request(method, path, expected, body=None, token=None, extra=None):
+        headers = {'Accept': 'application/json', **(extra or {})}
+        if token:
+            headers['Authorization'] = 'Bearer ' + token
+        if body is not None:
+            headers['Content-Type'] = 'application/json'
+        item = urllib.request.Request(base + path, data=None if body is None else canonical(body), headers=headers, method=method)
+        try:
+            response = opener.open(item, timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            require(response.status == expected, 'native internal API refused expected outcome')
+            raw = response.read(262145)
+            require(len(raw) <= 262144)
+            return json.loads(raw), response.headers
+
+    ready, _ = request('GET', '/health/ready', 200)
+    require(ready['candidate'] == seed['candidate'] and ready['dirty'] is False and ready['status'] == 'ready')
+    require(ready['operational_mode'] == 'active' and all(ready['checks'].values()))
+    request('GET', '/api/repos', 401)
+    stamp = str(int(time.time()))
+    frame = '\n'.join(('gitgood-login-origin-v1', '127.0.0.1', stamp, 'POST', '/api/session'))
+    signature = hmac.new(base64.b64decode(config['forge']['GITGOOD_PROXY_KEY']), frame.encode(), hashlib.sha256).hexdigest()
+    login, headers = request('POST', '/api/session', 200,
+        {'username': 'owner', 'password': 'synthetic-secret-éé'}, extra={
+            'Origin': config['forge']['GITGOOD_WEB_ORIGIN'], 'x-gitgood-client-address': '127.0.0.1',
+            'x-gitgood-client-time': stamp, 'x-gitgood-client-signature': signature})
+    require(login['user']['username'] == 'owner' and any(item['team'] == 'pilot' and item['role'] == 'owner' for item in login['teams']))
+    cookies = SimpleCookie();cookies.load(headers['Set-Cookie'])
+    session = cookies['gitgood_session'].value
+    request('POST', '/api/repos', 201, {'team': 'pilot', 'name': 'native-runtime'}, token=session,
+        extra={'idempotency-key': str(uuid.uuid4())})
+    credential, _ = request('POST', '/api/repos/pilot/native-runtime/credentials', 200, {}, token=session)
+    probe = stage / 'root-runtime-probe';probe.mkdir(mode=0o700)
+    git = seed['executables']['git']
+    environment = {**BASE_ENV, 'HOME': str(probe), 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null',
+        'GIT_TERMINAL_PROMPT': '0', 'GIT_CONFIG_COUNT': '2', 'GIT_CONFIG_KEY_0': 'http.extraHeader',
+        'GIT_CONFIG_VALUE_0': 'Authorization: Basic ' + base64.b64encode(('owner:' + credential['token']).encode()).decode(),
+        'GIT_CONFIG_KEY_1': 'credential.helper', 'GIT_CONFIG_VALUE_1': ''}
+    checkout = probe / 'http-client'
+    command([git, 'clone', base + '/git/pilot/native-runtime.git', str(checkout)], environment=environment, timeout=30)
+    command([git, '-C', str(checkout), 'symbolic-ref', 'HEAD', 'refs/heads/main'], environment=environment)
+    (checkout / 'README.md').write_text('Native owned runtime fixture\n')
+    command([git, '-C', str(checkout), 'config', 'user.name', 'Fixture'], environment=environment)
+    command([git, '-C', str(checkout), 'config', 'user.email', 'fixture@example.invalid'], environment=environment)
+    command([git, '-C', str(checkout), 'add', 'README.md'], environment=environment)
+    command([git, '-C', str(checkout), 'commit', '-m', 'Native runtime fixture'], environment=environment)
+    revision = command([git, '-C', str(checkout), 'rev-parse', 'HEAD'], environment=environment).strip()
+    command([git, '-C', str(checkout), 'push', 'origin', 'main'], environment=environment, timeout=30)
+    cloned = probe / 'http-readback'
+    command([git, 'clone', base + '/git/pilot/native-runtime.git', str(cloned)], environment=environment, timeout=30)
+    require(command([git, '-C', str(cloned), 'rev-parse', 'HEAD'], environment=environment).strip() == revision)
+    key = probe / 'ssh-key'
+    command(['/usr/bin/ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)])
+    request('POST', '/api/ssh-keys', 201, {'label': 'native-runtime-fixture', 'public_key': key.with_suffix('.pub').read_text()},
+        token=session, extra={'idempotency-key': str(uuid.uuid4())})
+    known = probe / 'known_hosts'
+    host_key = (Path(seed['root']) / 'ssh-host/ssh_host_ed25519_key.pub').read_text().split()
+    known.write_text('[127.0.0.1]:' + config['forge']['GITGOOD_SSH_PORT'] + ' ' + ' '.join(host_key[:2]) + '\n')
+    ssh = probe / 'ssh-client'
+    write_new(ssh, b'#!/usr/bin/python3.12\nimport os,sys\nos.execv("/usr/bin/ssh",["ssh","-F","/dev/null","-o","BatchMode=yes","-o","IdentitiesOnly=yes","-o","StrictHostKeyChecking=yes","-o","UserKnownHostsFile="+os.environ["GITGOOD_PROOF_KNOWN_HOSTS"],"-i",os.environ["GITGOOD_PROOF_SSH_KEY"],*sys.argv[1:]])\n', 0o700)
+    ssh_env = {**environment, 'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'credential.helper', 'GIT_CONFIG_VALUE_0': '',
+        'GIT_SSH': str(ssh), 'GIT_SSH_VARIANT': 'ssh', 'GITGOOD_PROOF_KNOWN_HOSTS': str(known), 'GITGOOD_PROOF_SSH_KEY': str(key)}
+    ssh_checkout = probe / 'ssh-readback'
+    command([git, 'clone', 'ssh://owner@127.0.0.1:' + config['forge']['GITGOOD_SSH_PORT'] + '/pilot/native-runtime.git',
+        str(ssh_checkout)], environment=ssh_env, timeout=30)
+    require(command([git, '-C', str(ssh_checkout), 'rev-parse', 'HEAD'], environment=ssh_env).strip() == revision)
+    request('GET', '/api/repos', 401)
+    request('DELETE', '/api/session', 200, token=session)
+    request('GET', '/api/repos', 401, token=session)
+    return {'internal_readiness_and_signed_owner_login_verified': True, 'anonymous_private_api_denied': True,
+        'internal_http_git_push_and_readback_verified': True, 'ssh_git_readback_verified': True,
+        'session_revocation_verified': True, 'public_tls_and_frontend_verified': False}
+
+
 def unit_text(seed, manager):
     return f"""[Unit]
 Description=Gitgood disposable native ownership component proof
@@ -406,7 +506,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False):
+def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False, runtime_effects=False, runtime_schema_refusal=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -470,6 +570,12 @@ def allocate_case(label, runtime, database, candidate, *, controller=False, life
     if inventory_refusal:
         require(business_effects and not schema_refusal)
         seed['inventory_refusal_fixture'] = True
+    if runtime_effects:
+        require(business_effects and not schema_refusal and not inventory_refusal)
+        seed['runtime_effects_fixture'] = True
+    if runtime_schema_refusal:
+        require(runtime_effects)
+        seed['runtime_schema_refusal_fixture'] = True
     if controller:
         directory = Path('/run/gitgood/installations') / installation
         root_directory(directory.parent)
@@ -801,18 +907,23 @@ def run_successor_case(seed, config, password, database, server_scope):
     pointer = None
     previous_sha = None
     maintenance_refusal = bool(seed.get('schema_refusal_fixture') or seed.get('inventory_refusal_fixture'))
+    runtime_observation = {}
     for label, mode, fault in [('migration-owner', 'migrate', 'helper-loss'),
                               ('bootstrap-owner', 'migrate', 'original-backend-loss'),
                               ('runtime-owner', 'runtime', 'helper-loss')]:
         seed['proof_phase'] = label + ':held-writer-exclusion'
         stage = run / label
         pending = wait_for(stage / 'reserved.json', run, 20)
-        if maintenance_refusal:
+        runtime_refusal = bool(seed.get('runtime_schema_refusal_fixture') and label == 'runtime-owner')
+        stage_refusal = maintenance_refusal or runtime_refusal
+        if runtime_refusal:
+            database.query('DELETE FROM public.schema_migrations WHERE version=' + str(preserved_lifecycle['target_versions'][-1]), database=business_database)
+        if stage_refusal:
             lifecycle_head = Path(seed['root']) / 'history/lifecycle-responsibility-v2/heads' / (seed['ownership_operation'] + '.json')
             original_head = fingerprint(lifecycle_head)
             lifecycle_snapshot = Path(seed['root']) / 'history/lifecycle-responsibility-v2/records' / (read_json(lifecycle_head)['snapshot_sha256'] + '.json')
             original_snapshot = fingerprint(lifecycle_snapshot)
-            require(read_json(lifecycle_snapshot)['status'] == 'running' and read_json(lifecycle_snapshot)['stage'] == 'migrate')
+            require(read_json(lifecycle_snapshot)['status'] == 'running' and read_json(lifecycle_snapshot)['stage'] == ('verify' if runtime_refusal else 'migrate'))
         reservation = read_json(transition / (pending['claim'] + '.reservation.json'))
         require(pending['reservation_sha256'] == hashlib.sha256(canonical(reservation)).hexdigest())
         require(reservation['mode'] == mode and reservation['predecessor_sha256'] == previous_sha)
@@ -892,7 +1003,22 @@ def run_successor_case(seed, config, password, database, server_scope):
                 require(all(item in after_backends for item in application_backends))
                 application_backends = after_backends
             require(not (stage / 'private-inputs-observed.json').exists())
-        if not maintenance_refusal:
+        if seed.get('runtime_effects_fixture') and label == 'runtime-owner':
+            require(listeners_absent(config), 'product listeners started before runtime prerequisites')
+            application_backends = capture_application_backends(database, seed, server_scope)
+            write_new(stage / 'runtime-activate.json', {'original_backends_captured': True}, 0o600, seed['uid'], seed['gid'])
+            seed['proof_phase'] = label + ':actual-product-runtime-activation'
+            if not runtime_refusal:
+                active = wait_for(stage / 'runtime-workers-observed.json', run, 65)
+                require(active == {'fixed_native_runtime_entrypoint_used': True, 'schema_before_workers_verified': True,
+                    'actual_product_workers_started': True, 'internal_readiness_observed': True, 'public_activation_verified': False})
+                runtime_observation = probe_native_runtime(seed, config, stage)
+                require(database.query("SELECT count(*) FROM public.repositories WHERE team='pilot' AND name='native-runtime' AND status='ready'", database=business_database) == '1')
+                require(database.query("SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='fixture_shadow'", database=business_database) == '0')
+                after_backends = capture_application_backends(database, seed, server_scope)
+                require(all(item in after_backends for item in application_backends))
+                application_backends = after_backends
+        if not stage_refusal:
             seed['proof_phase'] = label + ':inject-original-helper-or-backend-loss'
             inject_loss(fault, captured, record['database_session'], database)
         seed['proof_phase'] = label + ':owner-exit-acknowledgement'
@@ -904,6 +1030,8 @@ def run_successor_case(seed, config, password, database, server_scope):
                    all(absent(item['kernel']) and database.backend_absent(item['session']) for item in application_backends)):
             require(time.monotonic() < until, 'original successor owner/backend not absent')
             time.sleep(.1)
+        if seed.get('runtime_effects_fixture') and label == 'runtime-owner':
+            require(listeners_absent(config), 'original product listener survived owner failure')
         seed['proof_phase'] = label + ':surviving-descendant-and-sibling'
         require(not absent(captured['descendant']) and not absent(sentinel))
         seed['proof_phase'] = label + ':retained-record-and-marker-before-quiescence'
@@ -937,28 +1065,42 @@ def run_successor_case(seed, config, password, database, server_scope):
             'actual_protected_handoff_completed': True, 'repeated_assignment_refused_by_actual_endpoint': True,
             'original_owner_sql_and_kernel_backend_absent': True, 'record_and_marker_retained': True,
             'captured_application_sql_and_kernel_backends_absent': bool(application_backends),
+            'actual_product_runtime_workers_executed': bool(seed.get('runtime_effects_fixture') and label == 'runtime-owner' and not runtime_refusal),
             'selected_descendants_quiesced_by_fixture_manager': True, 'sibling_preserved_then_exactly_reaped': True})
         write_new(seal / ('fixture-next-' + label + '.json'), {'old_owner_backend_and_leaves_absent': True})
-        if maintenance_refusal:
-            require(label == 'migration-owner' and len(stages) == 1)
+        if stage_refusal:
+            expected_claims = 3 if runtime_refusal else 1
+            require(label == ('runtime-owner' if runtime_refusal else 'migration-owner') and len(stages) == expected_claims)
             require(not (stage / 'maintenance-effects-observed.json').exists())
-            require(database.query("SELECT to_regclass('public.schema_migrations') IS NULL AND to_regclass('public.users') IS NULL AND to_regclass('public.installation_owner_bootstraps') IS NULL", database=business_database) == 't')
+            require(not (stage / 'runtime-workers-observed.json').exists())
+            if runtime_refusal:
+                require(database.query('SELECT count(*) FROM public.repositories', database=business_database) == '0')
+                actual_versions = database.query('SELECT coalesce(string_agg(version::text,\',\' ORDER BY version),\'\') FROM public.schema_migrations', database=business_database)
+                require(actual_versions == ','.join(map(str, preserved_lifecycle['target_versions'][:-1])))
+            else:
+                require(database.query("SELECT to_regclass('public.schema_migrations') IS NULL AND to_regclass('public.users') IS NULL AND to_regclass('public.installation_owner_bootstraps') IS NULL", database=business_database) == 't')
             if seed.get('schema_refusal_fixture'):
                 require(database.query('SELECT count(*) FROM public.fixture_unexpected_relation', database=business_database) == '0')
-            else:
+            elif not runtime_refusal:
                 require(database.query("SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','fixture_shadow')", database=business_database) == '0')
             require(fingerprint(lifecycle_head) == original_head and fingerprint(lifecycle_snapshot) == original_snapshot)
             complete = wait_for(run / 'controller-maintenance-refusal-complete.json', run, 10)
-            require(complete == {'claims': 1, 'fixture_did_not_advance_lifecycle': True})
+            require(complete == {'claims': expected_claims, 'fixture_did_not_advance_lifecycle': True})
             require(process(manager['pid'])['birth'] == manager['birth'])
-            require({path.name for path in (storage / '.gitgood-ownership-v2').iterdir()} == {record['claim'] + '.json'})
+            require({path.name for path in (storage / '.gitgood-ownership-v2').iterdir()} == {item['record']['claim'] + '.json' for item in captured_records})
+            for index, prior in enumerate(captured_records):
+                require(fingerprint(prior['captured']['retained']) == prior['captured']['record_file'])
+                retained_marker = prior['captured']['marker'] if index == len(captured_records)-1 else transition / (captured_records[index+1]['record']['claim'] + '.old-marker.json')
+                require(fingerprint(retained_marker) == prior['captured']['marker_file'])
             return {'case': seed['case'], 'status': 'passed', 'stages': stages,
                 'actual_nonempty_schema_refused_without_migrations': bool(seed.get('schema_refusal_fixture')),
                 'actual_nested_migration_entry_refused_without_effects': bool(seed.get('inventory_refusal_fixture')),
-                'permanent_maintenance_failure_terminated_original_beam': True,
+                'actual_runtime_schema_refused_before_product_workers': runtime_refusal,
+                'permanent_maintenance_failure_terminated_original_beam': maintenance_refusal,
+                'permanent_runtime_failure_terminated_original_beam': runtime_refusal,
                 'running_lifecycle_snapshot_and_head_retained': True,
                 'all_original_records_and_marker_inodes_retained': True,
-                'business_lifecycle_stages_executed': False, 'native_application_acceptance': False,
+                'business_lifecycle_stages_executed': runtime_refusal, 'native_application_acceptance': False,
                 'complete_journey_acceptance': False, 'product_controller_cleanup_verified': False}
     seed['proof_phase'] = 'controller-chain-completion'
     complete = wait_for(run / 'controller-chain-complete.json', run, 10)
@@ -993,6 +1135,8 @@ def run_successor_case(seed, config, password, database, server_scope):
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
+        'actual_product_runtime_workers_executed': bool(seed.get('runtime_effects_fixture')),
+        **runtime_observation,
         **lifecycle_observation}
 
 
@@ -1050,7 +1194,7 @@ def finalize(receipt, units, output, phase):
 
 
 def main(args):
-    receipt = {"protocol": 1, "scope": "ownership-lifecycle-and-maintenance-effects-component", "status": "failed", "candidate": args.candidate,
+    receipt = {"protocol": 1, "scope": "ownership-maintenance-and-native-runtime-component", "status": "failed", "candidate": args.candidate,
                "native_application_acceptance": False, "complete_journey_acceptance": False,
                "reboot_verified": False, "successor_reconciliation_verified": False,
                "production_deadlines_modified": False, "limits": LIMITS, "cases": []}
@@ -1157,6 +1301,26 @@ def main(args):
         require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
         receipt['cases'].append({**result, 'owned_unit_stopped': True})
         receipt['fixed_migration_and_bootstrap_effects_observed'] = True
+        phase = 'native-runtime-effects:allocate'
+        seed, config, password = allocate_case('native-runtime-effects', runtime, database,
+            args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True, runtime_effects=True)
+        units.append(seed['unit'])
+        phase = 'native-runtime-effects:product-workers-internal-api-git-and-loss'
+        result = run_successor_case(seed, config, password, database, server_scope)
+        command(['/usr/bin/systemctl', 'stop', seed['unit']], timeout=25)
+        require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
+        receipt['cases'].append({**result, 'owned_unit_stopped': True})
+        receipt['fixed_native_product_runtime_verified'] = True
+        phase = 'native-runtime-schema-refusal:allocate'
+        seed, config, password = allocate_case('native-runtime-schema-refusal', runtime, database,
+            args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True, runtime_effects=True, runtime_schema_refusal=True)
+        units.append(seed['unit'])
+        phase = 'native-runtime-schema-refusal:before-product-workers'
+        result = run_successor_case(seed, config, password, database, server_scope)
+        command(['/usr/bin/systemctl', 'stop', seed['unit']], timeout=25)
+        require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
+        receipt['cases'].append({**result, 'owned_unit_stopped': True})
+        receipt['actual_runtime_schema_refusal_verified'] = True
         phase = 'maintenance-schema-refusal:allocate'
         seed, config, password = allocate_case('maintenance-schema-refusal', runtime, database,
             args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True, schema_refusal=True)

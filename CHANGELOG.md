@@ -237,6 +237,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Recorded the completed native foundation run with criterion-level observations, exact candidate/runtime evidence, clean-start instructions, integration references and remaining private-forge/Cloud milestones.
   Sources: [details 1](docs/RUN-72H-FINISH.md)
 
+- Start fixed actual product workers and HTTP/SSH listeners only after original native ownership and exact package/public-schema checks. Add hosted internal login, private-repository and real Git probes plus runtime schema refusal. Default native application admission and full lifecycle/public activation/recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-runtime-effects.md), [details 2](apps/forge/lib/gitgood/native_runtime.ex), [details 3](apps/forge/lib/gitgood/native_runtime_worker.ex), [details 4](apps/forge/lib/gitgood/native_migration_inventory.ex)
+
 - Add read-only admission for a separately allocated ordinary-user systemd service, with pinned unit identity, actual manager and delegated cgroups, bounded resource checks and a credential-free manager query. Require empty capability sets, no extra groups and NoNewPrivileges. Durable generations, product supervision and full lifecycle or Cloud acceptance remain unfinished.
   Sources: [details 1](docs/implementation/native-service-admission.md), [details 2](tools/deployment/native_service_scope.py)
 

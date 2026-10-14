@@ -69,20 +69,31 @@ backend must be absent before another owner can start. Worker status is redacted
 The runtime owner still uses the fixture application, and inspection/staging/
 verification journal receipts remain explicitly synthetic metadata.
 
-The eighth `maintenance-schema-refusal` case has one unexpected application table
+The `maintenance-schema-refusal` case has one unexpected application table
 before an initial migration. The fixed worker must terminate the original BEAM
 without creating migration, user or owner-receipt tables. Root observes all
 captured backend identities absent and unchanged original lifecycle head/snapshot,
 ownership record and marker inodes. The fixture manager does not advance that
 failed stage. Both new cases require final owned-unit stop and absent cgroup.
 
-A ninth `maintenance-inventory-refusal` case deliberately adds one nested
+The final `maintenance-inventory-refusal` case deliberately adds one nested
 migration to the owned release copy after the earlier cases. The fixed worker
 must reject this entry before Ecto's recursive migration discovery. Root requires
 zero relations in the private database's public and shadow namespaces, original
 BEAM/Repo/lease absence and retained running lifecycle/ownership records. No failed
 stage is advanced, and the owned unit/cgroup must stop. The deliberate fixture
 addition does not establish complete artifact or native application acceptance.
+
+Before that final destructive fixture addition, `native-runtime-effects` and
+`native-runtime-schema-refusal` now exercise the fixed actual product worker tree
+and refusal before listeners. They use real maintenance first. The former checks
+internal signed login, private-repository creation, HTTP Git push/readback, SSH Git
+readback and session revocation before original ownership loss. The latter removes
+one expected schema version and requires no product workers/listeners or repository
+creation, original backend absence and retained running lifecycle responsibility.
+See [native runtime effects](native-runtime-effects.md) for the exact internal
+network scope. The installed suite now has eleven cases; the nested-inventory
+fault remains last. No public TLS/frontend or complete journey gate is claimed.
 
 `fixed_migration_and_bootstrap_effects_observed` and
 `actual_nonempty_schema_refusal_verified` describe only these component outcomes.

@@ -1,7 +1,6 @@
 defmodule Gitgood.NativeMaintenanceWorker do
   @moduledoc "One fixed business action after original ownership and private input validation."
   use GenServer
-  import Bitwise, only: [band: 2]
   alias Gitgood.{Build, NativeOwnershipStartup, Repo}
   @failure :native_maintenance_unavailable
 
@@ -33,7 +32,8 @@ defmodule Gitgood.NativeMaintenanceWorker do
          :ok <- NativeOwnershipStartup.current(startup),
          {:ok, inputs} <- NativeOwnershipStartup.private_business_inputs(startup),
          true <- inputs["action"] === Atom.to_string(state.action),
-         :ok <- validate_inventory(inputs, Build.identity(), packaged_versions()),
+         :ok <-
+           validate_inventory(inputs, Build.identity(), Gitgood.NativeMigrationInventory.read()),
          :ok <- NativeOwnershipStartup.current(startup),
          {:ok, outcome} <- apply_fixed(state.action, inputs, startup),
          :ok <- NativeOwnershipStartup.current(startup) do
@@ -53,13 +53,8 @@ defmodule Gitgood.NativeMaintenanceWorker do
   def validate_inventory(inputs, build, packaged) do
     with true <- is_map(inputs) and is_map(build) and build["dirty"] === false,
          true <- inputs["candidate"] === build["candidate"],
-         declared when is_list(declared) <- build["migrations"],
-         true <-
-           declared !== [] and
-             Enum.all?(declared, &(is_binary(&1) and Regex.match?(~r/\A[0-9]+\z/, &1))),
-         versions <- Enum.map(declared, &String.to_integer/1),
-         true <- versions === Enum.sort(Enum.uniq(versions)),
-         true <- versions === packaged and versions === inputs["migrations"]["target_versions"],
+         {:ok, versions} <- Gitgood.NativeMigrationInventory.match_build(build, packaged),
+         true <- versions === inputs["migrations"]["target_versions"],
          before when is_list(before) <- inputs["migrations"]["before_versions"],
          true <- before === Enum.take(versions, length(before)) do
       :ok
@@ -68,34 +63,6 @@ defmodule Gitgood.NativeMaintenanceWorker do
     end
   rescue
     _ -> :error
-  end
-
-  defp packaged_versions do
-    directory = Application.app_dir(:gitgood, "priv/repo/migrations")
-    :ok = protected_directory(directory)
-    {:ok, names} = File.ls(directory)
-    true = length(names) in 1..1025
-
-    Enum.each(names, fn name ->
-      true = name === ".formatter.exs" or Regex.match?(~r/\A[0-9]+_.*\.exs\z/, name)
-      path = Path.join(directory, name)
-      {:ok, stat} = File.lstat(path)
-      true = stat.type === :regular and stat.uid === 0 and stat.links === 1
-      true = band(stat.mode, 0o022) === 0
-    end)
-
-    names
-    |> Enum.reject(&(&1 === ".formatter.exs"))
-    |> Enum.map(fn name ->
-      name |> String.split("_", parts: 2) |> hd() |> String.to_integer()
-    end)
-    |> Enum.sort()
-  end
-
-  defp protected_directory(path) do
-    {:ok, stat} = File.lstat(path)
-    true = stat.type === :directory and stat.uid === 0 and band(stat.mode, 0o022) === 0
-    if Path.dirname(path) === path, do: :ok, else: protected_directory(Path.dirname(path))
   end
 
   defp schema_versions do
