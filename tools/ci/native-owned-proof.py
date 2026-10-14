@@ -10,7 +10,6 @@ from contextlib import ExitStack
 import ast
 import base64
 import ctypes
-import cProfile
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
@@ -1401,12 +1400,10 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         seed['proof_phase'] = 'original-root-read-only-observer-loss-checks'
         seed['root_reader_refusal_observation'] = root_reader_loss_checks(seed,database,server_scope)
         seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
-        profile = cProfile.Profile()
-        try:
-            profile.enable()
-            served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
-        finally:
-            profile.disable();seed['root_stage_profile'] = root_stage_profile(profile)
+        # Acceptance measures the production call under its original deadline.
+        # Retain prior bounded profiles separately: whole-call tracing changes
+        # the cost of every nested guard and is not the installed runtime path.
+        served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         if served['status'] == 'refused':
             elapsed = min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))
             seed['root_stage_refusal'] = root_stage_refusal(served,elapsed)

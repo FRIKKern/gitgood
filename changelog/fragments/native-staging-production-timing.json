@@ -1,0 +1,9 @@
+{
+  "id": "native-staging-production-timing",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Measure full hosted staging through the installed production call without whole-call tracing overhead. Preserve the complete archive, every original Root guard, fault case and response deadline. Retain prior bounded cost profiles as diagnostic evidence; full staging still requires exact current verification.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-dispatch.md", "tools/ci/native-owned-proof.py"],
+  "withdrawn": false
+}
