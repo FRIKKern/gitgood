@@ -15,6 +15,24 @@ permanently refuses before further effects; partial and published files remain.
 The underlying stager retains bounded archive inspection, system/output reserves,
 descriptor custody, safe entry handling, read-only code and no-replace publication.
 
+Each staging guard uses two private read-only observation passes. The first
+validates allocation and the existing stager guard; the second starts with an
+empty result set and validates allocation again before returning permission for
+the next write. Repeated upstream controller, lifecycle, live-binding and request
+observations reuse their original view's result only within the same pass. No
+pass includes extraction, archive writes, metadata changes or publication, and
+no result survives a pass or effect boundary. Independent observers never share
+results; original-view loss poisons the pass, and interrupted passes discard all
+retained results. Nested/reused passes and an ordinary caller refuse.
+
+This composition does not replace the held archive, Root allocation lock, peer,
+history-descriptor or writer-exclusion checks. Direct SQL exchanges continue to
+check their own original client/backend and nonce; allocation still re-observes
+exclusion in both passes. Standalone observer calls retain their previous full
+fresh behavior. The implementation accepts no caller-supplied result, callback,
+path or authority token. Full production staging and loss/refusal cases remain
+required on the exact hosted revision before this component can be accepted.
+
 After extraction, the result must bind the same installation, operation and
 candidate, identify actual staged Root-controlled code, and keep journey
 acceptance false. Repeated execution refuses rather than adopting existing code.
@@ -48,7 +66,8 @@ and longest name for the complete production archive. These counters contain no
 member names or payload data. Archive/effect guards, size limits, deadlines and
 the complete Forge/web payload remain unchanged.
 
-Ten portable boundary/socket checks use explicit authority and stage stand-ins;
+Twelve portable boundary/socket checks and private observation-pass tests use
+explicit authority and stage stand-ins;
 the response socket, bounded canonical bytes and close-before-response ordering
 are actual. The hosted default-release case supplies actual systemd MainPID,
 history/SQL custody, Root parents/lock/input declaration, full production archive,

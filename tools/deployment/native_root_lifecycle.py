@@ -16,7 +16,7 @@ from native_lifecycle_responsibility import HISTORY_NAMES, generation_owner
 from native_lifecycle_worker_inputs import parse_worker_seal
 from native_operation_inputs import (POLICIES, directory_identity, document,
     file_identity, file_record, parse_request, parse_seal)
-from native_root_controller import NativeRootControllerObservation
+from native_root_controller import NativeRootControllerObservation, _within_root_observation_pass
 from native_service_scope import _CapturedRootFiles, root_file
 from resource_generations import canonical, digest, identifier
 
@@ -381,6 +381,7 @@ class NativeRootLifecycleObservation:
             for path,(fd,_) in custody.directories.items()} == directories)
         return {'generation':generation,'lifecycle':record,'lifecycle_files':lifecycle_files,'directories':directories}
 
+    @_within_root_observation_pass
     def check(self):
         try:
             require(self.usable and root_owner() == self.owner)

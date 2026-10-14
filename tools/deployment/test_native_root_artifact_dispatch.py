@@ -9,6 +9,19 @@ from unittest.mock import Mock, patch
 
 import native_root_artifact_dispatch as dispatch
 from resource_generations import canonical
+from native_root_controller import _within_root_observation_pass,RootControllerRefused
+
+
+class _DependencyObservation:
+    """Explicit dependency stand-in; no controller or stage authority."""
+    def __init__(self):
+        self.usable=True;self.owner=(os.getpid(),threading.get_ident());self.calls=0
+
+    @_within_root_observation_pass
+    def check(self):
+        self.calls+=1
+        if not self.usable:raise RootControllerRefused('Fixture dependency lost')
+        return {'observed':True,'stage_effect_authorized':False}
 
 
 class DispatchBoundaryTest(unittest.TestCase):
@@ -71,10 +84,37 @@ class DispatchBoundaryTest(unittest.TestCase):
             value=dispatch._ObservedArtifactStage.__new__(dispatch._ObservedArtifactStage)
             value.allocation=Mock();value.allocation_original={'original':True};value.close=Mock()
             value.allocation.check.side_effect=[ValueError('lost')] if loss=='before' else [{'original':True},ValueError('lost')]
-            with patch.object(dispatch.NativeProtectedArtifactStage,'check',return_value={'artifact_staged':False}) as checked:
+            with ExitStack() as stack:
+                self.root(stack)
+                checked=stack.enter_context(patch.object(dispatch.NativeProtectedArtifactStage,'check',return_value={'artifact_staged':False}))
                 with self.assertRaises(dispatch.RootArtifactDispatchRefused):value.check()
                 self.assertEqual(checked.call_count,0 if loss=='before' else 1)
             value.close.assert_called_once();value.allocation.close.assert_called_once()
+
+    def test_each_effect_boundary_uses_new_initial_and_final_dependency_observations(self):
+        value=dispatch._ObservedArtifactStage.__new__(dispatch._ObservedArtifactStage)
+        dependency=_DependencyObservation();value.allocation=Mock();value.allocation_original={'original':True}
+        value.allocation.check.side_effect=lambda:(dependency.check(),dict(value.allocation_original))[1]
+        with ExitStack() as stack:
+            self.root(stack)
+            checked=stack.enter_context(patch.object(dispatch.NativeProtectedArtifactStage,'check',
+                side_effect=lambda:(dependency.check(),{'artifact_staged':False})[1]))
+            self.assertEqual(value.check(),{'artifact_staged':False});self.assertEqual(dependency.calls,2)
+            self.assertEqual(value.check(),{'artifact_staged':False});self.assertEqual(dependency.calls,4)
+        self.assertEqual(checked.call_count,2)
+
+    def test_dependency_loss_during_read_only_stage_check_refuses_before_returning_a_write_guard(self):
+        value=dispatch._ObservedArtifactStage.__new__(dispatch._ObservedArtifactStage)
+        dependency=_DependencyObservation();value.allocation=Mock();value.allocation_original={'original':True};value.close=Mock()
+        value.allocation.check.side_effect=lambda:(dependency.check(),dict(value.allocation_original))[1]
+        def lost_after_observation():
+            dependency.check();dependency.usable=False
+            return {'artifact_staged':False}
+        with ExitStack() as stack:
+            self.root(stack)
+            stack.enter_context(patch.object(dispatch.NativeProtectedArtifactStage,'check',side_effect=lost_after_observation))
+            with self.assertRaises(dispatch.RootArtifactDispatchRefused):value.check()
+        self.assertEqual(dependency.calls,2);value.close.assert_called_once();value.allocation.close.assert_called_once()
 
 
 class ConnectedResponseTest(unittest.TestCase):

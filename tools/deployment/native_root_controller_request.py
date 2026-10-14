@@ -12,6 +12,7 @@ import threading
 from native_command_wire import _peer, receive_frame
 from native_durable_database import unique
 from native_root_live_binding import NativeRootLiveBindingObservation
+from native_root_controller import _within_root_observation_pass
 from resource_generations import canonical, identifier
 
 
@@ -95,6 +96,7 @@ class NativeRootControllerRequest:
         require(target() == custody.known[custody.lock_path]);custody.check()
         return observed
 
+    @_within_root_observation_pass
     def check(self):
         try:
             require(self.usable and self.owner == (os.getpid(),threading.get_ident()))

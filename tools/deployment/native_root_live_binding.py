@@ -7,6 +7,7 @@ from native_durable_binding import _CapturedExecutableDigests, _root_persistent_
 from native_generation_lease_guard import persistent_fingerprint
 from native_root_lifecycle import NativeRootLifecycleObservation
 from native_root_database_reader import NativeRootDatabaseReader
+from native_root_controller import _within_root_observation_pass
 from resource_generations import canonical, identifier
 
 
@@ -61,6 +62,7 @@ class NativeRootLiveBindingObservation:
         require(value == self.binding and canonical(value) == self.binding_raw)
         self._current()
 
+    @_within_root_observation_pass
     def check(self):
         try:
             require(self.usable and self.owner == (os.getpid(),threading.get_ident()))

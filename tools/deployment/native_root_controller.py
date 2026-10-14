@@ -4,6 +4,8 @@ No stage effect, endpoint peer authentication, generation publication, lifecycle
 exclusion or replacement admission is supplied by this observation.
 """
 import json
+import copy
+from functools import wraps
 import os
 from pathlib import Path
 import platform
@@ -23,6 +25,62 @@ class RootControllerRefused(Exception):
 def require(value):
     if not value:
         raise RootControllerRefused('Original native controller unavailable or changed')
+
+
+_observation_pass = threading.local()
+
+
+def _root_observation_owner():
+    require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+    return os.getpid(),threading.get_ident()
+
+
+class _RootObservationPass:
+    """Private no-effect pass; no results survive the next effect boundary."""
+    def __init__(self):
+        self.owner = None;self.values = {};self.failed = False;self.active = False
+
+    def __enter__(self):
+        require(not self.active and self.owner is None and getattr(_observation_pass,'current',None) is None)
+        self.owner = _root_observation_owner();self.active = True
+        _observation_pass.current = self
+        return self
+
+    def check(self):
+        require(self.active and not self.failed and self.owner == _root_observation_owner()
+            and getattr(_observation_pass,'current',None) is self)
+
+    def __exit__(self, kind, *_):
+        try:
+            require(self.active and self.owner == _root_observation_owner()
+                and getattr(_observation_pass,'current',None) is self)
+            require(not self.failed or kind is not None)
+        finally:
+            self.active = False;self.failed = True;self.values.clear()
+            if getattr(_observation_pass,'current',None) is self:_observation_pass.current = None
+
+
+def _within_root_observation_pass(method):
+    """Only fixed source checks participate; outside a pass behavior is intact."""
+    @wraps(method)
+    def observed(self):
+        current = getattr(_observation_pass,'current',None)
+        if current is None:return method(self)
+        current.check()
+        if not self.usable or self.owner != current.owner:
+            current.failed = True;current.values.clear()
+            return method(self)  # Existing typed refusal and owned-view cleanup.
+        key = (self,method)
+        if key in current.values:return copy.deepcopy(current.values[key])
+        try:
+            value = method(self);current.check()
+            require(self.usable and self.owner == current.owner)
+            require(len(current.values) < 32)
+            current.values[key] = copy.deepcopy(value)
+            return value
+        except BaseException:
+            current.failed = True;current.values.clear();raise
+    return observed
 
 
 class NativeRootControllerObservation:
@@ -82,6 +140,7 @@ class NativeRootControllerObservation:
         require(root_file(self.path, 4096) == (self.identity, self.raw))
         require(_CapturedRootFiles._fingerprint(self.path, 4096, False) == self.fingerprint)
 
+    @_within_root_observation_pass
     def check(self):
         try:
             require(self.usable and self.owner == (os.getpid(), threading.get_ident()))

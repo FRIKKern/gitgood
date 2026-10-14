@@ -13,6 +13,7 @@ from native_protected_artifact import NativeProtectedArtifactStage
 from native_root_artifact_policy import NativeRootArtifactPolicyAllocation
 from native_root_controller_request import NativeRootControllerRequest
 from native_root_database_exclusion import NativeRootDatabaseExclusionObservation
+from native_root_controller import _RootObservationPass
 from resource_generations import canonical
 
 
@@ -75,9 +76,13 @@ class _ObservedArtifactStage(NativeProtectedArtifactStage):
 
     def check(self):
         try:
-            require(self.allocation.check() == self.allocation_original)
-            result = super().check()
-            require(self.allocation.check() == self.allocation_original)
+            with _RootObservationPass():
+                require(self.allocation.check() == self.allocation_original)
+                result = super().check()
+            # A separate fresh pass catches loss during the read-only guard.
+            # No pass spans archive writes, entry creation or publication.
+            with _RootObservationPass():
+                require(self.allocation.check() == self.allocation_original)
             return result
         except BaseException:
             self.close();self.allocation.close()
