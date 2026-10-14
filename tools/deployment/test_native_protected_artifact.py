@@ -330,7 +330,7 @@ class RootExtractionTest(unittest.TestCase):
         stage = self.stage();source_before = self.fixture.path.read_bytes()
         partial = self.parent/('.native-'+OPERATION+'.partial')
         def interrupted():
-            if (partial/'archive.tar.gz').exists():raise ProtectedArtifactRefused('fixture interruption')
+            if (partial/'archive.tar.gz').exists():raise KeyboardInterrupt('fixture interruption')
         stage.check.side_effect = interrupted
         with self.assertRaises(ProtectedArtifactRefused):stage.stage()
         self.assertEqual(self.fixture.path.read_bytes(),source_before)

@@ -141,7 +141,7 @@ class NativeProtectedArtifactStage:
             self.snapshot_original, self.snapshot_raw = self._private(self.snapshot_path, 1048576)
             self._validate_stage()
             self.usable = True;self.state = 'ready';self.check()
-        except Exception:
+        except BaseException:
             self.close()
             raise ProtectedArtifactRefused('Protected native artifact unavailable or changed; retain partial effects') from None
 
@@ -207,7 +207,7 @@ class NativeProtectedArtifactStage:
             for path in self.source.parents:directory(path, 0)
             if self.state == 'staged':self._check_output()
             return {'original_controller_and_running_stage_observed': True, 'artifact_staged': self.state == 'staged'}
-        except Exception:
+        except BaseException:
             self.close()
             raise ProtectedArtifactRefused('Protected native artifact unavailable or changed; retain partial effects') from None
 
@@ -240,7 +240,7 @@ class NativeProtectedArtifactStage:
                 os.close(previous)
                 require(self._directory_identity(os.fstat(descriptor)) == self.code_directories[key])
             return descriptor
-        except Exception:
+        except BaseException:
             os.close(descriptor);raise
 
     def _code_parent(self, name):
@@ -393,7 +393,7 @@ class NativeProtectedArtifactStage:
                 raise OSError(ctypes.get_errno(), 'Protected native publication refused')
             os.fsync(self.parent_fd);self.work = self.parent/target;self.state = 'staged';self.check();self._check_output()
             return receipt
-        except Exception:
+        except BaseException:
             self.close()
             raise ProtectedArtifactRefused('Protected native artifact unavailable or changed; retain partial effects') from None
 
