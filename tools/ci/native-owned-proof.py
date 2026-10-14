@@ -406,7 +406,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False):
+def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -467,6 +467,9 @@ def allocate_case(label, runtime, database, candidate, *, controller=False, life
     if schema_refusal:
         require(business_effects)
         seed['schema_refusal_fixture'] = True
+    if inventory_refusal:
+        require(business_effects and not schema_refusal)
+        seed['inventory_refusal_fixture'] = True
     if controller:
         directory = Path('/run/gitgood/installations') / installation
         root_directory(directory.parent)
@@ -797,13 +800,14 @@ def run_successor_case(seed, config, password, database, server_scope):
     captured_records = []
     pointer = None
     previous_sha = None
+    maintenance_refusal = bool(seed.get('schema_refusal_fixture') or seed.get('inventory_refusal_fixture'))
     for label, mode, fault in [('migration-owner', 'migrate', 'helper-loss'),
                               ('bootstrap-owner', 'migrate', 'original-backend-loss'),
                               ('runtime-owner', 'runtime', 'helper-loss')]:
         seed['proof_phase'] = label + ':held-writer-exclusion'
         stage = run / label
         pending = wait_for(stage / 'reserved.json', run, 20)
-        if seed.get('schema_refusal_fixture'):
+        if maintenance_refusal:
             lifecycle_head = Path(seed['root']) / 'history/lifecycle-responsibility-v2/heads' / (seed['ownership_operation'] + '.json')
             original_head = fingerprint(lifecycle_head)
             lifecycle_snapshot = Path(seed['root']) / 'history/lifecycle-responsibility-v2/records' / (read_json(lifecycle_head)['snapshot_sha256'] + '.json')
@@ -869,7 +873,7 @@ def run_successor_case(seed, config, password, database, server_scope):
             application_backends = capture_application_backends(database, seed, server_scope)
             write_new(stage / 'maintenance-execute.json', {'original_backends_captured': True}, 0o600, seed['uid'], seed['gid'])
             seed['proof_phase'] = label + ':actual-maintenance-effects'
-            if not seed.get('schema_refusal_fixture'):
+            if not maintenance_refusal:
                 outcome = wait_for(stage / 'maintenance-effects-observed.json', run, 65)
                 require(outcome == {'action': 'migrate' if label == 'migration-owner' else 'bootstrap',
                     'fixed_native_entrypoint_used': True, 'schema_versions_observed': True,
@@ -888,7 +892,7 @@ def run_successor_case(seed, config, password, database, server_scope):
                 require(all(item in after_backends for item in application_backends))
                 application_backends = after_backends
             require(not (stage / 'private-inputs-observed.json').exists())
-        if not seed.get('schema_refusal_fixture'):
+        if not maintenance_refusal:
             seed['proof_phase'] = label + ':inject-original-helper-or-backend-loss'
             inject_loss(fault, captured, record['database_session'], database)
         seed['proof_phase'] = label + ':owner-exit-acknowledgement'
@@ -935,18 +939,22 @@ def run_successor_case(seed, config, password, database, server_scope):
             'captured_application_sql_and_kernel_backends_absent': bool(application_backends),
             'selected_descendants_quiesced_by_fixture_manager': True, 'sibling_preserved_then_exactly_reaped': True})
         write_new(seal / ('fixture-next-' + label + '.json'), {'old_owner_backend_and_leaves_absent': True})
-        if seed.get('schema_refusal_fixture'):
+        if maintenance_refusal:
             require(label == 'migration-owner' and len(stages) == 1)
             require(not (stage / 'maintenance-effects-observed.json').exists())
             require(database.query("SELECT to_regclass('public.schema_migrations') IS NULL AND to_regclass('public.users') IS NULL AND to_regclass('public.installation_owner_bootstraps') IS NULL", database=business_database) == 't')
-            require(database.query('SELECT count(*) FROM public.fixture_unexpected_relation', database=business_database) == '0')
+            if seed.get('schema_refusal_fixture'):
+                require(database.query('SELECT count(*) FROM public.fixture_unexpected_relation', database=business_database) == '0')
+            else:
+                require(database.query("SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','fixture_shadow')", database=business_database) == '0')
             require(fingerprint(lifecycle_head) == original_head and fingerprint(lifecycle_snapshot) == original_snapshot)
-            complete = wait_for(run / 'controller-schema-refusal-complete.json', run, 10)
+            complete = wait_for(run / 'controller-maintenance-refusal-complete.json', run, 10)
             require(complete == {'claims': 1, 'fixture_did_not_advance_lifecycle': True})
             require(process(manager['pid'])['birth'] == manager['birth'])
             require({path.name for path in (storage / '.gitgood-ownership-v2').iterdir()} == {record['claim'] + '.json'})
             return {'case': seed['case'], 'status': 'passed', 'stages': stages,
-                'actual_nonempty_schema_refused_without_migrations': True,
+                'actual_nonempty_schema_refused_without_migrations': bool(seed.get('schema_refusal_fixture')),
+                'actual_nested_migration_entry_refused_without_effects': bool(seed.get('inventory_refusal_fixture')),
                 'permanent_maintenance_failure_terminated_original_beam': True,
                 'running_lifecycle_snapshot_and_head_retained': True,
                 'all_original_records_and_marker_inodes_retained': True,
@@ -1159,6 +1167,23 @@ def main(args):
         require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
         receipt['cases'].append({**result, 'owned_unit_stopped': True})
         receipt['actual_nonempty_schema_refusal_verified'] = True
+        phase = 'maintenance-inventory-refusal:inject-owned-nested-fixture-file'
+        migration_directories = list((runtime / 'release/lib').glob('gitgood-*/priv/repo/migrations'))
+        require(len(migration_directories) == 1)
+        nested = migration_directories[0] / 'fixture-nested'
+        nested.mkdir(mode=0o755)
+        write_new(nested / '99999999999999_fixture_nested_effect.exs',
+            b'defmodule Gitgood.Repo.Migrations.FixtureNestedEffect do\n  use Ecto.Migration\n  def change, do: create(table(:fixture_nested_effect))\nend\n')
+        phase = 'maintenance-inventory-refusal:allocate'
+        seed, config, password = allocate_case('maintenance-inventory-refusal', runtime, database,
+            args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True, inventory_refusal=True)
+        units.append(seed['unit'])
+        phase = 'maintenance-inventory-refusal:fixed-refusal-and-original-absence'
+        result = run_successor_case(seed, config, password, database, server_scope)
+        command(['/usr/bin/systemctl', 'stop', seed['unit']], timeout=25)
+        require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
+        receipt['cases'].append({**result, 'owned_unit_stopped': True})
+        receipt['actual_nested_migration_entry_refusal_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:

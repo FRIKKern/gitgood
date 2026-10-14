@@ -2,7 +2,7 @@
   "id": "native-maintenance-effects",
   "category": "Added",
   "impact": "operator",
-  "summary": "Add fixed permanent native migration and first-owner workers using original private inputs, pinned public SQL namespace, exact packaged/schema expectations and current ownership. Hosted cases independently observe real effects, backend disappearance, shadow-namespace exclusion and nonempty-schema refusal; complete lifecycle dispatch and native runtime/recovery remain unfinished.",
+  "summary": "Add fixed permanent native migration and first-owner workers using original private inputs, pinned public SQL namespace, exact packaged/schema expectations and current ownership. Hosted cases independently observe real effects, backend disappearance, shadow-namespace exclusion, nonempty-schema refusal and unexpected nested-migration refusal; complete lifecycle dispatch and native runtime/recovery remain unfinished.",
   "journeys": ["J14", "J15"],
   "references": ["docs/implementation/native-maintenance-effects.md", "docs/implementation/native-hosted-ownership.md", "apps/forge/lib/gitgood/native_maintenance.ex", "apps/forge/lib/gitgood/native_maintenance_worker.ex"],
   "withdrawn": false

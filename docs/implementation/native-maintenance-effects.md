@@ -30,6 +30,10 @@ versions, the actual packaged migration inventory and sealed target must agree.
 The migration directory and every ancestor must be Root-owned directories without
 group/other write permission; migration files must be single-link, regular,
 Root-controlled files. Symlinks are refused.
+The inventory is flat and closed: only numbered `.exs` migrations and the optional
+non-executed `.formatter.exs` file are permitted, with at most 1024 migrations.
+Directories and unknown entries refuse before the migrator can recursively
+discover code outside that checked inventory.
 
 Migration reads the actual `public.schema_migrations` and requires the exact
 sealed before versions. An initial empty history also requires an empty user
@@ -73,6 +77,14 @@ user or owner-receipt tables, terminate its original BEAM and leave captured
 backends absent. Root verifies unchanged lifecycle head/snapshot and ownership
 record/marker inodes. The fixture manager performs only its bounded descendant
 cleanup and does not advance the failed lifecycle stage.
+
+The final `maintenance-inventory-refusal` case adds a fixed nested migration file
+to this owned disposable copy only after the earlier cases finish. That file would
+create a table if executed. The actual worker must refuse the extra directory
+before any migration, and Root requires both public and shadow schemas to contain
+no relations. Original BEAM/backend absence and retained responsibility checks
+still apply; the intentionally changed fixture copy establishes no artifact or
+complete application acceptance.
 
 Only a current passing installed receipt establishes these observations. The
 fixture's inspection, staging and verification receipts remain synthetic metadata;

@@ -74,14 +74,19 @@ defmodule Gitgood.NativeMaintenanceWorker do
     directory = Application.app_dir(:gitgood, "priv/repo/migrations")
     :ok = protected_directory(directory)
     {:ok, names} = File.ls(directory)
+    true = length(names) in 1..1025
 
-    names
-    |> Enum.filter(&Regex.match?(~r/\A[0-9]+_.*\.exs\z/, &1))
-    |> Enum.map(fn name ->
+    Enum.each(names, fn name ->
+      true = name === ".formatter.exs" or Regex.match?(~r/\A[0-9]+_.*\.exs\z/, name)
       path = Path.join(directory, name)
       {:ok, stat} = File.lstat(path)
       true = stat.type === :regular and stat.uid === 0 and stat.links === 1
       true = band(stat.mode, 0o022) === 0
+    end)
+
+    names
+    |> Enum.reject(&(&1 === ".formatter.exs"))
+    |> Enum.map(fn name ->
       name |> String.split("_", parts: 2) |> hd() |> String.to_integer()
     end)
     |> Enum.sort()

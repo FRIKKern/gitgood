@@ -76,8 +76,17 @@ captured backend identities absent and unchanged original lifecycle head/snapsho
 ownership record and marker inodes. The fixture manager does not advance that
 failed stage. Both new cases require final owned-unit stop and absent cgroup.
 
+A ninth `maintenance-inventory-refusal` case deliberately adds one nested
+migration to the owned release copy after the earlier cases. The fixed worker
+must reject this entry before Ecto's recursive migration discovery. Root requires
+zero relations in the private database's public and shadow namespaces, original
+BEAM/Repo/lease absence and retained running lifecycle/ownership records. No failed
+stage is advanced, and the owned unit/cgroup must stop. The deliberate fixture
+addition does not establish complete artifact or native application acceptance.
+
 `fixed_migration_and_bootstrap_effects_observed` and
 `actual_nonempty_schema_refusal_verified` describe only these component outcomes.
+`actual_nested_migration_entry_refusal_verified` describes the final refusal.
 They do not establish complete lifecycle dispatch, interruption reconciliation,
 native runtime startup, activation, reboot or replacement recovery. See
 [maintenance effects](native-maintenance-effects.md) for the execution contract.
