@@ -1,0 +1,9 @@
+{
+  "id": "native-root-live-binding-observation",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add a fixed Root live resource/database view bound to the original controller, request and complete history. Reuse persistent validation behind distinct ordinary and Root namespace admission, guard original metadata and keep private data out of status. Actual observation, exclusion, artifact authority, stage dispatch and recovery remain unfinished.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-live-binding.md", "tools/deployment/native_root_live_binding.py", "tools/deployment/native_durable_binding.py", "tools/deployment/test_native_root_live_binding.py", "tools/ci/native-owned-proof.py"],
+  "withdrawn": false
+}
