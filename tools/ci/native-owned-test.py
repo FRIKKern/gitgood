@@ -113,6 +113,20 @@ class BoundedProofTests(unittest.TestCase):
         self.assertEqual(proof.manager_failure(manager),manager)
         self.assertIsNone(proof.manager_failure({**manager,'phase':'handoff-reserved'}))
 
+    def test_stage_profile_excludes_private_paths_callers_values_and_unknown_functions(self):
+        private={'private-password':('SQL and environment',)}
+        stats={
+            ('/opt/gitgood/native/v2/native_root_lifecycle.py',300,'check'):(2,4,.01,.5,private),
+            ('/private/credentials.py',10,'check'):(1,1,.01,.5,private),
+            ('/opt/gitgood/native/v2/native_root_lifecycle.py',10,'private_password'):(1,1,.01,.5,private),
+            ('/opt/gitgood/native/v2/native_root_lifecycle.py',301,'_current'):(1,True,.01,.5,private),
+            ('/opt/gitgood/native/v2/native_root_lifecycle.py',302,'_snapshot'):(1,1,float('nan'),.5,private)}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            observed=proof.root_stage_profile(Mock())
+        self.assertEqual(observed,[{'file':'native_root_lifecycle.py','function':'check','line':300,
+            'calls':4,'self_ms':10,'cumulative_ms':500}])
+        self.assertNotIn('private',json.dumps(observed));self.assertNotIn('/opt',json.dumps(observed))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',

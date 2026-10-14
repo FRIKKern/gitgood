@@ -10,6 +10,7 @@ from contextlib import ExitStack
 import ast
 import base64
 import ctypes
+import cProfile
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
@@ -18,6 +19,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import pstats
 import re
 import secrets
 import shutil
@@ -1310,6 +1312,35 @@ def root_reader_loss_checks(seed, database, server_scope):
         'complete_journey_acceptance':False}
 
 
+def root_stage_profile(profile):
+    """Fixed installed function counters only; no stacks, callers or values."""
+    allowed = {
+        'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_output'},
+        'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
+        'native_root_artifact_policy.py':{'allocate','check','_inspect'},
+        'native_root_database_exclusion.py':{'check','_base','_query','_socket','_client'},
+        'native_root_database_reader.py':{'_base','_exchange','_client'},
+        'native_root_live_binding.py':{'check','_observe','_current'},
+        'native_root_lifecycle.py':{'check','_snapshot','_current'},
+        'native_root_controller.py':{'check','_service'},
+        'native_service_scope.py':{'_observe_allocated_service','read_bytes'},
+        'native_systemd_properties.py':{'unit_properties','_get_many'},
+        'native_lifecycle_history.py':{'__init__','check','_check_files','_read'},
+    }
+    rows = []
+    for (filename,line,function),(primitive,calls,total,cumulative,_callers) in pstats.Stats(profile).stats.items():
+        path = Path(filename)
+        if path.parent != MODULES or path.name not in allowed or function not in allowed[path.name]:continue
+        if (type(line) is not int or not 0 < line < 10000 or type(calls) is not int
+                or not 0 <= calls <= 10000000):continue
+        values = [total,cumulative]
+        if not all(type(value) in {int,float} and 0 <= value <= 1200 for value in values):continue
+        rows.append({'file':path.name,'function':function,'line':line,'calls':calls,
+            'self_ms':int(total*1000),'cumulative_ms':int(cumulative*1000)})
+    require(len(rows) <= 64)
+    return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))
+
+
 def _run_successor_case(seed, config, password, database, server_scope, root_views):
     """Independent witness of actual protected same-controller handoffs."""
     run, seal = Path(seed['run']), Path(seed['seal_directory'])
@@ -1349,7 +1380,12 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         seed['proof_phase'] = 'original-root-read-only-observer-loss-checks'
         seed['root_reader_refusal_observation'] = root_reader_loss_checks(seed,database,server_scope)
         seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
-        served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
+        profile = cProfile.Profile()
+        try:
+            profile.enable()
+            served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
+        finally:
+            profile.disable();seed['root_stage_profile'] = root_stage_profile(profile)
         require(served['status'] == 'staged')
         staged_artifact_observation = wait_for(run/'artifact-stage-complete.json',run,20)
         require(staged_artifact_observation['actual_ordinary_controller_inspection'] is True
@@ -1776,6 +1812,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         'actual_runtime_from_staged_output_verified': staged_artifact_observation is not None and bool(seed.get('default_release_fixture')),
         **({'artifact_stage_observation':staged_artifact_observation,
             'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
+        **({'root_stage_profile':seed['root_stage_profile']} if seed.get('root_stage_profile') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2051,6 +2088,8 @@ def main(args):
                 if observed is not None:receipt['failure']['artifact_failure'] = observed
             if seed.get('root_reader_refusal_observation') is not None:
                 receipt['failure']['root_reader_refusal_observation'] = seed['root_reader_refusal_observation']
+            if seed.get('root_stage_profile') is not None:
+                receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
                 detail = read_json(failed, 8192)

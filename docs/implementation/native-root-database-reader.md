@@ -36,3 +36,10 @@ nor staging performance. Actual original-reader client/backend-loss refusals,
 the full production archive, runtime from staged output and all prior handoff
 checks remain required before this repair is verified. Complete installation,
 activation and recovery remain separate requirements.
+
+The hosted fixture profiles only fixed installed guard functions while serving
+the full stage. Its receipt includes bounded call counts and self/cumulative
+milliseconds, with fixed source basenames and numeric line numbers. It excludes
+arguments, locals, caller maps, arbitrary paths, SQL and exception messages.
+These counters locate remaining check cost; they grant no effect authority and
+do not change the payload, guards or deadlines.

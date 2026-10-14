@@ -386,6 +386,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py)
 
+- Measure fixed native staging guard costs without publishing private arguments, caller data or arbitrary paths. The full archive and operation deadlines remain unchanged.
+  Sources: [details 1](tools/ci/native-owned-proof.py), [details 2](tools/ci/native-owned-test.py), [details 3](docs/implementation/native-root-database-reader.md)
+
 - Record actual ordinary-user systemd delegation, whole-unit descendant cleanup and bounded manager-loss restart. Select a distinct resource-generation profile with immutable original lifecycle history and explicit continuity. The product supervisor, generation protocol, actual reboot, allocation and Cloud acceptance remain unfinished.
   Sources: [details 1](docs/decisions/0018-native-supervision-generations.md), [details 2](docs/implementation/native-supervision-profile.md)
 

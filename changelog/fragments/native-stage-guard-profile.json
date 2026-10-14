@@ -1,0 +1,9 @@
+{
+  "id": "native-stage-guard-profile",
+  "category": "Changed",
+  "impact": "product",
+  "summary": "Measure fixed native staging guard costs without publishing private arguments, caller data or arbitrary paths. The full archive and operation deadlines remain unchanged.",
+  "journeys": ["J15"],
+  "references": ["tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py", "docs/implementation/native-root-database-reader.md"],
+  "withdrawn": false
+}
