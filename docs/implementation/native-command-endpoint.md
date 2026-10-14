@@ -2,8 +2,11 @@
 
 Implementation under [decision 0018](../decisions/0018-native-supervision-generations.md).
 The command decoder now has an owned pathname-listener implementation. It is
-not installed or connected to lifecycle dispatch. The native application gate
-remains closed.
+not connected to complete lifecycle dispatch. Normal native release startup has
+separate [component evidence](native-default-startup.md); complete installation
+and recovery remain unverified. Root's separate read-only
+[controller observation](native-root-controller.md) does not grant endpoint or
+worker admission.
 
 `NativeCommandEndpoint` takes only an installation UUID. `NativeControllerScope`
 reads `/etc/gitgood/installations/UUID/controller-endpoint-v2.json`, validates its

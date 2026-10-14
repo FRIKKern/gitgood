@@ -1,0 +1,9 @@
+{
+  "id": "native-root-controller-observation",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add a fixed read-only Root view of the original ordinary native controller as a prerequisite for protected artifact staging. Preserve ordinary worker admission and permanently refuse changed service, policy or directory custody. Actual staging and complete installation/recovery remain unfinished.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-controller.md", "tools/deployment/native_root_controller.py", "tools/deployment/native_service_scope.py", "tools/ci/native-owned-proof.py"],
+  "withdrawn": false
+}

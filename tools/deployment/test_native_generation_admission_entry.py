@@ -32,6 +32,9 @@ class ImportCustody(unittest.TestCase):
  def test_missing_private_business_parser_refuses_before_any_module_execution(self):
   (self.root/'native_lifecycle_business_inputs.py').unlink()
   with patch.object(Path,'lstat',autospec=True,side_effect=self.observe),self.assertRaises(ValueError):module.trusted_modules(self.root)
+ def test_missing_root_controller_observer_refuses_before_any_module_execution(self):
+  (self.root/'native_root_controller.py').unlink()
+  with patch.object(Path,'lstat',autospec=True,side_effect=self.observe),self.assertRaises(ValueError):module.trusted_modules(self.root)
  def test_cache_directory_refuses(self):
   (self.root/'__pycache__').mkdir()
   with patch.object(Path,'lstat',autospec=True,side_effect=self.observe),self.assertRaises(ValueError):module.trusted_modules(self.root)

@@ -1112,6 +1112,15 @@ def run_successor_case(seed, config, password, database, server_scope):
     require(manager['pid'] == opened['controller_identity']['pid'] and manager['birth'] == opened['controller_identity']['birth'])
     require(manager['uid'] == seed['uid'] and manager['cgroup'] == '0::/system.slice/' + seed['unit'] + '/driver')
     require(command(['/usr/bin/systemctl', 'show', seed['unit'], '--property=MainPID', '--value']).strip() == str(manager['pid']).encode())
+    # Root's production observer independently reuses the allocated unit policy;
+    # it cannot impersonate an ordinary worker or receive fixture authority maps.
+    from native_root_controller import NativeRootControllerObservation
+    root_view = NativeRootControllerObservation(seed['installation'])
+    try:
+        require(root_view.check() == observed['scope'])
+        require(root_view.check() == observed['scope'])
+    finally:
+        root_view.close()
     stages = []
     captured_records = []
     pointer = None
@@ -1357,6 +1366,7 @@ def run_successor_case(seed, config, password, database, server_scope):
                 retained_marker = prior['captured']['marker'] if index == len(captured_records)-1 else transition / (captured_records[index+1]['record']['claim'] + '.old-marker.json')
                 require(fingerprint(retained_marker) == prior['captured']['marker_file'])
             return {'case': seed['case'], 'status': 'passed', 'stages': stages,
+                'root_original_controller_scope_observed': True,
                 'actual_nonempty_schema_refused_without_migrations': bool(seed.get('schema_refusal_fixture')),
                 'actual_nested_migration_entry_refused_without_effects': bool(seed.get('inventory_refusal_fixture')),
                 'actual_runtime_schema_refused_before_product_workers': runtime_refusal,
@@ -1395,6 +1405,7 @@ def run_successor_case(seed, config, password, database, server_scope):
         'all_original_records_and_marker_inodes_retained': True, 'native_application_acceptance': False,
         'complete_journey_acceptance': False, 'product_controller_cleanup_verified': False,
         'actual_lifecycle_startup_boundary_verified': bool(seed.get('lifecycle_fixture')),
+        'root_original_controller_scope_observed': True,
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -1636,6 +1647,8 @@ def main(args):
         require(not (Path('/sys/fs/cgroup/system.slice') / seed['unit']).exists())
         receipt['cases'].append({**result, 'owned_unit_stopped': True})
         receipt['actual_nested_migration_entry_refusal_verified'] = True
+        require(all(case['root_original_controller_scope_observed'] is True for case in receipt['cases'][3:]))
+        receipt['root_original_controller_scope_observation_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:

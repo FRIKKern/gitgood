@@ -88,6 +88,7 @@ This work connects application processes to their actual host, database and serv
 | Retaining and monitoring the original backend process with ownership | [Kernel identity in ownership](native-kernel-ownership.md) |
 | Claiming ownership before workers and aborting when an original helper exits | [Native startup boundary](native-ownership-startup.md) |
 | Keeping the original local controller listener under protected service custody | [Controller endpoint ownership](native-command-endpoint.md) |
+| Root observing the original controller before protected artifact staging | [Root controller observation](native-root-controller.md) |
 | Binding enrollment and upgrade commands to their original protected inputs | [Operation input custody](native-operation-inputs.md) |
 
 ## Verification environment

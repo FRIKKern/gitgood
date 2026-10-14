@@ -260,19 +260,41 @@ def observe_service(installation, unit_sha256, *, cpu_quota_us, memory_bytes):
 
 
 def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, caller_group="driver", _root_files=None):
+    return _observe_allocated_service(installation, unit_sha256, cpu_quota_us, memory_bytes,
+        caller_group=caller_group, root_observer=False, _root_files=_root_files)
+
+
+def _observe_root_controller(installation, unit_sha256, cpu_quota_us, memory_bytes, *, _root_files):
+    """Read-only Root observation; the selected MainPID remains ordinary.
+
+    This is separate from caller admission. Only the fixed protected observer
+    supplies independently read Root policy; no caller process is impersonated.
+    """
+    return _observe_allocated_service(installation, unit_sha256, cpu_quota_us, memory_bytes,
+        caller_group="driver", root_observer=True, _root_files=_root_files)
+
+
+def _observe_allocated_service(installation, unit_sha256, cpu_quota_us, memory_bytes,
+                               *, caller_group, root_observer, _root_files):
     require(caller_group in {"driver", "native", "maintenance"})
     require(isinstance(installation, str) and str(uuid.UUID(installation)) == installation)
     require(isinstance(unit_sha256, str) and re.fullmatch(r"[0-9a-f]{64}", unit_sha256))
     require(type(cpu_quota_us) is int and 1000 <= cpu_quota_us <= 6400000)
     require(type(memory_bytes) is int and 134217728 <= memory_bytes <= 68719476736)
-    require(platform.system() == "Linux" and platform.machine() == "x86_64" and os.getuid() > 0)
+    require(platform.system() == "Linux" and platform.machine() == "x86_64")
+    if root_observer:
+        require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+    else:
+        require(os.getuid() > 0)
     # A remapped user namespace must not manufacture apparently root-owned trust.
     initial_mapping = ["0", "0", "4294967295"]
     require(read_bytes("/proc/1/uid_map", 256).decode("ascii").split() == initial_mapping)
     require(read_bytes("/proc/self/uid_map", 256).decode("ascii").split() == initial_mapping)
     account_name = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode("ascii").lower().rstrip("=")
     account = pwd.getpwnam(account_name)
-    require(account.pw_uid == os.getuid() == os.geteuid() and account.pw_gid > 0 and account.pw_gid == os.getgid() == os.getegid())
+    require(account.pw_uid > 0 and account.pw_gid > 0)
+    if not root_observer:
+        require(account.pw_uid == os.getuid() == os.geteuid() and account.pw_gid == os.getgid() == os.getegid())
     boot = read_bytes("/proc/sys/kernel/random/boot_id", 64).decode("ascii").strip()
     require(str(uuid.UUID(boot)) == boot)
     read_root = root_file if _root_files is None else _root_files.read
@@ -332,11 +354,17 @@ def _observe_service(installation, unit_sha256, cpu_quota_us, memory_bytes, *, c
             require(stat.S_ISREG(value.st_mode) and value.st_uid == account.pw_uid and value.st_mode & 0o200 and not value.st_mode & 0o022)
     driver = relative + "/driver"
     manager = process_identity(int(properties["MainPID"]), account.pw_uid, account.pw_gid, driver)
-    caller_relative = relative + "/" + caller_group
-    caller = process_identity(os.getpid(), account.pw_uid, account.pw_gid, caller_relative)
-    require(manager["mount_namespace"] == caller["mount_namespace"] and manager["cgroup_namespace"] == caller["cgroup_namespace"])
+    if root_observer:
+        # Root observes the actual MainPID in the same host namespaces. Root is
+        # not an ordinary installation worker and gains no worker admission.
+        for name, namespace in (("mount_namespace", "mnt"), ("cgroup_namespace", "cgroup")):
+            require(manager[name] == os.readlink("/proc/self/ns/" + namespace))
+    else:
+        caller_relative = relative + "/" + caller_group
+        caller = process_identity(os.getpid(), account.pw_uid, account.pw_gid, caller_relative)
+        require(manager["mount_namespace"] == caller["mount_namespace"] and manager["cgroup_namespace"] == caller["cgroup_namespace"])
+        require(caller["pid"] in members(parent / caller_group))
     require(manager["pid"] in members(parent / "driver"))
-    require(caller["pid"] in members(parent / caller_group))
     require(process_identity(manager["pid"], account.pw_uid, account.pw_gid, driver) == manager)
     repeated = (parse_properties(bounded_command(arguments)) if properties_reader is None
                 else properties_reader.unit_properties(unit))
