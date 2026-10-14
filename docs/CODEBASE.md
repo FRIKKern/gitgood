@@ -81,6 +81,11 @@ owns protected package inventory for runtime and maintenance. Read
 [runtime effects](implementation/native-runtime-effects.md) for actual schema and
 ownership prerequisites, internal API/Git evidence and remaining acceptance gates.
 
+[native_public_runtime.py](../tools/deployment/native_public_runtime.py) owns fixed
+web/edge launch, protected copied web inventory, current original runtime checks
+and bounded original-leaf quiescence. Read [native public runtime](implementation/native-public-runtime.md)
+for its TLS/frontend/Git component proof and unfinished activation/recovery gates.
+
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 
 TanStack generates `apps/web/src/routeTree.gen.ts` from the route files. Local `.gitgood/` directories hold ignored development state and may contain private verification or recovery materials. They are not a scratch directory to delete blindly. The [evidence contract](../evidence/README.md) explains what may be published.

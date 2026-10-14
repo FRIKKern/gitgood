@@ -1,0 +1,9 @@
+{
+  "id": "native-public-runtime",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Run fixed protected frontend and TLS edge services under the original live native controller, with bounded quiescence on ownership or service loss. Add hosted CA/hostname, frontend identity, owner login, HTTPS Git and original-process absence checks. Default native startup, public activation and complete lifecycle/recovery remain unfinished.",
+  "journeys": ["J14", "J15", "J01", "J02"],
+  "references": ["docs/implementation/native-public-runtime.md", "tools/deployment/native_public_runtime.py", "tools/ci/native-owned-proof.py"],
+  "withdrawn": false
+}
