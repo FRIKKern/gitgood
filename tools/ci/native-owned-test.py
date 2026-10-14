@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pure/local fixture regressions; no root service, database, or VM effects."""
 import contextlib
+import ast
 import importlib.util
 import io
 import json
@@ -24,6 +25,75 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def fixture_file_host(self):
+        with contextlib.ExitStack() as stack:
+            if os.name == 'nt':
+                for name in ('fchmod','fchown'):
+                    stack.enter_context(patch.object(proof.os,name,create=True))
+                stack.enter_context(patch.object(proof.os,'O_NOFOLLOW',0,create=True))
+            yield getattr(os,'getuid',lambda:0)(),getattr(os,'getgid',lambda:0)()
+
+    def test_fixture_signal_is_invisible_until_complete_publication(self):
+        actual_fdopen = os.fdopen
+        with tempfile.TemporaryDirectory() as scratch,self.fixture_file_host() as (uid,gid):
+            path = Path(scratch)/'signal.json';observations = []
+            class Barrier:
+                def __init__(self,fd,mode):self.file = actual_fdopen(fd,mode)
+                def __enter__(self):return self
+                def __exit__(self,*args):return self.file.__exit__(*args)
+                def __getattr__(self,name):return getattr(self.file,name)
+                def write(self,data):
+                    observations.append(path.exists())
+                    return self.file.write(data)
+            with patch.object(proof.os,'fdopen',side_effect=Barrier):
+                proof.write_new(path,{'exclusion_observed':True},uid=uid,gid=gid)
+            self.assertEqual(observations,[False])
+            self.assertEqual(json.loads(path.read_bytes()),{'exclusion_observed':True})
+            self.assertEqual([item.name for item in Path(scratch).iterdir()],['signal.json'])
+
+    def test_foreign_signal_created_before_publication_is_retained_with_original_partial(self):
+        actual_sync = os.fsync
+        with tempfile.TemporaryDirectory() as scratch,self.fixture_file_host() as (uid,gid):
+            path = Path(scratch)/'signal.json';calls = []
+            def race(fd):
+                calls.append(fd)
+                if len(calls) == 1:path.write_bytes(b'foreign original signal')
+                return actual_sync(fd)
+            with patch.object(proof.os,'fsync',side_effect=race),self.assertRaises(OSError):
+                proof.write_new(path,{'exclusion_observed':True},uid=uid,gid=gid)
+            self.assertEqual(path.read_bytes(),b'foreign original signal')
+            partials = list(Path(scratch).glob('.fixture-*.partial'))
+            self.assertEqual(len(partials),1)
+            self.assertEqual(json.loads(partials[0].read_bytes()),{'exclusion_observed':True})
+
+    def test_manager_source_location_omits_message_payload_paths_and_traceback(self):
+        path = HERE/'native-owned-manager.py'
+        tree = ast.parse(path.read_text())
+        function = next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name == 'failure_site')
+        namespace = {'__file__':str(path),'Path':Path,'re':re}
+        exec(compile(ast.Module(body=[function],type_ignores=[]),str(path),'exec'),namespace)
+        private = 'private password, SQL and configuration'
+        caller = compile('def fixture_failure():\n    raise ValueError(private)\n',str(path),'exec')
+        namespace['private'] = private;exec(caller,namespace)
+        try:namespace['fixture_failure']()
+        except ValueError as error:observed = namespace['failure_site'](error)
+        self.assertEqual(observed,{'file':'native-owned-manager.py','function':'fixture_failure','line':2})
+        self.assertNotIn(private,json.dumps(observed));self.assertNotIn(str(HERE),json.dumps(observed))
+        try:raise ValueError(private)
+        except ValueError as error:self.assertEqual(namespace['failure_site'](error),{'status':'unavailable'})
+
+    def test_manager_diagnostic_requires_closed_fixed_source_site_and_types(self):
+        original = {'phase':'handoff-reserved','error_type':'JSONDecodeError',
+            'check_site':{'file':'native-owned-manager.py','function':'wait','line':42}}
+        self.assertEqual(proof.manager_failure(original),original)
+        for site in ({'file':'/private/source.py','function':'wait','line':42},
+            {'file':[],'function':'wait','line':42},
+            {'file':'native-owned-manager.py','function':'wait','line':True},
+            {**original['check_site'],'message':'private'}, {'status':'unknown'}):
+            with self.subTest(site=site):self.assertIsNone(proof.manager_failure({**original,'check_site':site}))
+        self.assertIsNone(proof.manager_failure({**original,'message':'private'}))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',

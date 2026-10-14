@@ -296,6 +296,11 @@ Fixture source is split by responsibility:
   finite timeouts. The ordinary manager has a 300-second lifetime even if its
   outer observer disappears. Its bounded failure exit avoids a fixture retry
   over retained responsibility under the required `Restart=on-failure` policy.
+  Root publishes fixture handshakes only after private-file content, ownership,
+  permissions and sync are complete, using atomic no-replace publication. A
+  reader cannot observe an empty final JSON filename during writing. Manager
+  receipts follow the same publication rule. Foreign destinations and failed
+  partials are retained; this fixture rule grants no product lifecycle effects.
 - Root always attempts to stop every unit it started. A stop failure makes both
   the receipt and process exit fail. No unrelated service, database, process,
   or path is stopped or deleted. Allocations and retained records are left on
@@ -305,6 +310,10 @@ Fixture source is split by responsibility:
   it. The receipt contains component scope, exact candidate, installed module
   hashes, observed outcomes and fixed failure phase/type; it contains no SQL,
   private configuration, password, key material, raw process log or stack trace.
+  Manager failures may also identify one allowlisted fixture filename, function
+  and numeric line. The closed reader refuses arbitrary paths, messages, source
+  text or extra fields. A source location identifies a failed check, not a
+  successful stage or permission to retry it.
   On startup failure, the fixture can include at most 64 fixed startup events
   and the original process's numeric exit code. VM call tracing observes only
   allowlisted startup functions; its arguments, return values and exception

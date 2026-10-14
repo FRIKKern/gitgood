@@ -439,6 +439,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Handle disappearing unselected native-group processes while discovering the normal release monitor in installed verification. Still require one pinned entry and refuse selected helper loss, identity changes, permissions and other I/O errors.
   Sources: [details 1](docs/implementation/native-default-startup.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
+- Publish disposable hosted fixture handshakes and manager receipts atomically after content, permissions and sync, preserving foreign targets and failed partials. Add closed manager source-location diagnostics without private messages or paths. Product admission, lifecycle effects and deadlines remain unchanged.
+  Sources: [details 1](docs/implementation/native-hosted-ownership.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-manager.py), [details 4](tools/ci/native-successor-manager.py), [details 5](tools/ci/native-owned-test.py)
+
 - Reject native ownership acknowledgements after their absolute attachment deadline even when the timer message is delayed; retain the three-second limit and native startup refusal pending installed proof.
   Sources: [details 1](apps/forge/lib/gitgood/installation_generation_monitor.ex), [details 2](docs/implementation/native-ownership-monitor-attachment.md)
 
