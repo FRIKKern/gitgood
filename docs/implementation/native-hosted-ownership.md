@@ -92,8 +92,13 @@ readback and session revocation before original ownership loss. The latter remov
 one expected schema version and requires no product workers/listeners or repository
 creation, original backend absence and retained running lifecycle responsibility.
 See [native runtime effects](native-runtime-effects.md) for the exact internal
-network scope. The installed suite now has eleven cases; the nested-inventory
-fault remains last. No public TLS/frontend or complete journey gate is claimed.
+network scope. A separate `native-public-runtime` case adds actual protected
+web/edge launch, CA/hostname-verified TLS, frontend identity and packaged assets,
+owner cookie/login, HTTPS Git and production component cleanup after original
+helper loss. See [native public runtime](native-public-runtime.md) for its current
+artifact requirements and limits. The installed suite has twelve cases; the
+nested-inventory fault remains last. Complete public activation and journey
+acceptance remain unverified.
 
 `fixed_migration_and_bootstrap_effects_observed` and
 `actual_nonempty_schema_refusal_verified` describe only these component outcomes.

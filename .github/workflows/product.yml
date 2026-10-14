@@ -171,6 +171,13 @@ jobs:
           node scripts/stamp-build.mjs
           cd apps/forge
           MIX_ENV=prod mix release
+      - name: Prepare copied production web dependencies for native ownership proof
+        run: |
+          set -euo pipefail
+          mkdir .gitgood/native-web-product
+          cp -R apps/web/dist .gitgood/native-web-product/dist
+          cp apps/web/{server.mjs,client-address.mjs,package.json,package-lock.json} .gitgood/native-web-product/
+          npm ci --omit=dev --ignore-scripts --prefix .gitgood/native-web-product
       - name: Verify protected native ownership on actual systemd
         timeout-minutes: 12
         run: |

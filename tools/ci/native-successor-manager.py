@@ -24,6 +24,7 @@ from native_ownership_handoff import serve_once
 from native_ownership_records import OwnershipRecordRefused
 from native_lifecycle_responsibility import NativeLifecycleResponsibility, sha
 from native_service_scope import group_identity
+from native_public_runtime import NativePublicRuntime, PublicRuntimeRefused
 
 spec = importlib.util.spec_from_file_location('owned_fixture', Path(__file__).with_name('native-owned-manager.py'))
 fixture = importlib.util.module_from_spec(spec)
@@ -161,33 +162,59 @@ def main(seed_path):
                     'Code.eval_file("' + seed['worker'] + '")'], leaf, environment=environment, output=output)
                 fixture.write(stage / 'launched.json', {'launcher_pid': beam.pid})
                 sentinel = None
+                public = None
+                public_stage = seed.get('public_runtime_fixture') and label == 'runtime-owner'
                 while beam.poll() is None:
                     assert time.monotonic() < deadline
                     serve(controller, stage)
-                    if (seal / ('fixture-sentinel-' + label + '.json')).exists() and sentinel is None:
+                    if public_stage and (seal / 'fixture-start-public-runtime.json').exists() and public is None:
+                        public = NativePublicRuntime(controller)
+                        public.start()
+                        fixture.write(stage / 'public-services.json', {'web': public.births['web'], 'edge': public.births['edge'],
+                            'fixed_production_launcher_used': True, 'public_activation_verified': False})
+                    if public is not None and public.state == 'running':
+                        try:
+                            public.check()
+                        except PublicRuntimeRefused:
+                            fixture.write(stage / 'public-quiescent.json', public.stop())
+                    if not public_stage and (seal / ('fixture-sentinel-' + label + '.json')).exists() and sentinel is None:
                         sentinel = fixture.launch(['/usr/bin/sleep', '300'], parent / 'web',
                             environment={'PATH': '/usr/bin:/bin'}, output=subprocess.DEVNULL)
                         fixture.write(stage / 'sentinel.json', {'sentinel_pid': sentinel.pid})
                 fixture.write(stage / 'owner-exited.json', {'exit_code': beam.returncode,
                                                            'fixture_signalled_beam': False})
-                assert sentinel is not None and sentinel.poll() is None
+                if public_stage:
+                    assert public is not None
+                    if not (stage / 'public-quiescent.json').exists():
+                        fixture.write(stage / 'public-quiescent.json', public.stop())
+                else:
+                    assert sentinel is not None and sentinel.poll() is None
                 phase = label + '-await-original-absence'
                 fixture.wait(seal / ('fixture-cleanup-' + label + '.json'), deadline)
                 assert group_identity(leaf, seed['uid']) == leaf_identity
-                (leaf / 'cgroup.kill').write_text('1')
+                if not public_stage:
+                    (leaf / 'cgroup.kill').write_text('1')
                 until = time.monotonic() + 10
                 while 'populated 0' not in (leaf / 'cgroup.events').read_text():
                     assert time.monotonic() < until
                     time.sleep(.1)
-                assert group_identity(leaf, seed['uid']) == leaf_identity and sentinel.poll() is None
-                fixture.write(stage / 'quiescent.json', {'selected_leaf_empty': True, 'sibling_preserved': True,
-                    'cleanup_actor': 'fixture-manager', 'product_controller_cleanup_verified': False})
+                assert group_identity(leaf, seed['uid']) == leaf_identity
+                if public_stage:
+                    fixture.write(stage / 'quiescent.json', {'selected_leaf_empty': True,
+                        'cleanup_actor': 'native-public-runtime', 'fixed_public_runtime_cleanup_verified': True})
+                else:
+                    assert sentinel.poll() is None
+                    fixture.write(stage / 'quiescent.json', {'selected_leaf_empty': True, 'sibling_preserved': True,
+                        'cleanup_actor': 'fixture-manager', 'product_controller_cleanup_verified': False})
                 fixture.wait(seal / ('fixture-reap-sentinel-' + label + '.json'), deadline)
                 # This exact owned Popen child is reaped before another reserve;
                 # no unrelated service/process is touched or assumed absent.
-                sentinel.terminate()
-                sentinel.wait(timeout=5)
-                fixture.write(stage / 'sibling-reaped.json', {'original_sibling_reaped': True})
+                if not public_stage:
+                    sentinel.terminate()
+                    sentinel.wait(timeout=5)
+                    fixture.write(stage / 'sibling-reaped.json', {'original_sibling_reaped': True})
+                else:
+                    fixture.write(stage / 'sibling-reaped.json', {'original_public_services_reaped': True})
                 phase = label + '-await-root-next'
                 fixture.wait(seal / ('fixture-next-' + label + '.json'), deadline)
                 if seed.get('schema_refusal_fixture') or seed.get('inventory_refusal_fixture') or (
