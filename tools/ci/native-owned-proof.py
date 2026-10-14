@@ -366,7 +366,10 @@ def capture_application_backends(database, seed, server_scope):
         session = {'backend_pid': int(pid), 'backend_birth': birth}
         kernel = process(int(pid))
         require(kernel['uid'] == server_scope['postgres_uid'])
-        captured.append({'session': session, 'kernel': kernel})
+        # Running/sleeping process state can change during legitimate SQL work.
+        # Compare immutable original identity, while retaining both birth fences.
+        captured.append({'session': session,
+            'kernel': {name: kernel[name] for name in ('pid', 'birth', 'uid', 'cgroup')}})
     require(len(captured) >= 2 and database.query(sql) == rows)
     return captured
 
