@@ -430,6 +430,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Pin native ownership database observations and the held lease connection to the PostgreSQL catalog search path and read-only statements.
   Sources: [details 1](docs/implementation/native-database-namespace.md), [details 2](apps/forge/lib/gitgood/native_database_lease.ex), [details 3](tools/deployment/native_ownership_database.py)
 
+- Handle disappearing unselected native-group processes while discovering the normal release monitor in installed verification. Still require one pinned entry and refuse selected helper loss, identity changes, permissions and other I/O errors.
+  Sources: [details 1](docs/implementation/native-default-startup.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Reject native ownership acknowledgements after their absolute attachment deadline even when the timer message is delayed; retain the three-second limit and native startup refusal pending installed proof.
   Sources: [details 1](apps/forge/lib/gitgood/installation_generation_monitor.ex), [details 2](docs/implementation/native-ownership-monitor-attachment.md)
 

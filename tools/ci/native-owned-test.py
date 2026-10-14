@@ -24,6 +24,40 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_default_helper_discovery_skips_only_unselected_disappearance_and_still_requires_one(self):
+        seed = {'unit': 'gitgood-installation-fixture.service', 'executables': {'python': '/usr/bin/python3.12'}}
+        arguments = b'/usr/bin/python3.12\0-I\0-S\0/opt/gitgood/native/v2/native_generation_monitor_entry.py\0'
+
+        def read(path, *_):
+            pid = path.parent.name
+            if pid == '11':raise FileNotFoundError()
+            if pid == '12':raise ProcessLookupError()
+            return io.BytesIO(arguments)
+
+        service = SimpleNamespace(members=Mock(return_value=[11, 12, 13]))
+        with patch.dict(sys.modules, {'native_service_scope': service}), patch.object(Path, 'open', autospec=True, side_effect=read):
+            self.assertEqual(proof.discover_default_helper(seed), 13)
+            service.members.return_value = [11, 12]
+            with self.assertRaises(ValueError):proof.discover_default_helper(seed)
+            service.members.return_value = [13, 14]
+            with self.assertRaises(ValueError):proof.discover_default_helper(seed)
+            service.members.return_value = [13]
+            with patch.object(Path, 'open', side_effect=PermissionError()), self.assertRaises(PermissionError):
+                proof.discover_default_helper(seed)
+            with patch.object(Path, 'open', side_effect=OSError('unexpected fixture I/O failure')), self.assertRaises(OSError):
+                proof.discover_default_helper(seed)
+
+        seed.update(installation='fixture', ownership_operation='operation', candidate='a'*40)
+        record = {'protocol': 4, 'mode': 'runtime', 'installation': 'fixture',
+            'operation': 'operation', 'candidate': 'a'*40, 'owner': {'pid': 10}}
+        launched = {'record': record, 'release_command': 'start', 'fixture_runtime_application_substitution': False}
+        records = SimpleNamespace(validate_record=Mock())
+        with patch.dict(sys.modules, {'native_ownership_records': records}), \
+                patch.object(proof, 'discover_default_helper', return_value=13), \
+                patch.object(proof, 'process', side_effect=[{}, ProcessLookupError()]):
+            with self.assertRaises(ProcessLookupError):
+                proof.capture_default_attachment(seed, launched, {}, None, {})
+
     def test_check_location_never_forwards_exception_messages_paths_values_or_source_text(self):
         private = 'private-credential-and-sql-fixture'
         with patch.object(proof.sys, 'platform', 'unsupported'):

@@ -833,29 +833,34 @@ def observe_default_lease(seed, record, database, server_scope):
     return {'client_port': port, 'socket_inode': sockets[0], 'descriptor': descriptors[0]}
 
 
-def capture_default_attachment(seed, launched, config, database, server_scope):
-    """Root's actual normal-release observations; no fixture witness or fake samples."""
-    from native_ownership_records import validate_record
+def discover_default_helper(seed):
+    """Bounded discovery tolerates only disappearance of an unselected member."""
     from native_service_scope import members
-    record = launched['record'];validate_record(record)
-    require(launched['release_command'] == 'start' and launched['fixture_runtime_application_substitution'] is False)
-    require(record['protocol'] == 4 and record['mode'] == 'runtime')
-    require(all(record[name] == seed[{'installation':'installation','operation':'ownership_operation','candidate':'candidate'}[name]]
-                for name in ('installation', 'operation', 'candidate')))
     native = Path('/sys/fs/cgroup/system.slice') / seed['unit'] / 'native'
     helper_pids = []
     for pid in members(native):
         text = str(pid)
         try:
             with (Path('/proc') / text / 'cmdline').open('rb') as source:command_line = source.read(4097)
-        except FileNotFoundError:continue
+        except (FileNotFoundError, ProcessLookupError):continue
         require(len(command_line) <= 4096)
         arguments = command_line.split(b'\0')
         if b'/opt/gitgood/native/v2/native_generation_monitor_entry.py' in arguments:
             require(arguments[0] == seed['executables']['python'].encode())
             helper_pids.append(pid)
     require(len(helper_pids) == 1, 'normal release original monitor not unique')
-    owner = process(record['owner']['pid']);helper = process(helper_pids[0])
+    return helper_pids[0]
+
+
+def capture_default_attachment(seed, launched, config, database, server_scope):
+    """Root's actual normal-release observations; no fixture witness or fake samples."""
+    from native_ownership_records import validate_record
+    record = launched['record'];validate_record(record)
+    require(launched['release_command'] == 'start' and launched['fixture_runtime_application_substitution'] is False)
+    require(record['protocol'] == 4 and record['mode'] == 'runtime')
+    require(all(record[name] == seed[{'installation':'installation','operation':'ownership_operation','candidate':'candidate'}[name]]
+                for name in ('installation', 'operation', 'candidate')))
+    owner = process(record['owner']['pid']);helper = process(discover_default_helper(seed))
     require(owner['birth'] == record['owner']['birth'] and descendant_of(helper['pid'], owner['pid']))
     require(all(item['uid'] == seed['uid'] and item['cgroup'] == '0::/system.slice/' + seed['unit'] + '/native'
                 for item in (owner, helper)))

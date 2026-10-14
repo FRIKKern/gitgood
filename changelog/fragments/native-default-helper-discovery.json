@@ -1,0 +1,9 @@
+{
+  "id": "native-default-helper-discovery",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Handle disappearing unselected native-group processes while discovering the normal release monitor in installed verification. Still require one pinned entry and refuse selected helper loss, identity changes, permissions and other I/O errors.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-default-startup.md", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}
