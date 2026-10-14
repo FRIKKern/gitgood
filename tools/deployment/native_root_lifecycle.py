@@ -176,7 +176,8 @@ class _RootReadOnlyCustody(GenerationRecordCustody):
         for role,original in lifecycle['directories'].items():
             path = lifecycle_root if role == 'lifecycle' else lifecycle_root/role
             info = os.fstat(self.directories[path][0])
-            require((*directory_identity(info,self.uid,self.gid),info.st_mtime_ns,info.st_ctime_ns) == original)
+            # The shared directory identity already includes mtime and ctime.
+            require(directory_identity(info,self.uid,self.gid) == original)
         generation_fields = ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink')
         for path,(kind,original) in paths.items():
             fd = self._open(path,os.O_RDONLY)
