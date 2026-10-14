@@ -391,19 +391,32 @@ def capture_application_backends(database, seed, server_scope):
     dbname = 'gg_proof_' + seed['installation'].replace('-', '')
     predicate = "datname='" + dbname + "' AND usename='" + seed['account'] + "'"
     sql = "SELECT pid::text||':'||floor(extract(epoch FROM backend_start)*1000000)::bigint::text FROM pg_stat_activity WHERE " + predicate + ' ORDER BY pid'
-    rows = database.query(sql)
-    captured = []
-    for row in rows.splitlines():
-        pid, birth = row.split(':')
-        session = {'backend_pid': int(pid), 'backend_birth': birth}
-        kernel = process(int(pid))
-        require(kernel['uid'] == server_scope['postgres_uid'])
-        # Running/sleeping process state can change during legitimate SQL work.
-        # Compare immutable original identity, while retaining both birth fences.
-        captured.append({'session': session,
-            'kernel': {name: kernel[name] for name in ('pid', 'birth', 'uid', 'cgroup')}})
-    require(len(captured) >= 2 and database.query(sql) == rows)
-    return captured
+    deadline = time.monotonic() + 5
+    previous = None
+    while True:
+        require(time.monotonic() < deadline, 'application backend discovery did not stabilize')
+        rows = database.query(sql)
+        if rows != previous or len(rows.splitlines()) < 2:
+            previous = rows
+            time.sleep(.05)
+            continue
+        captured = []
+        for row in rows.splitlines():
+            pid, birth = row.split(':')
+            session = {'backend_pid': int(pid), 'backend_birth': birth}
+            kernel = process(int(pid))
+            require(kernel['uid'] == server_scope['postgres_uid'])
+            # Only commit this discovery after two equal SQL observations,
+            # kernel checks and a final unchanged SQL list. No effects or
+            # original-identity replacement are allowed by a pending discovery.
+            captured.append({'session': session,
+                'kernel': {name: kernel[name] for name in ('pid', 'birth', 'uid', 'cgroup')}})
+        current = database.query(sql)
+        if current == rows:
+            require(time.monotonic() < deadline, 'application backend discovery did not stabilize')
+            return captured
+        previous = current
+        time.sleep(.05)
 
 
 def listeners_absent(config):

@@ -427,6 +427,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Accept and preserve the exact first-install UUID in encrypted export and recovery configuration, reject mismatched identity before publication, and rebind it only for an independently allocated retirement verification target. Fresh packaged enrollment and direct five-stage retirement passed without any prior upgrade; terminal/refusal checks and 77-log credential checks passed. Actual partial migration recovery resumed after three of sixteen commits; current integration CI and broader lifecycle/Cloud acceptance remain separate.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/installation-retirement.md)
 
+- Bound installed application-backend discovery to five seconds and require two stable SQL observations plus matching kernel identity checks before committing captures. Preserve post-effect original connection retention, strict selected loss and cleanup requirements without changing production deadlines.
+  Sources: [details 1](docs/implementation/native-hosted-ownership.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Pin native ownership database observations and the held lease connection to the PostgreSQL catalog search path and read-only statements.
   Sources: [details 1](docs/implementation/native-database-namespace.md), [details 2](apps/forge/lib/gitgood/native_database_lease.ex), [details 3](tools/deployment/native_ownership_database.py)
 

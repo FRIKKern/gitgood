@@ -68,6 +68,15 @@ requests the fixed action. Root independently observes the complete schema,
 durable first-owner receipt and current owner membership in the allocated private
 database. After original helper/backend loss, every captured lease and Repo
 backend must be absent before another owner can start. Worker status is redacted.
+
+Application-backend discovery waits at most five seconds for at least two SQL
+connections in two equal observations, captures each PostgreSQL kernel birth/UID,
+and requires the SQL list to remain unchanged after capture. Pending discovery
+executes no business effect. Too few or continuously changing connections,
+selected kernel loss and an unexpected PostgreSQL UID refuse. Once identities
+are committed, the post-effect sample must retain every original SQL/kernel
+identity and cleanup must observe their absence; a new sample cannot replace an
+original connection or hide its loss. Production liveness deadlines are unchanged.
 The runtime owner still uses the fixture application, and inspection/staging/
 verification journal receipts remain explicitly synthetic metadata.
 

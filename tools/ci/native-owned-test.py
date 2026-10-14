@@ -24,6 +24,33 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
+        seed = {'installation': 'fixture', 'account': 'gg_fixture'}
+        database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',
+            '12:100\n13:101\n14:102', '12:100\n13:101\n14:102', '12:100\n13:101\n14:102']))
+        kernel = lambda pid: {'pid': pid, 'birth': str(pid+100), 'uid': 1000, 'cgroup': 'original'}
+        with patch.object(proof, 'process', side_effect=kernel), patch.object(proof.time, 'sleep') as wait:
+            captured = proof.capture_application_backends(database, seed, {'postgres_uid': 1000})
+        self.assertEqual([item['session'] for item in captured], [
+            {'backend_pid': 12, 'backend_birth': '100'}, {'backend_pid': 13, 'backend_birth': '101'},
+            {'backend_pid': 14, 'backend_birth': '102'}])
+        self.assertEqual([item['kernel']['birth'] for item in captured], ['112', '113', '114'])
+        self.assertTrue(all(call.args[0].startswith('SELECT ') for call in database.query.call_args_list))
+        wait.assert_called()
+
+    def test_backend_discovery_remains_bounded_and_never_skips_selected_kernel_loss_or_wrong_uid(self):
+        seed = {'installation': 'fixture', 'account': 'gg_fixture'}
+        database = Mock(query=Mock(return_value='12:100'))
+        with patch.object(proof.time, 'monotonic', side_effect=[0, 0, 6]), patch.object(proof.time, 'sleep'), \
+                patch.object(proof, 'process') as kernel:
+            with self.assertRaises(ValueError):proof.capture_application_backends(database, seed, {'postgres_uid': 1000})
+            kernel.assert_not_called()
+        for observed in (ProcessLookupError(), {'pid': 12, 'birth': '112', 'uid': 1001, 'cgroup': 'wrong'}):
+            database.query.return_value = '12:100\n13:101'
+            with patch.object(proof.time, 'sleep'), patch.object(proof, 'process', side_effect=[observed]):
+                with self.assertRaises((ProcessLookupError, ValueError)):
+                    proof.capture_application_backends(database, seed, {'postgres_uid': 1000})
+
     def test_default_helper_discovery_skips_only_unselected_disappearance_and_still_requires_one(self):
         seed = {'unit': 'gitgood-installation-fixture.service', 'executables': {'python': '/usr/bin/python3.12'}}
         arguments = b'/usr/bin/python3.12\0-I\0-S\0/opt/gitgood/native/v2/native_generation_monitor_entry.py\0'
