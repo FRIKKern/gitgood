@@ -150,5 +150,34 @@ class RootPolicyFilesystemTest(unittest.TestCase):
         with self.assertRaises(root.RootArtifactPolicyRefused):value.allocate()
         self.assertFalse((self.policy_dir/(OPERATION+'.json')).exists());self.assertTrue(self.archive.exists())
 
+    def test_foreign_target_created_at_publication_is_preserved_with_original_partial(self):
+        value=self.view();target=self.policy_dir/(OPERATION+'.json')
+        library=root.ctypes.CDLL(None,use_errno=True)
+        rename=library.renameat2
+        rename.argtypes=[root.ctypes.c_int,root.ctypes.c_char_p,root.ctypes.c_int,root.ctypes.c_char_p,root.ctypes.c_uint]
+        rename.restype=root.ctypes.c_int
+        class RacingRename:
+            def __call__(inner,*arguments):
+                target.write_bytes(b'foreign-at-publication');target.chmod(0o400)
+                return rename(*arguments)
+        with patch.object(root.ctypes,'CDLL',return_value=SimpleNamespace(renameat2=RacingRename())):
+            with self.assertRaises(root.RootArtifactPolicyRefused):value.allocate()
+        self.assertEqual(target.read_bytes(),b'foreign-at-publication')
+        partial=self.policy_dir/('.'+OPERATION+'.allocation.partial')
+        self.assertTrue(partial.exists());parse_policy(partial.read_bytes(),INSTALLATION,OPERATION)
+        self.assertFalse(value.usable)
+
+    def test_asynchronous_interruption_retains_read_only_partial_and_closes_owned_descriptors(self):
+        value=self.view();original_check=value.check
+        def interrupted():
+            result=original_check()
+            if value.state=='allocating':raise KeyboardInterrupt()
+            return result
+        with patch.object(value,'check',side_effect=interrupted),self.assertRaises(root.RootArtifactPolicyRefused):value.allocate()
+        partial=self.policy_dir/('.'+OPERATION+'.allocation.partial')
+        self.assertTrue(partial.exists());self.assertEqual(stat.S_IMODE(partial.stat().st_mode),0o400)
+        self.assertFalse((self.policy_dir/(OPERATION+'.json')).exists());self.assertFalse(value.usable)
+        self.assertIsNone(value.policy_fd);self.assertIsNone(value.lock);self.assertIsNone(value.archive)
+
 
 if __name__=='__main__':unittest.main()

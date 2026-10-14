@@ -184,6 +184,10 @@ jobs:
       - name: Verify Root lifecycle input descriptors
         # Scratch ancestor policy is a stand-in; UID/file descriptors are actual.
         run: sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_lifecycle.py' -v
+      - name: Verify serialized Root artifact policy filesystem
+        # Controller/exclusion, capacity and scratch ancestors are stand-ins;
+        # inspection, descriptor custody, flock and publication are actual.
+        run: sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_artifact_policy.py' -v
       - name: Verify protected native ownership on actual systemd
         timeout-minutes: 12
         run: |
