@@ -372,6 +372,14 @@ def artifact_failure(detail):
     return json.loads(canonical(detail))
 
 
+def root_stage_refusal(result, elapsed_ms):
+    """Local Root metadata only; ordinary refusal frames contain no diagnosis."""
+    if (type(result) is not dict or set(result) != {'protocol','kind','status','root_refusal'}
+            or type(result['protocol']) is not int or result['protocol'] != 2
+            or result['kind'] != 'native_root_artifact_result' or result['status'] != 'refused'):return None
+    return artifact_failure({'chain':result['root_refusal'],'elapsed_ms':elapsed_ms})
+
+
 def bounded_diagnostic_read(path, maximum=4096):
     before = path.lstat()
     require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and before.st_size <= maximum)
@@ -1108,10 +1116,14 @@ def provision_stage_archive(seed):
     archive = source/'archive.tar.gz'
     originals = {path:tuple(getattr(path.lstat(),field) for field in
         ('st_dev','st_ino','st_uid','st_gid','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns')) for path,_ in payloads}
+    metrics = {'members':0,'declared_bytes':0,'max_member_bytes':0,'max_name_length':0}
     with archive.open('xb') as output:
         with tarfile.open(fileobj=output,mode='w:gz',format=tarfile.PAX_FORMAT) as target:
             for path,name in payloads:
                 info = target.gettarinfo(str(path),name);info.uid=info.gid=0;info.uname=info.gname=''
+                metrics['members'] += 1;metrics['declared_bytes'] += info.size
+                metrics['max_member_bytes'] = max(metrics['max_member_bytes'],info.size)
+                metrics['max_name_length'] = max(metrics['max_name_length'],len(info.name))
                 if info.isfile():
                     with path.open('rb') as content:target.addfile(info,content)
                 else:require(info.isdir());target.addfile(info)
@@ -1122,6 +1134,8 @@ def provision_stage_archive(seed):
             ('st_dev','st_ino','st_uid','st_gid','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns')) == original)
     sha = digest(archive);inspected = inspect_native_artifact(archive,sha,seed['candidate'])
     require(inspected['members'] == len(payloads))
+    require(metrics['members'] == inspected['members'] and metrics['declared_bytes'] == inspected['declared_bytes'])
+    seed['archive_member_metrics'] = metrics
     return {'protocol':2,'kind':'native_artifact_declaration','installation':seed['installation'],
         'operation':seed['ownership_operation'],'candidate':seed['candidate'],'sha256':sha,'bytes':archive.stat().st_size}
 
@@ -1386,6 +1400,10 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
             served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
             profile.disable();seed['root_stage_profile'] = root_stage_profile(profile)
+        if served['status'] == 'refused':
+            elapsed = min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))
+            seed['root_stage_refusal'] = root_stage_refusal(served,elapsed)
+            require(seed['root_stage_refusal'] is not None)
         require(served['status'] == 'staged')
         staged_artifact_observation = wait_for(run/'artifact-stage-complete.json',run,20)
         require(staged_artifact_observation['actual_ordinary_controller_inspection'] is True
@@ -2090,6 +2108,10 @@ def main(args):
                 receipt['failure']['root_reader_refusal_observation'] = seed['root_reader_refusal_observation']
             if seed.get('root_stage_profile') is not None:
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
+            if seed.get('root_stage_refusal') is not None:
+                receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
+            if seed.get('archive_member_metrics') is not None:
+                receipt['failure']['archive_member_metrics'] = seed['archive_member_metrics']
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
                 detail = read_json(failed, 8192)

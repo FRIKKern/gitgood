@@ -121,13 +121,19 @@ class ConnectedResponseTest(unittest.TestCase):
         raw=client.recv(513);self.assertEqual(raw,canonical(result)+b'\n');self.assertLessEqual(len(raw),512)
         self.assertEqual(result['receipt_sha256'],hashlib.sha256(canonical(receipt)).hexdigest())
 
-    def test_root_failure_returns_no_exception_details_or_caller_authority(self):
+    def test_root_failure_wire_is_minimal_and_local_location_excludes_secrets(self):
         server,client=socket.socketpair();self.addCleanup(server.close);self.addCleanup(client.close);client.settimeout(2)
         with patch.object(dispatch,'NativeRootControllerRequest',side_effect=ValueError('private-secret')):
             result=dispatch.serve_artifact_stage('i','o',server)
         raw=client.recv(513)
-        self.assertEqual(result,{'protocol':2,'kind':'native_root_artifact_result','status':'refused'})
-        self.assertEqual(raw,canonical(result)+b'\n');self.assertNotIn(b'private-secret',raw)
+        expected={'protocol':2,'kind':'native_root_artifact_result','status':'refused'}
+        self.assertEqual({key:value for key,value in result.items() if key!='root_refusal'},expected)
+        self.assertEqual(set(result),set(expected)|{'root_refusal'})
+        self.assertEqual(result['root_refusal'][0]['error_type'],'ValueError')
+        self.assertEqual(set(result['root_refusal'][0]),{'error_type','check_site'})
+        self.assertNotIn(b'private-secret',canonical(result))
+        self.assertEqual(raw,canonical(expected)+b'\n');self.assertNotIn(b'root_refusal',raw)
+        self.assertNotIn(b'private-secret',raw);self.assertLessEqual(len(raw),512)
 
 
 if __name__=='__main__':unittest.main()

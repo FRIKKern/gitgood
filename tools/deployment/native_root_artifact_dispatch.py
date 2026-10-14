@@ -175,6 +175,9 @@ def serve_artifact_stage(installation, operation, connection):
                     raise RootArtifactDispatchRefused('Original stage refused before reply transport loss; retain effects') from failure
                 raise
         else:require(False)
-        return response
+        # The ordinary peer receives only the fixed bounded wire response.
+        # Keep a separately sanitized refusal for the local Root caller, even
+        # when that refusal was successfully delivered and no transport failed.
+        return {**response,'root_refusal':failure_observation(failure)} if failure is not None else response
     finally:
         if reply is not None:reply.close()

@@ -127,6 +127,18 @@ class BoundedProofTests(unittest.TestCase):
             'calls':4,'self_ms':10,'cumulative_ms':500}])
         self.assertNotIn('private',json.dumps(observed));self.assertNotIn('/opt',json.dumps(observed))
 
+    def test_normal_root_refusal_accepts_only_closed_local_metadata_without_wire_authority(self):
+        chain=[{'error_type':'ProtectedArtifactRefused','check_site':{
+            'file':'native_protected_artifact.py','function':'_preflight_archive','line':289}}]
+        result={'protocol':2,'kind':'native_root_artifact_result','status':'refused','root_refusal':chain}
+        self.assertEqual(proof.root_stage_refusal(result,97000),{'chain':chain,'elapsed_ms':97000})
+        for changed in ({**result,'protocol':True},{**result,'status':'staged'},
+                {**result,'private':'secret'},{**result,'root_refusal':chain*17},
+                {**result,'root_refusal':[{'error_type':'ValueError','check_site':{'file':'/private/secret.py','function':'check','line':1}}]},
+                {key:value for key,value in result.items() if key!='root_refusal'}):
+            with self.subTest(changed=changed):self.assertIsNone(proof.root_stage_refusal(changed,97000))
+        self.assertIsNone(proof.root_stage_refusal(result,True))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',

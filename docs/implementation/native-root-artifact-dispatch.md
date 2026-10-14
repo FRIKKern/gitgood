@@ -32,11 +32,21 @@ independently checks the original writer session and complete fixed Root output
 before advancing its durable journal.
 
 If sending a refusal also loses its transport, the server retains the original
-refusal as the exception cause. The hosted fixture can record at most sixteen
+refusal as the exception cause. A successfully delivered refusal also returns
+a separate `root_refusal` observation to the local Root caller. This field is
+never included in the ordinary socket frame; successful local results remain
+unchanged. The hosted fixture validates and retains this observation rather than
+replacing the original failure with its own generic status assertion. It can
+record at most sixteen
 closed error classifications and fixed source locations plus bounded elapsed
 time. Messages, arbitrary file paths, source text, SQL, inputs and credentials
 are excluded; the ordinary socket response remains unchanged. These observations
 locate a failed boundary and grant no staging or recovery authority.
+
+The fixture also records aggregate member count, declared bytes, largest member
+and longest name for the complete production archive. These counters contain no
+member names or payload data. Archive/effect guards, size limits, deadlines and
+the complete Forge/web payload remain unchanged.
 
 Ten portable boundary/socket checks use explicit authority and stage stand-ins;
 the response socket, bounded canonical bytes and close-before-response ordering
