@@ -7,6 +7,17 @@ defmodule Gitgood.Release do
   def native_migrate, do: native_maintenance(:migrate)
   def native_bootstrap_owner, do: native_maintenance(:bootstrap)
 
+  def native_runtime do
+    case Gitgood.NativeRuntime.run() do
+      {:ok, outcome} ->
+        IO.puts(Jason.encode!(outcome))
+        Process.sleep(:infinity)
+
+      _ ->
+        raise "Native runtime unavailable"
+    end
+  end
+
   defp native_maintenance(action) do
     case Gitgood.NativeMaintenance.run(action) do
       {:ok, result} -> IO.puts(Jason.encode!(result))

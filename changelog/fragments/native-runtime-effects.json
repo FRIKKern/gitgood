@@ -1,0 +1,9 @@
+{
+  "id": "native-runtime-effects",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Start fixed actual product workers and HTTP/SSH listeners only after original native ownership and exact package/public-schema checks. Add hosted internal login, private-repository and real Git probes plus runtime schema refusal. Default native application admission and full lifecycle/public activation/recovery remain unfinished.",
+  "journeys": ["J14", "J15", "J01", "J02"],
+  "references": ["docs/implementation/native-runtime-effects.md", "apps/forge/lib/gitgood/native_runtime.ex", "apps/forge/lib/gitgood/native_runtime_worker.ex", "apps/forge/lib/gitgood/native_migration_inventory.ex"],
+  "withdrawn": false
+}

@@ -130,6 +130,8 @@ def main(seed_path):
                 environment['GITGOOD_OWNED_PROOF_PRIVATE_INPUTS'] = 'true'
             if seed.get('business_effects_fixture'):
                 environment['GITGOOD_OWNED_PROOF_MAINTENANCE_EFFECTS'] = 'true'
+            if seed.get('runtime_effects_fixture'):
+                environment['GITGOOD_OWNED_PROOF_RUNTIME_EFFECTS'] = 'true'
             if journal is not None and label == 'migration-owner':
                 phase = 'wrong-bootstrap-action-in-migration-window'
                 trial = stage / 'refused-trial';trial.mkdir(mode=0o700)
@@ -188,10 +190,11 @@ def main(seed_path):
                 fixture.write(stage / 'sibling-reaped.json', {'original_sibling_reaped': True})
                 phase = label + '-await-root-next'
                 fixture.wait(seal / ('fixture-next-' + label + '.json'), deadline)
-                if seed.get('schema_refusal_fixture') or seed.get('inventory_refusal_fixture'):
-                    assert label == 'migration-owner'
+                if seed.get('schema_refusal_fixture') or seed.get('inventory_refusal_fixture') or (
+                        seed.get('runtime_schema_refusal_fixture') and label == 'runtime-owner'):
+                    assert label == ('runtime-owner' if seed.get('runtime_schema_refusal_fixture') else 'migration-owner')
                     fixture.write(run / 'controller-maintenance-refusal-complete.json',
-                        {'claims': 1, 'fixture_did_not_advance_lifecycle': True})
+                        {'claims': 3 if label == 'runtime-owner' else 1, 'fixture_did_not_advance_lifecycle': True})
                     phase = 'await-root-stop-after-schema-refusal'
                     while time.monotonic() < deadline:
                         controller._controller()

@@ -359,6 +359,100 @@ Process.sleep(:infinity)
             'actual-maintenance-spec-loaded-before-original-refusal', result.stderr)
         self.assertNotIn('warning:', result.stderr)
 
+    def test_actual_runtime_application_loads_fixed_spec_before_original_startup(self):
+        executable = self.fixture_elixir()
+        script = '''
+defmodule Gitgood.NativeOwnershipStartup do
+  def validate_lifecycle_options(root: "/fixture", action: :runtime), do: :ok
+end
+defmodule Gitgood.NativeRuntimeWorker do
+  def activate, do: {:error, :fixture_worker_must_not_run}
+end
+defmodule Gitgood.NativeOwnershipSupervisor do
+  def start_lifecycle_link("/fixture", :runtime,
+        [{Gitgood.Repo, parameters: [search_path: "pg_catalog, public"]}, Gitgood.NativeRuntimeWorker]) do
+    {Gitgood.NativeRuntimeApplication, []} = Application.spec(:gitgood_native_runtime, :mod)
+    [:kernel, :stdlib, :elixir, :logger] = Application.spec(:gitgood_native_runtime, :applications)
+    IO.puts("actual-runtime-spec-loaded-before-original-refusal")
+    {:error, :fixture_original_startup_refused}
+  end
+end
+:ok = :logger.set_primary_config(:level, :none)
+:ok = :application.load({:application, :gitgood,
+  [vsn: ~c"fixture", applications: [:kernel, :stdlib, :elixir, :logger]]})
+Application.put_env(:gitgood, :supervision_profile, "systemd-v2")
+Application.put_env(:gitgood, :storage_root, "/fixture")
+Code.compile_file(System.fetch_env!("GITGOOD_RUNTIME_SOURCE"))
+Gitgood.NativeRuntime.start()
+Process.sleep(:infinity)
+'''
+        environment = {**os.environ,
+            'GITGOOD_RUNTIME_SOURCE': str(HERE.parents[1] / 'apps/forge/lib/gitgood/native_runtime.ex'),
+            'ERL_FLAGS': '+S 2:2 +SDio 1 +SDcpu 1'}
+        source = self.directory / 'runtime-loader.exs';source.write_text(script, encoding='utf-8')
+        result = subprocess.run([executable, str(source)], text=True, capture_output=True, timeout=20, env=environment)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), 'actual-runtime-spec-loaded-before-original-refusal', result.stderr)
+        self.assertNotIn('warning:', result.stderr)
+
+    def test_actual_runtime_schema_refusal_cannot_start_product_children(self):
+        executable = self.fixture_elixir()
+        script = '''
+defmodule Gitgood.NativeOwnershipStartup do
+  use GenServer
+  def start_link(_), do: GenServer.start_link(__MODULE__, [])
+  def init([]), do: {:ok, nil}
+  def current(pid), do: GenServer.call(pid, :current)
+  def handle_call(:current, _, state), do: {:reply, :ok, state}
+end
+defmodule Gitgood.Build do
+  def identity, do: %{"candidate" => String.duplicate("b", 40)}
+end
+defmodule Gitgood.NativeMigrationInventory do
+  def read, do: [1, 2]
+  def match_build(_, [1, 2]), do: {:ok, [1, 2]}
+end
+defmodule Gitgood.NativeMaintenanceWorker do
+  def validate_database(:bootstrap, %{"target_versions" => [1, 2]}) do
+    send(:runtime_schema_observer, :schema_refused)
+    :error
+  end
+end
+defmodule Gitgood.RuntimeWorkers do
+  def children do
+    send(:runtime_schema_observer, :product_children_requested)
+    []
+  end
+end
+defmodule Gitgood.Readiness do
+  def check, do: %{ready: true}
+end
+Process.flag(:trap_exit, true)
+Process.register(self(), :runtime_schema_observer)
+:ok = :logger.set_primary_config(:level, :none)
+Code.compile_file(System.fetch_env!("GITGOOD_RUNTIME_WORKER_SOURCE"))
+{:ok, root} = Supervisor.start_link([Gitgood.NativeOwnershipStartup, Gitgood.NativeRuntimeWorker],
+  strategy: :one_for_all, max_restarts: 0, name: Gitgood.Supervisor)
+try do
+  Gitgood.NativeRuntimeWorker.activate()
+  raise "schema refusal returned a successful activation"
+catch
+  :exit, _ -> :ok
+end
+receive do :schema_refused -> :ok after 1_000 -> raise "actual schema prerequisite was not checked" end
+receive do {:EXIT, ^root, _} -> :ok after 1_000 -> raise "failed native root remained alive" end
+receive do :product_children_requested -> raise "product children started after schema refusal" after 0 -> :ok end
+IO.puts("actual-runtime-schema-refused-before-product-children")
+'''
+        environment = {**os.environ,
+            'GITGOOD_RUNTIME_WORKER_SOURCE': str(HERE.parents[1] / 'apps/forge/lib/gitgood/native_runtime_worker.ex'),
+            'ERL_FLAGS': '+S 2:2 +SDio 1 +SDcpu 1'}
+        source = self.directory / 'runtime-schema.exs';source.write_text(script, encoding='utf-8')
+        result = subprocess.run([executable, str(source)], text=True, capture_output=True, timeout=20, env=environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), 'actual-runtime-schema-refused-before-product-children', result.stderr)
+        self.assertNotIn('warning:', result.stderr)
+
     @unittest.skipUnless(sys.platform == "linux", "real Linux JIT file-limit check runs on the hosted runner")
     def test_real_beam_jit_boots_with_the_finite_fixture_file_limit(self):
         import resource
