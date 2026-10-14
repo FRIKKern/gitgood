@@ -24,6 +24,35 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_root_fixture_observes_original_lease_socket_without_ordinary_user_bypass(self):
+        seed = {'uid': 1002, 'installation': '12345678-1234-4234-8234-123456789abc', 'account': 'gg_fixture'}
+        record = {'owner': {'pid': 4242, 'birth': '111', 'uid': 1002},
+                  'database_session': {'backend_pid': 4243, 'backend_birth': '222', 'database': {'port': 5440}},
+                  'backend_kernel': {'kernel_birth': '222'}}
+        database = SimpleNamespace(environment={'PGPORT': '5440'}, predicate=Mock(return_value='pid=4243'),
+                                   query=Mock(side_effect=['127.0.0.1:12345', '1']))
+        def process(pid):
+            return {'pid': pid, 'uid': 1002 if pid == 4242 else 1001, 'birth': '111' if pid == 4242 else '222', 'state': 'S'}
+        tcp = b'header\n0: 0100007F:3039 0100007F:1540 01 0:0 0:0 0 1002 0 7777\n'
+        def link(path):
+            return 'net:[10]' if str(path).replace('\\','/').endswith('ns/net') else 'socket:[7777]'
+        entries = [SimpleNamespace(name='7', path='/proc/4242/fd/7')]
+        with patch.object(proof, 'process', side_effect=process), patch.object(Path, 'open', return_value=io.BytesIO(tcp)), \
+                patch.object(proof.os, 'readlink', side_effect=link), \
+                patch.object(proof.os, 'scandir', return_value=contextlib.nullcontext(iter(entries))):
+            result = proof.observe_default_lease(seed, record, database, {'postgres_uid': 1001})
+        self.assertEqual(result, {'client_port': 12345, 'socket_inode': '7777', 'descriptor': '7'})
+        self.assertTrue(all(call.args[0].startswith('SELECT ') for call in database.query.call_args_list))
+        database.query = Mock(side_effect=['127.0.0.1:12345', '0'])
+        with patch.object(proof, 'process', side_effect=process), patch.object(Path, 'open') as reads:
+            with self.assertRaises(ValueError):proof.observe_default_lease(seed, record, database, {'postgres_uid': 1001})
+            reads.assert_not_called()
+        database.query = Mock(side_effect=['127.0.0.1:12345', '1'])
+        with patch.object(proof, 'process', side_effect=process), patch.object(Path, 'open', return_value=io.BytesIO(tcp)), \
+                patch.object(proof.os, 'readlink', return_value='net:[10]'), \
+                patch.object(proof.os, 'scandir', return_value=contextlib.nullcontext(iter(entries))):
+            with self.assertRaises(ValueError):proof.observe_default_lease(seed, record, database, {'postgres_uid': 1001})
+
     def test_default_native_fault_requires_actual_observation_acknowledgment(self):
         seed = {'seal_directory': str(self.directory), 'run': str(self.directory)}
         ready = {'original_release_running': True, 'public_stop_deferred_until_native_exit': True}

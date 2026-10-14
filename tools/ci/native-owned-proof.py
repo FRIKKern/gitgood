@@ -764,9 +764,51 @@ def capture_attachment(seed, attached, database, *, mode='runtime', protocol=3):
             "retained": retained, "marker": marker, "record_file": fingerprint(retained), "marker_file": fingerprint(marker)}
 
 
+def observe_default_lease(seed, record, database, server_scope):
+    """Root's independent read-only fixture observation; never bypass ordinary admission."""
+    owner, session = record['owner'], record['database_session']
+    actual = process(owner['pid'])
+    require(actual['birth'] == owner['birth'] and actual['uid'] == owner['uid'] == seed['uid'] and actual['state'] not in {'Z','X'})
+    backend = process(session['backend_pid'])
+    require(backend['birth'] == record['backend_kernel']['kernel_birth'] and backend['uid'] == server_scope['postgres_uid'])
+    dbname = 'gg_proof_' + seed['installation'].replace('-', '')
+    require(re.fullmatch(r'[a-z0-9_]+', dbname) and re.fullmatch(r'[a-z0-9_]+', seed['account']))
+    predicate = database.predicate(session) + " AND datname='" + dbname + "' AND usename='" + seed['account'] + "'"
+    rows = database.query("SELECT host(client_addr)||':'||client_port::text FROM pg_stat_activity WHERE " + predicate +
+        " AND backend_type='client backend' AND application_name='gitgood native installation lease v2'").splitlines()
+    require(len(rows) == 1 and re.fullmatch(r'127\.0\.0\.1:[1-9][0-9]{0,4}', rows[0]))
+    port = int(rows[0].split(':')[1]);require(port <= 65535)
+    require(database.query("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND granted "
+        f"AND pid={session['backend_pid']} AND classid::bigint=1197034575 AND objid::bigint=1 AND objsubid=2 AND mode='ExclusiveLock'") == '1')
+    server_port = int(database.environment['PGPORT'])
+    require(server_port == session['database']['port'])
+    process_path = Path('/proc') / str(owner['pid'])
+    require(os.readlink(process_path / 'ns/net') == os.readlink('/proc/self/ns/net'))
+    with (process_path / 'net/tcp').open('rb') as source:raw = source.read(1048577)
+    require(len(raw) <= 1048576)
+    lines = raw.decode('ascii').splitlines();require(len(lines) <= 8193)
+    sockets = []
+    for line in lines[1:]:
+        fields = line.split();require(len(fields) >= 10)
+        if fields[1] == '0100007F:' + format(port, '04X') and fields[2] == '0100007F:' + format(server_port, '04X') and fields[3] == '01':
+            require(fields[7] == str(seed['uid']) and re.fullmatch(r'[1-9][0-9]{0,19}', fields[9]))
+            sockets.append(fields[9])
+    require(len(sockets) == 1)
+    descriptors = []
+    with os.scandir(process_path / 'fd') as entries:
+        for index, entry in enumerate(entries):
+            require(index < 4096)
+            try:target = os.readlink(entry.path)
+            except FileNotFoundError:continue
+            if target == 'socket:[' + sockets[0] + ']':descriptors.append(entry.name)
+    require(len(descriptors) == 1)
+    require(os.readlink(process_path / 'fd' / descriptors[0]) == 'socket:[' + sockets[0] + ']')
+    require(process(owner['pid'])['birth'] == owner['birth'] and process(session['backend_pid'])['birth'] == backend['birth'])
+    return {'client_port': port, 'socket_inode': sockets[0], 'descriptor': descriptors[0]}
+
+
 def capture_default_attachment(seed, launched, config, database, server_scope):
     """Root's actual normal-release observations; no fixture witness or fake samples."""
-    from native_kernel_backend import observe_held_backend_kernel_identity
     from native_ownership_records import validate_record
     from native_service_scope import members
     record = launched['record'];validate_record(record)
@@ -797,16 +839,16 @@ def capture_default_attachment(seed, launched, config, database, server_scope):
     deadline = time.monotonic() + 30
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     ready_url = 'http://127.0.0.1:' + config['forge']['PORT'] + '/health/ready'
+    original_connection = None
     while samples < 5:
         require(time.monotonic() < deadline)
         for original in (owner, helper):
             actual = process(original['pid'])
             require(actual['state'] not in {'Z','X'} and all(actual[name] == original[name]
                 for name in ('pid','birth','uid','parent','cgroup','session')))
-        current = observe_held_backend_kernel_identity(seed['executables']['psql'], config['forge']['DATABASE_URL'],
-            record['backend_kernel'], record['database_session']['database'], server_scope,
-            owner={name: record['owner'][name] for name in ('pid','birth','uid')})
-        require(current['owner_connection_observed'] and current['original_backend_kernel_observed'] and current['lease_acquired'] is False)
+        current = observe_default_lease(seed, record, database, server_scope)
+        if original_connection is None:original_connection = current
+        else:require(current == original_connection)
         try:
             with opener.open(ready_url, timeout=3) as response:
                 require(response.geturl() == ready_url)
@@ -1118,6 +1160,7 @@ def run_successor_case(seed, config, password, database, server_scope):
         default_stage = bool(seed.get('default_release_fixture') and label == 'runtime-owner')
         if default_stage:
             attached = wait_for(stage / 'default-owner.json', run, 100)
+            seed['proof_phase'] = 'default-release:independent-original-socket-lease-and-readiness'
             captured = capture_default_attachment(seed, attached, config, database, server_scope)
         else:
             attached = wait_for(stage / 'attached.json', run, 100)

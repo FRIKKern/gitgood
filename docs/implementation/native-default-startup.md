@@ -39,6 +39,11 @@ from the bounded native group and fixed protected entry, captures original birth
 and the retained ownership/marker files, and performs five read-only observations
 of original owner/helper identity, held SQL/kernel lease and current readiness.
 These are independent samples, not fabricated private monitor heartbeats.
+The fixture uses Root's own read-only observations of exact database PID/birth,
+the existing advisory lock, original owner/backend kernel births and the original
+owner's TCP socket inode/descriptor. It does not call or weaken the production
+observer's ordinary-user requirement. An absent lock/socket or changed original
+identity refuses; the fixture acquires no lease or replacement authority.
 
 The same production web/edge launcher then undergoes real verified TLS, frontend
 identity/assets, owner cookie/login, anonymous denial, HTTPS Git push/readback,
