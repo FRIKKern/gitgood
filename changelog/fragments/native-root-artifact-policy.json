@@ -1,0 +1,9 @@
+{
+  "id": "native-root-artifact-policy",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add serialized Root stage-policy allocation bound to original controller exclusion, sealed artifact declaration and matching actual inspection. Preserve foreign targets and partials through exclusive descriptor-based publication. Actual Root/live-stage verification, provisioning, dispatch and recovery remain unfinished.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-policy.md", "tools/deployment/native_root_artifact_policy.py", "tools/deployment/test_native_root_artifact_policy.py"],
+  "withdrawn": false
+}
