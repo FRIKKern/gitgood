@@ -57,6 +57,14 @@ def _root_directory(path):
     return (info.st_dev,info.st_ino,info.st_uid,info.st_gid,info.st_mode)
 
 
+def _published_policy_identity(before, opened, named):
+    """Accept only rename's ctime change on this already retained descriptor."""
+    require(all(type(value) is tuple and len(value) == 9 for value in (before,opened,named)))
+    require(all(type(item) is int for value in (before,opened,named) for item in value))
+    require(opened == named and opened[:-1] == before[:-1] and opened[-1] >= before[-1])
+    return opened
+
+
 class NativeRootArtifactPolicyAllocation:
     """Take original exclusion custody; no caller paths, policy maps or callbacks."""
     def __init__(self, exclusion):
@@ -195,6 +203,13 @@ class NativeRootArtifactPolicyAllocation:
             rename = ctypes.CDLL(None,use_errno=True).renameat2
             rename.argtypes = [ctypes.c_int,ctypes.c_char_p,ctypes.c_int,ctypes.c_char_p,ctypes.c_uint];rename.restype = ctypes.c_int
             if rename(parent,os.fsencode(partial),parent,os.fsencode(self.operation+'.json'),1) != 0:require(False)
+            opened = fingerprint(os.fstat(self.policy_fd))
+            named = fingerprint(os.stat(self.operation+'.json',dir_fd=parent,follow_symlinks=False))
+            moved = _published_policy_identity(self.policy_original,opened,named)
+            require(os.pread(self.policy_fd,len(raw)+1,0) == raw)
+            require(fingerprint(os.fstat(self.policy_fd)) == moved ==
+                fingerprint(os.stat(self.operation+'.json',dir_fd=parent,follow_symlinks=False)))
+            self.policy_original = moved
             os.fsync(parent);self.state = 'allocated';self.check()
             return {'protocol':2,'kind':'native_artifact_policy_allocation','installation':self.installation,
                 'operation':self.operation,'candidate':self.observed['candidate'],'policy_sha256':hashlib.sha256(raw).hexdigest(),

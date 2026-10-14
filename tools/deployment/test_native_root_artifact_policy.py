@@ -64,6 +64,24 @@ class PolicyAllocationAdmissionTest(unittest.TestCase):
             self.assertTrue(value.closed);opened.assert_not_called()
 
 
+class PublishedPolicyIdentityTest(unittest.TestCase):
+    original=(1,2,0,0,stat.S_IFREG|0o400,1,1024,100,100)
+
+    def test_only_same_descriptor_inode_and_renamed_ctime_are_accepted(self):
+        renamed=(*self.original[:-1],101)
+        self.assertEqual(root._published_policy_identity(self.original,renamed,renamed),renamed)
+
+    def test_changed_inode_owner_mode_links_bytes_or_mtime_refuses(self):
+        for index in range(8):
+            changed=list(self.original);changed[index]+=1;changed=tuple(changed)
+            with self.assertRaises(root.RootArtifactPolicyRefused):root._published_policy_identity(self.original,changed,changed)
+
+    def test_foreign_named_target_or_earlier_ctime_cannot_be_adopted(self):
+        renamed=(*self.original[:-1],101)
+        for opened,named in ((renamed,self.original),((*self.original[:-1],99),(*self.original[:-1],99))):
+            with self.assertRaises(root.RootArtifactPolicyRefused):root._published_policy_identity(self.original,opened,named)
+
+
 @unittest.skipUnless(sys.platform=='linux' and os.getuid()==0 and fcntl is not None,'Actual isolated Root policy filesystem')
 class RootPolicyFilesystemTest(unittest.TestCase):
     def setUp(self):

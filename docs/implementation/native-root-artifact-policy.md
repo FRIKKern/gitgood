@@ -48,8 +48,11 @@ must retain at least 20 GiB plus bounded metadata allocation.
 Publication creates one exclusive operation partial, writes and fsyncs it under
 Root read-only ownership, checks its original descriptor/named identity, then
 uses `renameat2(RENAME_NOREPLACE)` beneath the held policy parent descriptor and
-fsyncs that directory. Foreign final files, pre-existing partials and uncertain
-effects remain; no overwrite, adoption or cleanup occurs. Repeated allocation
+fsyncs that directory. After rename, only its expected `ctime` change is accepted on
+the retained descriptor and matching named inode; all other metadata and exact
+policy bytes remain checked, then the published fingerprint freezes again.
+Foreign final files, pre-existing partials and uncertain effects remain; no
+overwrite, adoption or cleanup occurs. Repeated allocation
 and observed original-resource or lock loss permanently refuse. Closing releases
 only owned descriptors and Root observation views.
 
