@@ -132,6 +132,12 @@ original exclusion and independently provisioned allocation lock. Read
 [Root artifact policy allocation](implementation/native-root-artifact-policy.md)
 for its unfinished live stage dispatch, provisioning and recovery integration.
 
+[native_artifact_controller.py](../tools/deployment/native_artifact_controller.py)
+owns ordinary MainPID inspection and its controlled journal transition while
+retaining original history/writer custody. Its separate reader does not admit
+application workers. Read [the artifact inspection controller](implementation/native-artifact-controller.md)
+for the live Root dispatch and recovery integration still required.
+
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 
 TanStack generates `apps/web/src/routeTree.gen.ts` from the route files. Local `.gitgood/` directories hold ignored development state and may contain private verification or recovery materials. They are not a scratch directory to delete blindly. The [evidence contract](../evidence/README.md) explains what may be published.

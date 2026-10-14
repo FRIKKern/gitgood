@@ -1,0 +1,9 @@
+{
+  "id": "native-artifact-inspection-controller",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add ordinary controller archive inspection under original history and writer custody, recording the actual inspection receipt and refreshing only its owned journal event before a Root stage request. Keep worker admission unchanged; live controller-to-Root dispatch, extraction, staged runtime and recovery remain unfinished.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/deployment/native_artifact_controller.py", "tools/deployment/test_native_artifact_controller.py"],
+  "withdrawn": false
+}

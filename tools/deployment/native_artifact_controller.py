@@ -38,6 +38,29 @@ def require(value):
         raise ArtifactControllerRefused('Original native artifact controller unavailable or changed')
 
 
+def _owned_journal_refresh(previous, current, journal):
+    """Only the controller's one just-published event may refresh observation."""
+    for name in ('binding','pointer','record','records','transitions','receipts'):
+        require(current[name] == previous[name] and canonical(current[name]) == canonical(previous[name]))
+    before,after = previous['lifecycle'],current['lifecycle']
+    require(after == journal.snapshot and canonical(after) == canonical(journal.snapshot))
+    require(after['predecessor_sha256'] == hashlib.sha256(canonical(before)).hexdigest())
+    require(len(after['events']) == len(before['events'])+1 and after['events'][:-1] == before['events'])
+    require(after['events'][-1]['kind'] in {'succeeded','started'})
+    require(journal.head['snapshot_sha256'] == hashlib.sha256(canonical(after)).hexdigest())
+    require(set(previous['files']) == set(current['files']))
+    for name in previous['files']:
+        if name != '@lifecycle':require(current['files'][name] == previous['files'][name])
+    old,new = previous['files']['@lifecycle'],current['files']['@lifecycle']
+    require(set(old['directories']) == set(new['directories']))
+    for role in old['directories']:require(old['directories'][role][:-2] == new['directories'][role][:-2])
+    head = 'heads/'+journal.operation+'.json';record = 'records/'+journal.head['snapshot_sha256']+'.json'
+    require(set(new['files']) == set(old['files']) | {record})
+    require(record not in old['files'] and head in old['files'])
+    for name in old['files']:
+        if name != head:require(new['files'][name] == old['files'][name])
+
+
 class _ArtifactControllerReader(NativeLifecycleGenerationReader):
     """Separate controller window; ordinary worker admission is unchanged."""
     def _snapshot(self, scope):
@@ -64,7 +87,7 @@ class _ArtifactControllerReader(NativeLifecycleGenerationReader):
 class NativeArtifactInspectionController:
     """Borrow original controller resources; own only this inspection session."""
     def __init__(self, installation, custody, endpoint, journal):
-        self.usable = False;self.reader = None;self.exclusion = None;self.archive = None
+        self.usable = False;self.reader = None;self.exclusion = None;self.archive = None;self.source_parents = {}
         try:
             identifier(installation)
             require(os.getuid() == os.geteuid() > 0 and os.getgid() == os.getegid() > 0)
@@ -98,6 +121,7 @@ class NativeArtifactInspectionController:
             for path in self.source.parents:
                 info = path.lstat();require(path.resolve(strict=True) == path and stat.S_ISDIR(info.st_mode)
                     and info.st_uid == info.st_gid == 0 and not info.st_mode & 0o022)
+                self.source_parents[path] = (info.st_dev,info.st_ino,info.st_uid,info.st_gid,info.st_mode)
             self.archive = os.open(self.source,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_NONBLOCK)
             info = os.fstat(self.archive)
             require(stat.S_ISREG(info.st_mode) and info.st_uid == info.st_gid == 0 and info.st_nlink == 1
@@ -111,11 +135,14 @@ class NativeArtifactInspectionController:
             self.close();raise ArtifactControllerRefused('Original native artifact controller unavailable or changed') from None
 
     def _open_reader(self):
+        previous = getattr(self,'snapshot',None)
         if self.reader is not None:self.reader.close()
         self.reader = _ArtifactControllerReader(str(self.root),self.installation,self.seal['binding_sha256'],
             self.seal['history_identity'],self.seal['lock_identity'],self.seal['unit_sha256'],self.seal['executables'],
             worker='maintenance',**self.seal['limits'])
-        self.reader.borrow_custody(self.custody);self.snapshot = self.reader._snapshot(self.scope)
+        self.reader.borrow_custody(self.custody);current = self.reader._snapshot(self.scope)
+        if previous is not None:_owned_journal_refresh(previous,current,self.journal)
+        self.snapshot = current
 
     def check(self):
         try:
@@ -130,6 +157,9 @@ class NativeArtifactInspectionController:
             require(self.journal.head['snapshot_sha256'] == hashlib.sha256(canonical(self.snapshot['lifecycle'])).hexdigest())
             require(persistent_fingerprint(self.binding) == self.files)
             require(configuration(self.root,self.installation,self.scope['uid']) == (self.configuration,self.url))
+            for path,original in self.source_parents.items():
+                info = path.lstat();require(path.resolve(strict=True) == path and
+                    (info.st_dev,info.st_ino,info.st_uid,info.st_gid,info.st_mode) == original)
             require(fingerprint(os.fstat(self.archive)) == self.archive_original == fingerprint(self.source.lstat()))
             stopped(self.scope);require(self.exclusion.check() == self.held)
             return {'installation':self.installation,'operation':self.operation,'candidate':self.inputs['candidate'],

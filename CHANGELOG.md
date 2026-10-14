@@ -78,6 +78,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Gate application startup, direct lease initialization and offline maintenance before storage or database actions. Reject unsupported profiles and implicit native downgrade. Add immutable private ownership-record custody with synchronized publication, unchanged retries and retained partial responsibility. Add root supervision without child restarts and a single-session native database lease keeper; actual standalone processes exit on held backend or connection loss. Application integration, live markers and complete native startup remain unfinished.
   Sources: [details 1](docs/implementation/native-application-ownership.md), [details 2](apps/forge/lib/gitgood/installation_profile.ex), [details 3](tools/deployment/native_ownership_records.py), [details 4](apps/forge/lib/gitgood/native_ownership_supervisor.ex), [details 5](apps/forge/lib/gitgood/native_database_lease.ex)
 
+- Add ordinary controller archive inspection under original history and writer custody, recording the actual inspection receipt and refreshing only its owned journal event before a Root stage request. Keep worker admission unchanged; live controller-to-Root dispatch, extraction, staged runtime and recovery remain unfinished.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/deployment/native_artifact_controller.py), [details 3](tools/deployment/test_native_artifact_controller.py)
+
 - Inspect digest-pinned Linux native artifacts without extraction or execution, checking bounded paths, matching build identities, migrations and runtime platform before installation staging.
   Sources: [details 1](tools/deployment/inspect_native_artifact.py), [details 2](docs/implementation/installation-upgrade.md)
 
