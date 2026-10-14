@@ -1,0 +1,9 @@
+{
+  "id": "native-root-database-exclusion",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Add Root observation of an authenticated original controller's actual writer lease, pinned ordinary client socket and database kernel birth. Discover from fixed read-only SQL, retain original identity and refuse loss without acquiring a replacement. Actual installed evidence, serialized artifact effects and complete recovery remain unverified.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-database-exclusion.md", "tools/deployment/native_root_database_exclusion.py", "tools/deployment/test_native_root_database_exclusion.py", "tools/ci/native-owned-proof.py"],
+  "withdrawn": false
+}

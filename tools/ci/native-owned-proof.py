@@ -6,6 +6,7 @@ and pinned runtimes. Never enrolls/activates a product, repairs prior ownership,
 starts a VM, or removes a retained marker. See native-hosted-ownership.md.
 """
 import argparse
+from contextlib import ExitStack
 import ast
 import base64
 import ctypes
@@ -1167,6 +1168,11 @@ def observe_fixture_lifecycle_history(seed, pointer, preserved):
 
 
 def run_successor_case(seed, config, password, database, server_scope):
+    with ExitStack() as root_views:
+        return _run_successor_case(seed,config,password,database,server_scope,root_views)
+
+
+def _run_successor_case(seed, config, password, database, server_scope, root_views):
     """Independent witness of actual protected same-controller handoffs."""
     run, seal = Path(seed['run']), Path(seed['seal_directory'])
     storage = Path(seed['root']) / 'storage'
@@ -1215,6 +1221,9 @@ def run_successor_case(seed, config, password, database, server_scope):
     root_live_binding_observation = None
     root_controller_request_observation = None
     root_controller_request_refusals = False
+    root_database_exclusion_observation = None
+    root_database_exclusion_loss_refused = False
+    root_database_view = None
     for label, mode, fault in [('migration-owner', 'migrate', 'helper-loss'),
                               ('bootstrap-owner', 'migrate', 'original-backend-loss'),
                               ('runtime-owner', 'runtime', 'helper-loss')]:
@@ -1281,14 +1290,23 @@ def run_successor_case(seed, config, password, database, server_scope):
                 write_new(seal/'fixture-root-request-refused.json',{'wrong_operation_refused':True})
                 connection,_ = listener.accept()
                 request_view = NativeRootControllerRequest(seed['installation'],seed['ownership_operation'],connection)
-                try:
-                    root_controller_request_observation = request_view.check()
-                    require(request_view.check() == root_controller_request_observation)
-                    require(all(root_controller_request_observation[name] is expected for name,expected in (
-                        ('original_controller_peer_authenticated',True),('original_controller_history_lock_observed',True),
-                        ('database_writer_exclusion_verified',False),('lifecycle_exclusion_established',False),
-                        ('stage_effect_authorized',False),('complete_journey_acceptance',False))))
-                finally:request_view.close()
+                root_views.callback(request_view.close)
+                root_controller_request_observation = request_view.check()
+                require(request_view.check() == root_controller_request_observation)
+                require(all(root_controller_request_observation[name] is expected for name,expected in (
+                    ('original_controller_peer_authenticated',True),('original_controller_history_lock_observed',True),
+                    ('database_writer_exclusion_verified',False),('lifecycle_exclusion_established',False),
+                    ('stage_effect_authorized',False),('complete_journey_acceptance',False))))
+                from native_root_database_exclusion import NativeRootDatabaseExclusionObservation, RootDatabaseExclusionRefused
+                root_database_view = NativeRootDatabaseExclusionObservation(request_view)
+                root_views.callback(root_database_view.close)
+                root_database_exclusion_observation = root_database_view.check()
+                require(root_database_view.check() == root_database_exclusion_observation)
+                require(all(root_database_exclusion_observation[name] is expected for name,expected in (
+                    ('original_database_writer_lease_observed',True),('original_database_client_socket_observed',True),
+                    ('original_database_backend_kernel_observed',True),('database_writer_exclusion_verified',True),
+                    ('lease_acquired',False),('lifecycle_exclusion_established',False),
+                    ('stage_effect_authorized',False),('complete_journey_acceptance',False))))
                 root_controller_request_refusals = True
                 write_new(seal/'fixture-root-request-accepted.json',{'original_peer_and_history_lock_observed':True})
         runtime_refusal = bool(seed.get('runtime_schema_refusal_fixture') and label == 'runtime-owner')
@@ -1332,6 +1350,19 @@ def run_successor_case(seed, config, password, database, server_scope):
         else:
             attached = wait_for(stage / 'attached.json', run, 100)
             captured = capture_attachment(seed, attached, database, mode=mode, protocol=4)
+        if root_database_view is not None and label == 'migration-owner':
+            # The real handoff reaped the original controller psql child and
+            # server backend. Prove this retained Root view cannot adopt the
+            # new BEAM's lease, while original peer/history/resources still match.
+            require(root_database_view.request.check() == root_database_view.observed)
+            require(absent(root_database_view.client) and absent(excluded))
+            try:root_database_view.check()
+            except RootDatabaseExclusionRefused:require(root_database_view.usable is False)
+            else:require(False)
+            try:root_database_view.check()
+            except RootDatabaseExclusionRefused:require(root_database_view.usable is False)
+            else:require(False)
+            root_database_exclusion_loss_refused = True
         if seed.get('business_inputs_fixture') and not seed.get('business_effects_fixture') and label != 'runtime-owner':
             private = wait_for(stage / 'private-inputs-observed.json', run, 5)
             require(private == {'action': 'migrate' if label == 'migration-owner' else 'bootstrap',
@@ -1529,6 +1560,8 @@ def run_successor_case(seed, config, password, database, server_scope):
                 'root_original_live_binding_observed': root_live_binding_observation is not None,
                 'root_original_controller_request_and_history_lock_observed': root_controller_request_observation is not None,
                 'root_foreign_peer_and_wrong_operation_refused': root_controller_request_refusals,
+                'root_original_controller_database_exclusion_observed': root_database_exclusion_observation is not None,
+                'root_original_database_client_loss_refused': root_database_exclusion_loss_refused,
                 'actual_nonempty_schema_refused_without_migrations': bool(seed.get('schema_refusal_fixture')),
                 'actual_nested_migration_entry_refused_without_effects': bool(seed.get('inventory_refusal_fixture')),
                 'actual_runtime_schema_refused_before_product_workers': runtime_refusal,
@@ -1572,6 +1605,8 @@ def run_successor_case(seed, config, password, database, server_scope):
         'root_original_live_binding_observed': root_live_binding_observation is not None,
         'root_original_controller_request_and_history_lock_observed': root_controller_request_observation is not None,
         'root_foreign_peer_and_wrong_operation_refused': root_controller_request_refusals,
+        'root_original_controller_database_exclusion_observed': root_database_exclusion_observation is not None,
+        'root_original_database_client_loss_refused': root_database_exclusion_loss_refused,
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -1827,6 +1862,11 @@ def main(args):
         require(all(case['root_foreign_peer_and_wrong_operation_refused'] is True for case in receipt['cases'][4:]))
         require(receipt['cases'][3]['root_foreign_peer_and_wrong_operation_refused'] is False)
         receipt['root_foreign_peer_and_wrong_operation_refusal_verified'] = True
+        require(all(case['root_original_controller_database_exclusion_observed'] is True for case in receipt['cases'][4:]))
+        require(all(case['root_original_database_client_loss_refused'] is True for case in receipt['cases'][4:]))
+        require(receipt['cases'][3]['root_original_controller_database_exclusion_observed'] is False)
+        require(receipt['cases'][3]['root_original_database_client_loss_refused'] is False)
+        receipt['root_original_controller_database_exclusion_and_loss_verified'] = True
         receipt["status"] = "passed"
         phase = "complete"
     except Exception as error:
