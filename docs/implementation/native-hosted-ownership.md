@@ -7,7 +7,7 @@ VM experiments with a bounded job on a fresh GitHub-hosted Ubuntu 24.04 runner.
 
 **This is an ownership component proof.** A passing receipt does not mean
 the native product can be enrolled, upgraded, activated, restarted, or deployed.
-It starts a small permanent fixture application from the production release;
+The first six cases start a small permanent fixture application from the production release;
 the product's `Gitgood.Application` native-startup refusal stays in place. There
 are no forge HTTP, SSH, web, or edge listeners. The private Node and Caddy binaries
 are checked as part of the durable binding, rather than started as services.
@@ -54,6 +54,30 @@ absence, descendant/sibling and retained-inode checks still apply. Migration
 expectations `[1, 2]` are fixture data rather than a verified packaged inventory;
 no schema change or first-owner creation is executed. Complete business lifecycle
 effects, product startup and recovery stay unverified.
+
+The seventh `maintenance-effects-boundary` case uses the fixed production
+maintenance application and actual Repo/worker for migration and bootstrap.
+Its sealed target comes from the clean copied release's migration inventory.
+The fixture witness waits for Root to capture original SQL/kernel backends, then
+requests the fixed action. Root independently observes the complete schema,
+durable first-owner receipt and current owner membership in the allocated private
+database. After original helper/backend loss, every captured lease and Repo
+backend must be absent before another owner can start. Worker status is redacted.
+The runtime owner still uses the fixture application, and inspection/staging/
+verification journal receipts remain explicitly synthetic metadata.
+
+The eighth `maintenance-schema-refusal` case has one unexpected application table
+before an initial migration. The fixed worker must terminate the original BEAM
+without creating migration, user or owner-receipt tables. Root observes all
+captured backend identities absent and unchanged original lifecycle head/snapshot,
+ownership record and marker inodes. The fixture manager does not advance that
+failed stage. Both new cases require final owned-unit stop and absent cgroup.
+
+`fixed_migration_and_bootstrap_effects_observed` and
+`actual_nonempty_schema_refusal_verified` describe only these component outcomes.
+They do not establish complete lifecycle dispatch, interruption reconciliation,
+native runtime startup, activation, reboot or replacement recovery. See
+[maintenance effects](native-maintenance-effects.md) for the execution contract.
 
 ## What a passing run observes
 
@@ -207,7 +231,7 @@ Fixture source is split by responsibility:
 | `tools/ci/native-owned-proof.py` | Root allocation, independent observation, bounded faults, redacted receipt and final owned-unit cleanup. |
 | `tools/ci/native-owned-manager.py` | Actual ordinary systemd MainPID, production generation publication, fixture subprocess custody and descendant cleanup. |
 | `tools/ci/native-successor-manager.py` | Actual ordinary controller MainPID, original flock and endpoint custody, real protocol-4 reservations, handoff serving and bounded fixture descendant cleanup. |
-| `tools/ci/native-owned-worker.exs` | Permanent fixture OTP application around actual production startup/claim/fence, plus a read-only witness and real descendant. |
+| `tools/ci/native-owned-worker.exs` | Permanent fixture OTP application around production startup/claim/fence, plus a witness, real descendant and fixed maintenance requests after Root observation. |
 | `tools/ci/native-owned-test.py` | Local regressions for bounded copies, original-birth targeting, zombie refusal and failed cleanup exit status. |
 
 ## Bounds, receipts and failure handling
