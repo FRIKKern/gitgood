@@ -102,6 +102,12 @@ extraction, read-only code publication and original output metadata checks. Read
 [protected artifact staging](implementation/native-protected-artifact.md) for
 authority allocation, actual dispatch and interruption verification still needed.
 
+[native_root_lifecycle.py](../tools/deployment/native_root_lifecycle.py) owns the
+fixed Root read-only request/history view, with separate original ordinary-file
+custody and shared publication/lifecycle format validators. Read
+[Root lifecycle observation](implementation/native-root-lifecycle.md) for its
+unfinished actual observation, exclusion, allocation and stage-dispatch gates.
+
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 
 TanStack generates `apps/web/src/routeTree.gen.ts` from the route files. Local `.gitgood/` directories hold ignored development state and may contain private verification or recovery materials. They are not a scratch directory to delete blindly. The [evidence contract](../evidence/README.md) explains what may be published.
