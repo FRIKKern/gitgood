@@ -1337,9 +1337,16 @@ def root_stage_profile(profile):
         'native_root_live_binding.py':{'check','_observe','_current'},
         'native_root_lifecycle.py':{'check','_snapshot','_current'},
         'native_root_controller.py':{'check','_service'},
-        'native_service_scope.py':{'_observe_allocated_service','read_bytes'},
+        'native_service_scope.py':{'_observe_allocated_service','read_bytes','root_file',
+            'read','_fingerprint','process_identity','group_identity','members'},
         'native_systemd_properties.py':{'unit_properties','_get_many'},
         'native_lifecycle_history.py':{'__init__','check','_check_files','_read'},
+        'native_ownership_database.py':{'_socket_for_process'},
+        'native_kernel_backend.py':{'_check_scope','_capture_process','_stat','_read'},
+        'native_durable_binding.py':{'configuration','_persistent_identity','read','private_file','directory'},
+        'native_backend_scope.py':{'check'},
+        'native_generation_lease_guard.py':{'persistent_fingerprint'},
+        'native_controller_scope.py':{'private_directory'},
     }
     rows = []
     for (filename,line,function),(primitive,calls,total,cumulative,_callers) in pstats.Stats(profile).stats.items():

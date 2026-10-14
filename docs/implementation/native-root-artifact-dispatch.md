@@ -61,6 +61,14 @@ time. Messages, arbitrary file paths, source text, SQL, inputs and credentials
 are excluded; the ordinary socket response remains unchanged. These observations
 locate a failed boundary and grant no staging or recovery authority.
 
+The fixture's bounded stage profile also includes fixed file-custody,
+configuration, kernel-process and socket-observation functions. It reports only
+installed source basenames, function names, line numbers, call counts and elapsed
+times; private paths, callers, arguments and values remain excluded. This helps
+separate the underlying costs from their overlapping parent observations. The
+same 64-row bound applies. Profiling grants no authority and does not change any
+production check, archive payload, resource bound or response deadline.
+
 The fixture also records aggregate member count, declared bytes, largest member
 and longest name for the complete production archive. These counters contain no
 member names or payload data. Archive/effect guards, size limits, deadlines and

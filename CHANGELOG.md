@@ -401,6 +401,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Measure fixed native staging guard costs without publishing private arguments, caller data or arbitrary paths. The full archive and operation deadlines remain unchanged.
   Sources: [details 1](tools/ci/native-owned-proof.py), [details 2](tools/ci/native-owned-test.py), [details 3](docs/implementation/native-root-database-reader.md)
 
+- Retain bounded fixed-function timing counters for the file, configuration, kernel and socket primitives beneath hosted Root staging observations. Keep private paths, callers, arguments and values excluded; production guards, full archive payload and deadlines remain unchanged.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Record actual ordinary-user systemd delegation, whole-unit descendant cleanup and bounded manager-loss restart. Select a distinct resource-generation profile with immutable original lifecycle history and explicit continuity. The product supervisor, generation protocol, actual reboot, allocation and Cloud acceptance remain unfinished.
   Sources: [details 1](docs/decisions/0018-native-supervision-generations.md), [details 2](docs/implementation/native-supervision-profile.md)
 

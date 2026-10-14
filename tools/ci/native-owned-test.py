@@ -117,14 +117,22 @@ class BoundedProofTests(unittest.TestCase):
         private={'private-password':('SQL and environment',)}
         stats={
             ('/opt/gitgood/native/v2/native_root_lifecycle.py',300,'check'):(2,4,.01,.5,private),
+            ('/opt/gitgood/native/v2/native_ownership_database.py',93,'_socket_for_process'):(3,3,.02,.03,private),
+            ('/opt/gitgood/native/v2/native_kernel_backend.py',27,'_read'):(5,5,.01,.02,private),
             ('/private/credentials.py',10,'check'):(1,1,.01,.5,private),
+            ('/private/native_kernel_backend.py',27,'_read'):(5,5,.01,.02,private),
             ('/opt/gitgood/native/v2/native_root_lifecycle.py',10,'private_password'):(1,1,.01,.5,private),
             ('/opt/gitgood/native/v2/native_root_lifecycle.py',301,'_current'):(1,True,.01,.5,private),
             ('/opt/gitgood/native/v2/native_root_lifecycle.py',302,'_snapshot'):(1,1,float('nan'),.5,private)}
         with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
             observed=proof.root_stage_profile(Mock())
-        self.assertEqual(observed,[{'file':'native_root_lifecycle.py','function':'check','line':300,
-            'calls':4,'self_ms':10,'cumulative_ms':500}])
+        self.assertEqual(observed,[
+            {'file':'native_kernel_backend.py','function':'_read','line':27,
+                'calls':5,'self_ms':10,'cumulative_ms':20},
+            {'file':'native_ownership_database.py','function':'_socket_for_process','line':93,
+                'calls':3,'self_ms':20,'cumulative_ms':30},
+            {'file':'native_root_lifecycle.py','function':'check','line':300,
+                'calls':4,'self_ms':10,'cumulative_ms':500}])
         self.assertNotIn('private',json.dumps(observed));self.assertNotIn('/opt',json.dumps(observed))
 
     def test_normal_root_refusal_accepts_only_closed_local_metadata_without_wire_authority(self):
