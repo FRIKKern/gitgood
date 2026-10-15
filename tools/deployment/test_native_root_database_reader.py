@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 import native_root_database_reader as root
 from native_inventory import database_environment
+from native_root_controller import RootControllerRefused, _RootObservationPass
 from resource_generations import canonical
 from test_native_durable_database import GOOD, URL
 
@@ -126,6 +127,99 @@ class ReaderExchangeTest(unittest.TestCase):
         value=self.view();child=value.child;value.owner=(os.getpid()+1,threading.get_ident())
         value.close();child.terminate.assert_not_called();child.stdin.close.assert_not_called()
         self.assertFalse(value.usable)
+
+
+class ReaderStageObservationTest(unittest.TestCase):
+    """Fixed shared SELECT; process/kernel/base and wire replies are stand-ins."""
+    view = ReaderExchangeTest.view
+
+    def root_context(self, stack):
+        for name in ('getuid','geteuid','getgid','getegid'):
+            stack.enter_context(patch.object(root.os,name,return_value=0,create=True))
+
+    def stage_reply(self, value, replies):
+        selector=Mock();selector.select.return_value=[('ready',1)]
+        manager=Mock();manager.__enter__=Mock(return_value=selector);manager.__exit__=Mock(return_value=False)
+        stack=ExitStack();self.addCleanup(stack.close);self.root_context(stack)
+        stack.enter_context(patch.object(root.uuid,'uuid4',side_effect=['nonce-'+str(i) for i in range(len(replies))]))
+        stack.enter_context(patch.object(root.selectors,'DefaultSelector',return_value=manager))
+        stack.enter_context(patch.object(root.os,'read',side_effect=[canonical({
+            'nonce':'nonce-'+str(i),'reader':copy.deepcopy(READER),'value':reply})+b'\n'
+            for i,reply in enumerate(replies)]))
+
+    def observed(self):
+        return {'database':copy.deepcopy(GOOD),'holders':[{'original':'writer'}],'clients':2}
+
+    def test_one_original_exclusion_reply_supplies_identity_and_lease_within_each_pass(self):
+        value=self.view();child=value.child;observed=self.observed()
+        self.stage_reply(value,[observed,observed])
+        for _ in range(2):
+            with _RootObservationPass():
+                self.assertEqual(value.identity(),GOOD)
+                self.assertEqual(value.exclusion(),canonical(observed))
+        self.assertEqual(child.stdin.write.call_count,2);self.assertEqual(value._base.call_count,4)
+        commands=[call.args[0] for call in child.stdin.write.call_args_list]
+        self.assertNotEqual(commands[0],commands[1])
+        for command in commands:
+            self.assertIn(root.ROOT_EXCLUSION_SQL.encode(),command)
+            self.assertNotIn(b'pg_try_advisory_lock',command)
+        self.assertIs(value.child,child);child.terminate.assert_not_called()
+
+    def test_standalone_consumers_still_issue_separate_fresh_queries(self):
+        value=self.view();self.stage_reply(value,[self.observed(),self.observed()])
+        self.assertEqual(value.identity(),GOOD);self.assertEqual(value.exclusion(),canonical(self.observed()))
+        self.assertEqual(value.child.stdin.write.call_count,2);self.assertEqual(value._base.call_count,4)
+
+    def test_returned_identity_mutation_cannot_change_shared_reply_or_expected_binding(self):
+        value=self.view();self.stage_reply(value,[self.observed()])
+        with _RootObservationPass():
+            identity=value.identity();identity['database_oid']=999
+            self.assertEqual(value.identity(),GOOD)
+            self.assertEqual(value.exclusion(),canonical(self.observed()))
+        self.assertEqual(value.expected,GOOD);self.assertEqual(value.child.stdin.write.call_count,1)
+
+    def test_changed_writer_observation_is_fresh_in_the_separate_final_pass(self):
+        value=self.view();first=self.observed();second={**first,'holders':[]}
+        self.stage_reply(value,[first,second])
+        with _RootObservationPass():self.assertEqual(value.exclusion(),canonical(first))
+        with _RootObservationPass():self.assertEqual(value.exclusion(),canonical(second))
+        self.assertEqual(value.child.stdin.write.call_count,2)
+
+    def test_unknown_missing_or_changed_database_reply_permanently_poison_before_identity(self):
+        for observed in [None,[],{}, {**self.observed(),'authority':True},
+                {**self.observed(),'database':{**GOOD,'database_oid':11}}]:
+            with self.subTest(observed=observed):
+                value=self.view();child=value.child
+                with patch.object(value,'_exchange',return_value=observed):
+                    with self.assertRaises(root.RootDatabaseReaderRefused):value.identity()
+                self.assertFalse(value.usable);child.terminate.assert_called_once()
+
+    def test_original_loss_cannot_return_shared_success_or_revive_the_failed_pass(self):
+        value=self.view();self.stage_reply(value,[self.observed()])
+        with self.assertRaises(RootControllerRefused):
+            with _RootObservationPass():
+                value.identity();value.close()
+                with self.assertRaises(root.RootDatabaseReaderRefused):value.exclusion()
+                value.usable=True
+                value.identity()
+        self.assertEqual(value._base.call_count,3)
+
+    def test_original_base_loss_after_query_refuses_both_consumers_and_closes_owned_child(self):
+        for consumer in ('identity','exclusion'):
+            with self.subTest(consumer=consumer):
+                value=self.view();child=value.child
+                self.stage_reply(value,[self.observed()])
+                value._base.side_effect=[value.client,ValueError('lost original')]
+                with self.assertRaises(root.RootDatabaseReaderRefused):
+                    with _RootObservationPass():getattr(value,consumer)()
+                self.assertFalse(value.usable);child.terminate.assert_called_once()
+
+    def test_different_original_reader_cannot_reuse_another_readers_reply(self):
+        first=self.view();second=self.view();self.stage_reply(first,[self.observed(),self.observed()])
+        with _RootObservationPass():
+            first.identity();second.exclusion()
+        self.assertEqual(first.child.stdin.write.call_count,1)
+        self.assertEqual(second.child.stdin.write.call_count,1)
 
 
 if __name__=='__main__':unittest.main()

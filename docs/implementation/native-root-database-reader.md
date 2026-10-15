@@ -15,7 +15,16 @@ maps or callbacks. Each exchange has a fresh nonce, bounded single-line framing,
 the same SQL PID/birth, loopback client port, read-only/read-committed settings and
 no held advisory lease. Identity and exclusion statements are fixed SELECTs.
 
-The reader brackets exchanges with original lifecycle/configuration/executable,
+During each private read-only observation pass, the fixed exclusion SELECT's
+existing `database` result supplies the complete identity as well as writer and
+client observations. Both consumers use that one original reply. The shared
+result is confined to the original Root process/thread and reader object, copied
+defensively, and discarded when the pass ends or fails. The separate final pass
+queries again; standalone consumers also query afresh. No result survives an
+effect boundary. Initial reader admission still performs its two original
+identity exchanges.
+
+The reader brackets every actual exchange with original lifecycle/configuration/executable,
 Root process/thread/namespace, owned child/pipe, TCP socket and server-kernel
 checks. Lost original custody permanently refuses and closes only its own SQL
 child. It never reconnects, adopts a replacement, acquires a writer lease, closes
@@ -35,16 +44,20 @@ effect check remains, and the response deadline remains 240 seconds. Root closes
 its reader before acknowledgement, allowing the ordinary owner to independently
 check its original writer and staged output before recording completion.
 
-Thirteen portable grammar, framing and poison checks use explicit process,
+Twenty-one portable grammar, framing and poison checks use explicit process,
 kernel and observation stand-ins. They establish neither actual session custody
-nor staging performance. Actual original-reader client/backend-loss refusals,
+nor staging performance. They include one original query per pass, separate final
+and standalone reads, defensive copying, distinct reader objects, changed writer
+observations, malformed identity and original loss before return. Actual
+original-reader client/backend-loss refusals,
 the full production archive, runtime from staged output and all prior handoff
 checks remain required before this repair is verified. Complete installation,
 activation and recovery remain separate requirements.
 
-The hosted fixture profiles only fixed installed guard functions while serving
-the full stage. Its receipt includes bounded call counts and self/cumulative
-milliseconds, with fixed source basenames and numeric line numbers. It excludes
-arguments, locals, caller maps, arbitrary paths, SQL and exception messages.
-These counters locate remaining check cost; they grant no effect authority and
-do not change the payload, guards or deadlines.
+The hosted fixture times fifteen fixed installed methods while serving the full
+stage. Its receipt includes only bounded method names, call counts and overlapping
+cumulative milliseconds. It excludes arguments, locals, caller maps, arbitrary
+paths, SQL and exception messages. These diagnostic counters locate remaining
+check cost; they grant no effect authority and do not change the payload, guards
+or deadlines. Production deadline acceptance still requires an uninstrumented
+complete stage and subsequent runtime from its staged output.

@@ -20,6 +20,7 @@ from native_inventory import database_environment
 from native_kernel_backend import _capture_process, _check_scope, _stat
 from native_ownership_database import OBSERVATION_OPTIONS, ROOT_EXCLUSION_SQL, _socket_for_process
 from native_root_lifecycle import NativeRootLifecycleObservation
+from native_root_controller import _within_root_observation_pass
 from native_service_scope import read_bytes
 from resource_generations import canonical
 
@@ -168,11 +169,23 @@ class NativeRootDatabaseReader:
         except BaseException:
             self.close();raise RootDatabaseReaderRefused('Original read-only Root database observer lost') from None
 
+    @_within_root_observation_pass
+    def _stage_observation(self):
+        """One fixed reply per no-effect pass, never across effect boundaries."""
+        try:
+            value = self._exchange('exclusion')
+            require(type(value) is dict and set(value) == {'database','holders','clients'})
+            validate_database(value['database'],self.environment)
+            require(value['database'] == self.expected)
+            return value
+        except BaseException:
+            self.close();raise RootDatabaseReaderRefused('Original read-only Root database observer lost') from None
+
     def identity(self):
-        return self._exchange('identity')
+        return self._stage_observation()['database']
 
     def exclusion(self):
-        return canonical(self._exchange('exclusion'))
+        return canonical(self._stage_observation())
 
     def close(self):
         self.usable = False
