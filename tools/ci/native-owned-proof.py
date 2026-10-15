@@ -1362,6 +1362,82 @@ def root_stage_profile(profile):
     return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))
 
 
+STAGE_MEASUREMENT_TARGETS = (
+    ('native_root_artifact_dispatch','_ObservedArtifactStage','check'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_preflight_archive'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_check_archive_input'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_check_output'),
+    ('native_root_artifact_policy','NativeRootArtifactPolicyAllocation','check'),
+    ('native_root_database_exclusion','NativeRootDatabaseExclusionObservation','check'),
+    ('native_root_database_reader','NativeRootDatabaseReader','_base'),
+    ('native_root_database_reader','NativeRootDatabaseReader','_exchange'),
+    ('native_root_controller','NativeRootControllerObservation','_service'),
+    ('native_systemd_properties','ReadOnlySystemdProperties','_get_many'),
+    ('native_service_scope','_CapturedRootFiles','read'),
+    ('native_root_lifecycle','NativeRootLifecycleObservation','_current'),
+    ('native_root_live_binding','NativeRootLiveBindingObservation','_observe'),
+)
+
+
+def _timed_stage_method(original, counter):
+    """Forward the exact call/result/error; retain only count and elapsed time."""
+    def timed(*arguments, **keywords):
+        started = time.monotonic_ns()
+        try:return original(*arguments, **keywords)
+        finally:
+            counter['calls'] += 1
+            counter['elapsed_ns'] += max(0,time.monotonic_ns()-started)
+    return timed
+
+
+def stage_measurement_values(counters):
+    names = {'.'.join(target) for target in STAGE_MEASUREMENT_TARGETS}
+    require(type(counters) is dict and set(counters) == names)
+    rows = []
+    for name in sorted(names):
+        value = counters[name]
+        require(type(value) is dict and set(value) == {'calls','elapsed_ns'})
+        require(type(value['calls']) is int and 0 <= value['calls'] <= 10000000)
+        require(type(value['elapsed_ns']) is int and 0 <= value['elapsed_ns'] <= 1200000000000)
+        rows.append({'method':name,'calls':value['calls'],'cumulative_ms':value['elapsed_ns']//1000000})
+    return {'diagnostic_only':True,'overlapping_cumulative_times':True,'methods':rows}
+
+
+class RootStageMeasurements:
+    """Fixture-only fixed method timers, restored even on interrupted staging.
+
+    No profiler hooks, stack capture, argument inspection or return retention.
+    Timed results are diagnostic; an uninstrumented production run is still
+    required before accepting the unchanged production response deadline.
+    """
+    def __init__(self):
+        self.originals = []
+        self.counters = {'.'.join(target):{'calls':0,'elapsed_ns':0}
+            for target in STAGE_MEASUREMENT_TARGETS}
+
+    def __enter__(self):
+        try:
+            for module_name,class_name,method_name in STAGE_MEASUREMENT_TARGETS:
+                module = sys.modules[module_name]
+                require(Path(module.__file__).parent == MODULES)
+                owner = getattr(module,class_name)
+                original = owner.__dict__[method_name]
+                require(callable(original))
+                self.originals.append((owner,method_name,original))
+                setattr(owner,method_name,_timed_stage_method(original,
+                    self.counters['.'.join((module_name,class_name,method_name))]))
+            return self
+        except BaseException:
+            self.__exit__(None,None,None);raise
+
+    def __exit__(self, *_):
+        for owner,name,original in reversed(self.originals):setattr(owner,name,original)
+        self.originals.clear()
+
+    def values(self):
+        return stage_measurement_values(self.counters)
+
+
 def _run_successor_case(seed, config, password, database, server_scope, root_views):
     """Independent witness of actual protected same-controller handoffs."""
     run, seal = Path(seed['run']), Path(seed['seal_directory'])
@@ -1401,10 +1477,14 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         seed['proof_phase'] = 'original-root-read-only-observer-loss-checks'
         seed['root_reader_refusal_observation'] = root_reader_loss_checks(seed,database,server_scope)
         seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
-        # Acceptance measures the production call under its original deadline.
-        # Retain prior bounded profiles separately: whole-call tracing changes
-        # the cost of every nested guard and is not the installed runtime path.
-        served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
+        # Diagnose the current full payload without whole-call profiler hooks.
+        # Fixed method counters cannot justify production timing acceptance;
+        # retain their original guard behavior and the same response deadline.
+        measurements = RootStageMeasurements()
+        try:
+            with measurements:
+                served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
+        finally:seed['root_stage_measurements'] = measurements.values()
         if served['status'] == 'refused':
             elapsed = min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))
             seed['root_stage_refusal'] = root_stage_refusal(served,elapsed)
@@ -1836,6 +1916,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         **({'artifact_stage_observation':staged_artifact_observation,
             'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
         **({'root_stage_profile':seed['root_stage_profile']} if seed.get('root_stage_profile') is not None else {}),
+        **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2113,6 +2194,8 @@ def main(args):
                 receipt['failure']['root_reader_refusal_observation'] = seed['root_reader_refusal_observation']
             if seed.get('root_stage_profile') is not None:
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
+            if seed.get('root_stage_measurements') is not None:
+                receipt['failure']['root_stage_measurements'] = seed['root_stage_measurements']
             if seed.get('root_stage_refusal') is not None:
                 receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
             if seed.get('archive_member_metrics') is not None:

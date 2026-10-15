@@ -151,6 +151,58 @@ class BoundedProofTests(unittest.TestCase):
             with self.subTest(changed=changed):self.assertIsNone(proof.root_stage_refusal(changed,97000))
         self.assertIsNone(proof.root_stage_refusal(result,True))
 
+    def test_fixed_stage_timer_forwards_original_values_and_baseexception_identity(self):
+        result=object();calls=[];counter={'calls':0,'elapsed_ns':0}
+        failure=KeyboardInterrupt('synthetic-private-message')
+        def original(*arguments,**keywords):
+            calls.append((arguments,keywords))
+            if keywords.get('fail'):raise failure
+            return result
+        timed=proof._timed_stage_method(original,counter)
+        with patch.object(proof.time,'monotonic_ns',side_effect=[10,16,20,25]):
+            self.assertIs(timed('synthetic-private-argument',key=result),result)
+            with self.assertRaises(KeyboardInterrupt) as observed:timed(fail=True)
+        self.assertIs(observed.exception,failure)
+        self.assertEqual(calls,[(('synthetic-private-argument',),{'key':result}),((),{'fail':True})])
+        self.assertEqual(counter,{'calls':2,'elapsed_ns':11})
+
+    def test_stage_measurements_refuse_unknown_names_fields_types_and_unbounded_values(self):
+        counters={'.'.join(target):{'calls':0,'elapsed_ns':0} for target in proof.STAGE_MEASUREMENT_TARGETS}
+        result=proof.stage_measurement_values(counters)
+        self.assertEqual(len(result['methods']),13)
+        self.assertTrue(result['diagnostic_only']);self.assertTrue(result['overlapping_cumulative_times'])
+        name=next(iter(counters))
+        for changed in ({**counters,'synthetic-private-name':{'calls':1,'elapsed_ns':1}},
+                {**counters,name:{'calls':True,'elapsed_ns':0}},
+                {**counters,name:{'calls':10000001,'elapsed_ns':0}},
+                {**counters,name:{'calls':1,'elapsed_ns':1200000000001}},
+                {**counters,name:{'calls':1,'elapsed_ns':-1}},
+                {**counters,name:{'calls':1,'elapsed_ns':0,'argument':'synthetic-private-value'}}):
+            with self.subTest(changed=changed),self.assertRaises(ValueError):proof.stage_measurement_values(changed)
+        self.assertNotIn('synthetic-private',json.dumps(result))
+
+    def test_stage_timers_restore_original_methods_after_interruption_and_partial_install(self):
+        # Explicit method/module stand-ins; this does not execute a Root guard.
+        modules={};originals=[]
+        for module_name,class_name,method_name in proof.STAGE_MEASUREMENT_TARGETS:
+            module=modules.setdefault(module_name,SimpleNamespace(__file__=str(proof.MODULES/(module_name+'.py'))))
+            if not hasattr(module,class_name):setattr(module,class_name,type(class_name,(),{}))
+            owner=getattr(module,class_name)
+            def original(self):return self
+            setattr(owner,method_name,original);originals.append((owner,method_name,original))
+        with patch.dict(sys.modules,modules):
+            with self.assertRaises(KeyboardInterrupt):
+                with proof.RootStageMeasurements() as measurements:
+                    owner,name,original=originals[0];instance=owner()
+                    self.assertIs(getattr(instance,name)(),instance)
+                    raise KeyboardInterrupt()
+            for owner,name,original in originals:self.assertIs(owner.__dict__[name],original)
+            self.assertEqual(sum(row['calls'] for row in measurements.values()['methods']),1)
+            modules['native_root_database_reader'].__file__='/synthetic-private/foreign.py'
+            with self.assertRaises(ValueError):
+                with proof.RootStageMeasurements():self.fail('foreign module entered measurement scope')
+            for owner,name,original in originals:self.assertIs(owner.__dict__[name],original)
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',

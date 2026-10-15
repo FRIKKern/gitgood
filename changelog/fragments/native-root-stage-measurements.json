@@ -1,0 +1,9 @@
+{
+  "id": "native-root-stage-measurements",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Diagnose full hosted staging with fixed method counts and overlapping elapsed times, without profiler hooks or private inputs. Preserve original calls, results, errors, production modules, guards, payload and deadlines; restore all methods on interruption. Timed runs do not establish production deadline acceptance.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}
