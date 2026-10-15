@@ -101,3 +101,20 @@ and a replaced executable parent retaining every executable inode. Twenty fresh
 complete fingerprints record only count and elapsed time. Hosted execution of
 these cases and the complete uninstrumented staging/runtime proof remain
 required before performance or recovery acceptance.
+
+## Controller private directories
+
+The shared `private_directory` observation validates single-root POSIX spelling
+and freshly checks every ancestor and the leaf with `lstat`. That complete walk
+already rejects aliases, so a separate resolving walk is unnecessary. The leaf
+must still have the original caller-selected UID/GID and mode `0700`; every
+ancestor must remain a real Root-owned directory without group/other write.
+The original leaf identity and every parent identity, UID/GID and mode remain in
+the returned custody tuple. Nothing is reused across observations.
+
+Two portable spelling cases and twelve actual Root filesystem cases cover the
+complete output, leaf and ancestor aliases, traversal, owner/group/mode changes,
+replacement of the leaf, and replacement of an ancestor retaining the original
+leaf inode. Twenty fresh observations record only count and elapsed time.
+Controller admission, full production staging/runtime and recovery still require
+their existing evidence gates.
