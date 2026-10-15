@@ -10,6 +10,7 @@ from contextlib import ExitStack
 import ast
 import base64
 import ctypes
+import cProfile
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
@@ -1333,19 +1334,19 @@ def root_stage_profile(profile):
         'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
         'native_root_artifact_policy.py':{'allocate','check','_inspect'},
         'native_root_database_exclusion.py':{'check','_base','_query','_socket','_client'},
-        'native_root_database_reader.py':{'_base','_exchange','_client'},
+        'native_root_database_reader.py':{'_base','_exchange','_client','_configuration'},
         'native_root_live_binding.py':{'check','_observe','_current'},
-        'native_root_lifecycle.py':{'check','_snapshot','_current'},
+        'native_root_lifecycle.py':{'check','_snapshot','_current','_identity','_names','_file'},
         'native_root_controller.py':{'check','_service'},
         'native_service_scope.py':{'_observe_allocated_service','read_bytes','root_file',
-            'read','_fingerprint','process_identity','group_identity','members'},
+            'read','_fingerprint','_root_file_path','process_identity','group_identity','members'},
         'native_systemd_properties.py':{'unit_properties','_get_many'},
         'native_lifecycle_history.py':{'__init__','check','_check_files','_read'},
         'native_ownership_database.py':{'_socket_for_process'},
         'native_kernel_backend.py':{'_check_scope','_capture_process','_stat','_read'},
-        'native_durable_binding.py':{'configuration','_persistent_identity','read','private_file','directory'},
+        'native_durable_binding.py':{'configuration','_persistent_identity','read','private_file','directory','_canonical_private_path'},
         'native_backend_scope.py':{'check'},
-        'native_generation_lease_guard.py':{'persistent_fingerprint'},
+        'native_generation_lease_guard.py':{'persistent_fingerprint','_fingerprint_path'},
         'native_controller_scope.py':{'private_directory'},
     }
     rows = []
@@ -1358,8 +1359,36 @@ def root_stage_profile(profile):
         if not all(type(value) in {int,float} and 0 <= value <= 1200 for value in values):continue
         rows.append({'file':path.name,'function':function,'line':line,'calls':calls,
             'self_ms':int(total*1000),'cumulative_ms':int(cumulative*1000)})
-    require(len(rows) <= 64)
+    # Keep a deterministic hot subset when the fixed function set exceeds the
+    # output bound. No private frame, caller, argument or return data is kept.
+    rows = sorted(rows,key=lambda value:(-value['cumulative_ms'],-value['self_ms'],
+        value['file'],value['function'],value['line']))[:64]
     return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))
+
+
+class RootGuardSample:
+    """Profile only fixed read-only guard ten; never a whole stage or effect."""
+    def __init__(self):
+        self.calls = 0;self.profile = None;self.completed = False
+
+    def wrap(self, original):
+        def checked(*arguments, **keywords):
+            self.calls += 1
+            if self.calls != 10:
+                return original(*arguments, **keywords)
+            monitoring = getattr(sys,'monitoring',None)
+            if (sys.getprofile() is not None or (monitoring is not None
+                    and monitoring.get_tool(monitoring.PROFILER_ID) is not None)):
+                return original(*arguments, **keywords)
+            self.profile = cProfile.Profile()
+            try:return self.profile.runcall(original,*arguments,**keywords)
+            finally:self.completed = True
+        return checked
+
+    def values(self):
+        if not self.completed:return None
+        return {'diagnostic_only':True,'guard_number':10,'profiled_checks':1,
+            'rows':root_stage_profile(self.profile)}
 
 
 STAGE_MEASUREMENT_TARGETS = (
@@ -1408,12 +1437,13 @@ def stage_measurement_values(counters):
 class RootStageMeasurements:
     """Fixture-only fixed method timers, restored even on interrupted staging.
 
-    No profiler hooks, stack capture, argument inspection or return retention.
-    Timed results are diagnostic; an uninstrumented production run is still
-    required before accepting the unchanged production response deadline.
+    Aggregate timers never inspect arguments or retain results. One fixed
+    read-only guard is sampled separately; no profile spans a stage effect.
+    An uninstrumented full production run is required for deadline acceptance.
     """
     def __init__(self):
         self.originals = []
+        self.sample = RootGuardSample()
         self.counters = {'.'.join(target):{'calls':0,'elapsed_ns':0}
             for target in STAGE_MEASUREMENT_TARGETS}
 
@@ -1426,8 +1456,10 @@ class RootStageMeasurements:
                 original = owner.__dict__[method_name]
                 require(callable(original))
                 self.originals.append((owner,method_name,original))
-                setattr(owner,method_name,_timed_stage_method(original,
-                    self.counters['.'.join((module_name,class_name,method_name))]))
+                wrapped = _timed_stage_method(original,self.counters['.'.join((module_name,class_name,method_name))])
+                if (module_name,class_name,method_name) == STAGE_MEASUREMENT_TARGETS[0]:
+                    wrapped = self.sample.wrap(wrapped)
+                setattr(owner,method_name,wrapped)
             return self
         except BaseException:
             self.__exit__(None,None,None);raise
@@ -1479,14 +1511,17 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         seed['proof_phase'] = 'original-root-read-only-observer-loss-checks'
         seed['root_reader_refusal_observation'] = root_reader_loss_checks(seed,database,server_scope)
         seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
-        # Diagnose the current full payload without whole-call profiler hooks.
-        # Fixed method counters cannot justify production timing acceptance;
-        # retain their original guard behavior and the same response deadline.
+        # Aggregate method counters plus only fixed read-only guard ten; no
+        # profile spans the full stage or an effect. These diagnostics cannot
+        # justify production timing acceptance or change the response deadline.
         measurements = RootStageMeasurements()
         try:
             with measurements:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
-        finally:seed['root_stage_measurements'] = measurements.values()
+        finally:
+            seed['root_stage_measurements'] = measurements.values()
+            sample = measurements.sample.values()
+            if sample is not None:seed['root_guard_sample'] = sample
         if served['status'] == 'refused':
             elapsed = min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))
             seed['root_stage_refusal'] = root_stage_refusal(served,elapsed)
@@ -1919,6 +1954,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
             'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
         **({'root_stage_profile':seed['root_stage_profile']} if seed.get('root_stage_profile') is not None else {}),
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
+        **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2198,6 +2234,8 @@ def main(args):
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
             if seed.get('root_stage_measurements') is not None:
                 receipt['failure']['root_stage_measurements'] = seed['root_stage_measurements']
+            if seed.get('root_guard_sample') is not None:
+                receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
             if seed.get('root_stage_refusal') is not None:
                 receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
             if seed.get('archive_member_metrics') is not None:

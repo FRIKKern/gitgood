@@ -104,8 +104,17 @@ The hosted fixture can diagnose a stalled full stage with fifteen fixed method
 counters. They record only invocation counts and overlapping cumulative elapsed
 milliseconds for the guard, file, SQL, manager and extraction paths. Wrappers
 forward the original arguments, return value and exception and restore every
-original method on exit, including interruption or partial setup failure. No
-profiler hooks, stacks, paths, arguments, SQL or return values enter this output.
+original method on exit, including interruption or partial setup failure. These
+counters emit no stacks, paths, arguments, SQL or return values.
 The installed production modules, payload, guards and deadlines are unchanged.
-These timed runs are diagnostic; production deadline acceptance still requires
-an uninstrumented run of the complete stage and subsequent staged runtime.
+The fixture additionally profiles only invocation ten of the read-only staging
+guard. Every other guard and every effect runs outside that sample. An existing
+profiler is preserved without starting another; both legacy profiling and the
+CPython monitoring profiler slot are checked. Original arguments, results and
+exceptions are forwarded, and profiler state is restored even on interruption.
+Only a fixed installed file/function set, source line, call count and self or
+cumulative milliseconds can appear in at most 64 deterministic hot rows. No
+stack, caller, private path, argument, SQL, environment or return value is emitted.
+These instrumented runs are diagnostic; production deadline acceptance still
+requires an uninstrumented complete stage and subsequent staged runtime. Private
+acceptance rejects either aggregate timers or the guard sample.

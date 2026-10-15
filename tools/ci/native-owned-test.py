@@ -203,6 +203,60 @@ class BoundedProofTests(unittest.TestCase):
                 with proof.RootStageMeasurements():self.fail('foreign module entered measurement scope')
             for owner,name,original in originals:self.assertIs(owner.__dict__[name],original)
 
+    def test_fixed_guard_sample_profiles_only_tenth_call_and_forwards_original_values(self):
+        # Explicit callable stand-in; this does not execute an actual Root guard.
+        sample=proof.RootGuardSample();result=object();observed=[]
+        def original(*arguments,**keywords):
+            observed.append((arguments,keywords,sys.getprofile() is not None))
+            return result
+        wrapped=sample.wrap(original)
+        for number in range(12):self.assertIs(wrapped(number,key=result),result)
+        # cProfile may use sys.monitoring rather than sys.getprofile. Its actual
+        # recorded code count proves exactly one of these calls was sampled.
+        self.assertEqual(sum(entry.callcount for entry in sample.profile.getstats()
+            if entry.code is original.__code__),1)
+        self.assertEqual([(item[0],item[1]) for item in observed],[((number,),{'key':result}) for number in range(12)])
+        self.assertIsNone(sys.getprofile())
+        values=sample.values();self.assertEqual(set(values),{'diagnostic_only','guard_number','profiled_checks','rows'})
+        self.assertTrue(values['diagnostic_only']);self.assertEqual(values['guard_number'],10)
+        self.assertEqual(values['profiled_checks'],1);self.assertEqual(values['rows'],[])
+
+    def test_fixed_guard_sample_restores_profiler_and_preserves_baseexception_identity(self):
+        sample=proof.RootGuardSample();failure=KeyboardInterrupt('synthetic private message')
+        def original(*,fail=False):
+            if fail:raise failure
+            return 'unchanged'
+        wrapped=sample.wrap(original)
+        for _ in range(9):self.assertEqual(wrapped(),'unchanged')
+        with self.assertRaises(KeyboardInterrupt) as observed:wrapped(fail=True)
+        self.assertIs(observed.exception,failure);self.assertIsNone(sys.getprofile())
+        self.assertEqual(wrapped(),'unchanged');self.assertIsNone(sys.getprofile())
+        self.assertEqual(sum(entry.callcount for entry in sample.profile.getstats()
+            if entry.code is original.__code__),1)
+        self.assertEqual(sample.values()['profiled_checks'],1)
+
+    def test_fixed_guard_sample_preserves_existing_profiler_without_starting_another(self):
+        sample=proof.RootGuardSample();original=Mock(return_value='unchanged')
+        with patch.object(proof.sys,'getprofile',return_value=object()),patch.object(proof.cProfile,'Profile') as profile:
+            wrapped=sample.wrap(original)
+            for _ in range(12):self.assertEqual(wrapped(),'unchanged')
+            profile.assert_not_called()
+        self.assertEqual(original.call_count,12);self.assertIsNone(sample.values())
+        actual=proof.RootGuardSample();wrapped=actual.wrap(lambda:'unchanged')
+        outer=proof.cProfile.Profile()
+        self.assertEqual(outer.runcall(lambda:[wrapped() for _ in range(12)]),['unchanged']*12)
+        self.assertIsNone(actual.profile);self.assertIsNone(actual.values())
+
+    def test_stage_profile_keeps_only_bounded_deterministic_hot_closed_rows(self):
+        private={'private-password':('SQL and environment',)}
+        stats={('/opt/gitgood/native/v2/native_kernel_backend.py',line,'_read'):
+            (1,1,line/1000,line/500,private) for line in range(1,81)}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            observed=proof.root_stage_profile(Mock())
+        self.assertEqual(len(observed),64);self.assertEqual([row['line'] for row in observed],list(range(17,81)))
+        self.assertTrue(all(set(row)=={'file','function','line','calls','self_ms','cumulative_ms'} for row in observed))
+        self.assertNotIn('private',json.dumps(observed));self.assertNotIn('/opt',json.dumps(observed))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',
