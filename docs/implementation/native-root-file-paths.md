@@ -73,3 +73,31 @@ traversal, same-content replacement and restored-mtime edits. Twenty fresh
 private metadata/content pairs record only count and elapsed time. Hosted CI
 executes the exact seventeen-case module under Root. These checks do not
 establish full staging performance, runtime or recovery acceptance.
+
+## Persistent metadata fingerprints
+
+`persistent_fingerprint` still observes previously content-validated resources;
+it supplies no content validation, actor admission, database exclusion or effect
+authority. Each complete observation now checks canonical single-root POSIX
+spelling and freshly inspects the union of resource, machine-id and file
+ancestors as real directories. This replaces separate resolution walks for
+every path. No ancestor or returned metadata is cached across observations.
+
+All original resource/file identity, owner, mode, size, time, link-count and
+executable checks remain. The returned keys and four-field directory/eight-field
+file tuples remain exactly the same. Ancestors checked only for alias refusal,
+including a machine-id ancestor absent from the old output, do not become new
+fingerprint keys. Recorded parents retain the original ownership/mode checks
+and identity fields. Executable alias capture, full before/after fingerprints,
+original process/service/SQL/socket/history guards and every stage effect and
+deadline remain unchanged.
+
+Two portable cases use explicit POSIX grammar stand-ins. Twelve Root filesystem
+cases use synthetic ordinary-owned resources under a protected scratch parent;
+binding/content admission is an explicit stand-in. They verify the complete
+output shape, leaf and ancestor aliases retaining original inodes, parent
+traversal, same-content replacement, restored-mtime edits, owner/mode/link changes
+and a replaced executable parent retaining every executable inode. Twenty fresh
+complete fingerprints record only count and elapsed time. Hosted execution of
+these cases and the complete uninstrumented staging/runtime proof remain
+required before performance or recovery acceptance.

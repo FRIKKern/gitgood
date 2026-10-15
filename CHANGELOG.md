@@ -386,6 +386,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
   Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)
 
+- Inspect the union of persistent-resource ancestors once per fresh metadata fingerprint, preserving every returned key and original identity, owner, mode, time and link check. Reject path aliases directly without repeated resolution walks. Keep executable capture and all process, service, SQL, socket, history and stage gates; require actual filesystem and complete-stage evidence.
+  Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_generation_lease_guard.py), [details 3](tools/deployment/test_native_persistent_fingerprint.py), [details 4](.github/workflows/product.yml)
+
 - Validate private binding path spelling and every fresh real ancestor directly while preserving leaf owner, mode, descriptor, content and hash checks. Remove redundant fixed-root prefix resolution without changing executable aliases, original custody, stage guards, payload or deadline. Require exact hosted filesystem and full staging evidence.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_durable_binding.py), [details 3](tools/deployment/test_native_durable_binding.py), [details 4](.github/workflows/product.yml)
 

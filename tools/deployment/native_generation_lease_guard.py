@@ -19,35 +19,41 @@ class GenerationLeaseGuardRefused(Exception):
     pass
 
 
+def _fingerprint_path(raw):
+    path = Path(raw)
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts and '\0' not in str(path))
+    return path
+
+
 def persistent_fingerprint(binding):
     """Metadata of previously content-validated files; never observes a database."""
     uid = binding['account']['uid']
     resources = binding['resources']
     require(set(resources) == {'root', 'configuration', 'storage', 'ssh-host', 'history', 'staging'})
-    root = Path(resources['root']['path'])
+    root = _fingerprint_path(resources['root']['path'])
     require({p.name for p in root.iterdir()} == set(resources) - {'root'})
     require({p.name for p in (root/'configuration').iterdir()} == set(binding['configuration']))
     require({p.name for p in (root/'ssh-host').iterdir()} == set(binding['ssh_host_keys']))
-    result = {}
+    result = {};parents = set(root.parents);recorded_parents = set()
     for item in resources.values():
-        path = Path(item['path']); info = path.lstat()
-        require(path.resolve(strict=True) == path and stat.S_ISDIR(info.st_mode))
+        path = _fingerprint_path(item['path']); info = path.lstat()
+        require(stat.S_ISDIR(info.st_mode))
         require(info.st_uid == uid and stat.S_IMODE(info.st_mode) == 0o700)
         require((info.st_dev, info.st_ino, info.st_uid) == (item['device'], item['inode'], item['uid']))
         result[str(path)] = (info.st_dev, info.st_ino, info.st_uid, info.st_mode)
+        parents.update(path.parents)
     files = [(item, uid, False) for name in ['configuration', 'ssh_host_keys'] for item in binding[name].values()]
     files += [(item, 0, True) for item in binding['executables'].values()]
     files.append((binding['host']['os_release'], 0, False))
     # machine-id's content was checked in the full persistent observation.
-    machine = Path('/etc/machine-id'); info = machine.lstat()
-    require(machine.resolve(strict=True) == machine and stat.S_ISREG(info.st_mode))
+    machine = _fingerprint_path('/etc/machine-id'); info = machine.lstat()
+    require(stat.S_ISREG(info.st_mode));parents.update(machine.parents)
     require(info.st_uid == 0 and info.st_nlink == 1 and not info.st_mode & 0o022)
     result[str(machine)] = tuple(getattr(info, field) for field in
                                ['st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink'])
-    parents = set()
     for item, owner, executable in files:
-        path = Path(item['path']); info = path.lstat()
-        require(path.resolve(strict=True) == path and stat.S_ISREG(info.st_mode))
+        path = _fingerprint_path(item['path']); info = path.lstat()
+        require(stat.S_ISREG(info.st_mode))
         require(info.st_uid == owner and info.st_nlink == 1 and info.st_size == item['bytes'])
         require((info.st_dev, info.st_ino) == (item['device'], item['inode']))
         require(not info.st_mode & 0o022 if owner == 0 else stat.S_IMODE(info.st_mode) == 0o600)
@@ -55,12 +61,13 @@ def persistent_fingerprint(binding):
         result[str(path)] = tuple(getattr(info, field) for field in
                                  ['st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink'])
         parents.update(path.parents)
+        recorded_parents.update(path.parents)
     for parent in parents:
-        if parent in [root, *root.parents] or parent not in [root/'configuration', root/'ssh-host']:
-            value = parent.lstat()
-            # Every ancestor is inspected with lstat; file canonicalization and
-            # both full fingerprints also bracket these directory identities.
-            require(stat.S_ISDIR(value.st_mode))
+        value = parent.lstat();require(stat.S_ISDIR(value.st_mode))
+        if parent in recorded_parents and (parent in [root, *root.parents]
+                or parent not in [root/'configuration', root/'ssh-host']):
+            # Preserve exactly the original recorded fields. Other ancestors
+            # still require fresh real-directory checks to reject every alias.
             if parent == root:
                 require(value.st_uid == uid and stat.S_IMODE(value.st_mode) == 0o700)
             else:

@@ -1,0 +1,9 @@
+{
+  "id": "native-persistent-fingerprint-paths",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Inspect the union of persistent-resource ancestors once per fresh metadata fingerprint, preserving every returned key and original identity, owner, mode, time and link check. Reject path aliases directly without repeated resolution walks. Keep executable capture and all process, service, SQL, socket, history and stage gates; require actual filesystem and complete-stage evidence.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-file-paths.md", "tools/deployment/native_generation_lease_guard.py", "tools/deployment/test_native_persistent_fingerprint.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}
