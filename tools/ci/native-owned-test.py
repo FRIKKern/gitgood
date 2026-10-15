@@ -169,7 +169,7 @@ class BoundedProofTests(unittest.TestCase):
     def test_stage_measurements_refuse_unknown_names_fields_types_and_unbounded_values(self):
         counters={'.'.join(target):{'calls':0,'elapsed_ns':0} for target in proof.STAGE_MEASUREMENT_TARGETS}
         result=proof.stage_measurement_values(counters)
-        self.assertEqual(len(result['methods']),15)
+        self.assertEqual(len(result['methods']),17)
         self.assertTrue(result['diagnostic_only']);self.assertTrue(result['overlapping_cumulative_times'])
         name=next(iter(counters))
         for changed in ({**counters,'synthetic-private-name':{'calls':1,'elapsed_ns':1}},
@@ -202,6 +202,42 @@ class BoundedProofTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 with proof.RootStageMeasurements():self.fail('foreign module entered measurement scope')
             for owner,name,original in originals:self.assertIs(owner.__dict__[name],original)
+
+    def test_fixed_traversal_counters_forward_nested_calls_and_exclude_private_values(self):
+        # Explicit method/module stand-ins; no actual protected file effects.
+        modules={};originals=[];result=object();events=[];failure=KeyboardInterrupt()
+        for module_name,class_name,method_name in proof.STAGE_MEASUREMENT_TARGETS:
+            module=modules.setdefault(module_name,SimpleNamespace(__file__=str(proof.MODULES/(module_name+'.py'))))
+            if not hasattr(module,class_name):setattr(module,class_name,type(class_name,(),{}))
+            owner=getattr(module,class_name)
+            def original(self,*args,**kwargs):return self
+            setattr(owner,method_name,original)
+        stage=modules['native_protected_artifact'].NativeProtectedArtifactStage
+        def directory(self,name,*,fail=False):
+            events.append(('directory',name,fail))
+            if fail:raise failure
+            return result
+        def parent(self,name):
+            events.append(('parent',name))
+            return self._code_directory(name),name
+        stage._code_parent=parent;stage._code_directory=directory
+        for module_name,class_name,method_name in proof.STAGE_MEASUREMENT_TARGETS:
+            owner=getattr(modules[module_name],class_name)
+            originals.append((owner,method_name,owner.__dict__[method_name]))
+        with patch.dict(sys.modules,modules):
+            with proof.RootStageMeasurements() as measurements:
+                instance=stage()
+                self.assertEqual(instance._code_parent('synthetic-private/name'),(result,'synthetic-private/name'))
+                with self.assertRaises(KeyboardInterrupt) as observed:instance._code_directory('synthetic-private/other',fail=True)
+                self.assertIs(observed.exception,failure)
+            for owner,name,original in originals:self.assertIs(owner.__dict__[name],original)
+        self.assertEqual(events,[('parent','synthetic-private/name'),('directory','synthetic-private/name',False),
+            ('directory','synthetic-private/other',True)])
+        observed=measurements.values();rows={row['method']:row for row in observed['methods']}
+        self.assertEqual(rows['native_protected_artifact.NativeProtectedArtifactStage._code_parent']['calls'],1)
+        self.assertEqual(rows['native_protected_artifact.NativeProtectedArtifactStage._code_directory']['calls'],2)
+        self.assertEqual(sum(row['calls'] for row in rows.values()),3)
+        self.assertNotIn('synthetic-private',json.dumps(observed))
 
     def test_fixed_guard_sample_profiles_only_tenth_call_and_forwards_original_values(self):
         # Explicit callable stand-in; this does not execute an actual Root guard.

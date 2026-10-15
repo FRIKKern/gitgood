@@ -1405,6 +1405,8 @@ STAGE_MEASUREMENT_TARGETS = (
     ('native_protected_artifact','NativeProtectedArtifactStage','_preflight_archive'),
     ('native_protected_artifact','NativeProtectedArtifactStage','_check_archive_input'),
     ('native_protected_artifact','NativeProtectedArtifactStage','_check_output'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_code_parent'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_code_directory'),
     ('native_root_artifact_policy','NativeRootArtifactPolicyAllocation','check'),
     ('native_root_database_exclusion','NativeRootDatabaseExclusionObservation','check'),
     ('native_root_database_reader','NativeRootDatabaseReader','_base'),

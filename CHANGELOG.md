@@ -452,6 +452,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Retain bounded fixed-function timing counters for the file, configuration, kernel and socket primitives beneath hosted Root staging observations. Keep private paths, callers, arguments and values excluded; production guards, full archive payload and deadlines remain unchanged.
   Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
+- Add fixed traversal counters to hosted staging diagnostics so incomplete extraction can be distinguished from directory finalization without recording private paths or values.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Measure full hosted staging through the installed production call without whole-call tracing overhead. Preserve the complete archive, every original Root guard, fault case and response deadline. Retain prior bounded cost profiles as diagnostic evidence; full staging still requires exact current verification.
   Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/ci/native-owned-proof.py)
 

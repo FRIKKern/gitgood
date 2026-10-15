@@ -100,12 +100,15 @@ reviewed. Production provisioning/listener, interrupted-effect reconciliation,
 activation/enrollment and full reboot/replacement recovery remain required before
 J14/J15 acceptance or original VM retirement.
 
-The hosted fixture can diagnose a stalled full stage with fifteen fixed method
+The hosted fixture can diagnose a stalled full stage with seventeen fixed method
 counters. They record only invocation counts and overlapping cumulative elapsed
 milliseconds for the guard, file, SQL, manager and extraction paths. Wrappers
 forward the original arguments, return value and exception and restore every
 original method on exit, including interruption or partial setup failure. These
 counters emit no stacks, paths, arguments, SQL or return values.
+The fixed `_code_parent` and `_code_directory` counters distinguish archive entry
+traversal from later directory sealing using counts alone. They use the same
+forwarding wrapper and inspect no traversal names, descriptors or results.
 The installed production modules, payload, guards and deadlines are unchanged.
 The fixture additionally profiles only invocation ten of the read-only staging
 guard. Every other guard and every effect runs outside that sample. An existing
