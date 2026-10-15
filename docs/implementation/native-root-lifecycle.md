@@ -51,9 +51,14 @@ set and directory change times. Pinning must match the metadata captured during
 replay; interruption or any mismatch closes the owned view rather than adopting
 new files. Descriptor exhaustion refuses the observation.
 
-Every subsequent check compares the original opened and named objects and exact
+Standalone checks compare the original opened and named objects and exact
 entry sets before and after checking the live controller, Root policies and
-sealed inputs. Cached parsed history must still match its original canonical
+sealed inputs. During the dispatcher's existing private read-only pass,
+duplicate lifecycle-current and held-history custody checks share their one
+original observation. The separate final pass starts empty and checks those
+resources afresh before the next effect. No pass spans a write, metadata change
+or publication; closed views and failed passes cannot return retained success.
+Cached parsed history must still match its original canonical
 bytes. This avoids reopening and replaying an unchanged history for each nested
 staging guard. It does not skip an effect guard, take the ordinary history lock,
 reconnect a lost database reader, accept a same-byte replacement or permit later
@@ -75,7 +80,9 @@ same-byte replacement; their hosted execution remains required. The workflow
 also runs retained-history descriptor tests using actual ordinary-owned files
 and Root descriptors. Their small snapshot and scratch ancestor policy are
 explicit stand-ins: they establish filesystem change detection and cleanup,
-not complete lifecycle replay or stage authority. Full replay and the unchanged
+not complete lifecycle replay or stage authority. The sixteen retained-history
+cases include actual file-mode change and original descriptor loss between
+separate observation passes. Full replay and the unchanged
 production payload still require the installed hosted lifecycle/staging case.
 The workflow
 also installs the production module and constructs this view in lifecycle cases

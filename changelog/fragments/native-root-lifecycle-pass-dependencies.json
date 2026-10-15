@@ -1,0 +1,9 @@
+{
+  "id": "native-root-lifecycle-pass-dependencies",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Share duplicate private lifecycle-current and retained-history metadata observations only within each existing original Root read-only pass. Keep the separate final pass fresh, discard failed or closed views, and preserve every effect, writer, socket, SQL, payload and deadline gate. Require actual Root metadata/loss and full staging evidence.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-dispatch.md", "docs/implementation/native-root-lifecycle.md", "tools/deployment/native_root_lifecycle.py", "tools/deployment/test_native_root_lifecycle.py", "tools/deployment/test_native_root_observation_pass.py"],
+  "withdrawn": false
+}

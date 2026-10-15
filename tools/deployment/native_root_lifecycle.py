@@ -127,6 +127,7 @@ class _RootReadOnlyCustody(GenerationRecordCustody):
             return fd
         except BaseException:os.close(fd);raise
 
+    @_within_root_observation_pass
     def check(self):
         require(self.usable and root_owner() == self.owner)
         require(private_directory(self.root,self.uid,self.gid) == self.root_custody)
@@ -345,6 +346,7 @@ class NativeRootLifecycleObservation:
         self.root_files[path] = (maximum,before,identity,raw)
         return raw
 
+    @_within_root_observation_pass
     def _current(self):
         require(self.usable and root_owner() == self.owner and self.controller.check() == self.scope)
         for path,(maximum,original,identity,raw) in self.root_files.items():

@@ -19,7 +19,8 @@ Each staging guard uses two private read-only observation passes. The first
 validates allocation and the existing stager guard; the second starts with an
 empty result set and validates allocation again before returning permission for
 the next write. Repeated upstream controller, lifecycle, live-binding and request
-observations reuse their original view's result only within the same pass. No
+observations, plus private lifecycle-current and held-history custody checks,
+reuse their original view's result only within the same pass. No
 pass includes extraction, archive writes, metadata changes or publication, and
 no result survives a pass or effect boundary. Independent observers never share
 results; original-view loss poisons the pass, and interrupted passes discard all
@@ -32,6 +33,14 @@ exclusion in both passes. Standalone observer calls retain their previous full
 fresh behavior. The implementation accepts no caller-supplied result, callback,
 path or authority token. Full production staging and loss/refusal cases remain
 required on the exact hosted revision before this component can be accepted.
+
+Fourteen portable pass cases retain explicit identity/file/controller stand-ins.
+They include fresh standalone lifecycle-current reads, duplicate reads only in
+one pass, a changed original history in the separate final pass, and refusal to
+reuse or revive a closed view. Actual Root history tests also repeat retained
+metadata checks in a pass, then require fresh refusal after a file-mode change
+or original descriptor loss between passes. These cases do not replace the
+complete installed staging and subsequent runtime proof.
 
 After extraction, the result must bind the same installation, operation and
 candidate, identify actual staged Root-controlled code, and keep journey

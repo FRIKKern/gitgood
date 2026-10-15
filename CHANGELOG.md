@@ -395,6 +395,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Validate canonical Root file spelling without a duplicate resolving walk, while retaining fresh checks of every original ancestor and regular single-link leaf. Preserve original metadata, bounded no-follow content reads, permanent loss, all effect guards and deadlines; actual filesystem behavior and full staging require hosted verification.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_service_file_custody.py), [details 4](.github/workflows/product.yml)
 
+- Share duplicate private lifecycle-current and retained-history metadata observations only within each existing original Root read-only pass. Keep the separate final pass fresh, discard failed or closed views, and preserve every effect, writer, socket, SQL, payload and deadline gate. Require actual Root metadata/loss and full staging evidence.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](docs/implementation/native-root-lifecycle.md), [details 3](tools/deployment/native_root_lifecycle.py), [details 4](tools/deployment/test_native_root_lifecycle.py), [details 5](tools/deployment/test_native_root_observation_pass.py)
+
 - Preserve bounded source classifications for the local Root caller when an artifact refusal is successfully delivered. Keep the ordinary response minimal and omit private messages, paths and payloads. Hosted failure evidence adds aggregate archive sizes without changing staging guards, limits, deadlines or the full production payload.
   Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/deployment/native_root_artifact_dispatch.py), [details 3](tools/deployment/test_native_root_artifact_dispatch.py), [details 4](tools/ci/native-owned-proof.py), [details 5](tools/ci/native-owned-test.py)
 

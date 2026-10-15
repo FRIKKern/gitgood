@@ -308,6 +308,33 @@ class RootRetainedHistoryDescriptorTest(unittest.TestCase):
             with self.assertRaises(OSError):os.fstat(fd)
         self.assertTrue(all(path.exists() for path in self.paths))
 
+    def test_separate_final_pass_rechecks_actual_file_metadata_after_duplicate_reads(self):
+        from native_root_controller import _RootObservationPass
+        self.pin();original_fstat=os.fstat
+        with patch('native_root_lifecycle.os.fstat',wraps=original_fstat) as observed:
+            with _RootObservationPass():
+                self.value.check();first=observed.call_count
+                self.assertGreater(first,0)
+                self.value.check();self.assertEqual(observed.call_count,first)
+            self.paths[3].chmod(0o400)
+            with self.assertRaises(RootLifecycleRefused):
+                with _RootObservationPass():self.value.check()
+            self.assertGreater(observed.call_count,first)
+        self.assertTrue(all(path.exists() for path in self.paths))
+
+    def test_original_descriptor_loss_in_next_pass_poisons_public_view_without_adoption(self):
+        from native_root_controller import _RootObservationPass
+        self.pin();public=RootOriginalViewTest().view();public.owner=self.value.owner
+        public.history=SimpleNamespace(custody=self.value,close=self.value.__exit__)
+        with _RootObservationPass():public.check();public.check()
+        descriptors=list(self.value.retained.values());os.close(descriptors[0])
+        with self.assertRaises(RootLifecycleRefused):
+            with _RootObservationPass():public.check()
+        self.assertFalse(public.usable);self.assertFalse(self.value.usable)
+        for fd in descriptors:
+            with self.assertRaises(OSError):os.fstat(fd)
+        self.assertTrue(all(path.exists() for path in self.paths))
+
 
 @unittest.skipUnless(sys.platform == 'linux' and os.getuid() == 0,'Actual isolated Root input descriptors')
 class RootPrivateInputDescriptorTest(unittest.TestCase):

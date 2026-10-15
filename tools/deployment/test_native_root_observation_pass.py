@@ -1,12 +1,15 @@
 """Read-only composition tests with explicit Root/observer stand-ins."""
 import os
+from pathlib import Path
 import threading
 import unittest
 from contextlib import ExitStack
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from native_root_controller import (RootControllerRefused,_RootObservationPass,
     _within_root_observation_pass)
+import native_root_lifecycle as lifecycle
+from resource_generations import canonical
 
 
 class _Observer:
@@ -103,3 +106,59 @@ class RootObservationPassTest(unittest.TestCase):
             with _RootObservationPass() as current:
                 for value in observers:value.check()
         self.assertEqual(current.values,{});self.assertFalse(current.active)
+
+
+class LifecycleCurrentPassTest(unittest.TestCase):
+    """Actual composition method with explicit file/input/controller stand-ins."""
+    setUp = RootObservationPassTest.setUp
+
+    def view(self):
+        value=lifecycle.NativeRootLifecycleObservation.__new__(lifecycle.NativeRootLifecycleObservation)
+        value.usable=True;value.owner=(os.getpid(),threading.get_ident())
+        value.scope={'fixture':'original service'};value.controller=Mock()
+        value.controller.check.return_value=value.scope
+        value.seal_directory=Path('/fixed/seals');value.operation='fixed-operation'
+        value.generation_seal={'fixture':'generation'};value.worker={'fixture':'worker'}
+        value.operation_seal={'fixture':'operation'}
+        value.root_files={value.seal_directory/name:(4096,'metadata','identity',canonical(raw))
+            for name,raw in [('generation-admission-v2.json',value.generation_seal),
+                ('lifecycle-worker-admission-v2.json',value.worker),
+                ('operations/fixed-operation.json',value.operation_seal)]}
+        value.inputs=Mock();value.inputs.check.return_value={'request.json':b'fixture'}
+        value.request={'fixture':'request'};value.history=Mock()
+        self.stack.enter_context(patch.object(lifecycle._CapturedRootFiles,'_fingerprint',return_value='metadata'))
+        self.stack.enter_context(patch.object(lifecycle,'root_file',side_effect=lambda path,maximum:
+            (value.root_files[path][2],value.root_files[path][3])))
+        self.stack.enter_context(patch.object(lifecycle,'parse_request',return_value=value.request))
+        return value
+
+    def test_standalone_current_checks_still_read_every_original_dependency(self):
+        value=self.view();value._current();value._current()
+        self.assertEqual(value.controller.check.call_count,2)
+        self.assertEqual(value.inputs.check.call_count,2)
+        self.assertEqual(value.history.custody.check.call_count,2)
+
+    def test_duplicate_current_reads_share_only_the_same_original_no_effect_pass(self):
+        value=self.view()
+        for _ in range(2):
+            with _RootObservationPass():value._current();value._current()
+        self.assertEqual(value.controller.check.call_count,2)
+        self.assertEqual(value.inputs.check.call_count,2)
+        self.assertEqual(value.history.custody.check.call_count,2)
+
+    def test_changed_original_history_is_checked_again_in_the_separate_final_pass(self):
+        value=self.view()
+        with _RootObservationPass():value._current();value._current()
+        value.history.custody.check.side_effect=lifecycle.RootLifecycleRefused('Fixture original lost')
+        with self.assertRaises(lifecycle.RootLifecycleRefused):
+            with _RootObservationPass():value._current()
+        self.assertEqual(value.history.custody.check.call_count,2)
+
+    def test_closed_current_view_cannot_return_or_revive_shared_success(self):
+        value=self.view()
+        with self.assertRaises(RootControllerRefused):
+            with _RootObservationPass():
+                value._current();value.usable=False
+                with self.assertRaises(lifecycle.RootLifecycleRefused):value._current()
+                value.usable=True;value._current()
+        self.assertEqual(value.history.custody.check.call_count,1)
