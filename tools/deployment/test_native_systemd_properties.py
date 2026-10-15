@@ -1,7 +1,10 @@
 import ctypes
+import os
 from pathlib import Path
+import sys
+import time
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from native_systemd_properties import BusRefused, ReadOnlySystemdProperties
 
@@ -136,6 +139,41 @@ class SystemdPropertiesTest(unittest.TestCase):
         self.assertEqual(signatures['DelegateControllers'], 'as')
         self.assertEqual(signatures['DropInPaths'], 'as')
 
+    def test_root_interface_snapshots_keep_fixed_schema_and_two_fresh_replies(self):
+        subject=self.subject();subject._get_all=Mock(side_effect=lambda path,interface,fields:{name:'observed' for name in fields})
+        subject._get_many=Mock()
+        unit='gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
+        with patch.multiple(os,getuid=Mock(return_value=0),geteuid=Mock(return_value=0),
+                getgid=Mock(return_value=0),getegid=Mock(return_value=0),create=True):
+            first=subject.unit_properties(unit,_interface_snapshots=True)
+            self.assertEqual(subject.unit_properties(unit,_interface_snapshots=True),first)
+        self.assertEqual(len(first),15);self.assertEqual(subject._get_all.call_count,4)
+        subject._get_many.assert_not_called()
+        expected_path='/org/freedesktop/systemd1/unit/'+unit.replace('-','_2d').replace('.','_2e')
+        for call in subject._get_all.call_args_list:self.assertEqual(call.args[0],expected_path)
+        self.assertEqual([call.args[1] for call in subject._get_all.call_args_list],
+            ['org.freedesktop.systemd1.Unit','org.freedesktop.systemd1.Service']*2)
+        signatures={name:kind for call in subject._get_all.call_args_list for name,kind in call.args[2].items()}
+        self.assertEqual(signatures['MainPID'],'u');self.assertEqual(signatures['Delegate'],'b')
+        self.assertEqual(signatures['DropInPaths'],'as');self.assertEqual(signatures['DelegateControllers'],'as')
+
+    def test_root_interface_second_refusal_never_returns_first_result_or_reconnects(self):
+        subject=self.subject();subject._get_all=Mock(side_effect=[{'Id':'synthetic'},BusRefused('synthetic')])
+        unit='gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
+        with patch.multiple(os,getuid=Mock(return_value=0),geteuid=Mock(return_value=0),
+                getgid=Mock(return_value=0),getegid=Mock(return_value=0),create=True):
+            with self.assertRaises(BusRefused):subject.unit_properties(unit,_interface_snapshots=True)
+        self.assertEqual(subject._get_all.call_count,2);self.assert_lost(subject)
+
+    def test_interface_mode_refuses_nonroot_and_non_boolean_before_any_reply(self):
+        unit='gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
+        for mode in (True,1,'yes'):
+            subject=self.subject();subject._get_all=Mock()
+            with patch.multiple(os,getuid=Mock(return_value=1000),geteuid=Mock(return_value=1000),
+                    getgid=Mock(return_value=1000),getegid=Mock(return_value=1000),create=True):
+                with self.assertRaises(BusRefused):subject.unit_properties(unit,_interface_snapshots=mode)
+            subject._get_all.assert_not_called();self.assert_lost(subject)
+
     def test_selected_batch_reads_live_values_and_brackets_the_whole_result(self):
         subject=self.subject()
         properties=[('fixed','First','s'),('fixed','Second','s')]
@@ -225,6 +263,36 @@ class SystemdPropertiesTest(unittest.TestCase):
         with self.assertRaises(BusRefused): subject._get_all('/fixed', 'fixed', {'MainPID': 'u'})
         self.assertEqual(subject.library.sd_bus_message_skip.call_count, 512)
         self.assert_lost(subject)
+
+
+@unittest.skipUnless(sys.platform=='linux' and getattr(os,'getuid',lambda:1)()==0,
+    'actual Root system bus and Ubuntu systemd fixture')
+class ActualSystemdInterfaceTest(unittest.TestCase):
+    path='/org/freedesktop/systemd1/unit/dbus_2eservice'
+    fields=(
+        ('org.freedesktop.systemd1.Unit',{'Id':'s','LoadState':'s','ActiveState':'s','SubState':'s','FragmentPath':'s','DropInPaths':'as'}),
+        ('org.freedesktop.systemd1.Service',{'User':'s','Group':'s','MainPID':'u','ControlGroup':'s','Delegate':'b','DelegateSubgroup':'s','DelegateControllers':'as','KillMode':'s','Restart':'s'}),
+    )
+
+    def test_actual_fresh_interface_pairs_match_selected_typed_properties(self):
+        subject=ReadOnlySystemdProperties();self.addCleanup(subject.close)
+        selected=[(interface,name,signature) for interface,fields in self.fields for name,signature in fields.items()]
+        expected=subject._get_many(self.path,selected)
+        started=time.monotonic()
+        for _ in range(20):
+            observed={name:value for interface,fields in self.fields
+                for name,value in subject._get_all(self.path,interface,fields).items()}
+            self.assertEqual(observed,expected)
+        print('actual_systemd_interface_pairs=20 elapsed_ms='+str(int((time.monotonic()-started)*1000)))
+        self.assertEqual(subject._get_many(self.path,selected),expected)
+
+    def test_actual_missing_and_wrong_variant_refuse_without_reconnection(self):
+        for fields in ({'GitgoodMissingFixtureProperty':'s'},{'MainPID':'s'}):
+            subject=ReadOnlySystemdProperties();self.addCleanup(subject.close)
+            with self.subTest(fields=fields),self.assertRaises(BusRefused):
+                subject._get_all(self.path,'org.freedesktop.systemd1.Service',fields)
+            self.assertFalse(subject.usable);self.assertFalse(subject.files.usable)
+            with self.assertRaises(BusRefused):subject.manager_version()
 
 
 if __name__ == '__main__':

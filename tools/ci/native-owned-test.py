@@ -169,7 +169,7 @@ class BoundedProofTests(unittest.TestCase):
     def test_stage_measurements_refuse_unknown_names_fields_types_and_unbounded_values(self):
         counters={'.'.join(target):{'calls':0,'elapsed_ns':0} for target in proof.STAGE_MEASUREMENT_TARGETS}
         result=proof.stage_measurement_values(counters)
-        self.assertEqual(len(result['methods']),13)
+        self.assertEqual(len(result['methods']),14)
         self.assertTrue(result['diagnostic_only']);self.assertTrue(result['overlapping_cumulative_times'])
         name=next(iter(counters))
         for changed in ({**counters,'synthetic-private-name':{'calls':1,'elapsed_ns':1}},

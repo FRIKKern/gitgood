@@ -401,6 +401,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Diagnose full hosted staging with fixed method counts and overlapping elapsed times, without profiler hooks or private inputs. Preserve original calls, results, errors, production modules, guards, payload and deadlines; restore all methods on interruption. Timed runs do not establish production deadline acceptance.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
+- Read the fixed Root staging unit fields in two fresh typed interface replies while ordinary-user observations retain selected reads. Preserve required fields, original library and service custody, before/after observations, permanent refusal and deadlines. Actual Linux interface comparisons and full staging remain subject to hosted verification.
+  Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py), [details 3](tools/deployment/native_service_scope.py), [details 4](tools/deployment/test_native_systemd_properties.py), [details 5](.github/workflows/product.yml)
+
 - Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py)
 

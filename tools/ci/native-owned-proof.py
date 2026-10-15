@@ -1373,6 +1373,7 @@ STAGE_MEASUREMENT_TARGETS = (
     ('native_root_database_reader','NativeRootDatabaseReader','_exchange'),
     ('native_root_controller','NativeRootControllerObservation','_service'),
     ('native_systemd_properties','ReadOnlySystemdProperties','_get_many'),
+    ('native_systemd_properties','ReadOnlySystemdProperties','_get_all'),
     ('native_service_scope','_CapturedRootFiles','read'),
     ('native_root_lifecycle','NativeRootLifecycleObservation','_current'),
     ('native_root_live_binding','NativeRootLiveBindingObservation','_observe'),

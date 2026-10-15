@@ -51,3 +51,25 @@ A later passive BEAM receive trace retained an ownership-deadline expiry after
 being repaired by sharing its completed observation bracket with its immediate
 acknowledgement. The selected D-Bus reader and all freshness/resource limits are
 unchanged. This trace is separate from a passing installed ownership proof.
+
+## Root staging observations
+
+The fixed Root service observer selects two fresh interface replies for each
+unit observation, using the same fifteen required Unit and Service fields.
+Ordinary-user observations keep the selected-property path above. Manager
+version stays a separate live read, and both complete unit observations still
+bracket the original process, group, policy and file checks. No reply is cached.
+
+The existing bounded dictionary decoder requires exact required variant types,
+unique names, all required fields, complete framing and unchanged original
+library custody. Other properties are skipped without becoming authority. A
+missing or inaccessible required field still refuses, as the
+[D-Bus property contract](https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-properties)
+allows inaccessible fields to be omitted. A failed second interface cannot
+return the first one's partial result or reconnect the original reader.
+
+Hosted Root checks compare twenty actual Unit/Service reply pairs with selected
+typed reads of the existing system-bus unit, then exercise missing fields and
+wrong variants without changing that unit. Current Linux behavior and full-stage
+timing require exact hosted evidence. Fixed diagnostic timers remain separate
+from the later uninstrumented complete-stage acceptance run.
