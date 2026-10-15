@@ -2,9 +2,13 @@
 import ctypes
 import os
 from pathlib import Path
+import threading
+import time
 import uuid
 
 from native_service_scope import ServiceRefused, _CapturedRootFiles
+
+_MESSAGE_HANDLER = ctypes.CFUNCTYPE(ctypes.c_int,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p)
 
 class BusRefused(ServiceRefused):
     pass
@@ -29,6 +33,15 @@ class ReadOnlySystemdProperties:
             'sd_bus_start':([pointer],ctypes.c_int),
             'sd_bus_get_property':([pointer,string,string,string,string,pointer,ctypes.POINTER(pointer),string],ctypes.c_int),
             'sd_bus_call_method':([pointer,string,string,string,string,pointer,ctypes.POINTER(pointer),string],ctypes.c_int),
+            'sd_bus_message_new_method_call':([pointer,ctypes.POINTER(pointer),string,string,string,string],ctypes.c_int),
+            'sd_bus_message_append_basic':([pointer,ctypes.c_char,pointer],ctypes.c_int),
+            'sd_bus_call_async':([pointer,ctypes.POINTER(pointer),pointer,_MESSAGE_HANDLER,pointer,ctypes.c_uint64],ctypes.c_int),
+            'sd_bus_process':([pointer,ctypes.POINTER(pointer)],ctypes.c_int),
+            'sd_bus_wait':([pointer,ctypes.c_uint64],ctypes.c_int),
+            'sd_bus_get_current_slot':([pointer],pointer),
+            'sd_bus_slot_unref':([pointer],pointer),
+            'sd_bus_message_is_method_error':([pointer,string],ctypes.c_int),
+            'sd_bus_message_has_signature':([pointer,string],ctypes.c_int),
             'sd_bus_message_read_basic':([pointer,ctypes.c_char,pointer],ctypes.c_int),
             'sd_bus_message_enter_container':([pointer,ctypes.c_char,string],ctypes.c_int),
             'sd_bus_message_exit_container':([pointer],ctypes.c_int),
@@ -77,31 +90,108 @@ class ReadOnlySystemdProperties:
         try:
             require(self.usable and signature in ['s','u','b','as'])
             require(self.library.sd_bus_get_property(self.bus,b'org.freedesktop.systemd1',path.encode(),interface.encode(),name.encode(),None,ctypes.byref(message),signature.encode())==0)
-            if signature=='s': result=self._string(message)
-            elif signature in ['u','b']:
-                value=ctypes.c_uint32() if signature=='u' else ctypes.c_int()
-                require(self.library.sd_bus_message_read_basic(message,signature.encode(),ctypes.byref(value))==1)
-                if signature=='b': require(value.value in [0,1])
-                result=str(value.value) if signature=='u' else ('yes' if value.value else 'no')
-            else:
-                require(self.library.sd_bus_message_enter_container(message,b'a',b's')==1)
-                values=[]
-                while self.library.sd_bus_message_at_end(message,0)==0:
-                    require(len(values)<32);values.append(self._string(message))
-                require(self.library.sd_bus_message_exit_container(message)>=0)
-                result=' '.join(values)
-            require(self.library.sd_bus_message_at_end(message,0)==1)
-            return result
+            return self._read_value(message,signature)
         except BaseException:
             self.close();raise
         finally:
             if message: self.library.sd_bus_message_unref(message)
 
+    def _read_value(self,message,signature):
+        if signature=='s': result=self._string(message)
+        elif signature in ['u','b']:
+            value=ctypes.c_uint32() if signature=='u' else ctypes.c_int()
+            require(self.library.sd_bus_message_read_basic(message,signature.encode(),ctypes.byref(value))==1)
+            if signature=='b': require(value.value in [0,1])
+            result=str(value.value) if signature=='u' else ('yes' if value.value else 'no')
+        else:
+            require(signature=='as')
+            require(self.library.sd_bus_message_enter_container(message,b'a',b's')==1)
+            values=[]
+            while self.library.sd_bus_message_at_end(message,0)==0:
+                require(len(values)<32);values.append(self._string(message))
+            require(self.library.sd_bus_message_exit_container(message)>=0)
+            result=' '.join(values)
+        require(self.library.sd_bus_message_at_end(message,0)==1)
+        return result
+
     def manager_version(self):
         return self._get('/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','Version','s')
 
     def _get_many(self,path,properties):
-        """Read selected live properties; publish nothing until the batch closes."""
+        """Queue only selected Get calls; publish no partial or retained result."""
+        try:
+            require(self.usable and type(path) is str and path.startswith('/') and len(path)<=1024 and '\0' not in path)
+            require(type(properties) is list and 0<len(properties)<=32)
+            require(all(type(item) is tuple and len(item)==3 for item in properties))
+            require(all(type(interface) is str and type(name) is str and signature in ['s','u','b','as']
+                and 0<len(interface)<=256 and 0<len(name)<=256 and '\0' not in interface+name
+                for interface,name,signature in properties))
+            require(len({name for _,name,_ in properties})==len(properties))
+            properties=tuple(properties)
+            require(self.files.read(self.path)[0]==self.original)
+            result=self._read_selected(path,properties)
+            require(self.files.read(self.path)[0]==self.original)
+            return result
+        except BaseException:
+            self.close();raise
+
+    def _read_selected(self,path,properties):
+        require(not getattr(self,'_selected_active',False))
+        self._selected_active=True
+        owner=(os.getpid(),threading.get_ident());slots=[];result={};failed=False
+        deadline=time.monotonic()+5
+        @_MESSAGE_HANDLER
+        def completed(message,userdata,_error):
+            nonlocal failed
+            try:
+                require(not failed and self.usable and owner==(os.getpid(),threading.get_ident()))
+                require(type(userdata) is int and 1<=userdata<=len(slots))
+                index=userdata-1;_,name,signature=properties[index]
+                require(name not in result and slots[index].value
+                    and self.library.sd_bus_get_current_slot(self.bus)==slots[index].value)
+                require(self.library.sd_bus_message_is_method_error(message,None)==0)
+                require(self.library.sd_bus_message_has_signature(message,b'v')==1)
+                require(self.library.sd_bus_message_enter_container(message,b'v',signature.encode())==1)
+                value=self._read_value(message,signature)
+                require(self.library.sd_bus_message_exit_container(message)>=0)
+                require(self.library.sd_bus_message_at_end(message,0)==1)
+                result[name]=value
+            except BaseException:
+                # Never allow a Python exception to escape a native callback.
+                failed=True
+            return 1
+        try:
+            for index,(interface,name,_) in enumerate(properties):
+                require(time.monotonic()<deadline)
+                message=ctypes.c_void_p();slot=ctypes.c_void_p();slots.append(slot)
+                try:
+                    require(self.library.sd_bus_message_new_method_call(self.bus,ctypes.byref(message),
+                        b'org.freedesktop.systemd1',path.encode(),b'org.freedesktop.DBus.Properties',b'Get')>=0)
+                    for value in (interface,name):
+                        require(self.library.sd_bus_message_append_basic(message,b's',ctypes.c_char_p(value.encode()))>=0)
+                    require(self.library.sd_bus_call_async(self.bus,ctypes.byref(slot),message,completed,
+                        ctypes.c_void_p(index+1),5_000_000)>=0 and slot.value)
+                finally:
+                    if message:self.library.sd_bus_message_unref(message)
+            processed=0
+            while len(result)<len(properties):
+                require(not failed and owner==(os.getpid(),threading.get_ident()) and time.monotonic()<deadline)
+                processed+=1;require(processed<=4096)
+                status=self.library.sd_bus_process(self.bus,None);require(status>=0)
+                if status==0:
+                    remaining=deadline-time.monotonic();require(remaining>0)
+                    require(self.library.sd_bus_wait(self.bus,max(1,int(remaining*1000000)))>=0)
+            require(not failed and set(result)=={name for _,name,_ in properties})
+            return result
+        finally:
+            # Slots own their pending calls. Keep the callback alive until all
+            # slots are cancelled; callback reply messages are borrowed only.
+            for slot in reversed(slots):
+                if slot:self.library.sd_bus_slot_unref(slot)
+            self._selected_active=False
+
+    def _get_many_serial(self,path,properties):
+        """Retained serial reference for actual typed-reply comparison tests."""
         try:
             require(self.usable and type(properties) is list and 0<len(properties)<=32)
             require(all(type(item) is tuple and len(item)==3 for item in properties))

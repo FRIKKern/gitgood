@@ -392,6 +392,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Deliver original private lifecycle inputs once through the attached generation monitor, with fixed action, ownership/stage binding, bounded deadlines, independent BEAM validation and credential-redacted OTP status. Add an installed private-input exercise with synthetic payloads; actual business effects and complete native startup/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-business-inputs.md), [details 2](docs/implementation/native-hosted-ownership.md), [details 3](tools/deployment/native_monitor_business_inputs.py), [details 4](apps/forge/lib/gitgood/native_lifecycle_business_inputs.ex)
 
+- Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.
+  Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py), [details 3](tools/deployment/test_native_systemd_properties.py)
+
 - Validate canonical Root file spelling without a duplicate resolving walk, while retaining fresh checks of every original ancestor and regular single-link leaf. Preserve original metadata, bounded no-follow content reads, permanent loss, all effect guards and deadlines; actual filesystem behavior and full staging require hosted verification.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_service_file_custody.py), [details 4](.github/workflows/product.yml)
 

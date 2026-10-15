@@ -1,0 +1,9 @@
+{
+  "id": "native-queued-systemd-properties",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-selected-systemd-properties.md", "tools/deployment/native_systemd_properties.py", "tools/deployment/test_native_systemd_properties.py"],
+  "withdrawn": false
+}
