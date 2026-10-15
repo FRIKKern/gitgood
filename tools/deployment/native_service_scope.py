@@ -194,10 +194,21 @@ def parse_properties(raw):
     return result
 
 
-def process_security(status, gid):
+def _process_status_fields(status):
+    """Parse one fresh status read; retain duplicates for the original checks."""
+    names = {'Uid', 'Gid', 'Groups', 'CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb', 'NoNewPrivs'}
+    fields = {}
+    for line in status.splitlines():
+        name, separator, value = line.partition(':')
+        if separator and name in names:
+            fields.setdefault(name, []).append(value.split())
+    return fields
+
+
+def _process_security_fields(fields, gid):
     require(type(gid) is int and 0 < gid < 2**32)
     def field(name):
-        values = [line.partition(":")[2].split() for line in status.splitlines() if line.startswith(name + ":")]
+        values = fields.get(name, [])
         require(len(values) == 1)
         return values[0]
     require(field("Gid") == [str(gid)] * 4)
@@ -211,6 +222,11 @@ def process_security(status, gid):
             "capabilities": {name: 0 for name in capabilities}, "no_new_privileges": True}
 
 
+def process_security(status, gid):
+    require(type(gid) is int and 0 < gid < 2**32)
+    return _process_security_fields(_process_status_fields(status), gid)
+
+
 def process_identity(pid, uid, gid, group):
     require(type(pid) is int and 0 < pid < 2147483648)
     path = Path("/proc") / str(pid)
@@ -218,13 +234,14 @@ def process_identity(pid, uid, gid, group):
     parts = raw[raw.rfind(")") + 2:].split()
     require(len(parts) >= 20 and parts[0] not in {"Z", "X"} and path.stat().st_uid == uid)
     status = read_bytes(path / "status").decode("ascii")
+    fields = _process_status_fields(status)
     for field in ("Uid", "Gid"):
-        values = [line.partition(":")[2].split() for line in status.splitlines() if line.startswith(field + ":")]
+        values = fields.get(field, [])
         require(len(values) == 1 and len(values[0]) == 4 and len(set(values[0])) == 1)
         if field == "Uid":
             require(values[0][0] == str(uid))
     require(read_bytes(path / "cgroup").decode("ascii").splitlines() == ["0::" + group])
-    return {"pid": pid, "birth": parts[19], "uid": uid, "security": process_security(status, gid),
+    return {"pid": pid, "birth": parts[19], "uid": uid, "security": _process_security_fields(fields, gid),
             "mount_namespace": os.readlink(path / "ns/mnt"),
             "cgroup_namespace": os.readlink(path / "ns/cgroup")}
 

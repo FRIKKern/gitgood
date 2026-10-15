@@ -401,6 +401,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Avoid a repeated private controller-directory resolution walk while retaining fresh ancestor checks and the complete original custody metadata. Require actual Root alias and replacement cases plus the existing complete staging and recovery gates.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_controller_scope.py), [details 3](tools/deployment/test_native_private_directory.py), [details 4](.github/workflows/product.yml)
 
+- Parse each freshly observed process status once while preserving duplicate-field, UID/GID, group, capability and namespace checks. Keep all process and effect observations fresh.
+  Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_process_status.py), [details 4](.github/workflows/product.yml)
+
 - Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py), [details 3](tools/deployment/test_native_systemd_properties.py)
 

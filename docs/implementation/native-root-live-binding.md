@@ -48,6 +48,23 @@ cannot select another path or identity. Both fingerprints around every live
 observation and the independent final Root observation pass remain required.
 Standalone `persistent_fingerprint` callers construct a fresh plan per call.
 
+Each process identity observation reads its original status text freshly and
+parses the required fields once. The same parsed values feed UID/GID and
+privilege checks; duplicates remain visible and refuse. Four matching credential
+values, the expected UID/GID, bounded supplementary groups, all five empty
+capability sets and enabled `NoNewPrivs` remain required. Unknown fields retain
+their original ignored semantics. Process birth/state, cgroup and namespace
+reads remain fresh and in their original order; no status or identity result is
+cached between observations.
+
+Eight portable parser cases check the original result shape, duplicate and
+missing fields, ignored unknown fields, credential/group/capability predicates,
+fresh reads and refusal order. Three hosted Linux Root cases use only owned
+disposable children with dropped credentials and capabilities to check twenty
+fresh observations, wrong selectors and original-child loss. These actual child
+cases remain deferred until exact hosted evidence; they grant no service
+allocation or staging authority.
+
 Status includes only operation/candidate references and fixed observation flags.
 It does not return configuration, keys, database details, executable maps or
 private payloads. Closing or refusing leaves every original file, directory,
