@@ -99,6 +99,20 @@ class NativeRootDatabaseReader:
         return tuple(getattr(info,name) for name in ('st_dev','st_ino','st_uid','st_gid',
             'st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns'))
 
+    @_within_root_observation_pass
+    def _configuration(self):
+        """Original private configuration, fresh in every no-effect pass."""
+        try:
+            require(self.usable and self.owner == (os.getpid(),threading.get_ident()))
+            require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+            require(self.root == Path('/var/lib/gitgood/installations')/self.installation
+                and self.scope['installation'] == self.installation)
+            value = configuration(self.root,self.installation,self.scope['uid'])
+            require(value == (self.files,self.url))
+            return value
+        except BaseException:
+            self.close();raise RootDatabaseReaderRefused('Original private Root observer configuration lost') from None
+
     def _client(self):
         process = Path('/proc')/str(self.child.pid)
         birth,state = _stat(self.child.pid);require(state not in {'Z','X'})
@@ -125,7 +139,7 @@ class NativeRootDatabaseReader:
         _check_scope(self.server_scope)
         require({name:os.readlink('/proc/self/ns/'+name) for name in self.namespaces} == self.namespaces
             and read_bytes('/proc/self/cgroup',16384) == self.group)
-        require(configuration(self.root,self.installation,self.scope['uid']) == (self.files,self.url))
+        require(self._configuration() == (self.files,self.url))
         require(self._binary(Path(self.psql).stat()) == self.binary)
         require(tuple(self._file(os.fstat(pipe.fileno())) for pipe in (self.child.stdin,self.child.stdout)) == self.pipes)
         current = self._client()

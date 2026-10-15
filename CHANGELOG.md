@@ -401,6 +401,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py), [details 3](tools/deployment/test_native_systemd_properties.py)
 
+- Share the original Root reader's validated private configuration only within each existing read-only observation pass. Keep fresh next-pass and standalone observations, full metadata fingerprints, original SQL/client/socket/history checks and every staging effect boundary. Require actual filesystem and full staged-runtime evidence.
+  Sources: [details 1](docs/implementation/native-root-database-reader.md), [details 2](tools/deployment/native_root_database_reader.py), [details 3](tools/deployment/native_durable_binding.py), [details 4](tools/deployment/native_root_database_exclusion.py), [details 5](tools/deployment/test_native_root_configuration.py), [details 6](.github/workflows/product.yml)
+
 - Validate canonical Root file spelling without a duplicate resolving walk, while retaining fresh checks of every original ancestor and regular single-link leaf. Preserve original metadata, bounded no-follow content reads, permanent loss, all effect guards and deadlines; actual filesystem behavior and full staging require hosted verification.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_service_file_custody.py), [details 4](.github/workflows/product.yml)
 

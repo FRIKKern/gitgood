@@ -142,8 +142,9 @@ class NativeRootDatabaseExclusionObservation:
         require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
         require(self.request.check() == self.observed and self.server.check() == self.server_scope)
         require(self._client(self.client['pid']) == self.client)
-        require(configuration(self.live.root,self.observed['installation'],self.scope['uid']) ==
-            (self.binding['configuration'],self.url))
+        files = (configuration(self.live.root,self.observed['installation'],self.scope['uid'])
+            if self.live.database_reader is None else self.live.database_reader._configuration())
+        require(files == (self.binding['configuration'],self.url))
         require(canonical(self.binding['database']) == canonical(self.database))
         _check_scope(self.server_scope)
 

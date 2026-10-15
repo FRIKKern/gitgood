@@ -61,3 +61,30 @@ paths, SQL and exception messages. These diagnostic counters locate remaining
 check cost; they grant no effect authority and do not change the payload, guards
 or deadlines. Production deadline acceptance still requires an uninstrumented
 complete stage and subsequent runtime from its staged output.
+## Private configuration in an observation pass
+
+The original read-only Root reader supplies one private configuration observation
+within each existing no-effect Root pass. Its private method checks Root identity,
+the original PID/thread and usability, the fixed installation path, and complete
+equality with the originally captured file records and database URL. The live
+binding, reader base checks and original writer-exclusion base checks reuse that
+same reader's result only during the current pass. Constructor captures,
+standalone calls, ordinary/non-stage fallbacks and the next pass remain fresh.
+
+No pass spans an effect. The full before/after persistent fingerprints and the
+separate final fresh pass remain, along with every original service, process,
+namespace, pipe, SQL, socket, history, policy and capacity check. The fixed SQL
+exchange, original child lifetime and two-client/one-writer condition are unchanged.
+Private configuration values stay within the Root process and are never included
+in ordinary receipts or timing output. This observation supplies no admission or
+effect authority.
+
+Ten portable cases use explicit parser/process/Root stand-ins for freshness,
+returned-data isolation, original-reader separation, owner/path loss and permanent
+failure without replacement. Ten actual Root filesystem cases use synthetic
+private configuration at an isolated installation UUID; lifecycle, SQL and reader
+construction remain explicit stand-ins. They cover leaf/ancestor aliases,
+same-byte replacement, restored-mtime edits, owner/mode/link changes, unexpected
+entries and closed views. Twenty fresh observations record only count and elapsed
+time. Full installed staging/runtime and later uninstrumented deadline evidence
+remain required.

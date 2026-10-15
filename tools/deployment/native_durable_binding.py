@@ -213,7 +213,15 @@ def _persistent_identity(root, scope, executables, *, _executable_files=None, _d
     _, machine = root_file("/etc/machine-id", 64)
     require(re.fullmatch(b"[0-9a-f]{32}\n?", machine) and machine.strip() != b"0" * 32)
     release, _ = root_file(Path("/etc/os-release").resolve(strict=True), 4096)
-    files, database_url = configuration(root, scope["installation"], uid)
+    if _database_reader is None:
+        files, database_url = configuration(root, scope["installation"], uid)
+    else:
+        from native_root_database_reader import NativeRootDatabaseReader
+        require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+        require(type(_database_reader) is NativeRootDatabaseReader
+            and _database_reader.installation == scope['installation']
+            and _database_reader.scope == scope and _database_reader.root == root)
+        files, database_url = _database_reader._configuration()
     keys = {name: private_file(root / "ssh-host" / name, uid)[0] for name in ["ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"]}
     require({item.name for item in (root / "ssh-host").iterdir()} == set(keys))
     require(type(executables) is dict and set(executables) == {"python", "node", "git", "psql", "caddy"})
