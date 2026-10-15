@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 import time
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from native_systemd_properties import BusRefused, ReadOnlySystemdProperties
 
@@ -139,40 +139,8 @@ class SystemdPropertiesTest(unittest.TestCase):
         self.assertEqual(signatures['DelegateControllers'], 'as')
         self.assertEqual(signatures['DropInPaths'], 'as')
 
-    def test_root_interface_snapshots_keep_fixed_schema_and_two_fresh_replies(self):
-        subject=self.subject();subject._get_all=Mock(side_effect=lambda path,interface,fields:{name:'observed' for name in fields})
-        subject._get_many=Mock()
-        unit='gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
-        with patch.multiple(os,getuid=Mock(return_value=0),geteuid=Mock(return_value=0),
-                getgid=Mock(return_value=0),getegid=Mock(return_value=0),create=True):
-            first=subject.unit_properties(unit,_interface_snapshots=True)
-            self.assertEqual(subject.unit_properties(unit,_interface_snapshots=True),first)
-        self.assertEqual(len(first),15);self.assertEqual(subject._get_all.call_count,4)
-        subject._get_many.assert_not_called()
-        expected_path='/org/freedesktop/systemd1/unit/'+unit.replace('-','_2d').replace('.','_2e')
-        for call in subject._get_all.call_args_list:self.assertEqual(call.args[0],expected_path)
-        self.assertEqual([call.args[1] for call in subject._get_all.call_args_list],
-            ['org.freedesktop.systemd1.Unit','org.freedesktop.systemd1.Service']*2)
-        signatures={name:kind for call in subject._get_all.call_args_list for name,kind in call.args[2].items()}
-        self.assertEqual(signatures['MainPID'],'u');self.assertEqual(signatures['Delegate'],'b')
-        self.assertEqual(signatures['DropInPaths'],'as');self.assertEqual(signatures['DelegateControllers'],'as')
 
-    def test_root_interface_second_refusal_never_returns_first_result_or_reconnects(self):
-        subject=self.subject();subject._get_all=Mock(side_effect=[{'Id':'synthetic'},BusRefused('synthetic')])
-        unit='gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
-        with patch.multiple(os,getuid=Mock(return_value=0),geteuid=Mock(return_value=0),
-                getgid=Mock(return_value=0),getegid=Mock(return_value=0),create=True):
-            with self.assertRaises(BusRefused):subject.unit_properties(unit,_interface_snapshots=True)
-        self.assertEqual(subject._get_all.call_count,2);self.assert_lost(subject)
 
-    def test_interface_mode_refuses_nonroot_and_non_boolean_before_any_reply(self):
-        unit='gitgood-installation-12345678-1234-1234-1234-123456789abc.service'
-        for mode in (True,1,'yes'):
-            subject=self.subject();subject._get_all=Mock()
-            with patch.multiple(os,getuid=Mock(return_value=1000),geteuid=Mock(return_value=1000),
-                    getgid=Mock(return_value=1000),getegid=Mock(return_value=1000),create=True):
-                with self.assertRaises(BusRefused):subject.unit_properties(unit,_interface_snapshots=mode)
-            subject._get_all.assert_not_called();self.assert_lost(subject)
 
     def test_selected_batch_reads_live_values_and_brackets_the_whole_result(self):
         subject=self.subject()

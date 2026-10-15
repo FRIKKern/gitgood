@@ -162,9 +162,8 @@ class ReadOnlySystemdProperties:
         finally:
             if message:self.library.sd_bus_message_unref(message)
 
-    def unit_properties(self,unit,*,_interface_snapshots=False):
+    def unit_properties(self,unit):
         try:
-            require(type(_interface_snapshots) is bool)
             require(type(unit) is str and unit.startswith('gitgood-installation-') and unit.endswith('.service'))
             installation=unit[len('gitgood-installation-'):-len('.service')]
             require(str(uuid.UUID(installation))==installation)
@@ -178,16 +177,4 @@ class ReadOnlySystemdProperties:
         for interface,names in [('Unit',unit_names),('Service',service_names)]:
             properties += [('org.freedesktop.systemd1.'+interface,name,
                             {'MainPID':'u','Delegate':'b','DropInPaths':'as','DelegateControllers':'as'}.get(name,'s')) for name in names]
-        if not _interface_snapshots:return self._get_many(path,properties)
-        try:
-            # Root's repeated stage guards read the same closed field set in
-            # two fresh interface replies. Ordinary selected reads are intact.
-            require(os.getuid()==os.geteuid()==os.getgid()==os.getegid()==0)
-            result={}
-            for interface in ('org.freedesktop.systemd1.Unit','org.freedesktop.systemd1.Service'):
-                signatures={name:signature for kind,name,signature in properties if kind==interface}
-                result.update(self._get_all(path,interface,signatures))
-            require(set(result)=={name for _,name,_ in properties})
-            return result
-        except BaseException:
-            self.close();raise
+        return self._get_many(path,properties)

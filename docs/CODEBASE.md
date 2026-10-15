@@ -144,7 +144,7 @@ for canonical spelling, fresh ancestor/leaf checks and actual filesystem cases.
 
 [native_systemd_properties.py](../tools/deployment/native_systemd_properties.py)
 owns typed live manager reads. [Selected and Root interface observations](implementation/native-selected-systemd-properties.md)
-explain the ordinary selected-field path and Root's uncached interface batches.
+explain selected live reads and the retained interface-decoder experiment.
 
 [native_root_artifact_policy.py](../tools/deployment/native_root_artifact_policy.py)
 owns fixed stage-policy preparation and exclusive Root publication under the

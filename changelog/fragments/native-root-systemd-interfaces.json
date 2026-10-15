@@ -5,5 +5,5 @@
   "summary": "Read the fixed Root staging unit fields in two fresh typed interface replies while ordinary-user observations retain selected reads. Preserve required fields, original library and service custody, before/after observations, permanent refusal and deadlines. Actual Linux interface comparisons and full staging remain subject to hosted verification.",
   "journeys": ["J14", "J15"],
   "references": ["docs/implementation/native-selected-systemd-properties.md", "tools/deployment/native_systemd_properties.py", "tools/deployment/native_service_scope.py", "tools/deployment/test_native_systemd_properties.py", ".github/workflows/product.yml"],
-  "withdrawn": false
+  "withdrawn": true
 }

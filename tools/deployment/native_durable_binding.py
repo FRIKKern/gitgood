@@ -126,7 +126,9 @@ class _CapturedExecutableDigests:
         parents = []
         for parent in path.parents:
             info = parent.lstat()
-            require(parent.resolve(strict=True) == parent and stat.S_ISDIR(info.st_mode))
+            # The complete path was just resolved. Fresh lstat checks of every
+            # real ancestor still reject links without resolving each prefix.
+            require(stat.S_ISDIR(info.st_mode))
             require(info.st_uid == 0 and not info.st_mode & 0o022)
             parents.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_mode))
         info = path.lstat()

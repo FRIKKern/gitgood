@@ -333,11 +333,8 @@ def _observe_allocated_service(installation, unit_sha256, cpu_quota_us, memory_b
     require(unit_before["sha256"] == unit_sha256)
     arguments = [str(systemctl), "--system", "--no-pager", "show", unit,
                  "--property=" + ",".join(PROPERTIES)]
-    def unit_properties():
-        if properties_reader is None:return parse_properties(bounded_command(arguments))
-        if root_observer:return properties_reader.unit_properties(unit,_interface_snapshots=True)
-        return properties_reader.unit_properties(unit)
-    properties = unit_properties()
+    properties = (parse_properties(bounded_command(arguments)) if properties_reader is None
+                  else properties_reader.unit_properties(unit))
     require(set(properties) == set(PROPERTIES))
     expected = {"Id": unit, "LoadState": "loaded", "ActiveState": "active", "SubState": "running",
                 "User": account_name, "Group": account_name, "Delegate": "yes", "DelegateSubgroup": "driver",
@@ -376,7 +373,8 @@ def _observe_allocated_service(installation, unit_sha256, cpu_quota_us, memory_b
         require(caller["pid"] in members(parent / caller_group))
     require(manager["pid"] in members(parent / "driver"))
     require(process_identity(manager["pid"], account.pw_uid, account.pw_gid, driver) == manager)
-    repeated = unit_properties()
+    repeated = (parse_properties(bounded_command(arguments)) if properties_reader is None
+                else properties_reader.unit_properties(unit))
     require(repeated == properties)
     require(read_root(definition, 16384)[0] == unit_before and read_root(systemctl, executable=True)[0] == executable)
     require(group_identity(parent, account.pw_uid) == parent_before)

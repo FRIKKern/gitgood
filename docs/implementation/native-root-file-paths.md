@@ -30,3 +30,21 @@ paths and changed read contracts. Twenty repeated actual metadata/content pairs
 record only their count and wall time. These cases require actual Linux Root
 filesystem execution in hosted CI; portable mocks do not establish their result,
 full guard timing, complete production staging or recovery acceptance.
+
+## Captured executable metadata
+
+The five captured executable digests retain their original initial canonical
+resolution on every fingerprint. Each resulting ancestor still receives a fresh
+`lstat`, real-directory, Root-owner and non-writable-mode check. Resolving every
+already canonical prefix again is redundant with that complete initial resolve
+and the subsequent ancestor checks. Only these duplicate prefix resolutions are
+removed; no metadata field, alias comparison, byte digest, content read, frozen
+contract, before/after check or permanent refusal is removed or cached.
+
+Actual Root cases retain replacement, restored-mtime edits, permission/owner and
+hard-link changes, original parent identity, alias retargeting and interrupted
+hash refusal. Additional cases substitute an ancestor alias while retaining the
+original executable inode, and perform one hundred fresh metadata reads against
+the same five originally captured digests. These checks and complete staging
+performance require exact hosted evidence; diagnostic counters are not production
+deadline acceptance.
