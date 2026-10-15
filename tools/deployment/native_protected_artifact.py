@@ -113,7 +113,7 @@ class NativeProtectedArtifactStage:
             require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
             self.owner = (os.getpid(), threading.get_ident())
             self.installation = installation;self.operation = operation
-            self.controller = NativeRootControllerObservation(installation)
+            self.controller = self._controller_observation()
             self.scope = self.controller.check()
             self.policy_path = Path('/etc/gitgood/installations') / installation / 'artifacts' / (operation + '.json')
             self.policy_fingerprint = _CapturedRootFiles._fingerprint(self.policy_path, 32768, False)
@@ -144,6 +144,9 @@ class NativeProtectedArtifactStage:
         except BaseException:
             self.close()
             raise ProtectedArtifactRefused('Protected native artifact unavailable or changed; retain partial effects') from None
+
+    def _controller_observation(self):
+        return NativeRootControllerObservation(self.installation)
 
     def _private(self, path, maximum):
         require(path.resolve(strict=True) == path)

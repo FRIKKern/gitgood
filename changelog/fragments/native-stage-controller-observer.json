@@ -1,0 +1,9 @@
+{
+  "id": "native-stage-controller-observer",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Use the dispatcher's original retained Root controller observer during protected extraction. Keep standalone capture, fixed-source selection, exact owner/type/installation checks, both fresh read-only passes and every existing effect boundary. Require complete installed staging and runtime evidence.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-dispatch.md", "tools/deployment/native_protected_artifact.py", "tools/deployment/native_root_artifact_dispatch.py", "tools/deployment/test_native_stage_controller_observer.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

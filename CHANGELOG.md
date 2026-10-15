@@ -428,6 +428,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py)
 
+- Use the dispatcher's original retained Root controller observer during protected extraction. Keep standalone capture, fixed-source selection, exact owner/type/installation checks, both fresh read-only passes and every existing effect boundary. Require complete installed staging and runtime evidence.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/deployment/native_protected_artifact.py), [details 3](tools/deployment/native_root_artifact_dispatch.py), [details 4](tools/deployment/test_native_stage_controller_observer.py), [details 5](.github/workflows/product.yml)
+
 - Measure fixed native staging guard costs without publishing private arguments, caller data or arbitrary paths. The full archive and operation deadlines remain unchanged.
   Sources: [details 1](tools/ci/native-owned-proof.py), [details 2](tools/ci/native-owned-test.py), [details 3](docs/implementation/native-root-database-reader.md)
 

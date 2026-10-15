@@ -13,7 +13,7 @@ from native_protected_artifact import NativeProtectedArtifactStage
 from native_root_artifact_policy import NativeRootArtifactPolicyAllocation
 from native_root_controller_request import NativeRootControllerRequest
 from native_root_database_exclusion import NativeRootDatabaseExclusionObservation
-from native_root_controller import _RootObservationPass
+from native_root_controller import _RootObservationPass, NativeRootControllerObservation
 from resource_generations import canonical
 
 
@@ -74,6 +74,18 @@ class _ObservedArtifactStage(NativeProtectedArtifactStage):
             require(self.scope == allocation.exclusion.scope)
         except BaseException:
             self.close();raise
+
+    def _controller_observation(self):
+        """Use only this dispatcher's already retained original Root observer."""
+        require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+        require(self.owner == (os.getpid(),threading.get_ident()))
+        allocation = self.allocation
+        require(type(allocation) is NativeRootArtifactPolicyAllocation and allocation.usable
+            and allocation.owner == self.owner and allocation.installation == self.installation)
+        value = allocation.exclusion.live.lifecycle.controller
+        require(type(value) is NativeRootControllerObservation and value.usable
+            and value.owner == self.owner and value.installation == self.installation)
+        return value
 
     def check(self):
         try:

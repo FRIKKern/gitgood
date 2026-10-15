@@ -97,3 +97,28 @@ fixed socket and staged runtime. That fixture's provisioning is not a production
 installer or long-lived listener. Interrupted-effect reconciliation, actual
 activation/enrollment and reboot/replacement remain unfinished; this component
 alone establishes neither J14/J15 acceptance nor original VM retirement.
+
+## One original Root controller observer
+
+The integrated extraction view now uses the allocation's original lifecycle
+controller observer. A private source-defined factory selects only that object,
+after checking Root identity, the original process/thread, exact allocation and
+observer types, installation and usability. There is no caller callback,
+selector or new constructor parameter. A standalone protected stage still
+captures its own observer through the unchanged UUID-only constructor.
+
+Allocation and extraction retain their existing controller and scope comparisons.
+Because both now refer to the same original object, the existing read-only pass
+can share its result. The separate final pass observes the actual service again;
+every effect guard still has two fresh passes. No result survives an effect.
+All existing extraction, publication, SQL, socket, history, metadata and close
+methods remain unchanged. Closing the extraction view invalidates this shared
+Root observer; the dispatcher still closes all its owned views before replying.
+The ordinary controller, writer and retained resources are preserved.
+
+Ten portable composition cases use explicit Root/service/allocation/stage
+stand-ins for default isolation, original-object selection, closed and foreign
+views, two fresh service observations per guard, loss during the first pass and
+shared-view cleanup. Actual systemd custody, complete production staging and
+staged runtime still require hosted evidence, followed by an uninstrumented full
+proof before deadline acceptance.
