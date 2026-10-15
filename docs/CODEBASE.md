@@ -137,6 +137,11 @@ owns the shared, fresh fixed-connection kernel socket query behind independent
 ordinary and Root admission. Read [targeted TCP observation](implementation/native-tcp-socket-observation.md)
 for kernel framing, original process/descriptor checks and pending Linux evidence.
 
+[native_service_scope.py](../tools/deployment/native_service_scope.py) owns the
+Root-controlled file reader and retained metadata validation shared by native
+observers. Read [Root file path validation](implementation/native-root-file-paths.md)
+for canonical spelling, fresh ancestor/leaf checks and actual filesystem cases.
+
 [native_root_artifact_policy.py](../tools/deployment/native_root_artifact_policy.py)
 owns fixed stage-policy preparation and exclusive Root publication under the
 original exclusion and independently provisioned allocation lock. Read

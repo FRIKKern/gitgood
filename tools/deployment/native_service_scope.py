@@ -40,9 +40,15 @@ def read_bytes(path, maximum=16384):
     return value
 
 
-def root_file(path, maximum=16777216, *, executable=False):
+def _root_file_path(path):
+    """Canonical POSIX spelling; ancestor/leaf lstat checks reject links."""
     path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts)
+    return path
+
+
+def root_file(path, maximum=16777216, *, executable=False):
+    path = _root_file_path(path)
     for parent in path.parents:
         value = parent.lstat()
         require(stat.S_ISDIR(value.st_mode) and value.st_uid == 0 and not value.st_mode & 0o022)
@@ -94,8 +100,9 @@ class _CapturedRootFiles:
 
     @staticmethod
     def _fingerprint(path, maximum, executable):
-        path = Path(path)
-        require(path.is_absolute() and path.resolve(strict=True) == path)
+        # No identity or ancestor result is cached. Every named parent is
+        # lstat-checked below, so a separate resolving walk repeats that work.
+        path = _root_file_path(path)
         parents = []
         for parent in path.parents:
             info = parent.lstat()

@@ -1,0 +1,9 @@
+{
+  "id": "native-root-file-paths",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Validate canonical Root file spelling without a duplicate resolving walk, while retaining fresh checks of every original ancestor and regular single-link leaf. Preserve original metadata, bounded no-follow content reads, permanent loss, all effect guards and deadlines; actual filesystem behavior and full staging require hosted verification.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-file-paths.md", "tools/deployment/native_service_scope.py", "tools/deployment/test_native_service_file_custody.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

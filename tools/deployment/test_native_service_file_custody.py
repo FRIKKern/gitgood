@@ -1,11 +1,25 @@
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
 import native_service_scope as service
+
+
+class RootPathSpellingTest(unittest.TestCase):
+    """POSIX spelling stand-in only; actual path custody needs Linux cases."""
+    def test_noncanonical_absolute_parent_and_double_root_aliases_refuse(self):
+        for path in ('relative/owned','/root/../owned','//root/owned','../owned',''):
+            with patch.object(service,'Path',side_effect=PurePosixPath),self.subTest(path=path):
+                with self.assertRaises(service.ServiceRefused):service._root_file_path(path)
+
+    def test_normalized_posix_path_spelling_retains_existing_pathlib_semantics(self):
+        with patch.object(service,'Path',side_effect=PurePosixPath):
+            self.assertEqual(service._root_file_path('/root/./owned'),PurePosixPath('/root/owned'))
+            self.assertEqual(service._root_file_path('/root//owned'),PurePosixPath('/root/owned'))
 
 
 @unittest.skipUnless(sys.platform == 'linux', 'native file identities require Linux')
@@ -103,6 +117,41 @@ class RootFileReplacementTest(unittest.TestCase):
     def test_a_different_file_contract_cannot_reuse_validated_content(self):
         with self.assertRaises(service.ServiceRefused): self.subject.read(self.path, maximum=4096)
         self.assertFalse(self.subject.usable)
+
+    def test_symlink_ancestor_refuses_with_the_original_leaf_inode_preserved(self):
+        top=self.root/'top';top.mkdir(mode=0o700)
+        parent=top/'parent';parent.mkdir(mode=0o700)
+        self.path.rename(parent/'owned');self.path=parent/'owned'
+        self.subject=service._CapturedRootFiles();self.subject.read(self.path)
+        inode=self.path.stat().st_ino
+        moved=self.root/'old-top';top.rename(moved);top.symlink_to(moved,target_is_directory=True)
+        self.assertEqual(self.path.stat().st_ino,inode)
+        self.lost();self.assertEqual((moved/'parent/owned').read_bytes(),b'original')
+
+    def test_changed_parent_permissions_poison_even_with_original_leaf_intact(self):
+        self.root.chmod(0o777);self.lost()
+        self.root.chmod(0o700);self.lost()
+
+    def test_hardlinked_original_refuses_without_modifying_either_name(self):
+        other=self.root/'other';os.link(self.path,other)
+        self.lost()
+        self.assertEqual(other.read_bytes(),b'original');self.assertEqual(self.path.read_bytes(),b'original')
+
+    def test_parent_alias_is_refused_by_content_and_metadata_paths(self):
+        parent=self.root/'parent';parent.mkdir(mode=0o700)
+        alias=parent/'..'/'owned'
+        for observe in (lambda:service.root_file(alias),
+                lambda:service._CapturedRootFiles._fingerprint(alias,16777216,False)):
+            with self.assertRaises(service.ServiceRefused):observe()
+        self.assertEqual(self.path.read_bytes(),b'original')
+
+    def test_repeated_actual_metadata_and_content_observations_remain_fresh(self):
+        expected=service._CapturedRootFiles._fingerprint(self.path,16777216,False)
+        started=time.monotonic()
+        for _ in range(20):
+            self.assertEqual(service._CapturedRootFiles._fingerprint(self.path,16777216,False),expected)
+            self.assertEqual(service.root_file(self.path),self.original)
+        print('actual_root_file_observation_pairs=20 elapsed_ms='+str(int((time.monotonic()-started)*1000)))
 
 
 if __name__ == '__main__': unittest.main()
