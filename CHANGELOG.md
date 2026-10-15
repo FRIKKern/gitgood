@@ -386,6 +386,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
   Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)
 
+- Validate private binding path spelling and every fresh real ancestor directly while preserving leaf owner, mode, descriptor, content and hash checks. Remove redundant fixed-root prefix resolution without changing executable aliases, original custody, stage guards, payload or deadline. Require exact hosted filesystem and full staging evidence.
+  Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_durable_binding.py), [details 3](tools/deployment/test_native_durable_binding.py), [details 4](.github/workflows/product.yml)
+
 - Deliver original private lifecycle inputs once through the attached generation monitor, with fixed action, ownership/stage binding, bounded deadlines, independent BEAM validation and credential-redacted OTP status. Add an installed private-input exercise with synthetic payloads; actual business effects and complete native startup/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-business-inputs.md), [details 2](docs/implementation/native-hosted-ownership.md), [details 3](tools/deployment/native_monitor_business_inputs.py), [details 4](apps/forge/lib/gitgood/native_lifecycle_business_inputs.ex)
 

@@ -48,3 +48,28 @@ original executable inode, and perform one hundred fresh metadata reads against
 the same five originally captured digests. These checks and complete staging
 performance require exact hosted evidence; diagnostic counters are not production
 deadline acceptance.
+
+## Private binding resources
+
+Private binding directory and file readers now check absolute single-root POSIX
+spelling and freshly inspect every ancestor as a real directory. Directory
+leaves must still have the expected owner and `0700` mode. File leaves are
+explicitly checked as regular before the unchanged `O_NOFOLLOW` open, bounded
+content read, before/after descriptor metadata, single-link/owner/`0600` checks
+and SHA-256 calculation. No content or identity is newly cached. This avoids
+performing a separate canonical resolution walk for each already fixed path.
+
+The persistent binding's root still equals the fixed installation path. Its
+ancestors retain fresh real-directory, Root-owner and protected-mode checks;
+resolving each prefix again is redundant. Executable alias resolution and
+captured executable metadata remain unchanged. Actor, SQL, socket, lifecycle,
+history and effect guards, complete archive and deadline are also unchanged.
+
+Five portable cases include the existing admission boundaries and an explicit
+POSIX spelling stand-in. Twelve actual Linux filesystem cases cover private
+hashes, configuration, bounds, owners, modes, hard links, FIFO refusal, file and
+directory aliases, an ancestor alias retaining the original leaf inode, parent
+traversal, same-content replacement and restored-mtime edits. Twenty fresh
+private metadata/content pairs record only count and elapsed time. Hosted CI
+executes the exact seventeen-case module under Root. These checks do not
+establish full staging performance, runtime or recovery acceptance.

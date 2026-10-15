@@ -31,17 +31,24 @@ def unique(pairs):
     return result
 
 
-def directory(path, uid):
+def _canonical_private_path(path):
     path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts)
+    for parent in path.parents:
+        require(stat.S_ISDIR(parent.lstat().st_mode))
+    return path
+
+
+def directory(path, uid):
+    path = _canonical_private_path(path)
     info = path.lstat()
     require(stat.S_ISDIR(info.st_mode) and info.st_uid == uid and stat.S_IMODE(info.st_mode) == 0o700)
     return {"path": str(path), "device": info.st_dev, "inode": info.st_ino, "uid": uid}
 
 
 def private_file(path, uid, maximum=131072):
-    path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    path = _canonical_private_path(path)
+    require(stat.S_ISREG(path.lstat().st_mode))
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as source:
         before = os.fstat(source.fileno())
@@ -197,7 +204,7 @@ def _persistent_identity(root, scope, executables, *, _executable_files=None, _d
     require(root == Path("/var/lib/gitgood/installations") / scope["installation"])
     for parent in root.parents:
         info = parent.lstat()
-        require(parent.resolve(strict=True) == parent and stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022)
+        require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022)
     resources = {"root": directory(root, uid)}
     for name in ["configuration", "storage", "ssh-host", "history", "staging"]:
         resources[name] = directory(root / name, uid)

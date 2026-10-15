@@ -1,0 +1,9 @@
+{
+  "id": "native-private-binding-path-walks",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Validate private binding path spelling and every fresh real ancestor directly while preserving leaf owner, mode, descriptor, content and hash checks. Remove redundant fixed-root prefix resolution without changing executable aliases, original custody, stage guards, payload or deadline. Require exact hosted filesystem and full staging evidence.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-file-paths.md", "tools/deployment/native_durable_binding.py", "tools/deployment/test_native_durable_binding.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}
