@@ -4,6 +4,7 @@ An observation is transient evidence, never permission to signal a later process
 or reuse a cgroup path. No installation, journal or database is changed here.
 """
 import base64
+from functools import lru_cache
 import hashlib
 import os
 from pathlib import Path
@@ -47,9 +48,23 @@ def _root_file_path(path):
     return path
 
 
+@lru_cache(maxsize=64)
+def _root_file_parent_plan(path):
+    """Only immutable lexical paths/names; no observations or validation."""
+    return tuple((parent, str(parent)) for parent in path.parents)
+
+
+def _root_file_parents(path):
+    # Bound retained lexical structure. Longer paths keep the original lazy
+    # walk, with no new admission limit and no filesystem result retained.
+    if len(str(path)) <= 1024 and len(path.parts) <= 64:
+        return _root_file_parent_plan(path)
+    return ((parent, str(parent)) for parent in path.parents)
+
+
 def root_file(path, maximum=16777216, *, executable=False):
     path = _root_file_path(path)
-    for parent in path.parents:
+    for parent, _ in _root_file_parents(path):
         value = parent.lstat()
         require(stat.S_ISDIR(value.st_mode) and value.st_uid == 0 and not value.st_mode & 0o022)
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
@@ -104,10 +119,10 @@ class _CapturedRootFiles:
         # lstat-checked below, so a separate resolving walk repeats that work.
         path = _root_file_path(path)
         parents = []
-        for parent in path.parents:
+        for parent, name in _root_file_parents(path):
             info = parent.lstat()
             require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022)
-            parents.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_mode))
+            parents.append((name, info.st_dev, info.st_ino, info.st_uid, info.st_mode))
         info = path.lstat()
         require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1)
         require(not info.st_mode & 0o022 and 0 < info.st_size <= maximum)

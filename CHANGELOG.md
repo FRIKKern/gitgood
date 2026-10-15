@@ -410,6 +410,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Share the original Root reader's validated private configuration only within each existing read-only observation pass. Keep fresh next-pass and standalone observations, full metadata fingerprints, original SQL/client/socket/history checks and every staging effect boundary. Require actual filesystem and full staged-runtime evidence.
   Sources: [details 1](docs/implementation/native-root-database-reader.md), [details 2](tools/deployment/native_root_database_reader.py), [details 3](tools/deployment/native_durable_binding.py), [details 4](tools/deployment/native_root_database_exclusion.py), [details 5](tools/deployment/test_native_root_configuration.py), [details 6](.github/workflows/product.yml)
 
+- Reuse bounded lexical parent paths during Root file checks while retaining every fresh file and ancestor observation and replacement-refusal boundary.
+  Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_root_file_parent_plan.py), [details 4](.github/workflows/product.yml)
+
 - Validate canonical Root file spelling without a duplicate resolving walk, while retaining fresh checks of every original ancestor and regular single-link leaf. Preserve original metadata, bounded no-follow content reads, permanent loss, all effect guards and deadlines; actual filesystem behavior and full staging require hosted verification.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_service_file_custody.py), [details 4](.github/workflows/product.yml)
 

@@ -198,6 +198,7 @@ jobs:
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_database_reader.py' -v
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_tcp_socket_observation.py' -v
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_service_file_custody.py' -v
+          sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_file_parent_plan.py' -v
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_process_status.py' -v
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_systemd_properties.py' -v
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_executable_capture.py' -v

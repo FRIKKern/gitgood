@@ -62,8 +62,19 @@ missing fields, ignored unknown fields, credential/group/capability predicates,
 fresh reads and refusal order. Three hosted Linux Root cases use only owned
 disposable children with dropped credentials and capabilities to check twenty
 fresh observations, wrong selectors and original-child loss. These actual child
-cases remain deferred until exact hosted evidence; they grant no service
-allocation or staging authority.
+cases require exact hosted evidence; they grant no service allocation or staging
+authority.
+
+Root file checks reuse a bounded plan of immutable parent paths and names to
+avoid reconstructing the same lexical walk. Spelling validation still precedes
+each walk. At most 64 plans are retained, each for a path of at most 1024
+characters and 64 components; longer paths keep the original lazy walk without
+a new admission limit. Every original ordered parent and leaf metadata read,
+content read and before/after comparison remains fresh. Plans contain no file
+metadata, content, identity or validation outcome. Portable structure, bounds
+and fresh-observation tests accompany a hosted repeat of all eleven Root file
+mutation/observation cases with the plan already warm. These checks do not
+establish the full production archive's staging deadline or staged runtime.
 
 Status includes only operation/candidate references and fixed observation flags.
 It does not return configuration, keys, database details, executable maps or

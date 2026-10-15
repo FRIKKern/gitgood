@@ -1,0 +1,9 @@
+{
+  "id": "native-root-file-parent-plans",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Reuse bounded lexical parent paths during Root file checks while retaining every fresh file and ancestor observation and replacement-refusal boundary.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-live-binding.md", "tools/deployment/native_service_scope.py", "tools/deployment/test_native_root_file_parent_plan.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}
