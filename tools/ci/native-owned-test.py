@@ -132,11 +132,11 @@ class BoundedProofTests(unittest.TestCase):
             observed=proof.root_stage_profile(Mock())
         self.assertEqual(observed,[
             {'file':'native_kernel_backend.py','function':'_read','line':27,
-                'calls':5,'self_ms':10,'cumulative_ms':20},
+                'calls':5,'self_ms':10,'cumulative_ms':20,'self_us':10000,'cumulative_us':20000},
             {'file':'native_ownership_database.py','function':'_socket_for_process','line':93,
-                'calls':3,'self_ms':20,'cumulative_ms':30},
+                'calls':3,'self_ms':20,'cumulative_ms':30,'self_us':20000,'cumulative_us':30000},
             {'file':'native_root_lifecycle.py','function':'check','line':300,
-                'calls':4,'self_ms':10,'cumulative_ms':500}])
+                'calls':4,'self_ms':10,'cumulative_ms':500,'self_us':10000,'cumulative_us':500000}])
         self.assertNotIn('private',json.dumps(observed));self.assertNotIn('/opt',json.dumps(observed))
 
     def test_normal_root_refusal_accepts_only_closed_local_metadata_without_wire_authority(self):
@@ -254,8 +254,41 @@ class BoundedProofTests(unittest.TestCase):
         with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
             observed=proof.root_stage_profile(Mock())
         self.assertEqual(len(observed),64);self.assertEqual([row['line'] for row in observed],list(range(17,81)))
-        self.assertTrue(all(set(row)=={'file','function','line','calls','self_ms','cumulative_ms'} for row in observed))
+        self.assertTrue(all(set(row)=={'file','function','line','calls','self_ms','cumulative_ms','self_us','cumulative_us'} for row in observed))
         self.assertNotIn('private',json.dumps(observed));self.assertNotIn('/opt',json.dumps(observed))
+
+    def test_guard_profile_submillisecond_times_choose_actual_hot_rows_without_rounding_ties(self):
+        stats={('/opt/gitgood/native/v2/native_kernel_backend.py',line,'_read'):
+            (1,1,line/1000000,line/500000,{}) for line in range(1,81)}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            observed=proof.root_stage_profile(Mock())
+        self.assertEqual([row['line'] for row in observed],list(range(17,81)))
+        self.assertTrue(all(row['self_ms']==row['cumulative_ms']==0 for row in observed))
+        self.assertEqual(observed[-1]['self_us'],80);self.assertEqual(observed[-1]['cumulative_us'],160)
+
+    def test_guard_profile_copy_counters_require_actual_loaded_module_not_spoofed_basename(self):
+        original=str(Path(proof.copy.__file__))
+        stats={(original,128,'deepcopy'):(1,20,.000125,.000875,{'private':'not emitted'}),
+            ('/private/copy.py',128,'deepcopy'):(1,20,.5,.8,{}),
+            ('/opt/gitgood/native/v2/copy.py',128,'deepcopy'):(1,20,.5,.8,{}),
+            (original,129,'private_callback'):(1,20,.5,.8,{}),
+            ('/opt/gitgood/native/v2/resource_generations.py',30,'canonical'):(1,2,.0002,.0004,{})}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            observed=proof.root_stage_profile(Mock())
+        self.assertEqual([(row['file'],row['function']) for row in observed],
+            [('copy.py','deepcopy'),('resource_generations.py','canonical')])
+        self.assertEqual((observed[0]['self_us'],observed[0]['cumulative_us']),(125,875))
+        self.assertNotIn('private',json.dumps(observed));self.assertNotIn(original,json.dumps(observed))
+
+    def test_guard_profile_observes_actual_standard_library_copy_without_payload_or_path(self):
+        payload={'private-fixture-key':[[1,2,3],{'credential':b'private-fixture-value'}]}
+        profile=proof.cProfile.Profile()
+        self.assertEqual(profile.runcall(proof.copy.deepcopy,payload),payload)
+        rows=proof.root_stage_profile(profile)
+        self.assertTrue(any(row['file']=='copy.py' and row['function']=='deepcopy' and row['calls']>1 for row in rows))
+        self.assertTrue(all(row['file']=='copy.py' for row in rows))
+        self.assertNotIn('private-fixture',json.dumps(rows))
+        self.assertNotIn(str(proof.copy.__file__),json.dumps(rows))
 
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}

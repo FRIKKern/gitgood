@@ -115,6 +115,11 @@ exceptions are forwarded, and profiler state is restored even on interruption.
 Only a fixed installed file/function set, source line, call count and self or
 cumulative milliseconds can appear in at most 64 deterministic hot rows. No
 stack, caller, private path, argument, SQL, environment or return value is emitted.
+The same rows also retain bounded microseconds, and the hot subset uses that
+precision to avoid millisecond rounding ties. Fixed canonical serialization and
+observation-wrapper counters are included. Four fixed `copy` functions are
+accepted only from the exact loaded standard-library module, with its path
+replaced by the constant `copy.py` label; matching basenames elsewhere refuse.
 These instrumented runs are diagnostic; production deadline acceptance still
 requires an uninstrumented complete stage and subsequent staged runtime. Private
 acceptance rejects either aggregate timers or the guard sample.

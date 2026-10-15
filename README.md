@@ -50,5 +50,5 @@ npm run check
 <!-- whats-new:start -->
 ## What's new
 
-**Unreleased — development.** 184 development changes are recorded in the [changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
+**Unreleased — development.** 185 development changes are recorded in the [changelog](CHANGELOG.md#unreleased). No Gitgood application release has been published.
 <!-- whats-new:end -->

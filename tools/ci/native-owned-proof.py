@@ -9,6 +9,7 @@ import argparse
 from contextlib import ExitStack
 import ast
 import base64
+import copy
 import ctypes
 import cProfile
 import hashlib
@@ -1328,7 +1329,7 @@ def root_reader_loss_checks(seed, database, server_scope):
 
 
 def root_stage_profile(profile):
-    """Fixed installed function counters only; no stacks, callers or values."""
+    """Closed installed/copy counters only; no stacks, callers or values."""
     allowed = {
         'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_archive_input','_check_output'},
         'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
@@ -1337,7 +1338,7 @@ def root_stage_profile(profile):
         'native_root_database_reader.py':{'_base','_exchange','_client','_configuration'},
         'native_root_live_binding.py':{'check','_observe','_current'},
         'native_root_lifecycle.py':{'check','_snapshot','_current','_identity','_names','_file'},
-        'native_root_controller.py':{'check','_service'},
+        'native_root_controller.py':{'check','_service','observed'},
         'native_service_scope.py':{'_observe_allocated_service','read_bytes','root_file',
             'read','_fingerprint','_root_file_path','process_identity','group_identity','members'},
         'native_systemd_properties.py':{'unit_properties','_get_many'},
@@ -1348,20 +1349,26 @@ def root_stage_profile(profile):
         'native_backend_scope.py':{'check'},
         'native_generation_lease_guard.py':{'persistent_fingerprint','_fingerprint_path','read'},
         'native_controller_scope.py':{'private_directory'},
+        'resource_generations.py':{'canonical'},
+        'copy.py':{'deepcopy','_deepcopy_dict','_deepcopy_list','_deepcopy_tuple'},
     }
     rows = []
     for (filename,line,function),(primitive,calls,total,cumulative,_callers) in pstats.Stats(profile).stats.items():
         path = Path(filename)
-        if path.parent != MODULES or path.name not in allowed or function not in allowed[path.name]:continue
+        if path.parent == MODULES and path.name != 'copy.py':label = path.name
+        elif path == Path(copy.__file__):label = 'copy.py'
+        else:continue
+        if label not in allowed or function not in allowed[label]:continue
         if (type(line) is not int or not 0 < line < 10000 or type(calls) is not int
                 or not 0 <= calls <= 10000000):continue
         values = [total,cumulative]
         if not all(type(value) in {int,float} and 0 <= value <= 1200 for value in values):continue
-        rows.append({'file':path.name,'function':function,'line':line,'calls':calls,
-            'self_ms':int(total*1000),'cumulative_ms':int(cumulative*1000)})
+        rows.append({'file':label,'function':function,'line':line,'calls':calls,
+            'self_ms':int(total*1000),'cumulative_ms':int(cumulative*1000),
+            'self_us':int(total*1000000),'cumulative_us':int(cumulative*1000000)})
     # Keep a deterministic hot subset when the fixed function set exceeds the
     # output bound. No private frame, caller, argument or return data is kept.
-    rows = sorted(rows,key=lambda value:(-value['cumulative_ms'],-value['self_ms'],
+    rows = sorted(rows,key=lambda value:(-value['cumulative_us'],-value['self_us'],
         value['file'],value['function'],value['line']))[:64]
     return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))
 
