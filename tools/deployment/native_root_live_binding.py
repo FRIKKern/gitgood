@@ -4,7 +4,7 @@ from pathlib import Path
 import threading
 
 from native_durable_binding import _CapturedExecutableDigests, _root_persistent_identity
-from native_generation_lease_guard import persistent_fingerprint
+from native_generation_lease_guard import _PersistentFingerprintPlan
 from native_root_lifecycle import NativeRootLifecycleObservation
 from native_root_database_reader import NativeRootDatabaseReader
 from native_root_controller import _within_root_observation_pass
@@ -35,7 +35,8 @@ class NativeRootLiveBindingObservation:
             self.binding = self.lifecycle.original['generation']['binding']
             self.binding_raw = canonical(self.binding)
             self.root = Path('/var/lib/gitgood/installations')/installation
-            self.files = persistent_fingerprint(self.binding)
+            self.fingerprint_plan = _PersistentFingerprintPlan(self.binding)
+            self.files = self.fingerprint_plan.read()
             self.executables = _CapturedExecutableDigests(self.lifecycle.generation_seal['executables'])
             # Staging keeps the ordinary owner idle until Root acknowledgement.
             # Handoff windows must retain short-lived observers: a persistent
@@ -52,7 +53,7 @@ class NativeRootLiveBindingObservation:
         require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
         require(self.lifecycle.check() == self.observed_lifecycle)
         require(canonical(self.binding) == self.binding_raw)
-        require(persistent_fingerprint(self.binding) == self.files)
+        require(self.fingerprint_plan.read() == self.files)
 
     def _observe(self):
         self._current()

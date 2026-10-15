@@ -26,6 +26,36 @@ class FingerprintPathSpellingTest(unittest.TestCase):
                 guard.persistent_fingerprint({'account':{'uid':1000},'resources':resources})
 
 
+class FingerprintPlanStructureTest(unittest.TestCase):
+    def binding(self):
+        def record(path):return {'path':path,'device':1,'inode':2,'uid':1000,'bytes':3}
+        root='/var/lib/gitgood/installations/fixed'
+        return {'account':{'uid':1000},'resources':{name:record(root+('' if name=='root' else '/'+name))
+            for name in ['root','configuration','storage','ssh-host','history','staging']},
+            'configuration':{'installation.json':record(root+'/configuration/installation.json')},
+            'ssh_host_keys':{'key':record(root+'/ssh-host/key')},
+            'executables':{'python':record('/opt/gitgood/python')},
+            'host':{'os_release':record('/usr/lib/os-release')}}
+
+    def test_plan_construction_uses_path_structure_without_filesystem_io(self):
+        # PurePosixPath has no filesystem observation methods at all.
+        with patch.object(guard,'Path',PurePosixPath):plan=guard._PersistentFingerprintPlan(self.binding())
+        self.assertEqual(len(plan.directories),6);self.assertEqual(len(plan.files),4)
+        self.assertEqual(plan.machine,PurePosixPath('/etc/machine-id'))
+
+    def test_expected_records_and_entry_sets_do_not_follow_mutated_input_dictionaries(self):
+        binding=self.binding()
+        with patch.object(guard,'Path',PurePosixPath):plan=guard._PersistentFingerprintPlan(binding)
+        directories,files,entries=plan.directories,plan.files,plan.entries
+        binding['resources']['storage']['inode']=999
+        binding['configuration']['installation.json']['bytes']=999
+        binding['configuration']['extra']={}
+        self.assertEqual(plan.directories,directories);self.assertEqual(plan.files,files)
+        self.assertEqual(plan.entries,entries)
+        self.assertEqual(plan.directories[2][3],2);self.assertEqual(plan.files[0][4],3)
+        self.assertEqual(plan.entries[1][1],frozenset({'installation.json'}))
+
+
 @unittest.skipUnless(sys.platform=='linux' and getattr(os,'getuid',lambda:1)()==0,
     'actual Root metadata over isolated ordinary-owned resources')
 class RootPersistentFingerprintTest(unittest.TestCase):
@@ -155,6 +185,37 @@ class RootPersistentFingerprintTest(unittest.TestCase):
         before=guard.persistent_fingerprint(self.binding);started=time.monotonic_ns()
         for _ in range(20):self.assertEqual(guard.persistent_fingerprint(self.binding),before)
         print('actual_persistent_fingerprints=20 elapsed_ms='+str((time.monotonic_ns()-started)//1000000),flush=True)
+
+
+class RootPersistentFingerprintPlanTest(RootPersistentFingerprintTest):
+    """The same adversarial filesystem cases reuse one original structural plan."""
+    def setUp(self):
+        super().setUp()
+        self.plan=guard._PersistentFingerprintPlan(self.binding)
+        self.standalone_fingerprint=guard.persistent_fingerprint
+        def read(binding):
+            return self.plan.read() if binding is self.binding else guard._PersistentFingerprintPlan(binding).read()
+        replacement=patch.object(guard,'persistent_fingerprint',side_effect=read)
+        replacement.start();self.addCleanup(replacement.stop)
+
+    def test_twenty_complete_fingerprints_read_fresh_original_metadata(self):
+        expected=self.standalone_fingerprint(self.binding);started=time.monotonic_ns()
+        for _ in range(20):self.assertEqual(self.plan.read(),expected)
+        print('actual_persistent_fingerprint_plan_observations=20 elapsed_ms='+str((time.monotonic_ns()-started)//1000000),flush=True)
+
+    def test_each_directory_entry_set_is_fresh_after_a_successful_plan_read(self):
+        self.plan.read()
+        for directory in [self.root,self.root/'configuration',self.root/'ssh-host']:
+            path=directory/'unexpected';path.write_bytes(b'new entry')
+            with self.assertRaises(guard.PublicationRefused):self.plan.read()
+            path.unlink();self.plan.read()
+
+    def test_returned_metadata_dictionary_is_independent_of_later_reads(self):
+        expected=self.standalone_fingerprint(self.binding);observed=self.plan.read();observed.clear()
+        self.assertEqual(self.plan.read(),expected)
+        info=self.private.stat();self.private.write_bytes(b'y'*info.st_size)
+        os.utime(self.private,ns=(info.st_atime_ns,info.st_mtime_ns))
+        self.assertNotEqual(self.plan.read(),expected)
 
 
 if __name__=='__main__':unittest.main()

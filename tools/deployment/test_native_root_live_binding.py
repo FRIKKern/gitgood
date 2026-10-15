@@ -73,6 +73,7 @@ class RootBindingObservationTest(unittest.TestCase):
             'candidate':'a'*40,'stage':'stage','recorded_status':'running'}
         value.binding = {'private':'not returned'};value.binding_raw = canonical(value.binding)
         value.files = {'original':'metadata'};value.root = '/fixed';value.scope = {'original':'scope'}
+        value.fingerprint_plan = Mock();value.fingerprint_plan.read.return_value = value.files
         value.lifecycle.check.return_value = copy.deepcopy(value.observed_lifecycle)
         value.lifecycle.generation_seal = {'executables':{'python':'/fixed/python'}}
         return value
@@ -85,7 +86,7 @@ class RootBindingObservationTest(unittest.TestCase):
         value = self.view()
         with ExitStack() as stack:
             self.root_context(stack)
-            files = stack.enter_context(patch.object(root,'persistent_fingerprint',return_value=value.files))
+            files = value.fingerprint_plan.read
             observe = stack.enter_context(patch.object(root,'_root_persistent_identity',return_value=copy.deepcopy(value.binding)))
             result = value.check()
             self.assertEqual(value.lifecycle.check.call_count,2);self.assertEqual(files.call_count,2)
@@ -101,7 +102,6 @@ class RootBindingObservationTest(unittest.TestCase):
         value = self.view()
         with ExitStack() as stack:
             self.root_context(stack)
-            stack.enter_context(patch.object(root,'persistent_fingerprint',return_value=value.files))
             observe = stack.enter_context(patch.object(root,'_root_persistent_identity',return_value={'different':'identity'}))
             with self.assertRaises(root.RootLiveBindingRefused):value.check()
             self.assertFalse(value.usable)
@@ -115,12 +115,41 @@ class RootBindingObservationTest(unittest.TestCase):
             value = self.view()
             with ExitStack() as stack:
                 self.root_context(stack)
-                stack.enter_context(patch.object(root,'persistent_fingerprint',return_value=
-                    {'changed':'metadata'} if target == 'files' else value.files))
+                value.fingerprint_plan.read.return_value = {'changed':'metadata'} if target == 'files' else value.files
                 if target == 'history':value.lifecycle.check.return_value = {'changed':'history'}
                 observe = stack.enter_context(patch.object(root,'_root_persistent_identity'))
                 with self.assertRaises(root.RootLiveBindingRefused):value.check()
                 observe.assert_not_called()
+
+    def test_mutated_binding_refuses_before_plan_read_and_live_database_observation(self):
+        value = self.view();value.binding['private'] = 'changed'
+        with ExitStack() as stack:
+            self.root_context(stack)
+            observe = stack.enter_context(patch.object(root,'_root_persistent_identity'))
+            with self.assertRaises(root.RootLiveBindingRefused):value.check()
+            value.fingerprint_plan.read.assert_not_called();observe.assert_not_called()
+        self.assertFalse(value.usable)
+
+    def test_files_changed_during_live_observation_refuse_in_fresh_final_fingerprint(self):
+        value = self.view();value.fingerprint_plan.read.side_effect = [value.files,{'changed':'metadata'}]
+        with ExitStack() as stack:
+            self.root_context(stack)
+            observe = stack.enter_context(patch.object(root,'_root_persistent_identity',return_value=value.binding))
+            with self.assertRaises(root.RootLiveBindingRefused):value.check()
+            observe.assert_called_once();self.assertEqual(value.fingerprint_plan.read.call_count,2)
+        self.assertFalse(value.usable);value.database_reader.close.assert_called_once_with()
+
+    def test_plan_read_interruption_poison_retains_original_exception_boundary(self):
+        value = self.view();value.fingerprint_plan.read.side_effect = KeyboardInterrupt
+        with ExitStack() as stack:
+            self.root_context(stack)
+            observe = stack.enter_context(patch.object(root,'_root_persistent_identity'))
+            with self.assertRaises(root.RootLiveBindingRefused):value.check()
+            observe.assert_not_called()
+            value.fingerprint_plan.read.side_effect = None
+            with self.assertRaises(root.RootLiveBindingRefused):value.check()
+            self.assertEqual(value.fingerprint_plan.read.call_count,1)
+        self.assertFalse(value.usable)
 
 
 if __name__ == '__main__':unittest.main()

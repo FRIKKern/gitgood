@@ -1,0 +1,9 @@
+{
+  "id": "native-persistent-fingerprint-plan",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Prepare fixed persistent fingerprint paths once for Root live observations while checking every filesystem entry and metadata value freshly.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-live-binding.md", "tools/deployment/native_generation_lease_guard.py", "tools/deployment/native_root_live_binding.py", "tools/deployment/test_native_persistent_fingerprint.py", "tools/deployment/test_native_root_live_binding.py"],
+  "withdrawn": false
+}

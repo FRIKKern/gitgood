@@ -1346,7 +1346,7 @@ def root_stage_profile(profile):
         'native_kernel_backend.py':{'_check_scope','_capture_process','_stat','_read'},
         'native_durable_binding.py':{'configuration','_persistent_identity','read','private_file','directory','_canonical_private_path'},
         'native_backend_scope.py':{'check'},
-        'native_generation_lease_guard.py':{'persistent_fingerprint','_fingerprint_path'},
+        'native_generation_lease_guard.py':{'persistent_fingerprint','_fingerprint_path','read'},
         'native_controller_scope.py':{'private_directory'},
     }
     rows = []
