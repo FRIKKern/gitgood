@@ -1354,29 +1354,47 @@ def root_stage_profile(profile):
         'resource_generations.py':{'canonical'},
         'copy.py':{'deepcopy','_deepcopy_dict','_deepcopy_list','_deepcopy_tuple'},
         'pathlib.py':{'__init__','__str__','__truediv__','resolve','stat','lstat'},
+        'posix.py':{'stat','lstat','fstat','open','read','readlink','scandir','listdir','close'},
+        'socket.py':{'sendto','recvmsg','send','recv'},
     }
     # Match only these six loaded code objects, including their original line.
     # This also handles stdlib layouts split across implementation modules.
     path_codes = {(method.__code__.co_filename,method.__code__.co_firstlineno,method.__code__.co_name)
         for method in (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
+    # CPython C entries have a closed profiler name and no source line. Match
+    # the complete key; never infer a primitive from a filename or substring.
+    builtin_codes = {('~',0,'<built-in method posix.'+name+'>'):('posix.py',name)
+        for name in allowed['posix.py']}
+    builtin_codes.update({('~',0,"<method '"+name+"' of '_socket.socket' objects>"):('socket.py',name)
+        for name in allowed['socket.py']})
+    reserved = {('native_root_artifact_policy.py','_directory'),
+        ('native_root_artifact_policy.py','_root_directory_metadata'),
+        ('native_protected_artifact.py','directory'),('native_protected_artifact.py','_artifact_path'),
+        ('copy.py','deepcopy'),('resource_generations.py','canonical'),('native_root_controller.py','observed'),
+        ('native_service_scope.py','_process_status_fields'),('native_service_scope.py','_process_security_fields'),
+        ('native_service_scope.py','_root_file_parents'),('native_generation_lease_guard.py','read')}
+    reserved.update((label,name) for label in ('pathlib.py','posix.py','socket.py') for name in allowed[label])
     rows = []
     for (filename,line,function),(primitive,calls,total,cumulative,_callers) in pstats.Stats(profile).stats.items():
         path = Path(filename)
-        if path.parent == MODULES and path.name not in {'copy.py','pathlib.py'}:label = path.name
+        builtin = (filename,line,function) in builtin_codes
+        if builtin:label,function = builtin_codes[(filename,line,function)]
+        elif path.parent == MODULES and path.name not in {'copy.py','pathlib.py','posix.py','socket.py'}:label = path.name
         elif path == Path(copy.__file__):label = 'copy.py'
         elif (filename,line,function) in path_codes:label = 'pathlib.py'
         else:continue
         if label not in allowed or function not in allowed[label]:continue
-        if (type(line) is not int or not 0 < line < 10000 or type(calls) is not int
+        if (type(line) is not int or not (line == 0 if builtin else 0 < line < 10000) or type(calls) is not int
                 or not 0 <= calls <= 10000000):continue
         values = [total,cumulative]
         if not all(type(value) in {int,float} and 0 <= value <= 1200 for value in values):continue
         rows.append({'file':label,'function':function,'line':line,'calls':calls,
             'self_ms':int(total*1000),'cumulative_ms':int(cumulative*1000),
             'self_us':int(total*1000000),'cumulative_us':int(cumulative*1000000)})
-    # Keep a deterministic hot subset when the fixed function set exceeds the
-    # output bound. No private frame, caller, argument or return data is kept.
-    rows = sorted(rows,key=lambda value:(-value['cumulative_us'],-value['self_us'],
+    # Reserve the fixed diagnostic questions before filling remaining slots by
+    # cost. Low-cost required helpers must not disappear at the 64-row cap.
+    rows = sorted(rows,key=lambda value:((value['file'],value['function']) not in reserved,
+        -value['cumulative_us'],-value['self_us'],
         value['file'],value['function'],value['line']))[:64]
     return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))
 

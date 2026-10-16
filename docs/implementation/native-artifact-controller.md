@@ -116,7 +116,7 @@ profiler is preserved without starting another; both legacy profiling and the
 CPython monitoring profiler slot are checked. Original arguments, results and
 exceptions are forwarded, and profiler state is restored even on interruption.
 Only a fixed installed file/function set, source line, call count and self or
-cumulative milliseconds can appear in at most 64 deterministic hot rows. No
+cumulative milliseconds can appear in at most 64 deterministic selected rows. No
 stack, caller, private path, argument, SQL, environment or return value is emitted.
 The same rows also retain bounded microseconds, and the hot subset uses that
 precision to avoid millisecond rounding ties. Fixed canonical serialization and
@@ -128,6 +128,20 @@ code filename, first line and function name, and emit only the constant
 `pathlib.py` label. This separates path construction and metadata-call cost
 without recording filesystem names. Installed-module basename matching cannot
 admit either standard-library label. The same single guard and 64-row bound apply.
+Nine POSIX file primitives and four socket methods additionally require their
+exact closed CPython builtin profiler key. They emit constant `posix.py` or
+`socket.py` labels and source line zero; ordinary Python rows still require a
+positive bounded source line. Private filenames, builtin representations and
+callers are never emitted. Basename matching cannot admit these labels. The
+four artifact ancestor helpers, six Path methods, thirteen primitives and seven
+fixed validation/copy helpers have priority when present, followed by the
+hottest remaining rows within the same
+64-row cap. This prevents a low-cost required helper from disappearing and
+separates filesystem/socket time from its overlapping Python wrappers.
+Portable regressions cover exact builtin keys, spoofed labels, numeric bounds,
+required low-cost rows under cap pressure and actual owned socket calls. A
+hosted Linux regression profiles reads of its own tiny fixture file; none of
+these component probes proves full staging or production performance.
 These instrumented runs are diagnostic; production deadline acceptance still
 requires an uninstrumented complete stage and subsequent staged runtime. Private
 acceptance rejects either aggregate timers or the guard sample.

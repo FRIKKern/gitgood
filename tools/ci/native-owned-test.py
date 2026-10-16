@@ -357,6 +357,95 @@ class BoundedProofTests(unittest.TestCase):
         self.assertTrue(all(row['file']=='pathlib.py' and row['calls']>0 for row in rows))
         self.assertNotIn('synthetic-private',json.dumps(rows));self.assertNotIn('opaque',json.dumps(rows))
 
+    def test_guard_primitive_profile_requires_exact_builtin_keys_and_hides_private_values(self):
+        stats={}
+        expected={('posix.py',name) for name in ('stat','lstat','fstat','open','read','readlink','scandir','listdir','close')}
+        expected.update(('socket.py',name) for name in ('sendto','recvmsg','send','recv'))
+        for label,name in expected:
+            function=('<built-in method posix.'+name+'>' if label=='posix.py'
+                else "<method '"+name+"' of '_socket.socket' objects>")
+            stats[('~',0,function)]=(1,3,.000125,.000875,{'synthetic-private-caller':'SQL secret'})
+            stats[('~',1,function)]=(1,3,.5,.8,{})
+            stats[('/private/primitive',0,function)]=(1,3,.5,.8,{})
+            stats[(str(proof.MODULES/label),12,name)]=(1,3,.5,.8,{})
+        stats[('~',0,'<built-in method nt.stat>')]=(1,3,.5,.8,{})
+        stats[('~',0,'<built-in method posix.private>')]=(1,3,.5,.8,{})
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(Mock())
+        self.assertEqual({(row['file'],row['function']) for row in rows},expected)
+        self.assertEqual(len(rows),13)
+        self.assertTrue(all(row['line']==0 and row['calls']==3 and row['self_us']==125 and row['cumulative_us']==875 for row in rows))
+        self.assertNotIn('private',json.dumps(rows));self.assertNotIn('SQL',json.dumps(rows))
+        self.assertNotIn('<built-in',json.dumps(rows));self.assertNotIn('_socket',json.dumps(rows))
+
+    def test_guard_profile_retains_cold_required_helpers_and_primitives_at_original_row_cap(self):
+        expected={('native_root_artifact_policy.py','_directory'),('native_root_artifact_policy.py','_root_directory_metadata'),
+            ('native_protected_artifact.py','directory'),('native_protected_artifact.py','_artifact_path'),
+            ('copy.py','deepcopy'),('resource_generations.py','canonical'),('native_root_controller.py','observed'),
+            ('native_service_scope.py','_process_status_fields'),('native_service_scope.py','_process_security_fields'),
+            ('native_service_scope.py','_root_file_parents'),('native_generation_lease_guard.py','read')}
+        stats={(str(Path(proof.copy.__file__) if file=='copy.py' else proof.MODULES/file),20,name):
+            (1,1,.000001,.000001,{}) for file,name in expected}
+        for method in (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat):
+            code=method.__code__;stats[(code.co_filename,code.co_firstlineno,code.co_name)]=(1,1,.000001,.000001,{})
+            expected.add(('pathlib.py',code.co_name))
+        for name in ('stat','lstat','fstat','open','read','readlink','scandir','listdir','close'):
+            stats[('~',0,'<built-in method posix.'+name+'>')]=(1,1,.000001,.000001,{})
+            expected.add(('posix.py',name))
+        for name in ('sendto','recvmsg','send','recv'):
+            stats[('~',0,"<method '"+name+"' of '_socket.socket' objects>")]=(1,1,.000001,.000001,{})
+            expected.add(('socket.py',name))
+        stats.update({(str(proof.MODULES/'native_kernel_backend.py'),line,'_read'):(1,1,.01,line/100,{}) for line in range(1,81)})
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(Mock())
+        self.assertEqual(len(rows),64)
+        self.assertEqual(len(expected),30)
+        self.assertTrue(expected <= {(row['file'],row['function']) for row in rows})
+        self.assertEqual([row['line'] for row in rows if row['file']=='native_kernel_backend.py'],list(range(47,81)))
+        self.assertEqual(rows,sorted(rows,key=lambda row:(row['file'],row['function'],row['line'])))
+
+    def test_guard_primitive_profile_refuses_invalid_counts_times_and_source_lines(self):
+        for calls,total,cumulative in ((True,.1,.1),(-1,.1,.1),(10000001,.1,.1),(1,-1,.1),(1,.1,float('nan')),(1,.1,1201)):
+            with self.subTest(calls=calls,total=total,cumulative=cumulative):
+                stats={('~',0,'<built-in method posix.stat>'):(1,calls,total,cumulative,{})}
+                with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+                    self.assertEqual(proof.root_stage_profile(Mock()),[])
+        stats={(str(proof.MODULES/'native_kernel_backend.py'),0,'_read'):(1,1,.1,.1,{})}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            self.assertEqual(proof.root_stage_profile(Mock()),[])
+
+    def test_guard_primitive_profile_observes_actual_socket_calls_without_payload(self):
+        left,right=proof.socket.socketpair()
+        try:
+            def exchange():
+                self.assertEqual(left.send(b'private-fixture'),15)
+                return right.recv(32)
+            profile=proof.cProfile.Profile();self.assertEqual(profile.runcall(exchange),b'private-fixture')
+        finally:left.close();right.close()
+        rows=proof.root_stage_profile(profile)
+        self.assertEqual({(row['file'],row['function']) for row in rows},{('socket.py','send'),('socket.py','recv')})
+        self.assertTrue(all(row['line']==0 and row['calls']==1 for row in rows))
+        self.assertNotIn('private-fixture',json.dumps(rows))
+
+    @unittest.skipUnless(os.name=='posix','Actual Linux POSIX primitive profile requires hosted Linux')
+    def test_guard_primitive_profile_observes_actual_linux_owned_file_calls(self):
+        path=self.directory/'private-primitive-file';path.write_bytes(b'private-fixture')
+        raw_path,raw_directory=str(path),str(self.directory)
+        def observe():
+            os.stat(raw_path);os.lstat(raw_path)
+            fd=os.open(raw_path,os.O_RDONLY)
+            try:
+                os.fstat(fd);self.assertEqual(os.read(fd,32),b'private-fixture')
+            finally:os.close(fd)
+            os.listdir(raw_directory)
+            with os.scandir(raw_directory) as entries:list(entries)
+        profile=proof.cProfile.Profile();profile.runcall(observe)
+        rows=proof.root_stage_profile(profile)
+        self.assertEqual({(row['file'],row['function']) for row in rows},
+            {('posix.py',name) for name in ('stat','lstat','fstat','open','read','close','listdir','scandir')})
+        self.assertTrue(all(row['line']==0 and row['calls']>0 for row in rows))
+        self.assertNotIn(str(self.directory),json.dumps(rows));self.assertNotIn('private-fixture',json.dumps(rows))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',
