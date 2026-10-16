@@ -855,7 +855,7 @@ never retried. A comparison requires positive equal entry/call counts in all
 four roles, zero fallback, equal original observations, descriptor restoration,
 watcher removal and fresh source custody before effects.
 
-`tools/ci/native-descriptor-test.py` adds seven portable scope contracts and ten
+`tools/ci/native-descriptor-test.py` adds eight portable scope contracts and eleven
 actual hosted Linux Root cases. The latter cover C descriptor identity and
 values, immutable-cache bounds and fresh lists, original metadata reads,
 permanent dictionary invalidation, inherited shadows/noninterned keys,
@@ -870,3 +870,13 @@ passes, complete archive, guard counts and production deadlines. The bound
 descriptor implementation remains unverified until exact hosted review. Full
 uninstrumented staging/output/runtime, listener/provisioning, interrupted-effect
 reconciliation, installation and actual replacement-host restore remain open.
+
+Review of the first bound-descriptor source found four missing POSIX inputs:
+`posixpath.os`, `posixpath._get_sep`, `builtins.map` and `builtins.bytes`.
+`join`, `splitroot` and the separator helper read these bindings even for exact
+strings. The revised finite contract authenticates the separator body, original
+module and builtin types, and watches all four bindings plus the helper's live
+code. Additional portable custody and actual Root callback/error cases require
+original behavior after every mutation, including an in-place helper-code
+change that produces no dictionary event. The first hosted run was superseded
+for this source repair; cancellation establishes no native semantics or benefit.

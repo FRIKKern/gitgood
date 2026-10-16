@@ -53,6 +53,7 @@ SDK_ALTERNATIVES={'PurePath.__init__':{
     # Ubuntu/Debian ntpath-import.diff adds a local import to that exact body.
     '568123baa6cd1f9dc899024528b0fa30429b5b7c0a1bf3923af0df4b251ad6c2'}}
 POSIX_AST={
+    '_get_sep':'9bd3b114d0030168cf40671121828d07b9ef8fe0f054fedeb162c9dd76a2323c',
     'join':'aa1ab3c9e073abc8ccb51208d6b7faf1aa03d673cd6ff83e2f83c8467b476cde',
     'splitdrive':'a1b5c7575676bc9a0b6d58a11e1bdae52781ed124be83d8ad65c31ca54956776',
     'splitroot':'7e582ea1376f84916291312221ca8c9a6a7992306f6c7a80493fdf3398f60305',
@@ -92,18 +93,21 @@ def posix_code(raw):
 
 
 def sdk_environment():
+    require(all(type(module) is types.ModuleType for module in (pathlib,os,sys,posixpath,ntpath,builtins)))
     require(pathlib.os is os and pathlib.sys is sys and pathlib.posixpath is posixpath
         and pathlib.Path is TARGETS[0][0] and pathlib.PurePath is TARGETS[1][0]
         and pathlib.PurePosixPath._flavour is posixpath and pathlib.PureWindowsPath._flavour is ntpath
         and type(sys.modules) is dict and sys.modules.get('ntpath') is ntpath
-        and posixpath.sep=='/' and posixpath.altsep is None)
+        and posixpath.sep=='/' and posixpath.altsep is None and vars(posixpath).get('os') is os)
     if 'ntpath' in vars(pathlib):require(pathlib.ntpath is ntpath)
     for owner,name,module in ((os,'fspath','posix' if os.name=='posix' else 'nt'),(sys,'intern','sys'),
             (builtins,'len','builtins'),(builtins,'isinstance','builtins'),(builtins,'__import__','builtins')):
         fn=vars(owner)[name]
         require(type(fn) is types.BuiltinFunctionType and fn.__module__==module and fn.__name__==name)
     require(builtins.str is ''.__class__ and builtins.type is ''.__class__.__class__
-        and builtins.object is ''.__class__.__base__)
+        and builtins.object is ''.__class__.__base__ and builtins.bytes is b''.__class__
+        and type(builtins.map) is type and builtins.map.__module__=='builtins'
+        and builtins.map.__name__=='map' and not builtins.map.__flags__&512)
     for name in ('_raw_paths','_drv','_root','_tail_cached','_str'):
         slot=vars(pathlib.PurePath)[name]
         require(type(slot) is types.MemberDescriptorType and slot.__objclass__ is pathlib.PurePath and slot.__name__==name)
@@ -242,10 +246,10 @@ class Adapter:
             for name in names:require(name in namespace);shared.append((namespace,name,namespace[name]))
         capture(pathlib,('Path','PurePath','PosixPath','PurePosixPath','PureWindowsPath','os','sys','posixpath'))
         if 'ntpath' in vars(pathlib):capture(pathlib,('ntpath',))
-        capture(builtins,('type','str','isinstance','len','object','super','AttributeError','__import__'))
+        capture(builtins,('type','str','isinstance','len','object','super','AttributeError','__import__','map','bytes'))
         capture(os,('fspath',));capture(sys,('intern',))
         capture(sys,('modules',));shared.append((sys.modules,'ntpath',ntpath))
-        capture(posixpath,('join','splitroot','splitdrive','sep','altsep'))
+        capture(posixpath,('join','splitroot','splitdrive','_get_sep','os','sep','altsep'))
         shared.extend((vars(self.native),name,getattr(self.native,name)) for name in (*APIS,*extra))
         # Raw class descriptors and function code are separate live bindings.
         # In-place code and class-cell changes must not reuse a prior admission.

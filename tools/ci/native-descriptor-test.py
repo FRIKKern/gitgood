@@ -118,6 +118,22 @@ class DescriptorScopeTest(unittest.TestCase):
             p=Path('/before');saved=p.with_segments
         self.adapter.close();self.assertEqual(str(saved('/after')),expected)
         self.assertEqual(self.adapter.details()['phase'],'closed');self.assertFalse(self.adapter.details()['watching'])
+    def test_posix_dependency_bindings_code_and_builtin_custody_are_complete(self):
+        table=self.adapter.tables[0]
+        for owner,name in ((vars(probe.posixpath),'os'),(vars(probe.posixpath),'_get_sep'),
+                (vars(builtins),'map'),(vars(builtins),'bytes')):
+            self.assertTrue(any(o is owner and n==name and v is owner[name] for o,n,v in table))
+        fn=probe.posixpath._get_sep
+        self.assertTrue(any(o is fn and n=='__code__' and v is fn.__code__ for o,n,v in table))
+        with self.adapter.installed():
+            self.assertTrue(self.native.admitted(table))
+            with patch.object(probe.posixpath,'_get_sep',lambda path:'/'):
+                self.assertFalse(self.native.admitted(table))
+        for owner,name,value in ((probe.posixpath,'os',object()),(builtins,'map',lambda *args:iter(())),
+                (builtins,'bytes',str)):
+            with patch.object(owner,name,value),patch.object(self.native,'descriptor_plan') as planned:
+                with self.assertRaises(ValueError):probe.DescriptorAdapter(self.native,owner_check=lambda:None)
+                planned.assert_not_called()
     def test_comparison_keeps_twenty_alternating_original_guards_and_removes_notifications(self):
         stage=types.SimpleNamespace(usable=True,state='ready');events=[]
         loaded=types.SimpleNamespace(native=self.native,codes=None,validate=Mock(),evidence=lambda:{'synthetic':True})
@@ -236,6 +252,42 @@ class HostedDescriptorTest(unittest.TestCase):
                 self.assertTrue(a.details()['code_changed']);self.assertEqual(a.values()['constructor'],0)
                 os.__class__=module_type
         finally:os.__class__=module_type
+        self.assertTrue(a.restored());self.loaded.validate()
+    def test_actual_posix_join_dependency_changes_preserve_original_callbacks_and_errors(self):
+        events=[];flavour=probe.posixpath
+        original_sep=flavour._get_sep;original_fspath=os.fspath;original_map=builtins.map
+        def separator(value):events.append('separator');return original_sep(value)
+        def fspath(value):events.append('fspath');return original_fspath(value)
+        def mapped(fn,*values):
+            if fn is original_fspath:events.append('map')
+            return original_map(fn,*values)
+        class BytesMeta(type):
+            def __instancecheck__(cls,value):events.append('bytes');return False
+        class Bytes(metaclass=BytesMeta):pass
+        targets=((flavour,'_get_sep',separator),(flavour,'os',types.SimpleNamespace(fspath=fspath)),
+            (builtins,'map',mapped),(builtins,'bytes',Bytes))
+        def observe():return str(Path('/dependency')/'leaf')
+        for owner,name,value in targets:
+            events.clear()
+            with patch.object(owner,name,value):expected=observe();expected_events=events[:]
+            self.assertTrue(expected_events,(name,'original callback missing'));events.clear();a=self.adapter()
+            with a.installed():
+                before=a.values()
+                with patch.object(owner,name,value):actual=observe();actual_events=events[:]
+                self.assertTrue(a.details()['code_changed']);self.assertEqual(a.values(),before)
+            self.assertEqual(actual,expected);self.assertEqual(actual_events,expected_events)
+            self.assertGreater(a.details()['fallbacks']['constructor'],0);a.close();self.loaded.validate()
+        # Changing an existing helper's code does not emit a dictionary event.
+        # Its direct live function check must still decline before SDK slots.
+        a=self.adapter();code=original_sep.__code__
+        def changed(path):raise KeyboardInterrupt('original separator')
+        try:
+            with a.installed():
+                original_sep.__code__=changed.__code__
+                with self.assertRaises(KeyboardInterrupt) as caught:observe()
+                self.assertEqual(caught.exception.args,('original separator',));self.assertTrue(a.details()['code_changed'])
+                self.assertEqual(a.values()['constructor'],0);original_sep.__code__=code
+        finally:original_sep.__code__=code
         self.assertTrue(a.restored());self.loaded.validate()
     def test_actual_import_spec_dict_replacement_callbacks_hook_failure_and_module_loss(self):
         a=self.adapter()
