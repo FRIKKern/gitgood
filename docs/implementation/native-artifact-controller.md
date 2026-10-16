@@ -656,3 +656,12 @@ original stage. The benefit gate remains a median ratio at most 0.80 and at leas
 pending; no adoption or staging success is claimed. Full uninstrumented output,
 the staged normal runtime, listener provisioning, interruption reconciliation,
 installation and actual replacement restoration remain required.
+
+The first complete-read candidate, 97b0112, compiled successfully and passed all
+37 metadata cases with their 372 original Root cases. Its read-suite process then
+segfaulted at the aggregate Root case, before complete-read acceptance, guard
+pairs or full staging. The backend remains rejected for use. The follow-up test
+harness enables fatal-signal Python traces, runs focused read cases before the
+aggregate case, and emits only fixed public Root test symbols before native
+entry. Every original case remains required; these traces are diagnosis and
+establish no behavior, timing or journey acceptance.

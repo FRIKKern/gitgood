@@ -5,6 +5,7 @@ These portable checks establish the borrowed buffered-reader ownership contract,
 not execution or acceptance of the Linux C backend.
 """
 import io
+import faulthandler
 import hashlib
 import importlib.util
 import os
@@ -17,6 +18,7 @@ import unittest
 from unittest.mock import Mock,MagicMock,patch
 
 sys.dont_write_bytecode=True
+faulthandler.enable(all_threads=True)
 import native_read_probe as probe
 
 spec=importlib.util.spec_from_file_location('_metadata_read_cases',Path(__file__).with_name('native-metadata-test.py'))
@@ -242,7 +244,7 @@ class HostedReadTest(unittest.TestCase):
     def adapter(self):return probe.Adapter(self.loaded.modules,self.loaded.native,self.loaded.kernel,original_codes=self.loaded.original_codes)
     custody=metadata_cases.HostedMetadataTest.custody
 
-    def test_all_original_372_root_cases_with_eight_role_adapter(self):
+    def test_zz_all_original_372_root_cases_with_eight_role_adapter(self):
         spec=importlib.util.spec_from_file_location('_original_read_lexical_cases',Path(__file__).with_name('lexical-path-test.py'))
         original=importlib.util.module_from_spec(spec);spec.loader.exec_module(original)
         suite=unittest.TestSuite()
@@ -250,7 +252,13 @@ class HostedReadTest(unittest.TestCase):
             scope=unittest.defaultTestLoader.loadTestsFromName(name)
             self.assertEqual(scope.countTestCases(),count);suite.addTest(scope)
         a=self.adapter();stream=io.StringIO()
-        with a.installed():result=unittest.TextTestRunner(stream=stream).run(suite)
+        class RootProgress(unittest.TextTestResult):
+            def startTest(self,test):
+                # Fixed public source symbols only, before the test can enter
+                # native code. No paths, values or private records are emitted.
+                print('native_read_root_case='+type(test).__name__+'.'+test._testMethodName,flush=True)
+                super().startTest(test)
+        with a.installed():result=unittest.TextTestRunner(stream=stream,resultclass=RootProgress).run(suite)
         self.assertEqual(result.testsRun,372);self.assertFalse(result.skipped)
         self.assertTrue(result.wasSuccessful(),stream.getvalue());self.assertTrue(a.restored());self.loaded.validate()
         self.assertGreater(a.calls['root_file'],0);self.assertGreater(a.calls['private_file'],0)
@@ -429,7 +437,8 @@ except KeyboardInterrupt as error:assert error is failure
 else:raise AssertionError('audit refusal missed')
 assert len(os.listdir('/proc/self/fd'))==before
 '''
-        subprocess.run([sys.executable,'-B','-c',script,str(self.root/probe.metadata.extension_name()),str(leaf)],check=True,timeout=15)
+        subprocess.run([sys.executable,'-X','faulthandler','-B','-c',script,
+            str(self.root/probe.metadata.extension_name()),str(leaf)],check=True,timeout=15)
 
 
 if __name__=='__main__':unittest.main(verbosity=2)
