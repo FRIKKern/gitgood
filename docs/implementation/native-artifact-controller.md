@@ -303,3 +303,19 @@ counter/type/time bounds and aggregate overflow are checked. This postprocesses
 the same guard-ten profile, invokes no additional guard or filesystem read, and
 guides the scope of the next repair while retaining complete staging and
 recovery requirements.
+
+A fixture-only comparison tests immutable path construction in the three
+modules identified by those costs: service scope, durable binding and the Root
+database reader. Exact concrete path inputs are reused; at most 64 bounded
+exact-string constructor results are retained. Other input types and keyword
+arguments use the original constructor. The cache contains only lexical paths,
+with no filesystem, process, database, socket or validation observations.
+
+Twenty baseline/prototype pairs alternate order on the same original stage and
+actors before any effect and before the original timers and guard-ten profile.
+Every module symbol is restored after each invocation and on interruption;
+observations must match. Original Root file, binding and reader refusal scopes
+also run with the factory active. The original guard and symbols are restored
+before staging. Numeric receipts contain only paired times and bounded reuse
+counts. This trial adopts no production behavior and does not establish the
+full staging deadline, staged runtime or recovery requirements.

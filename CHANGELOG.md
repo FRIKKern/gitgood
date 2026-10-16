@@ -446,6 +446,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Diagnose remaining full-staging guard cost with a sample of only fixed read-only guard ten. Preserve original results, exceptions and existing profiler state, and emit only bounded installed code-location and timing rows. Production code, complete payload, effect guards and deadlines remain unchanged; an uninstrumented full proof is still required.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
+- Compare bounded immutable path construction on original Root actors while preserving fresh observations and restoring original code before staging effects.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/immutable_path_probe.py), [details 3](tools/ci/immutable-path-test.py)
+
 - Share duplicate private lifecycle-current and retained-history metadata observations only within each existing original Root read-only pass. Keep the separate final pass fresh, discard failed or closed views, and preserve every effect, writer, socket, SQL, payload and deadline gate. Require actual Root metadata/loss and full staging evidence.
   Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](docs/implementation/native-root-lifecycle.md), [details 3](tools/deployment/native_root_lifecycle.py), [details 4](tools/deployment/test_native_root_lifecycle.py), [details 5](tools/deployment/test_native_root_observation_pass.py)
 

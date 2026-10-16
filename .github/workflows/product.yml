@@ -228,6 +228,8 @@ jobs:
           "$GITGOOD_PYTHON" -B tools/ci/root-runtime-failure-test.py
           sudo -n env "GITHUB_ACTIONS=$GITHUB_ACTIONS" "RUNNER_ENVIRONMENT=$RUNNER_ENVIRONMENT" \
             "$GITGOOD_PYTHON" -B tools/ci/root-runtime-pidfd-test.py
+      - name: Verify immutable path construction and original Root refusals
+        run: sudo -n "$GITGOOD_PYTHON" -B tools/ci/immutable-path-test.py
       - name: Verify protected native ownership on actual systemd
         # Adds complete production archive staging and content verification;
         # this hosted test budget does not alter production operation deadlines.
