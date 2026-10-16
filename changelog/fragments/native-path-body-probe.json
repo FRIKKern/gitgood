@@ -1,0 +1,9 @@
+{
+  "id": "native-path-body-probe",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Compare hosted compiled path helper bodies on original classes and Root actors, with live globals, refusal tests, code custody and complete descriptor restoration before staging.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/ci/path_body_probe.py", "tools/ci/path-body-test.py"],
+  "withdrawn": false
+}

@@ -324,7 +324,7 @@ That path trial's median ratio was 0.9586 (about 4.1% faster), below its
 predeclared 0.80 adoption threshold. It is no longer the active stage experiment.
 The tests remain to preserve its refusal and restoration evidence.
 
-The next diagnostic compiles only the existing selected systemd `Get` queue and
+The retained selected-query diagnostic compiles the existing systemd `Get` queue and
 typed reply loop into a small hosted CPython extension. It binds the original
 Root owner, library handle and bus pointer, creates no connection and retains no
 observation results. The original `_get_many` still validates arguments and
@@ -347,3 +347,38 @@ and all bindings are released after the comparison without closing their buses.
 This trial requires median ratio at most 0.90 with at least 18 of 20 pairs faster
 before proposing adoption. Neither that threshold nor protocol tests substitute
 for complete uninstrumented staging, staged runtime, installation or recovery.
+
+That selected-query trial passed its 19 protocol cases, all 33 original systemd
+cases under the adapter and 20 actual same-connection pairs. Its whole-guard
+median ratio was 0.990991, with 15 of 20 pairs faster, below both adoption
+criteria. Production adoption is rejected; it is no longer the active stage
+comparison. Complete staging still failed at about 240 seconds before output
+verification, with every production module unchanged.
+
+The next hosted diagnostic compiles 20 measured path helper bodies from the exact
+installed CPython 3.12 standard-library source using pinned Cython 3.1.8. An inverse
+AST check reconstructs every selected body after redirecting global loads to live
+original globals and builtins dictionaries. Original classes, instances and raw
+descriptors remain authoritative. Class closure dependencies, unsupported source
+shapes and unsafe compiler options refuse. The hosted builder authenticates the
+compiler wheel, bounds extraction and temporary storage, and records source,
+options, generated-code and ELF identities; it never runs locally.
+
+The loader checks Root-owned source/ELF custody and original runtime function
+code before installing function, classmethod and property bodies on the original
+classes. Semantic checks cover lexical values/types, PathLike and subclass
+behavior, live global replacement/deletion, exception identity, and fresh
+stat/lstat/resolve results after filesystem mutation. All 372 original Root
+mutation/refusal cases must also pass with the adapter active. Compiled function
+and frame metadata have compiler-specific limits; no general interpreter or
+production equivalence is claimed by these component results.
+
+Twenty whole-guard pairs then alternate on the original actors, with no active
+profiler. Every descriptor restores after each prototype invocation, including
+interruption and partial installation, and before original timers, profiling or
+staging effects. Code custody is read again after comparison. Receipts retain
+only fixed public code identities, selected body labels, counts and paired times.
+The adoption threshold is median ratio at most 0.80 with at least 18 of 20 pairs
+faster. All filesystem/kernel/SQL observations, complete archive, effect guards
+and production deadlines remain unchanged. Production adoption and complete
+staging/runtime, installation and recovery acceptance remain unproven.

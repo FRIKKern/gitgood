@@ -401,6 +401,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
   Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)
 
+- Compare hosted compiled path helper bodies on original classes and Root actors, with live globals, refusal tests, code custody and complete descriptor restoration before staging.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/path_body_probe.py), [details 3](tools/ci/path-body-test.py)
+
 - Measure six exact standard-library Path methods in the existing single-guard staging diagnostic while excluding private paths, arguments and results.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
