@@ -243,7 +243,7 @@ class Adapter:
         self.plan=None if _prepare_only else native.path_plan(
             self.tables,self.concrete,*self.owner,256,self.import_globals)
 
-    def binding_tables(self,extra=()):
+    def binding_tables(self,extra=(),*,originals=False):
         shared=[]
         def capture(owner,names):
             namespace=vars(owner)
@@ -264,8 +264,8 @@ class Adapter:
             shared.append((fn,'__code__',fn.__code__))
             for cell in fn.__closure__ or ():
                 shared.append((cell,'cell_contents',cell.cell_contents))
-        for owner,name,raw,new in self.entries:shared.append((owner,name,new))
-        replacement_names={name:new for _owner,name,_old,new in self.entries}
+        for owner,name,raw,new in self.entries:shared.append((owner,name,raw if originals else new))
+        replacement_names={} if originals else {name:new for _owner,name,_old,new in self.entries}
         # Native class rows resolve raw descriptors through the current MRO.
         # Checking only the defining class would miss a new concrete-class
         # shadow of an inherited slot, flavour or helper.
@@ -279,7 +279,7 @@ class Adapter:
                 if name=='_flavour' else pathlib.PurePath)
             require(current is vars(defining)[name])
             shared.append((self.concrete,name,replacement_names.get(name,current)))
-        for fn in self.replacements:
+        for fn in self.originals if originals else self.replacements:
             if type(fn) is types.FunctionType:shared.append((fn,'__code__',fn.__code__))
         for name in ('_parse_path','_format_parsed_parts','drive','root','_tail'):
             shared.append((pathlib.PurePath,name,vars(pathlib.PurePath)[name]))

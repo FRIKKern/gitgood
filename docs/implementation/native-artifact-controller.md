@@ -916,3 +916,38 @@ This revision totals 20 descriptor cases. Hosted credential behavior and benefit
 remain unverified; the preceding candidate remains rejected. The original
 whole-guard gate, archive, actors, two Root passes, guards and deadlines remain
 unchanged, as do all eight existing observation implementations.
+
+Exact review of identity-query candidate `89c77d5` verified all 20 descriptor
+cases, including the four credential-field changes, and every retained
+43/37/39-case Path/metadata/read scope, four original 372-case Root suites,
+82 ownership fixtures and 59 installed production hashes. It still failed the
+unchanged benefit gate: median ratio 1.206218 with zero of twenty faster,
+baseline median 30.4775 ms and prototype median 36.683 ms. Root staging timed
+out at 240205 ms and the ordinary controller at 240398 ms, with zero output
+checks on the same complete archive. This backend is rejected. The values are
+within that run; they do not measure improvement across different hosted CPUs.
+No unchanged paired, baseline-only staging or profiling dispatch is justified.
+
+The next work moves lexical preparation inside complete native observation
+roles. The existing read boundary still constructs/converts SDK paths, parts
+and parents in Python before `read_file`; C `prepare_plan`/`prepare_custody`
+also call original SDK methods through `lexical_path`, `path_rows`,
+`parent_descriptor`, names and equality/hash lookups. These are source-derived
+boundary costs, not independently timed subcost attribution. The planned
+replacement must cover all eight existing observation families and all four
+lexical operations together. It must retain fresh role admission, existing
+ordered filesystem observations and original SDK classes outside those roles.
+No Root admission or observation result may be cached.
+
+`tools/ci/native_role_probe.py` currently implements only the original-descriptor
+code context for that boundary. `Adapter.binding_tables(originals=True)` pins
+the actual original SDK methods rather than temporary wrappers. The context
+uses fresh scoped admission, leaves SDK descriptors original, preserves pending
+errors and closes watchers/cache/code-input references. Six portable tests in
+`tools/ci/native-role-test.py` cover original-method preservation, nested-scope
+refusal, source-custody failure, partial binding and interrupted cleanup. They
+use a test double and establish no native role execution or benefit. Complete
+C preparation/observation dispatch and its Root cases remain unimplemented.
+Do not dispatch this partial boundary or repeat a rejected backend while it is
+being completed. Full uninstrumented staging/runtime and all remaining
+installation/recovery gates remain open.
