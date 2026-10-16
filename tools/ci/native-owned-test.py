@@ -495,7 +495,8 @@ class BoundedProofTests(unittest.TestCase):
         self.assertEqual(len(rows),64);self.assertEqual(len(expected),31)
         self.assertTrue(expected <= {(row['file'],row['function']) for row in rows})
         self.assertEqual(len([row for row in rows if row['file']=='guard-self-costs.py']),8)
-        self.assertEqual([row['line'] for row in rows if row['file']=='native_kernel_backend.py'],list(range(56,81)))
+        self.assertEqual(len([row for row in rows if row['function']=='module_self']),8)
+        self.assertEqual([row['line'] for row in rows if row['file']=='native_kernel_backend.py' and row['function']=='_read'],list(range(64,81)))
 
     def test_guard_self_cost_categories_refuse_invalid_numeric_data_and_spoofed_rows(self):
         for calls,total in ((True,.1),(-1,.1),(10000001,.1),(1,True),(1,-1),(1,float('nan')),(1,float('inf'))):
@@ -530,6 +531,122 @@ class BoundedProofTests(unittest.TestCase):
         self.assertLessEqual(abs(sum(row['self_us'] for row in costs)-int(total*1000000)),8)
         self.assertTrue(all(row['line']==0 and row['self_us']==row['cumulative_us'] for row in costs))
         self.assertNotIn('private-fixture',json.dumps(rows));self.assertNotIn('opaque',json.dumps(rows))
+
+    def test_guard_hot_module_self_rows_use_exact_public_closure_without_private_symbols(self):
+        tree=ast.parse(Path(proof.__file__).read_text(encoding='utf-8'))
+        function=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='root_guard_hot_self')
+        modules=ast.literal_eval(next(node.value for node in function.body if isinstance(node,ast.Assign) and
+            any(isinstance(target,ast.Name) and target.id=='modules' for target in node.targets)))
+        self.assertEqual(modules,set(proof.module_closure(HERE.parents[1]/'tools/deployment')))
+        self.assertEqual(len(modules),59)
+        chosen=sorted(modules)[:10]
+        stats={(str(proof.MODULES/name),65000,'private_function_'+str(index)):(1,index+1,(index+1)/1000,1,{'private-caller':'password'})
+            for index,name in enumerate(chosen)}
+        stats[('/private/'+chosen[-1],1,'private')]=(1,100,100,100,{})
+        stats[(str(proof.MODULES/'private_password.py'),1,'private')]=(1,100,100,100,{})
+        rows=proof.root_guard_hot_self(stats,set())
+        self.assertEqual(len(rows),8);self.assertEqual({row['file'] for row in rows},set(chosen[2:]))
+        self.assertTrue(all(row['function']=='module_self' and row['line']==0 and row['self_us']==row['cumulative_us'] for row in rows))
+        self.assertNotIn('private',json.dumps(rows));self.assertNotIn('password',json.dumps(rows));self.assertNotIn('65000',json.dumps(rows))
+
+    def test_guard_hot_builtin_self_rows_require_exact_keys_and_rank_self_time(self):
+        codes=proof.root_guard_builtin_self_codes();chosen=list(codes.items())[:10]
+        stats={key:(1,index+1,(index+1)/1000,1000 if index==0 else .1,{'private-caller':'secret'})
+            for index,(key,tag) in enumerate(chosen)}
+        for key,tag in chosen:
+            stats[('/private/runtime',key[1],key[2])]=(1,100,100,100,{})
+            stats[(key[0],1,key[2])]=(1,100,100,100,{})
+        stats[('~',0,'<built-in method private.password>')]=(1,100,100,100,{})
+        rows=proof.root_guard_hot_self(stats,set())
+        self.assertEqual(len(rows),8);self.assertEqual({row['function'] for row in rows},{tag for key,tag in chosen[2:]})
+        self.assertTrue(all(row['file']=='builtin-self.py' and row['line']==0 and row['self_us']==row['cumulative_us'] for row in rows))
+        self.assertNotIn('private',json.dumps(rows));self.assertNotIn('secret',json.dumps(rows));self.assertNotIn('<built-in',json.dumps(rows))
+
+    def test_guard_hot_path_helpers_require_exact_loaded_keys_and_exclude_original_six(self):
+        excluded={(method.__code__.co_filename,method.__code__.co_firstlineno,method.__code__.co_name)
+            for method in (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
+        codes=proof.root_guard_path_helper_codes(excluded);self.assertTrue(set(codes).isdisjoint(excluded))
+        chosen=sorted(codes.items())[:12];self.assertEqual(len(chosen),12)
+        stats={key:(1,index+1,(index+1)/1000,.1,{}) for index,(key,tag) in enumerate(chosen)}
+        for key,tag in chosen:
+            stats[('/private/pathlib.py',key[1],key[2])]=(1,100,100,100,{})
+            stats[(key[0],key[1]+5000,key[2])]=(1,100,100,100,{})
+            stats[(str(proof.MODULES/'pathlib-self.py'),key[1],key[2])]=(1,100,100,100,{})
+        rows=proof.root_guard_hot_self(stats,excluded)
+        self.assertEqual(len(rows),9)
+        self.assertEqual({(row['function'],row['line']) for row in rows},{(tag,key[1]) for key,tag in chosen[3:]})
+        self.assertTrue(all(row['file']=='pathlib-self.py' and row['self_us']==row['cumulative_us'] for row in rows))
+        self.assertNotIn('private',json.dumps(rows))
+        for key,tag in chosen:self.assertNotIn(key[0],json.dumps(rows))
+
+    def test_guard_hot_self_rows_refuse_invalid_numeric_data_and_aggregate_overflow(self):
+        for calls,total in ((True,.1),(-1,.1),(10000001,.1),(1,True),(1,-1),(1,float('nan')),(1,float('inf'))):
+            with self.subTest(calls=calls,total=total),self.assertRaises(ValueError):
+                proof.root_guard_hot_self({(str(proof.MODULES/'native_service_scope.py'),1,'private'):(1,calls,total,.1,{})},set())
+        with self.assertRaises(ValueError):
+            proof.root_guard_hot_self({(str(proof.MODULES/'native_service_scope.py'),1,'private'):(1,10000000,.1,.1,{}),
+                (str(proof.MODULES/'native_service_scope.py'),2,'other_private'):(1,1,.1,.1,{})},set())
+        stats={(str(proof.MODULES/'builtin-self.py'),20,'getattr'):(1,1,.1,.1,{}),
+            (str(proof.MODULES/'pathlib-self.py'),20,'parts'):(1,1,.1,.1,{}),
+            (str(proof.MODULES/'native_service_scope.py'),20,'module_self'):(1,1,.1,.1,{})}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            self.assertEqual(proof.root_stage_profile(Mock()),[])
+
+    def test_guard_hot_self_rows_cover_real_io_and_path_profile_inside_original_cap(self):
+        path=self.directory/'private-hot-self-fixture';path.write_bytes(b'private-fixture-value')
+        def transform():
+            value=Path('/private-fixture')/'opaque'
+            hash(value);value.parts;value.parent;value.name
+            getattr(value,'anchor');len(value.parts);{'key':1}.get('key')
+            with open(path,'rb') as source:return source.read()
+        scope={'transform':transform}
+        exec(compile('def check():\n    return transform()\n',str(proof.MODULES/'native_root_artifact_dispatch.py'),'exec'),scope)
+        profile=proof.cProfile.Profile();self.assertEqual(profile.runcall(scope['check']),b'private-fixture-value')
+        rows=proof.root_stage_profile(profile)
+        self.assertLessEqual(len(rows),64)
+        self.assertTrue(any(row['function']=='module_self' for row in rows))
+        self.assertTrue(any(row['file']=='builtin-self.py' and row['function']=='buffered_read' for row in rows))
+        self.assertTrue(any(row['file']=='pathlib-self.py' for row in rows))
+        costs=[row for row in rows if row['file']=='guard-self-costs.py'];self.assertEqual(len(costs),8)
+        self.assertLessEqual(abs(sum(row['self_us'] for row in costs)-int(proof.pstats.Stats(profile).total_tt*1000000)),8)
+        self.assertNotIn('private',json.dumps(rows));self.assertNotIn('opaque',json.dumps(rows));self.assertNotIn(str(self.directory),json.dumps(rows))
+
+    def test_guard_hot_self_full_quotas_cannot_displace_mandatory_rows(self):
+        required={('native_root_artifact_policy.py','_directory'),('native_root_artifact_policy.py','_root_directory_metadata'),
+            ('native_protected_artifact.py','directory'),('native_protected_artifact.py','_artifact_path'),
+            ('copy.py','deepcopy'),('resource_generations.py','canonical'),('native_root_controller.py','observed'),
+            ('native_service_scope.py','_process_status_fields'),('native_service_scope.py','_process_security_fields'),
+            ('native_service_scope.py','_root_file_parents'),('native_generation_lease_guard.py','read'),
+            ('native_root_artifact_dispatch.py','check')}
+        stats={(str(Path(proof.copy.__file__) if file=='copy.py' else proof.MODULES/file),20,name):
+            (1,1,.000001,.000001,{}) for file,name in required}
+        excluded=set()
+        for method in (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat):
+            code=method.__code__;key=(code.co_filename,code.co_firstlineno,code.co_name);excluded.add(key)
+            stats[key]=(1,1,.000001,.000001,{});required.add(('pathlib.py',code.co_name))
+        for name in ('stat','lstat','fstat','open','read','readlink','scandir','listdir','close'):
+            stats[('~',0,'<built-in method posix.'+name+'>')]=(1,1,.000001,.000001,{})
+            required.add(('posix.py',name))
+        for name in ('sendto','recvmsg','send','recv'):
+            stats[('~',0,"<method '"+name+"' of '_socket.socket' objects>")]=(1,1,.000001,.000001,{})
+            required.add(('socket.py',name))
+        for index,key in enumerate(list(proof.root_guard_builtin_self_codes())[:12]):
+            stats[key]=(1,1,(index+1)/1000,.1,{})
+        for index,key in enumerate(sorted(proof.root_guard_path_helper_codes(excluded))[:12]):
+            stats[key]=(1,1,(index+1)/1000,.1,{})
+        for index,name in enumerate(sorted(proof.module_closure(HERE.parents[1]/'tools/deployment'))[:10]):
+            stats[(str(proof.MODULES/name),20,'private_function')]=(1,1,(index+1)/100,.1,{})
+        stats.update({(str(proof.MODULES/'native_kernel_backend.py'),line,'_read'):(1,1,.01,line/100,{}) for line in range(1,81)})
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(Mock())
+        self.assertEqual(len(rows),64);self.assertEqual(len(required),31)
+        self.assertTrue(required <= {(row['file'],row['function']) for row in rows})
+        self.assertEqual(len([row for row in rows if row['file']=='guard-self-costs.py']),8)
+        self.assertEqual(len([row for row in rows if row['function']=='module_self']),8)
+        self.assertEqual(len([row for row in rows if row['file']=='builtin-self.py']),8)
+        self.assertEqual(len([row for row in rows if row['file']=='pathlib-self.py']),9)
+        self.assertFalse(any(row['file']=='native_kernel_backend.py' and row['function']=='_read' for row in rows))
+        self.assertNotIn('private',json.dumps(rows))
 
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}

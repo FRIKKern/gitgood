@@ -155,6 +155,20 @@ postprocessing rather than silently discard cost. Portable regressions check
 complete partitioning, privacy, numeric refusal, cap pressure and an actual
 cProfile run of an explicitly synthetic guard. No further guard invocation is
 profiled, and the production guard and aggregate timer wrappers are unchanged.
+Within the same cap, optional self-cost rows identify at most eight known public
+production modules, eight closed builtin keys and nine additional exact loaded
+pathlib helper code objects. Module rows use the fixed `module_self` tag and line
+zero; unknown module basenames and function names are never emitted. Builtin
+rows use `builtin-self.py`, fixed tags and line zero. Path helpers use
+`pathlib-self.py` and require the loaded filename, first line and function name;
+the original six Path code objects remain separate. These optional groups rank
+by self time, rather than overlapping cumulative time, after all required rows.
+Their equal self/cumulative fields describe self costs only. They overlap the
+eight-category partition and must not be added to it. The module allowlist must
+match the exact public production closure. Regressions cover that closure,
+spoofed keys/labels, numeric bounds, row quotas, actual tiny file reads and
+pathlib calls in an explicitly synthetic profile. Original guard forwarding,
+profiler ownership, payload, production checks and deadlines remain unchanged.
 These instrumented runs are diagnostic; production deadline acceptance still
 requires an uninstrumented complete stage and subsequent staged runtime. Private
 acceptance rejects either aggregate timers or the guard sample.

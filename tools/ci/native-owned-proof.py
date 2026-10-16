@@ -7,6 +7,7 @@ starts a VM, or removes a retained marker. See native-hosted-ownership.md.
 """
 import argparse
 from contextlib import ExitStack
+from functools import cached_property
 import ast
 import base64
 import copy
@@ -1356,6 +1357,110 @@ def root_guard_self_costs(stats):
         for category,(calls,total) in sorted(totals.items())]
 
 
+def root_guard_builtin_self_codes():
+    """Closed CPython builtin keys; no names taken from measured values."""
+    functions = ('all','any','getattr','hasattr','hash','isinstance','issubclass','iter','len','next','setattr','sorted','sum','min','max')
+    methods = (
+        ('dict','get','dict_get'),('dict','items','dict_items'),('dict','values','dict_values'),
+        ('dict','keys','dict_keys'),('dict','copy','dict_copy'),('dict','update','dict_update'),
+        ('dict','setdefault','dict_setdefault'),('dict','pop','dict_pop'),
+        ('list','append','list_append'),('list','extend','list_extend'),('list','pop','list_pop'),
+        ('set','add','set_add'),('set','update','set_update'),
+        ('str','join','str_join'),('str','split','str_split'),('str','splitlines','str_splitlines'),
+        ('str','startswith','str_startswith'),('str','endswith','str_endswith'),('str','partition','str_partition'),
+        ('str','encode','str_encode'),('str','strip','str_strip'),('str','rfind','str_rfind'),('str','replace','str_replace'),
+        ('bytes','decode','bytes_decode'),('bytes','split','bytes_split'),('bytes','splitlines','bytes_splitlines'),
+        ('bytes','startswith','bytes_startswith'),('bytes','partition','bytes_partition'),('bytes','strip','bytes_strip'),
+        ('bytearray','extend','bytearray_extend'),
+        ('_io.BufferedReader','read','buffered_read'),('_io.BufferedRandom','read','buffered_random_read'),
+        ('_io.FileIO','read','file_read'),('_io.FileIO','readall','file_readall'),
+        ('_io.TextIOWrapper','read','text_read'),('_io._IOBase','__exit__','io_exit'),
+        ('_io.BufferedWriter','write','buffered_write'),('_io.BufferedWriter','flush','buffered_flush'),
+        ('_io.FileIO','write','file_write'),('_io._IOBase','flush','io_flush'),
+        ('_thread.lock','acquire','lock_acquire'),('select.epoll','poll','epoll_poll'))
+    others = (('_io.open','io_open'),('posix.getuid','getuid'),('posix.geteuid','geteuid'),
+        ('posix.getgid','getgid'),('posix.getegid','getegid'),('posix.getpid','getpid'),
+        ('posix.getxattr','getxattr'),('posix.dup','dup'),('_thread.get_ident','thread_ident'),
+        ('time.monotonic','monotonic'),('time.perf_counter','perf_counter'),('pwd.getpwnam','account_lookup'),
+        ('_ctypes.byref','ctypes_byref'),('_ctypes.sizeof','ctypes_sizeof'))
+    codes = {('~',0,'<built-in method builtins.'+name+'>'):name for name in functions}
+    codes.update({('~',0,"<method '"+method+"' of '"+owner+"' objects>"):tag for owner,method,tag in methods})
+    codes.update({('~',0,'<built-in method '+name+'>'):tag for name,tag in others})
+    return codes
+
+
+def root_guard_path_helper_codes(excluded):
+    """Only fixed attributes' exact loaded pathlib code objects."""
+    names = ('__new__','__init__','__fspath__','__hash__','__eq__','__lt__','__le__','__gt__','__ge__',
+        '__getitem__','__len__','_load_parts','_parse_path','_parse_parts','_parse_args',
+        '_from_parts','_from_parsed_parts','_from_parsed_string','_format_parsed_parts',
+        '_make_child','_make_child_relpath','_str','_str_normcase','_parts_normcase','_tail',
+        'with_segments','drive','root','anchor','name','parts','parents','parent','is_absolute',
+        'as_posix','joinpath','relative_to','is_relative_to')
+    files = {method.__code__.co_filename for method in
+        (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
+    packages = {Path(name).parent for name in files if Path(name).parent.name == 'pathlib'}
+    codes = {}
+    for owner in (*Path.__mro__,type(Path('/').parents)):
+        for name in names:
+            value = vars(owner).get(name)
+            if isinstance(value,property):value = value.fget
+            elif isinstance(value,(staticmethod,classmethod)):value = value.__func__
+            elif isinstance(value,cached_property):value = value.func
+            for _ in range(4):
+                wrapped = getattr(value,'__wrapped__',None)
+                if wrapped is None:break
+                value = wrapped
+            code = getattr(value,'__code__',None)
+            if code is None or code.co_name not in names:continue
+            key = (code.co_filename,code.co_firstlineno,code.co_name)
+            if key not in excluded and (code.co_filename in files or
+                    any(Path(code.co_filename).is_relative_to(parent) for parent in packages)):
+                codes[key] = code.co_name
+    return codes
+
+
+def root_guard_hot_self(stats,excluded_path_codes):
+    """Bounded self-cost rows from public modules and closed runtime keys."""
+    modules = {
+        'enrollment_journal.py','generation_custody.py','generation_publication.py','inspect_native_artifact.py',
+        'native_actions.py','native_artifact_controller.py','native_backend_observation.py','native_backend_observation_entry.py',
+        'native_backend_scope.py','native_command_endpoint.py','native_command_wire.py','native_controller_scope.py',
+        'native_durable_binding.py','native_durable_database.py','native_generation_admission.py','native_generation_admission_entry.py',
+        'native_generation_lease_guard.py','native_generation_monitor.py','native_generation_monitor_entry.py','native_generation_reader.py',
+        'native_inventory.py','native_kernel_backend.py','native_lifecycle_business_inputs.py','native_lifecycle_generation_reader.py',
+        'native_lifecycle_history.py','native_lifecycle_responsibility.py','native_lifecycle_worker_inputs.py',
+        'native_monitor_business_inputs.py','native_monitor_ownership_attachment.py','native_operation_inputs.py',
+        'native_ownership_controller.py','native_ownership_database.py','native_ownership_handoff.py','native_ownership_handoff_entry.py',
+        'native_ownership_marker_guard.py','native_ownership_markers.py','native_ownership_observation.py',
+        'native_ownership_publication.py','native_ownership_publication_entry.py','native_ownership_records.py',
+        'native_ownership_transition.py','native_prior_backend.py','native_protected_artifact.py','native_public_runtime.py',
+        'native_root_artifact_dispatch.py','native_root_artifact_policy.py','native_root_controller.py','native_root_controller_request.py',
+        'native_root_database_exclusion.py','native_root_database_reader.py','native_root_lifecycle.py','native_root_live_binding.py',
+        'native_service_scope.py','native_systemd_properties.py','native_worker_scope.py','native_writer_exclusion.py',
+        'resource_generations.py','stage_native_artifact.py','upgrade_journal.py'}
+    builtin_codes = root_guard_builtin_self_codes();path_codes = root_guard_path_helper_codes(excluded_path_codes)
+    module_totals = {};builtin_totals = {};path_totals = {}
+    def add(totals,key,calls,total):
+        count,elapsed = totals.get(key,(0,0.0));count += calls;elapsed += total
+        require(count <= 10000000 and elapsed <= 1200);totals[key] = count,elapsed
+    for (filename,line,function),(_primitive,calls,total,_cumulative,_callers) in stats.items():
+        require(type(filename) is str and type(line) is int and type(function) is str)
+        require(type(calls) is int and 0 <= calls <= 10000000)
+        require(type(total) in {int,float} and 0 <= total <= 1200)
+        path = Path(filename);key = filename,line,function
+        if path.parent == MODULES and path.name in modules:add(module_totals,(path.name,'module_self',0),calls,total)
+        if key in builtin_codes:add(builtin_totals,('builtin-self.py',builtin_codes[key],0),calls,total)
+        if key in path_codes and 0 < line < 10000:add(path_totals,('pathlib-self.py',path_codes[key],line),calls,total)
+    def selected(totals,maximum):
+        rows = [{'file':file,'function':function,'line':line,'calls':calls,
+            'self_ms':int(total*1000),'cumulative_ms':int(total*1000),
+            'self_us':int(total*1000000),'cumulative_us':int(total*1000000)}
+            for (file,function,line),(calls,total) in totals.items()]
+        return sorted(rows,key=lambda row:(-row['self_us'],-row['calls'],row['file'],row['function'],row['line']))[:maximum]
+    return selected(module_totals,8)+selected(builtin_totals,8)+selected(path_totals,9)
+
+
 def root_stage_profile(profile):
     """Closed installed/stdlib counters only; no stacks, callers or values."""
     allowed = {
@@ -1411,11 +1516,11 @@ def root_stage_profile(profile):
         path = Path(filename)
         builtin = (filename,line,function) in builtin_codes
         if builtin:label,function = builtin_codes[(filename,line,function)]
-        elif path.parent == MODULES and path.name not in {'copy.py','pathlib.py','posix.py','socket.py','guard-self-costs.py'}:label = path.name
+        elif path.parent == MODULES and path.name not in {'copy.py','pathlib.py','posix.py','socket.py','guard-self-costs.py','builtin-self.py','pathlib-self.py'}:label = path.name
         elif path == Path(copy.__file__):label = 'copy.py'
         elif (filename,line,function) in path_codes:label = 'pathlib.py'
         else:continue
-        if label not in allowed or function not in allowed[label]:continue
+        if function == 'module_self' or label not in allowed or function not in allowed[label]:continue
         if (type(line) is not int or not (line == 0 if builtin else 0 < line < 10000) or type(calls) is not int
                 or not 0 <= calls <= 10000000):continue
         values = [total,cumulative]
@@ -1429,9 +1534,11 @@ def root_stage_profile(profile):
             type(line) is int and 0 < line < 10000 and function == 'check'
             for filename,line,function in stats):
         rows.extend(root_guard_self_costs(stats))
+        rows.extend(root_guard_hot_self(stats,path_codes))
     # Reserve the fixed diagnostic questions before filling remaining slots by
     # cost. Low-cost required helpers must not disappear at the 64-row cap.
-    rows = sorted(rows,key=lambda value:((value['file'],value['function']) not in reserved,
+    rows = sorted(rows,key=lambda value:(0 if (value['file'],value['function']) in reserved else
+        1 if value['file'] in {'builtin-self.py','pathlib-self.py'} or value['function']=='module_self' else 2,
         -value['cumulative_us'],-value['self_us'],
         value['file'],value['function'],value['line']))[:64]
     return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))

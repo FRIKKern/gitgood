@@ -374,6 +374,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Retain each executable's initial canonical resolution and every fresh original ancestor/leaf metadata check while removing duplicate prefix resolutions. Preserve hashes, alias and replacement refusal, frozen contracts and all stage guards. Keep selected service-property reads after the Root interface experiment showed no staging gain. Full staging remains subject to hosted and later uninstrumented verification.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](docs/implementation/native-selected-systemd-properties.md), [details 3](tools/deployment/native_durable_binding.py), [details 4](tools/deployment/test_native_executable_capture.py), [details 5](.github/workflows/product.yml)
 
+- Identify concrete module, builtin and pathlib self costs in the existing bounded Root guard sample without recording private names or values.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Keep required Root staging diagnostic rows within the existing sample limit and separate fixed filesystem and socket primitive costs without recording paths or values.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
