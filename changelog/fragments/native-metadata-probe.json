@@ -2,7 +2,7 @@
   "id": "native-metadata-probe",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Use supported CPython 3.12 type namespaces in native filesystem argument preparation, with a built-in ancestor regression and crash traces; complete staging and recovery remain unverified.",
+  "summary": "Authenticate diagnostic I/O code before file reads and use supported CPython 3.12 namespaces for native argument preparation; retain all Root cases and full staging and recovery requirements.",
   "journeys": ["J14", "J15"],
   "references": [
     "docs/implementation/native-artifact-controller.md",

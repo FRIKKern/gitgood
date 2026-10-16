@@ -53,9 +53,11 @@ class Loaded:
         self.validate()
 
     def validate(self):
-        self.base.validate()
+        # Reject changed I/O code before the base loader re-reads files with it.
+        # These identity checks do not invoke the suspect helper or the OS.
         require(all(vars(self.native).get(name) is value for name,value in self.native_apis.items()))
         for fn in self.extra_functions:require(fn.__code__==self.original_codes[id(fn)])
+        self.base.validate()
         for name,expected in self.extra_files.items():require(_read_owned(self.directory/name,262144)==expected)
         for path,expected in self.runtime_files.items():require(_read_owned(path,262144)==expected)
 

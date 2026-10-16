@@ -117,6 +117,24 @@ class ReadAdapterTest(unittest.TestCase):
         with patch.object(self.native,'prepare_tables',return_value=NotImplemented):
             with self.assertRaises(probe.Unsupported):self.adapter.plan_arguments(object())
 
+    def test_code_custody_rejects_added_io_code_and_api_changes_before_filesystem_validation(self):
+        def original():return 'original'
+        def altered():raise KeyboardInterrupt('altered I/O code')
+        code=original.__code__;loaded=object.__new__(probe.Loaded)
+        loaded.extra_functions=(original,);loaded.original_codes={id(original):code}
+        loaded.native=types.ModuleType('_native_metadata_probe');loaded.native.read_file=object()
+        loaded.native_apis={'read_file':loaded.native.read_file}
+        loaded.extra_files={};loaded.runtime_files={}
+        loaded.base=types.SimpleNamespace(validate=Mock(side_effect=AssertionError('filesystem validation ran before code admission')))
+        try:
+            original.__code__=altered.__code__
+            with self.assertRaises(ValueError):loaded.validate()
+        finally:original.__code__=code
+        loaded.base.validate.assert_not_called()
+        loaded.native.read_file=object()
+        with self.assertRaises(ValueError):loaded.validate()
+        loaded.base.validate.assert_not_called()
+
     def test_existing_and_late_import_aliases_restore_after_interruption(self):
         a=self.adapter;failure=KeyboardInterrupt('original');directory=Path.cwd()/'synthetic-installed'
         a.installed_directory=directory;alias=types.ModuleType('_read_alias_fixture');alias.__file__=str(directory/'alias.py')

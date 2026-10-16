@@ -680,6 +680,23 @@ after each check. It keeps the
 same class-data-descriptor refusal and adds a focused built-in `object` ancestor
 case that prepares lexical tables without any filesystem observation. The API
 was checked locally on five built-in and heap namespaces without compiling the
-extension. The full read suite now has 26 cases; eleven still need hosted Linux
-Root execution. This source repair remains pending hosted verification and does
-not establish complete staging, runtime, recovery or production adoption.
+extension. The namespace candidate has 26 cases, with its hosted outcome below.
+It does not establish complete staging, runtime, recovery or production adoption.
+
+A further portable fixture demonstrated that the additional I/O helper code and
+native API identities were checked after the base loader began rereading files.
+Validation now rejects those changes before invoking filesystem validation, then
+performs the original owner, source-code and fresh file-custody checks. The
+fixture verifies both changed I/O code and a replaced native API without calling
+the filesystem validation callback. The read suite now has 27 cases: sixteen
+portable passes and eleven Linux Root cases pending. These local checks do not
+verify the native backend or whole-guard benefit.
+
+Exact hosted output for 4fbe9ae verifies nine focused Linux Root read/descriptor
+cases, including unsupported-object and built-in ancestor checks. All 37
+metadata cases and their 372 original Root cases passed.
+The read suite then aborted in the deliberate I/O-code mutation case: base file
+validation invoked the altered helper before checking its code. The portable
+ordering regression reproduces this failure and passes with the admission-first
+validation above. The read aggregate Root suite, guard pairs and full staging
+were not reached. Hosted verification of the ordering repair remains required.
