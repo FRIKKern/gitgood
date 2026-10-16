@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo -n apt-get update
-          sudo -n apt-get install -y --no-install-recommends build-essential unzip openssh-client systemd patchelf
+          sudo -n apt-get install -y --no-install-recommends build-essential python3-dev unzip openssh-client systemd patchelf
           command -v cc
           command -v make
           command -v unzip
@@ -208,6 +208,11 @@ jobs:
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_private_directory.py' -v
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_root_configuration.py' -v
           sudo -n "$GITGOOD_PYTHON" -B -m unittest discover -s tools/deployment -p 'test_native_stage_controller_observer.py' -v
+      - name: Compare fresh native fingerprint on owned Linux files
+        run: |
+          set -euo pipefail
+          "$GITGOOD_PYTHON" -B tools/ci/native-fingerprint-build.py
+          sudo -n "$GITGOOD_PYTHON" -B tools/ci/native-fingerprint-test.py
       - name: Verify protected native ownership on actual systemd
         # Adds complete production archive staging and content verification;
         # this hosted test budget does not alter production operation deadlines.

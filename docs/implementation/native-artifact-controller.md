@@ -172,3 +172,27 @@ profiler ownership, payload, production checks and deadlines remain unchanged.
 These instrumented runs are diagnostic; production deadline acceptance still
 requires an uninstrumented complete stage and subsequent staged runtime. Private
 acceptance rejects either aggregate timers or the guard sample.
+
+The next hosted diagnostic compiles a small CPython extension outside the
+production module closure. Actual Root-owned Linux file tests compare its
+fresh ordered ancestor/leaf metadata observations with the original fingerprint,
+including refusal, ownership, links, size, executable mode, encoding and
+timestamps. Unsupported prototype inputs fall back to the original method.
+No filesystem observation is retained. Public C, adapter and compiled ELF hashes
+identify the owned diagnostic files without emitting their runtime paths.
+
+Before the first ready stage guard, the fixture runs twenty alternating pairs
+of the complete original guard on the same original actors and resources. Each
+pair selects either the original fingerprint or the diagnostic adapter; results
+must agree, and every check still uses both fresh Root observation passes.
+The original fingerprint descriptor is restored after each check and on every
+exception. A refusal or mismatch poisons the original views; restoration cannot
+revive them. Existing timers and the single guard-ten profile start only after
+the comparison. The extra forty read-only checks and their paired elapsed times
+are recorded separately, with no arguments, returned values, paths or SQL.
+
+The original fingerprint runs for every subsequent staging effect. These pairs
+measure a possible repair; they do not adopt it or prove production performance.
+All production source bytes, the complete payload, freshness/effect guards and
+the 240-second deadline remain unchanged. A complete uninstrumented stage,
+staged runtime and the original installation/recovery gates are still required.

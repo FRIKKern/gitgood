@@ -1,0 +1,9 @@
+{
+  "id": "native-fingerprint-comparison",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Compare fresh native file fingerprints against the original whole Root guard in disposable hosted CI before staging effects; retain original production behavior.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/ci/native_fingerprint_probe.py", "tools/ci/native-fingerprint-test.py"],
+  "withdrawn": false
+}
