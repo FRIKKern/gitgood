@@ -265,3 +265,12 @@ A complete result must still preserve every security and recovery gate, and any
 runtime adoption requires installation, packaging, cold-start and recovery work
 plus uninstrumented acceptance. A component or experimental pass alone cannot
 authorize VM retirement or establish release readiness.
+
+If an original PyPy component scope fails, the hosted workflow reruns that fixed
+synthetic scope with failure-only exception-site tracing. At most 64 source
+locations and closed exception type labels from the first failing case are
+reported, with an explicit omission count. Only exact repository production
+source paths are traced; paths, exception messages, arguments and locals are
+absent from the receipt. An existing trace is never displaced, and trace state
+is restored on exit. The repeated diagnostic cannot pass the failed gate or
+run the dependent full staging proof, even if the repeated scope passes.
