@@ -230,6 +230,12 @@ jobs:
             "$GITGOOD_PYTHON" -B tools/ci/root-runtime-pidfd-test.py
       - name: Verify immutable path construction and original Root refusals
         run: sudo -n "$GITGOOD_PYTHON" -B tools/ci/immutable-path-test.py
+      - name: Verify selected bus protocol and original systemd refusals
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          "$GITGOOD_PYTHON" -B tools/ci/selected-bus-build.py
+          sudo -n "$GITGOOD_PYTHON" -B tools/ci/selected-bus-test.py
       - name: Verify protected native ownership on actual systemd
         # Adds complete production archive staging and content verification;
         # this hosted test budget does not alter production operation deadlines.

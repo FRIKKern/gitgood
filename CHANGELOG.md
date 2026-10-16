@@ -479,6 +479,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Diagnose full hosted staging with fixed method counts and overlapping elapsed times, without profiler hooks or private inputs. Preserve original calls, results, errors, production modules, guards, payload and deadlines; restore all methods on interruption. Timed runs do not establish production deadline acceptance.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
+- Compare a hosted native selected-systemd query loop on original Root actors after protocol refusal and same-connection checks; preserve original staging behavior and deadlines.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/selected_bus_probe.py), [details 3](tools/ci/selected-bus-test.py)
+
 - Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py)
 

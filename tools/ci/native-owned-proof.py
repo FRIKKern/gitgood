@@ -37,7 +37,7 @@ import urllib.request
 import socket
 import ssl
 import root_runtime_probe
-import immutable_path_probe
+import selected_bus_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -1753,14 +1753,16 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         # profile spans the full stage or an effect. These diagnostics cannot
         # justify production timing acceptance or change the response deadline.
         measurements = RootStageMeasurements()
-        import native_service_scope, native_durable_binding, native_root_database_reader
-        comparison = immutable_path_probe.AtFirstGuard(
-            (native_service_scope,native_durable_binding,native_root_database_reader),_ObservedArtifactStage,measurements)
+        import native_systemd_properties
+        native_bus,source_hashes = selected_bus_probe.load_native(Path(seed['release']).parent/'selected-bus-probe')
+        comparison = selected_bus_probe.AtFirstGuard(
+            native_systemd_properties,native_bus,_ObservedArtifactStage,measurements)
         try:
             with comparison:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if comparison.result is not None:seed['immutable_path_comparison'] = comparison.result
+            if comparison.result is not None:
+                seed['selected_bus_comparison'] = {**comparison.result,'source_hashes':source_hashes}
             seed['root_stage_measurements'] = measurements.values()
             seed['root_guard_cpu'] = measurements.cpu.values()
             sample = measurements.sample.values()
@@ -2199,7 +2201,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
         **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
-        **({'immutable_path_comparison':seed['immutable_path_comparison']} if seed.get('immutable_path_comparison') is not None else {}),
+        **({'selected_bus_comparison':seed['selected_bus_comparison']} if seed.get('selected_bus_comparison') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2239,6 +2241,8 @@ def preflight(args):
     extra = [workspace / 'tools/ci' / name for name in ('native-owned-manager.py', 'native-owned-worker.exs', 'native-successor-manager.py')]
     extra += [workspace / 'tools/deployment' / name for name in module_closure(workspace / 'tools/deployment')]
     extra += [workspace / '.gitgood/native-web-product', workspace / 'docs/deployment/Caddyfile.example']
+    extra += [workspace/'tools/ci'/name for name in ('selected-bus-probe.c','selected_bus_probe.py')]
+    extra += [workspace/'.gitgood/selected-bus-probe'/selected_bus_probe.extension_name()]
     total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git"), *extra])
     require(total <= COPY_LIMIT and shutil.disk_usage("/opt").free >= total + 1024**3, "bounded disk preflight")
     return workspace, total
@@ -2295,6 +2299,11 @@ def main(args):
         for name in ["native-owned-manager.py", "native-owned-worker.exs", "native-successor-manager.py"]:
             phase = "copy-fixture-" + name.removeprefix("native-owned-").split(".")[0]
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
+        phase = 'copy-selected-bus-diagnostic'
+        probe_directory = runtime/'selected-bus-probe';probe_directory.mkdir(mode=0o755)
+        for source in [workspace/'tools/ci'/'selected-bus-probe.c',workspace/'tools/ci'/'selected_bus_probe.py',
+                workspace/'.gitgood/selected-bus-probe'/selected_bus_probe.extension_name()]:
+            copy_runtime(source,probe_directory/source.name)
         phase = "relocate-private-postgresql-client"
         receipt["postgresql_client_relocation"] = relocate_postgresql_client(runtime)
         modules = module_closure(workspace / "tools/deployment")
@@ -2479,8 +2488,8 @@ def main(args):
                 if observed is not None:receipt['failure']['artifact_failure'] = observed
             if seed.get('root_reader_refusal_observation') is not None:
                 receipt['failure']['root_reader_refusal_observation'] = seed['root_reader_refusal_observation']
-            if seed.get('immutable_path_comparison') is not None:
-                receipt['failure']['immutable_path_comparison'] = seed['immutable_path_comparison']
+            if seed.get('selected_bus_comparison') is not None:
+                receipt['failure']['selected_bus_comparison'] = seed['selected_bus_comparison']
             if seed.get('root_stage_profile') is not None:
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
             if seed.get('root_stage_measurements') is not None:

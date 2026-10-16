@@ -304,7 +304,7 @@ the same guard-ten profile, invokes no additional guard or filesystem read, and
 guides the scope of the next repair while retaining complete staging and
 recovery requirements.
 
-A fixture-only comparison tests immutable path construction in the three
+The retained fixture-only path comparison tests immutable construction in the three
 modules identified by those costs: service scope, durable binding and the Root
 database reader. Exact concrete path inputs are reused; at most 64 bounded
 exact-string constructor results are retained. Other input types and keyword
@@ -319,3 +319,31 @@ also run with the factory active. The original guard and symbols are restored
 before staging. Numeric receipts contain only paired times and bounded reuse
 counts. This trial adopts no production behavior and does not establish the
 full staging deadline, staged runtime or recovery requirements.
+
+That path trial's median ratio was 0.9586 (about 4.1% faster), below its
+predeclared 0.80 adoption threshold. It is no longer the active stage experiment.
+The tests remain to preserve its refusal and restoration evidence.
+
+The next diagnostic compiles only the existing selected systemd `Get` queue and
+typed reply loop into a small hosted CPython extension. It binds the original
+Root owner, library handle and bus pointer, creates no connection and retains no
+observation results. The original `_get_many` still validates arguments and
+checks library custody before and after the whole batch. Current Root PID/thread,
+owner usability, library/bus object and pointer identity are checked during the
+native loop. Selected query order, the five-second deadline, 4096-pump cap,
+current-slot ownership, reverse cancellation, ASCII and typed/container bounds
+remain mandatory. Callback replies stay borrowed; original slots cancel before
+the callback context is released. Interruptions retain the original exception
+and outer permanent-close behavior.
+
+The hosted workflow first builds the two small diagnostic/test DSOs with warnings
+as errors, exercises deterministic hostile protocol replies and interruption,
+runs all 33 original systemd cases under the adapter, and compares 20 fresh batches
+on one actual original bus. The stage experiment then runs 20 alternating whole-
+guard pairs on the same original actors before timers, profiling or effects.
+The original Python method is restored after every invocation and before staging.
+At most eight connection bindings retain only original owner/handle lifetime,
+and all bindings are released after the comparison without closing their buses.
+This trial requires median ratio at most 0.90 with at least 18 of 20 pairs faster
+before proposing adoption. Neither that threshold nor protocol tests substitute
+for complete uninstrumented staging, staged runtime, installation or recovery.
