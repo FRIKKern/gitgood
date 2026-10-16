@@ -74,6 +74,17 @@ def redirect_guard_globals(tree):
     return compiler_quoting(ast.unparse(transformed)+'\n'),transformer.loads
 
 
+def validate_donors(tree,rows):
+    """No class or method may silently overwrite another selected body."""
+    require(all(isinstance(node,ast.ClassDef) for node in tree.body))
+    require(len({node.name for node in tree.body})==len(tree.body))
+    actual=[(owner.name,node.name) for owner in tree.body for node in owner.body
+        if isinstance(node,ast.FunctionDef)]
+    expected=[(row['donor'],row['method']) for row in rows]
+    require(len(actual)==len(set(actual))==len(expected)==len(set(expected))
+        and set(actual)==set(expected))
+
+
 def select_sources(sources):
     require(type(sources) is dict and tuple(sources)==MODULE_NAMES)
     donors=[];rows=[];hashes={};loads={};excluded=set()
@@ -81,35 +92,36 @@ def select_sources(sources):
         require(type(raw) is bytes and 0<len(raw)<=262144)
         tree=ast.parse(raw);require(sum(1 for _ in ast.walk(tree))<=30000)
         hashes[module+'.py']=hashlib.sha256(raw).hexdigest()
-        selected=[]
+        selected=[];groups={};first=len(rows)
         for node in tree.body:
-            if isinstance(node,ast.FunctionDef):groups=[('',[node])]
+            if isinstance(node,ast.FunctionDef):groups.setdefault('',[]).append(node)
             elif isinstance(node,ast.ClassDef):
-                groups=[(node.name,[item for item in node.body if isinstance(item,ast.FunctionDef)])]
-            else:continue
-            for owner,functions in groups:
-                bodies=[]
-                for original in functions:
-                    key=(module,owner,original.name)
-                    if key in EXCLUDED:excluded.add(key);continue
-                    method=copy.deepcopy(original)
-                    require([ast.unparse(item) for item in method.decorator_list]
-                        in ([],['classmethod'],['staticmethod'],['property']))
-                    require(not any(isinstance(item,(ast.Global,ast.Nonlocal,ast.AsyncFunctionDef,
-                        ast.NamedExpr,ast.AnnAssign))
-                        or isinstance(item,ast.arg) and item.annotation is not None
-                        or isinstance(item,ast.FunctionDef) and item.returns is not None
-                        or isinstance(item,ast.Name) and item.id in {'super','__class__',LOOKUP}
-                        or isinstance(item,ast.Attribute) and item.attr.startswith('__')
-                            and not item.attr.endswith('__')
-                        for item in ast.walk(method)))
-                    descriptor=ast.unparse(method.decorator_list[0]) if method.decorator_list else 'function'
-                    donor='GuardBody'+str(number)+'_'+(owner or 'Top')
-                    rows.append({'module':module,'owner':owner,'method':method.name,'donor':donor,
-                        'descriptor':descriptor,'body_ast_sha256':hashlib.sha256(ast.dump(method).encode()).hexdigest()})
-                    bodies.append(method)
-                if bodies:selected.append(ast.ClassDef(name=donor,bases=[],keywords=[],body=bodies,decorator_list=[]))
+                require(node.name not in groups)
+                groups[node.name]=[item for item in node.body if isinstance(item,ast.FunctionDef)]
+        for owner,functions in groups.items():
+            bodies=[]
+            for original in functions:
+                key=(module,owner,original.name)
+                if key in EXCLUDED:excluded.add(key);continue
+                method=copy.deepcopy(original)
+                require([ast.unparse(item) for item in method.decorator_list]
+                    in ([],['classmethod'],['staticmethod'],['property']))
+                require(not any(isinstance(item,(ast.Global,ast.Nonlocal,ast.AsyncFunctionDef,
+                    ast.NamedExpr,ast.AnnAssign))
+                    or isinstance(item,ast.arg) and item.annotation is not None
+                    or isinstance(item,ast.FunctionDef) and item.returns is not None
+                    or isinstance(item,ast.Name) and item.id in {'super','__class__',LOOKUP}
+                    or isinstance(item,ast.Attribute) and item.attr.startswith('__')
+                        and not item.attr.endswith('__')
+                    for item in ast.walk(method)))
+                descriptor=ast.unparse(method.decorator_list[0]) if method.decorator_list else 'function'
+                donor='GuardBody'+str(number)+'_'+(owner or 'Top')
+                rows.append({'module':module,'owner':owner,'method':method.name,'donor':donor,
+                    'descriptor':descriptor,'body_ast_sha256':hashlib.sha256(ast.dump(method).encode()).hexdigest()})
+                bodies.append(method)
+            if bodies:selected.append(ast.ClassDef(name=donor,bases=[],keywords=[],body=bodies,decorator_list=[]))
         donor_tree=ast.fix_missing_locations(ast.Module(body=selected,type_ignores=[]))
+        validate_donors(donor_tree,rows[first:])
         transformed,count=redirect_guard_globals(donor_tree)
         # Rename only the helper identifiers, after the existing inverse-AST check.
         transformed_tree=ast.parse(transformed)
@@ -119,10 +131,12 @@ def select_sources(sources):
                 return node
         renamed=ast.fix_missing_locations(Rename().visit(transformed_tree))
         generated=compiler_quoting(ast.unparse(renamed)+'\n')
+        validate_donors(ast.parse(generated),rows[first:])
         compile(generated,'<guard-body-source>','exec')
         donors.append(generated);loads[module]=count
     require(len(rows)==BODY_COUNT and excluded==EXCLUDED and all(0<value<=4096 for value in loads.values()))
     body='\n'.join(donors)
+    validate_donors(ast.parse(body),rows)
     return body,{'original_source_hashes':hashes,'generated_source_sha256':hashlib.sha256(body.encode()).hexdigest(),
         'bodies':rows,'live_global_loads':loads,'global_loads_only_transformed':True,
         'original_classes_replaced':False,'compiled':False}

@@ -17,7 +17,7 @@ from unittest.mock import Mock,patch
 
 sys.dont_write_bytecode=True
 import guard_body_probe as probe
-from guard_body_source import BODY_COUNT,EXCLUDED,MODULE_NAMES,constant_default,redirect_guard_globals,select_sources
+from guard_body_source import BODY_COUNT,EXCLUDED,MODULE_NAMES,constant_default,redirect_guard_globals,select_sources,validate_donors
 
 
 def model():
@@ -74,6 +74,27 @@ class SourceTest(unittest.TestCase):
         self.assertGreater(len(generated),100000)
         self.assertTrue(evidence['global_loads_only_transformed']);self.assertFalse(evidence['original_classes_replaced'])
         self.assertEqual(len({(row['module'],row['owner'],row['method']) for row in evidence['bodies']}),116)
+
+    def test_actual_multi_function_modules_emit_each_selected_body_once(self):
+        generated,evidence=select_sources(self.sources());tree=ast.parse(generated)
+        classes={node.name:node for node in tree.body}
+        self.assertEqual(len(classes),len(tree.body))
+        for row in evidence['bodies']:
+            self.assertEqual(sum(isinstance(node,ast.FunctionDef) and node.name==row['method']
+                for node in classes[row['donor']].body),1)
+        for number,module in enumerate(MODULE_NAMES):
+            expected={row['method'] for row in evidence['bodies'] if row['module']==module and row['owner']==''}
+            actual={node.name for node in classes['GuardBody'+str(number)+'_Top'].body}
+            self.assertEqual(actual,expected)
+        self.assertGreater(len(classes['GuardBody0_Top'].body),2)
+
+    def test_duplicate_classes_methods_and_missing_body_admission_refuse(self):
+        row={'donor':'Donor','method':'read'}
+        for source,rows in [('class Donor:\n def read(self): pass\nclass Donor:\n def other(self): pass\n',[row]),
+                ('class Donor:\n def read(self): pass\n def read(self): pass\n',[row]),
+                ('class Donor:\n def other(self): pass\n',[row]),
+                ('class Donor:\n def read(self): pass\n',[row,row])]:
+            with self.subTest(source=source),self.assertRaises(ValueError):validate_donors(ast.parse(source),rows)
 
     def test_source_shape_scope_and_mutable_or_executable_defaults_refuse(self):
         sources=self.sources()

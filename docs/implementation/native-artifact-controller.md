@@ -480,7 +480,7 @@ remain live. This is a compiler experiment, with compiler-specific frame and
 function metadata limits, not general Python equivalence or product adoption;
 see the [compiler's documented limitations](https://cython.readthedocs.io/en/3.1.x/src/userguide/limitations.html).
 
-Fourteen cases cover source admission, lexical scope/global mutation, direct
+Sixteen cases cover source admission, lexical scope/global mutation, direct
 aliases, static/class methods, original exceptions, owner refusal, partial
 installation and complete restoration after interruption. Three require actual
 Linux Root: exact code custody, fresh file mutation and all 372 unchanged
@@ -493,3 +493,15 @@ receipts contain fixed public code hashes/labels and bounded counters/times.
 Complete uninstrumented staging/output, staged normal runtime, production
 listener/provisioning, interruption reconciliation, installation and actual
 replacement-host restore remain required before original VM retirement.
+
+The first installed-body trial compiled successfully and passed actual Root code
+and ELF custody, but adapter initialization exposed repeated top-level donor
+class definitions. Later definitions had overwritten earlier module functions;
+the wrapped Root suite and whole-guard timings never executed. The selector now
+groups all top-level functions into one donor per module and requires each
+selected donor/method pair exactly once before and after global-load rewriting.
+Regressions cover the actual multi-function modules plus duplicate classes,
+duplicate methods and missing bodies. The same 116 body AST identities, seven
+global-load counts, compiler/header/options, runtime adapter, original tests and
+full proof remain unchanged. New hosted semantic and performance evidence is
+still required.
