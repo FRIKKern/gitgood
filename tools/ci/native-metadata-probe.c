@@ -764,9 +764,16 @@ static void lex_destroy(PyObject *capsule) {
     PyErr_SetRaisedException(pending);
 }
 static int lex_owner(LexPlan *p) {
-    return p->pid==(unsigned long long)getpid() &&
-        p->thread==(unsigned long long)PyThread_get_thread_ident() &&
-        getuid()==0 && geteuid()==0 && getgid()==0 && getegid()==0;
+    uid_t real_uid,effective_uid,saved_uid;
+    gid_t real_gid,effective_gid,saved_gid;
+    if(p->pid!=(unsigned long long)getpid()||
+        p->thread!=(unsigned long long)PyThread_get_thread_ident())return 0;
+    /* Fresh values, never an identity lease. Each query returns the existing
+     * real/effective fields together; saved IDs are not used for admission.
+     * https://man7.org/linux/man-pages/man2/getresuid.2.html */
+    if(getresuid(&real_uid,&effective_uid,&saved_uid)<0||
+        getresgid(&real_gid,&effective_gid,&saved_gid)<0)return 0;
+    return real_uid==0&&effective_uid==0&&real_gid==0&&effective_gid==0;
 }
 static PyObject *lex_type_binding(PyObject *owner,PyObject *key) {
     PyObject *mro=((PyTypeObject *)owner)->tp_mro,*result=NULL;Py_ssize_t i;
@@ -1029,7 +1036,10 @@ error:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);Py_XDECREF(joined);Py_XD
 }
 static PyObject *lex_execute(LexPlan *p,int op,PyObject *subject,PyObject *arguments) {
     PyObject *value=NULL,*pending,*imported=NULL;int r;
-    if(!lex_owner(p)) {
+    /* The descriptor guard below includes fresh ownership before any SDK slot
+     * read/mutation or import. Avoid querying that same owner twice before
+     * computation; keep legacy admission and every post/import check. */
+    if(!p->guard&&!lex_owner(p)) {
         Py_RETURN_NOTIMPLEMENTED;
     }
     if(p->broken){PyErr_SetString(PyExc_ValueError,"Poisoned lexical plan");return NULL;}

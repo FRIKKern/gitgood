@@ -368,6 +368,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Avoid repeated resolving walks at Root artifact directory and private-file boundaries while retaining fresh ancestor, ownership, mode and original descriptor checks.
   Sources: [details 1](docs/implementation/native-root-artifact-policy.md), [details 2](docs/implementation/native-protected-artifact.md), [details 3](tools/deployment/native_root_artifact_policy.py), [details 4](tools/deployment/native_protected_artifact.py), [details 5](tools/deployment/test_native_artifact_canonical_paths.py), [details 6](.github/workflows/product.yml)
 
+- Reject the bound lexical candidate's 1.500036 guard ratio; prepare fresh combined UID/GID queries without duplicate pre-computation admission, canonical startup builtin checks and actual credential-change coverage, retaining the complete staging and benefit gates.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-metadata-probe.c), [details 3](tools/ci/native_path_probe.py), [details 4](tools/ci/native-descriptor-test.py)
+
 - Prepare four C-bound lexical SDK methods with scoped mutation notifications, complete finite POSIX dependency custody, live owner/function/type checks, restoration and saved-method fallback, additional Root coverage and the unchanged whole-guard benefit gate; hosted verification remains pending.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_path_probe.py), [details 3](tools/ci/native-descriptor-test.py), [details 4](tools/ci/native-metadata-probe.c)
 

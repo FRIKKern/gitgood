@@ -108,6 +108,10 @@ def sdk_environment():
         and builtins.object is ''.__class__.__base__ and builtins.bytes is b''.__class__
         and type(builtins.map) is type and builtins.map.__module__=='builtins'
         and builtins.map.__name__=='map' and not builtins.map.__flags__&512)
+    for name in ('super','AttributeError'):
+        cls=vars(builtins)[name]
+        require(type(cls) is type and cls.__module__=='builtins' and cls.__name__==name
+            and not cls.__flags__&512)  # Canonical immutable builtin, not a heap type.
     for name in ('_raw_paths','_drv','_root','_tail_cached','_str'):
         slot=vars(pathlib.PurePath)[name]
         require(type(slot) is types.MemberDescriptorType and slot.__objclass__ is pathlib.PurePath and slot.__name__==name)
@@ -339,7 +343,9 @@ class Adapter:
 class DescriptorAdapter(Adapter):
     """C-bound methods and code-input notifications; scoped and diagnostic."""
     def __init__(self,native,*,owner_check=None,sdk_codes=None):
-        super().__init__(native,owner_check=owner_check,sdk_codes=sdk_codes,_prepare_only=True)
+        # Authenticate the SDK's super binding before any call through it,
+        # including preparation in this helper itself.
+        Adapter.__init__(self,native,owner_check=owner_check,sdk_codes=sdk_codes,_prepare_only=True)
         self.descriptor_apis={name:getattr(native,name) for name in DESCRIPTOR_APIS}
         if owner_check is None:
             require(all(type(fn) is types.BuiltinFunctionType and fn.__self__ is native

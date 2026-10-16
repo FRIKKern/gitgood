@@ -855,14 +855,15 @@ never retried. A comparison requires positive equal entry/call counts in all
 four roles, zero fallback, equal original observations, descriptor restoration,
 watcher removal and fresh source custody before effects.
 
-`tools/ci/native-descriptor-test.py` adds eight portable scope contracts and eleven
+`tools/ci/native-descriptor-test.py` adds eight portable scope contracts and twelve
 actual hosted Linux Root cases. The latter cover C descriptor identity and
 values, immutable-cache bounds and fresh lists, original metadata reads,
 permanent dictionary invalidation, inherited shadows/noninterned keys,
 function/default/cell changes, module-class hooks, constructor import metadata
 and argument callbacks, spec-dictionary replacement, foreign threads, saved
 methods, interruption, one-shot/nested lifecycle refusal, and a fourth complete
-original 372-case Root suite. Portable fixtures establish no C execution or
+original 372-case Root suite, plus same-process/thread real/effective UID/GID
+changes in an isolated child prepared after fork. Portable fixtures establish no C execution or
 speedup. Full proof now records `native_descriptor_comparison`; it retains the
 same twenty alternating original-actor guard pairs and 0.80/18 benefit gate,
 seventeen timers, CPU windows, guard-ten diagnostic, actors, two Root observation
@@ -880,3 +881,38 @@ code. Additional portable custody and actual Root callback/error cases require
 original behavior after every mutation, including an in-place helper-code
 change that produces no dictionary event. The first hosted run was superseded
 for this source repair; cancellation establishes no native semantics or benefit.
+
+Exact review of the repaired bound-descriptor candidate `c8dc05b` verified all
+19 descriptor cases, 43 Path cases, 37 metadata cases, 39 read cases, four
+complete original 372-case Root suites, 82 ownership fixtures and 59 installed
+production hashes. The unchanged twenty-pair gate rejected it: median ratio
+1.500036, zero of twenty faster, baseline median 16.430 ms and prototype median
+24.618 ms. All four C entry counts equaled supported calls, fallback was zero,
+observations matched, descriptors were restored and watchers/cache cleared.
+These within-run values do not establish improvement over another host's earlier
+candidate. Root staging still timed out at 240164 ms; the ordinary controller
+timed out at 240268 ms, with zero output checks on the same complete archive.
+No unchanged paired, baseline-only staging or profiling rerun is warranted.
+
+The next candidate removes a duplicate owner query immediately before the full
+descriptor admission. It uses `getresuid` and `getresgid` to read the same four
+real/effective UID/GID fields freshly, while retaining PID and thread checks.
+The full admission still checks ownership before any SDK slot read/mutation or
+import, and ownership remains checked after computation and before imports.
+Legacy admission remains in place. No credential, admission or observation
+result survives a call. The additional actual Root case prepares its context
+after fork so PID loss cannot conceal a credential-check defect, changes each
+of the four fields without changing the context's PID/thread, verifies original
+fallback with no native/cache activity, restores credentials, and verifies native
+handling resumes. It changes only the owned child, which reports bounded results
+and exits; no user application or service credentials are changed.
+
+Preparation now authenticates the canonical immutable `super` and
+`AttributeError` builtin classes before invoking the SDK or creating a plan.
+Their existing live binding rows already detect changes after preparation;
+the new portable cases cover changes before it. Helper preparation calls its
+known base initializer directly so it cannot execute a changed `super` first.
+This revision totals 20 descriptor cases. Hosted credential behavior and benefit
+remain unverified; the preceding candidate remains rejected. The original
+whole-guard gate, archive, actors, two Root passes, guards and deadlines remain
+unchanged, as do all eight existing observation implementations.

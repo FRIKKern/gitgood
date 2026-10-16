@@ -7,6 +7,8 @@ import itertools
 import os
 from pathlib import Path
 import pathlib
+import select
+import signal
 import sys
 import threading
 import types
@@ -130,9 +132,15 @@ class DescriptorScopeTest(unittest.TestCase):
             with patch.object(probe.posixpath,'_get_sep',lambda path:'/'):
                 self.assertFalse(self.native.admitted(table))
         for owner,name,value in ((probe.posixpath,'os',object()),(builtins,'map',lambda *args:iter(())),
-                (builtins,'bytes',str)):
-            with patch.object(owner,name,value),patch.object(self.native,'descriptor_plan') as planned:
-                with self.assertRaises(ValueError):probe.DescriptorAdapter(self.native,owner_check=lambda:None)
+                (builtins,'bytes',str),(builtins,'super',object),(builtins,'AttributeError',TypeError)):
+            with patch.object(self.native,'descriptor_plan') as planned:
+                original=vars(owner)[name];error=None
+                try:
+                    setattr(owner,name,value)
+                    try:probe.DescriptorAdapter(self.native,owner_check=lambda:None)
+                    except BaseException as caught:error=caught
+                finally:setattr(owner,name,original)
+                self.assertIsInstance(error,ValueError)
                 planned.assert_not_called()
     def test_comparison_keeps_twenty_alternating_original_guards_and_removes_notifications(self):
         stage=types.SimpleNamespace(usable=True,state='ready');events=[]
@@ -334,6 +342,47 @@ class HostedDescriptorTest(unittest.TestCase):
             saved=Path('/saved').with_segments
         self.assertGreater(a.details()['fallbacks']['constructor'],0);a.close()
         self.assertEqual(str(saved('/after-close')),'/after-close');self.assertTrue(a.restored())
+    def test_actual_same_process_and_thread_real_and_effective_credentials_are_fresh(self):
+        # Prepare in the child: inherited parent plans would already decline
+        # for PID loss and could conceal a broken credential predicate.
+        read_fd,write_fd=os.pipe();pid=os.fork()
+        if pid==0:
+            os.close(read_fd);status=1;payload=b'{"status":"failed"}'
+            try:
+                a=probe.DescriptorAdapter(self.loaded.native,sdk_codes=self.loaded.codes)
+                uid=os.getresuid();gid=os.getresgid();self.assertEqual(uid[:2],(0,0));self.assertEqual(gid[:2],(0,0))
+                cases=(('ruid',os.setresuid,(65534,0,uid[2])),('euid',os.setresuid,(0,65534,uid[2])),
+                    ('rgid',os.setresgid,(65534,0,gid[2])),('egid',os.setresgid,(0,65534,gid[2])))
+                try:
+                    for name,change,values in cases:
+                        with a.installed():
+                            self.assertEqual(str(Path('/root-supported')/'leaf'),'/root-supported/leaf')
+                            before=a.values();entries=a.details()['fallbacks'].copy()
+                            change(*values)
+                            try:observed=str(Path('/credential-fallback')/'leaf')
+                            finally:os.setresuid(*uid);os.setresgid(*gid)
+                            self.assertEqual(observed,'/credential-fallback/leaf');self.assertEqual(a.values(),before)
+                            after=a.details()['fallbacks'];self.assertTrue(all(after[k]>entries[k] for k in probe.ROLES))
+                            self.assertFalse(a.details()['code_changed'])
+                            self.assertEqual(str(Path('/root-restored')/'leaf'),'/root-restored/leaf')
+                            self.assertGreater(a.values()['constructor'],before['constructor'])
+                        self.assertTrue(a.restored());self.assertFalse(a.details()['watching'])
+                finally:os.setresuid(*uid);os.setresgid(*gid);a.close()
+                self.assertEqual(a.details()['cache_entries'],0);self.assertEqual(a.details()['code_inputs'],0)
+                payload=b'{"status":"passed","credential_fields":4}';status=0
+            except BaseException:pass
+            try:os.write(write_fd,payload)
+            finally:os.close(write_fd);os._exit(status)
+        os.close(write_fd)
+        try:
+            ready=select.select([read_fd],[],[],10)[0]
+            if not ready:
+                os.kill(pid,signal.SIGKILL);os.waitpid(pid,0);self.fail('credential child timed out')
+            payload=os.read(read_fd,4097);waited,status=os.waitpid(pid,0)
+            self.assertEqual(waited,pid);self.assertEqual(status,0,payload)
+            self.assertEqual(payload,b'{"status":"passed","credential_fields":4}')
+        finally:os.close(read_fd)
+        self.loaded.validate()
     def test_actual_owner_preflight_oneshot_lifecycle_nested_and_interruption(self):
         n=self.loaded.native;a=self.adapter();b=self.adapter();before=(n.counts(),n.read_counts())
         for args in ((pathlib.PosixPath,(),os.getpid(),threading.get_ident(),256,None),
