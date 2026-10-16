@@ -1614,6 +1614,31 @@ def stage_measurement_values(counters):
     return {'diagnostic_only':True,'overlapping_cumulative_times':True,'methods':rows}
 
 
+class RootGuardCPU:
+    """CPU clocks around existing guards only; exclude child/server CPU."""
+    def __init__(self):
+        self.calls = 0;self.wall_ns = 0;self.process_ns = 0;self.thread_ns = 0
+
+    def wrap(self, original):
+        def checked(*arguments, **keywords):
+            wall = time.monotonic_ns();process = time.process_time_ns();thread = time.thread_time_ns()
+            try:return original(*arguments, **keywords)
+            finally:
+                self.calls += 1
+                self.thread_ns += max(0,time.thread_time_ns()-thread)
+                self.process_ns += max(0,time.process_time_ns()-process)
+                self.wall_ns += max(0,time.monotonic_ns()-wall)
+        return checked
+
+    def values(self):
+        require(type(self.calls) is int and 0 <= self.calls <= 10000000)
+        require(all(type(value) is int and 0 <= value <= 1200000000000
+            for value in (self.wall_ns,self.process_ns,self.thread_ns)))
+        return {'diagnostic_only':True,'existing_guards_only':True,'calls':self.calls,
+            'wall_ms':self.wall_ns//1000000,'process_cpu_ms':self.process_ns//1000000,
+            'calling_thread_cpu_ms':self.thread_ns//1000000,'child_cpu_included':False}
+
+
 class RootStageMeasurements:
     """Fixture-only fixed method timers, restored even on interrupted staging.
 
@@ -1624,6 +1649,7 @@ class RootStageMeasurements:
     def __init__(self):
         self.originals = []
         self.sample = RootGuardSample()
+        self.cpu = RootGuardCPU()
         self.counters = {'.'.join(target):{'calls':0,'elapsed_ns':0}
             for target in STAGE_MEASUREMENT_TARGETS}
 
@@ -1638,7 +1664,7 @@ class RootStageMeasurements:
                 self.originals.append((owner,method_name,original))
                 wrapped = _timed_stage_method(original,self.counters['.'.join((module_name,class_name,method_name))])
                 if (module_name,class_name,method_name) == STAGE_MEASUREMENT_TARGETS[0]:
-                    wrapped = self.sample.wrap(wrapped)
+                    wrapped = self.cpu.wrap(self.sample.wrap(wrapped))
                 setattr(owner,method_name,wrapped)
             return self
         except BaseException:
@@ -1700,6 +1726,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
             seed['root_stage_measurements'] = measurements.values()
+            seed['root_guard_cpu'] = measurements.cpu.values()
             sample = measurements.sample.values()
             if sample is not None:seed['root_guard_sample'] = sample
         if served['status'] == 'refused':
@@ -2134,6 +2161,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
             'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
         **({'root_stage_profile':seed['root_stage_profile']} if seed.get('root_stage_profile') is not None else {}),
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
+        **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -2414,6 +2442,8 @@ def main(args):
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
             if seed.get('root_stage_measurements') is not None:
                 receipt['failure']['root_stage_measurements'] = seed['root_stage_measurements']
+            if seed.get('root_guard_cpu') is not None:
+                receipt['failure']['root_guard_cpu'] = seed['root_guard_cpu']
             if seed.get('root_guard_sample') is not None:
                 receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
             if seed.get('root_stage_refusal') is not None:

@@ -437,6 +437,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Validate canonical Root file spelling without a duplicate resolving walk, while retaining fresh checks of every original ancestor and regular single-link leaf. Preserve original metadata, bounded no-follow content reads, permanent loss, all effect guards and deadlines; actual filesystem behavior and full staging require hosted verification.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_service_file_custody.py), [details 4](.github/workflows/product.yml)
 
+- Separate Root process and calling-thread CPU time from wall time around existing hosted guard calls without adding calls or profiles.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Measure the fixed single-guard diagnostic in microseconds and include closed copy and canonical serialization counters without emitting paths, callers or values. Keep production modules, full staging, guards and deadlines unchanged.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 

@@ -25,6 +25,46 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def clocks(self):
+        stack=contextlib.ExitStack();self.addCleanup(stack.close)
+        stack.enter_context(patch.object(proof.time,'monotonic_ns',side_effect=[100000000,350000000]))
+        stack.enter_context(patch.object(proof.time,'process_time_ns',side_effect=[200000000,320000000]))
+        stack.enter_context(patch.object(proof.time,'thread_time_ns',side_effect=[300000000,350000000]))
+
+    def test_existing_guard_arguments_identity_and_separate_cpu_clocks_are_forwarded(self):
+        self.clocks();cpu=proof.RootGuardCPU();result=object();original=Mock(return_value=result)
+        self.assertIs(cpu.wrap(original)('original',fixed='unchanged'),result)
+        original.assert_called_once_with('original',fixed='unchanged')
+        self.assertEqual(cpu.values(),{'diagnostic_only':True,'existing_guards_only':True,'calls':1,
+            'wall_ms':250,'process_cpu_ms':120,'calling_thread_cpu_ms':50,'child_cpu_included':False})
+
+    def test_original_base_exception_is_retained_and_failed_existing_guard_is_counted(self):
+        self.clocks();cpu=proof.RootGuardCPU();failure=KeyboardInterrupt('synthetic private text')
+        original=Mock(side_effect=failure)
+        with self.assertRaises(KeyboardInterrupt) as raised:cpu.wrap(original)()
+        self.assertIs(raised.exception,failure);original.assert_called_once_with()
+        self.assertEqual(cpu.values()['calls'],1);self.assertEqual(cpu.values()['wall_ms'],250)
+
+    def test_cpu_wrapper_never_creates_a_profile_or_another_guard_call(self):
+        self.clocks();cpu=proof.RootGuardCPU();original=Mock(return_value=True)
+        with patch.object(proof.cProfile,'Profile') as profile:
+            self.assertTrue(cpu.wrap(original)());profile.assert_not_called()
+        original.assert_called_once_with()
+
+    def test_closed_numeric_receipt_excludes_unknown_values_and_child_accounting(self):
+        cpu=proof.RootGuardCPU();cpu.private='synthetic private argument'
+        self.assertEqual(set(cpu.values()),{'diagnostic_only','existing_guards_only','calls','wall_ms',
+            'process_cpu_ms','calling_thread_cpu_ms','child_cpu_included'})
+        self.assertNotIn('private',json.dumps(cpu.values()))
+        self.assertFalse(cpu.values()['child_cpu_included'])
+
+    def test_bool_negative_and_unbounded_counters_refuse_instead_of_reporting_them(self):
+        for name,value in [('calls',True),('calls',-1),('calls',10000001),('wall_ns',-1),
+                ('process_ns',True),('process_ns',1200000000001),('thread_ns',1.5)]:
+            cpu=proof.RootGuardCPU();setattr(cpu,name,value)
+            with self.subTest(name=name,value=value),self.assertRaises(ValueError):cpu.values()
+
+
     @contextlib.contextmanager
     def fixture_file_host(self):
         with contextlib.ExitStack() as stack:

@@ -226,3 +226,15 @@ actual custody. The complete payload, freshness/effect guards, two separate Root
 passes and 240-second deadline remain unchanged. Existing aggregate timers and
 the single guard-ten sample remain diagnostic only. Complete uninstrumented
 staging/runtime plus the original installation and recovery gates still apply.
+
+The hosted fixture also measures process CPU, calling-thread CPU and wall time
+around the existing read-only guard calls. A fixed numeric receipt identifies
+the number of calls and aggregate milliseconds. Child psql/PostgreSQL processes
+and ordinary actors are excluded from these CPU clocks; a wall/CPU difference
+can include waiting and descheduling and does not identify their cause.
+The wrapper forwards original arguments, results and exceptions, starts no
+profile and invokes no additional guard. The original seventeen method timers,
+single guard-ten profile and method restoration remain. Numeric/type bounds
+refuse invalid counters, and no arguments, paths, returned values or private
+attributes are emitted. These clocks guide the next performance repair; they
+do not establish an uninstrumented deadline or full journey acceptance.
