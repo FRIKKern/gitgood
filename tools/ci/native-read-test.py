@@ -6,9 +6,11 @@ not execution or acceptance of the Linux C backend.
 """
 import io
 import faulthandler
+import cProfile
 import hashlib
 import importlib.util
 import os
+import pstats
 from pathlib import Path
 import shutil
 import sys
@@ -218,6 +220,164 @@ class ReadAdapterTest(unittest.TestCase):
         stage.close.assert_called_once();stage.allocation.close.assert_called_once();self.assertIs(Owner.check,original)
 
 
+class ReadProfileTest(unittest.TestCase):
+    setUp=ReadAdapterTest.setUp
+    def profile_fixture(self):return {name+'_synthetic':name for name in probe.NATIVE_APIS}
+    def sources(self):
+        return {name:Path(probe.__file__).with_name(name).read_bytes()
+            for name in ('native_metadata_probe.py','native_read_probe.py')}
+    def costs(self):
+        return [{'file':'native-read-api.py','function':name,'line':0,'calls':1,'self_us':1,'cumulative_us':1}
+            for name in probe.NATIVE_APIS]
+    def loaded(self):
+        sources=self.sources()
+        return types.SimpleNamespace(modules=self.modules,native=self.native,kernel=self.kernel,original_codes=None,
+            base=types.SimpleNamespace(files={'native_metadata_probe.py':(sources['native_metadata_probe.py'],None)}),
+            extra_files={'native_read_probe.py':(sources['native_read_probe.py'],None)},
+            validate=Mock(),evidence=lambda:{'synthetic':True})
+    def test_actual_python_profile_uses_public_labels_without_source_paths(self):
+        profile=cProfile.Profile();profile.runcall(self.adapter.eligible)
+        rows=probe.profile_costs(pstats.Stats(profile).stats,self.sources(),self.profile_fixture())
+        row=next(r for r in rows if r['function']=='eligible')
+        self.assertEqual(row['file'],'native-read-self.py');self.assertEqual(row['calls'],1)
+        self.assertNotIn(str(Path.cwd()),str(rows))
+        self.assertEqual(len([r for r in rows if r['file']=='native-read-api.py']),8)
+    def test_unknown_private_rows_are_ignored_without_inspecting_values(self):
+        opaque=Mock();opaque.__str__=Mock(side_effect=AssertionError('private value read'))
+        rows=probe.profile_costs({('/private/secret.py',12,'password'):opaque,
+            ('~',0,'private_secret'):opaque,('/private/secret.py',True,'password'):opaque},self.sources(),self.profile_fixture())
+        self.assertEqual(len(rows),8);self.assertTrue(all(r['calls']==0 for r in rows))
+        self.assertNotIn('secret',str(rows));opaque.__str__.assert_not_called()
+    def test_known_rows_ignore_private_caller_values_and_reject_invalid_numbers(self):
+        key=('~',0,'same_bindings_synthetic');opaque=Mock()
+        opaque.__str__=Mock(side_effect=AssertionError('private caller read'))
+        rows=probe.profile_costs({key:(opaque,2,.001,.002,opaque)},self.sources(),self.profile_fixture())
+        row=next(r for r in rows if r['function']=='same_bindings')
+        self.assertEqual(row['calls'],2);self.assertEqual(row['self_us'],1000)
+        opaque.__str__.assert_not_called()
+        for calls,total,cumulative in [(True,0,0),(-1,0,0),(10000001,0,0),(1,True,1),
+                (1,float('nan'),1),(1,float('inf'),1),(1,-1,1),(1,1,0),(1,0,1201),(1,10**500,10**500)]:
+            with self.subTest(calls=calls,total=total),self.assertRaises(ValueError):
+                probe.profile_costs({key:(opaque,calls,total,cumulative,opaque)},self.sources(),self.profile_fixture())
+    def test_both_authenticated_sources_have_deterministic_sixteen_row_limit(self):
+        stats={};sources=self.sources()
+        for filename,helper,inventory in (('native_metadata_probe.py',probe.metadata,probe.metadata.PROFILE_PYTHON),
+                ('native_read_probe.py',probe,probe.PROFILE_PYTHON)):
+            code=probe.metadata.functions(compile(sources[filename],helper.__file__,'exec'))
+            for index,(qualified,_label) in enumerate(inventory):
+                fn=code[qualified];stats[fn.co_filename,fn.co_firstlineno,fn.co_name]=(1,index+1,.001,.002,None)
+        for name in probe.NATIVE_APIS:stats['~',0,name+'_synthetic']=(1,2,0,0,None)
+        rows=probe.profile_costs(stats,sources,self.profile_fixture())
+        self.assertEqual(len(rows),16)
+        self.assertEqual({r['function'] for r in rows if r['file']=='native-read-api.py'},set(probe.NATIVE_APIS))
+        self.assertEqual(rows,probe.profile_costs(dict(reversed(list(stats.items()))),sources,self.profile_fixture()))
+        allowed={'file','function','line','calls','self_us','cumulative_us'}
+        self.assertTrue(all(set(row)==allowed for row in rows))
+    def test_source_and_native_label_schema_refuse_before_export(self):
+        sources=self.sources();codes=self.profile_fixture()
+        for invalid in ({}, {**sources,'private.py':b'private'}, {**sources,'native_read_probe.py':b''},
+                {**sources,'native_read_probe.py':'private'}, {**sources,'native_read_probe.py':b'x'*262145}):
+            with self.assertRaises(ValueError):probe.profile_costs({},invalid,codes)
+        for invalid in ({}, {**codes,'private':'private'}, {**codes,'read_file_synthetic':'fingerprint'}):
+            with self.assertRaises(ValueError):probe.profile_costs({},sources,invalid)
+    def test_python_standins_cannot_authenticate_as_native_profiler_labels(self):
+        with patch.object(self.native,'counts',side_effect=AssertionError('standin invoked')) as replaced:
+            with self.assertRaises(ValueError):probe.native_profile_codes(self.native)
+        replaced.assert_not_called()
+        self.assertEqual(probe.counts(self.native),dict.fromkeys(('fingerprint','persistent','custody','read','prepare'),0))
+    def test_label_discovery_refuses_and_preserves_existing_profiler(self):
+        original=sys.getprofile()
+        def foreign(*_):pass
+        try:
+            sys.setprofile(foreign)
+            with self.assertRaises(ValueError):probe.native_profile_codes(self.native)
+            self.assertIs(sys.getprofile(),foreign)
+        finally:sys.setprofile(original)
+        self.assertEqual(self.native.read_counts(),{'read':0,'prepare':0})
+    def test_first_guard_starts_original_measurements_only_tenth_enables_native(self):
+        sample=metadata_cases.original_sample();a=self.adapter;test=self;events=[];loaded=self.loaded()
+        class Stage:
+            usable=True;allocation=types.SimpleNamespace(usable=True,close=Mock());close=Mock()
+            def check(subject):
+                events.append(a.active)
+                if a.active:
+                    for family in probe.FAMILIES:a.count(family)
+                    for name in test.native.values:test.native.values[name]+=1
+                    test.native.reads+=1;test.native.preparations+=1
+                else:test.assertTrue(a.restored())
+                return 'original'
+        original=Stage.check
+        class Measurements:
+            def __init__(subject):subject.sample=sample
+            def __enter__(subject):test.assertIs(Stage.check,original);Stage.check=sample.wrap(original)
+            def __exit__(subject,*_):Stage.check=original
+        with patch.object(probe,'Adapter',return_value=a),patch.object(probe,'native_profile_codes',return_value=self.profile_fixture()),patch.object(probe,'profile_costs',return_value=self.costs()),patch.object(probe,'compare_guard',side_effect=AssertionError('rejected comparison repeated')):
+            with probe.AtFirstGuardProfile(loaded,Stage,Measurements()) as diagnostic:
+                for number in range(12):
+                    self.assertEqual(Stage().check(),'original');self.assertTrue(a.restored())
+                    self.assertEqual(sum(probe.counts(self.native).values()),0 if number<9 else 5)
+            result=diagnostic.result
+        self.assertEqual(events,[False]*9+[True]+[False]*2);self.assertEqual(sample.calls,12)
+        self.assertIs(Stage.check,original);self.assertNotIn('wrap',vars(sample))
+        self.assertEqual(result['guard_number'],10);self.assertEqual(result['extra_guard_calls'],0)
+        self.assertEqual(result['native_calls'],dict.fromkeys(probe.counts(self.native),1))
+        self.assertTrue(result['direct_aliases_restored']);loaded.validate.assert_called_once()
+    def test_sample_interruption_restores_descriptors_direct_and_late_aliases(self):
+        sample=metadata_cases.original_sample();a=self.adapter;loaded=self.loaded();failure=KeyboardInterrupt('original')
+        directory=Path.cwd()/'synthetic-installed';a.installed_directory=directory
+        alias=types.ModuleType('_profile_alias');alias.__file__=str(directory/'alias.py');alias.helper=a.read_originals[0]
+        late=types.ModuleType('_profile_late');late.__file__=str(directory/'late.py')
+        def guard():
+            if a.active:
+                self.assertIs(alias.helper,a.read_replacements[0])
+                late.helper=a.read_replacements[2];sys.modules[late.__name__]=late
+                raise failure
+        with patch.dict(sys.modules,{alias.__name__:alias}),patch.object(probe,'Adapter',return_value=a),patch.object(probe,'native_profile_codes',return_value=self.profile_fixture()):
+            try:
+                with probe.GuardTenSample(loaded,sample) as diagnostic:
+                    wrapped=sample.wrap(guard)
+                    for _ in range(9):wrapped()
+                    with self.assertRaises(KeyboardInterrupt) as caught:wrapped()
+                self.assertIs(late.helper,a.read_originals[2])
+            finally:sys.modules.pop(late.__name__,None)
+        self.assertIs(caught.exception,failure);self.assertTrue(a.restored());self.assertIsNone(diagnostic.result)
+        self.assertIs(alias.helper,a.read_originals[0]);self.assertNotIn('wrap',vars(sample))
+        self.assertIsNone(sys.getprofile());self.assertEqual(sample.calls,10);loaded.validate.assert_not_called()
+    def test_first_guard_setup_failure_preserves_error_and_attempts_both_closes(self):
+        sample=metadata_cases.original_sample();failure=KeyboardInterrupt('original');loaded=self.loaded()
+        class Stage:
+            usable=True;allocation=types.SimpleNamespace(usable=True,close=Mock());close=Mock(side_effect=RuntimeError('cleanup'))
+            def check(self):raise AssertionError('guard ran')
+        original=Stage.check;stage=Stage()
+        class Measurements:
+            def __init__(self):self.sample=sample
+            def __enter__(self):raise failure
+        with patch.object(probe,'Adapter',return_value=self.adapter),patch.object(probe,'native_profile_codes',return_value=self.profile_fixture()):
+            with self.assertRaises(KeyboardInterrupt) as caught:
+                with probe.AtFirstGuardProfile(loaded,Stage,Measurements()):stage.check()
+        self.assertIs(caught.exception,failure);self.assertIs(Stage.check,original);self.assertNotIn('wrap',vars(sample))
+        self.assertFalse(stage.usable);self.assertFalse(stage.allocation.usable)
+        stage.close.assert_called_once();stage.allocation.close.assert_called_once()
+
+    def test_postsample_custody_failure_prevents_effect_and_preserves_original_wrap(self):
+        sample=metadata_cases.original_sample();a=self.adapter;loaded=self.loaded();failure=KeyboardInterrupt('custody')
+        loaded.validate.side_effect=failure;original_wrap=sample.wrap;sample.wrap=original_wrap;effect=Mock()
+        def guard():
+            if a.active:
+                for family in probe.FAMILIES:a.count(family)
+                for name in self.native.values:self.native.values[name]+=1
+                self.native.reads+=1;self.native.preparations+=1
+        with patch.object(probe,'Adapter',return_value=a),patch.object(probe,'native_profile_codes',return_value=self.profile_fixture()):
+            with probe.GuardTenSample(loaded,sample) as diagnostic:
+                wrapped=sample.wrap(guard)
+                for _ in range(9):wrapped()
+                with self.assertRaises(KeyboardInterrupt) as caught:
+                    wrapped();effect()
+        self.assertIs(caught.exception,failure);self.assertIs(sample.wrap,original_wrap)
+        self.assertTrue(a.restored());self.assertIsNone(diagnostic.result);self.assertIsNone(sys.getprofile())
+        effect.assert_not_called();loaded.validate.assert_called_once()
+
+
 class BufferedReadOwnershipTest(unittest.TestCase):
     def test_buffered_read_keeps_maximum_plus_one_and_owner_closes_descriptor(self):
         source=tempfile.TemporaryFile(mode='w+b')
@@ -261,6 +421,47 @@ class HostedReadTest(unittest.TestCase):
 
     def adapter(self):return probe.Adapter(self.loaded.modules,self.loaded.native,self.loaded.kernel,original_codes=self.loaded.original_codes)
     custody=metadata_cases.HostedMetadataTest.custody
+
+    def test_guard_ten_profile_authenticates_native_labels_and_all_eight_fresh_roles(self):
+        service,binding,generation,_lifecycle=self.loaded.modules;kernel=self.loaded.kernel
+        before=probe.counts(self.loaded.native);codes=probe.native_profile_codes(self.loaded.native)
+        self.assertEqual(set(codes.values()),set(probe.NATIVE_APIS))
+        self.assertEqual(probe.counts(self.loaded.native),before)
+        custody,_leaf,_other=self.custody()
+        with tempfile.TemporaryDirectory(dir=self.root) as directory:
+            root=Path(directory);root.chmod(0o700)
+            executable=root/'executable';executable.write_bytes(b'one');executable.chmod(0o700)
+            private=root/'private';private.write_bytes(b'one');private.chmod(0o600)
+            machine=root/'machine';machine.write_bytes(b'machine');machine.chmod(0o600)
+            plan=generation._PersistentFingerprintPlan.__new__(generation._PersistentFingerprintPlan)
+            info=root.lstat();plan.uid=0;plan.entries=((root,frozenset({'executable','private','machine'})),)
+            plan.directories=((root,str(root),info.st_dev,info.st_ino,0),);plan.machine=machine
+            plan.files=tuple((path,str(path),0,False,path.lstat().st_size,path.lstat().st_dev,path.lstat().st_ino)
+                for path in (executable,private))
+            plan.parents=tuple((p,str(p),False,False) for p in root.parents)
+            def guard():
+                custody.check()
+                return (service._CapturedRootFiles._fingerprint(executable,4096,True),
+                    binding._CapturedExecutableDigests._fingerprint(str(executable)),plan.read(),
+                    service.root_file(executable,4096,executable=True),binding.private_file(private,0),
+                    service.read_bytes(private),kernel._read(private))
+            expected=guard();sample=metadata_cases.original_sample()
+            with probe.GuardTenSample(self.loaded,sample) as diagnostic:
+                wrapped=sample.wrap(guard)
+                for _ in range(12):
+                    self.assertEqual(wrapped(),expected);self.assertTrue(diagnostic.adapter.restored())
+            result=diagnostic.result
+        self.assertEqual(sample.calls,12);self.assertNotIn('wrap',vars(sample));self.assertIsNone(sys.getprofile())
+        self.assertEqual(result['extra_guard_calls'],0);self.assertEqual(result['guard_number'],10)
+        self.assertEqual(set(result['native_calls']),{'fingerprint','persistent','custody','read','prepare'})
+        self.assertTrue(all(v>0 for v in result['native_calls'].values()))
+        self.assertEqual(set(result['families']),set(probe.FAMILIES))
+        self.assertTrue(all(v>0 for v in result['families'].values()));self.assertFalse(any(result['fallbacks'].values()))
+        native_rows=[r for r in result['rows'] if r['file']=='native-read-api.py']
+        self.assertEqual({r['function'] for r in native_rows},set(probe.NATIVE_APIS))
+        self.assertEqual({r['function'] for r in native_rows if r['calls']>0},set(probe.NATIVE_APIS)-{'counts','read_counts'})
+        self.assertLessEqual(len(result['rows']),16);self.assertNotIn(str(self.root),str(result['rows']))
+        self.assertTrue(result['direct_aliases_restored']);self.loaded.validate()
 
     def test_zz_all_original_372_root_cases_with_eight_role_adapter(self):
         spec=importlib.util.spec_from_file_location('_original_read_lexical_cases',Path(__file__).with_name('lexical-path-test.py'))

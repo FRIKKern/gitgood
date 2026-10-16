@@ -700,3 +700,43 @@ validation invoked the altered helper before checking its code. The portable
 ordering regression reproduces this failure and passes with the admission-first
 validation above. The read aggregate Root suite, guard pairs and full staging
 were not reached. Hosted verification of the ordering repair remains required.
+
+Exact review of 0304c00 subsequently verified all 37 metadata cases, all 27 read
+cases, both original 372-case Root suites, 82 ownership fixtures, 59 installed
+production hashes and retained regression scopes. Its 20 alternating same-actor
+pairs exercised all eight roles and all five native counters, with zero fallback,
+equal observations and all original classes, descriptors and direct aliases
+restored. The median ratio was 1.156727 with zero faster pairs: the native backend
+is rejected for adoption under the unchanged 0.80 and 18-of-20 gate.
+
+Original full staging still timed out at 240160 ms with no output checks. The
+9409-member, 159520534-byte archive and deadlines were unchanged. The original
+guard-ten sample remains diagnostic: its overlapping cost categories cannot be
+used as uninstrumented timing or added together. The next investigation must
+attribute the eight-role adapter's added cost before another benefit comparison;
+an unchanged paired or baseline-only rerun would add no evidence. Complete
+uninstrumented output/runtime, listener provisioning, interruption reconciliation,
+installation and actual replacement recovery remain required.
+
+The next diagnostic attributes this rejected eight-role backend within the same
+existing read-only tenth-guard profile. The complete adapter is active only for
+that one guard. It restores all four class descriptors, complete-read helpers
+and direct or late import aliases, then revalidates exact helper, SDK and
+production source custody before returning to staging. All eight roles and five
+native counter groups must be positive, with zero fallback. This adds no guard,
+observation pass, effect or production result cache; the original seventeen
+timers, CPU windows, archive and deadlines remain unchanged.
+
+The bounded report reserves eight native API rows and selects at most eight
+Python self-cost rows from the authenticated metadata and read adapter sources.
+Native labels are discovered from genuine extension builtins using no-argument
+preflight with all observation and preparation counters unchanged. Unknown
+profiler names and values are ignored; exported labels are fixed public names.
+The count APIs retain zero-filled slots when absent from the sampled guard.
+Portable tests cover privacy, numeric limits, deterministic selection, original
+measurement start, interruption, alias restoration and source-custody failure
+before effects. A new actual Linux Root case must verify the genuine labels,
+all eight roles and original observations in this sample; both original Root
+suites and all earlier cases remain required. These profiling changes require
+fresh hosted verification and make no production benefit or adoption claim.
+The rejected twenty-pair and baseline-only runs are not repeated.

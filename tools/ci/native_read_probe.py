@@ -5,14 +5,17 @@ reads retain CPython buffering, separate fingerprints, and post-close checks.
 Only immutable lexical/code/schema inputs can survive a call.
 """
 import builtins
+import cProfile
 from contextlib import contextmanager
 from functools import wraps
 import hashlib
 import importlib
 import io
+import math
 import os
 from pathlib import Path
 import pathlib
+import pstats
 import sys
 import time
 import types
@@ -328,3 +331,119 @@ class AtFirstGuard:
         try:
             if self.entered:self.measurements.__exit__(None,None,None)
         finally:self.stage_owner.check=self.original
+
+
+PROFILE_PYTHON=(
+    ('Adapter.eligible','eligible'),('Adapter.eligible.<locals>.<genexpr>','eligible_each'),
+    ('Adapter.plan_arguments','plan_arguments'),('Adapter.custody_arguments','custody_arguments'),
+    *((f'Adapter.__init__.<locals>.{name}',name) for name in
+        ('admitted','read','fallback','root_file','private_file','read_bytes','kernel_read')))
+
+
+def native_profile_codes(native):
+    """Discover genuine C labels with argument-count refusal, never file I/O."""
+    require(sys.getprofile() is None)
+    monitoring=getattr(sys,'monitoring',None)
+    require(monitoring is None or monitoring.get_tool(monitoring.PROFILER_ID) is None)
+    for name in NATIVE_APIS:
+        fn=getattr(native,name)
+        require(type(fn) is types.BuiltinFunctionType and fn.__module__=='_native_metadata_probe' and fn.__name__==name)
+    before=counts(native);empty=cProfile.Profile();empty.runcall(lambda:None)
+    require(set(before)=={'fingerprint','persistent','custody','read','prepare'}
+        and all(type(value) is int and 0<=value<=10000000 for value in before.values()))
+    excluded={entry.code for entry in empty.getstats() if type(entry.code) is str};result={}
+    for name in NATIVE_APIS:
+        fn=getattr(native,name)
+        require(type(fn) is types.BuiltinFunctionType and fn.__module__=='_native_metadata_probe' and fn.__name__==name)
+        profile=cProfile.Profile()
+        try:profile.runcall(fn)
+        except TypeError:require(name not in {'counts','read_counts'})
+        codes={entry.code for entry in profile.getstats() if type(entry.code) is str}-excluded
+        require(len(codes)==1 and counts(native)==before)
+        code=codes.pop();require(0<len(code)<=1024 and code not in result);result[code]=name
+    return result
+
+
+def profile_costs(stats,sources,native_codes):
+    """Closed public labels; eight native slots and at most eight Python rows."""
+    require(type(stats) is dict and type(native_codes) is dict and len(native_codes)==8
+        and set(native_codes.values())==set(NATIVE_APIS)
+        and all(type(key) is str and 0<len(key)<=1024 for key in native_codes))
+    require(type(sources) is dict and set(sources)=={'native_metadata_probe.py','native_read_probe.py'}
+        and all(type(raw) is bytes and 0<len(raw)<=262144 for raw in sources.values()))
+    python={}
+    for name,filename,inventory,label in (
+            ('native_metadata_probe.py',metadata.__file__,metadata.PROFILE_PYTHON,'native-metadata-self.py'),
+            ('native_read_probe.py',__file__,PROFILE_PYTHON,'native-read-self.py')):
+        code=metadata.functions(compile(sources[name],filename,'exec'))
+        for qualified,function in inventory:
+            fn=code[qualified];python[fn.co_filename,fn.co_firstlineno,fn.co_name]=(label,function)
+    native_rows={name:{'file':'native-read-api.py','function':name,'line':0,
+        'calls':0,'self_us':0,'cumulative_us':0} for name in NATIVE_APIS};python_rows=[]
+    for key,value in stats.items():
+        if type(key) is not tuple or len(key)!=3:continue
+        filename,line,name=key
+        if type(filename) is not str or type(line) is not int or type(name) is not str:continue
+        if key in python:label,function=python[key]
+        elif filename=='~' and line==0 and name in native_codes:label='native-read-api.py';function=native_codes[name]
+        else:continue
+        require(type(value) is tuple and len(value)==5)
+        calls,total,cumulative=value[1:4]
+        require(type(calls) is int and 0<=calls<=10000000 and 0<=line<10000)
+        require(all(type(v) in {int,float} and 0<=v<=1200 and math.isfinite(v) for v in (total,cumulative))
+            and total<=cumulative)
+        row={'file':label,'function':function,'line':line,'calls':calls,
+            'self_us':int(total*1000000),'cumulative_us':int(cumulative*1000000)}
+        if label=='native-read-api.py':native_rows[function]=row
+        else:python_rows.append(row)
+    selected=sorted(python_rows,key=lambda r:(-r['self_us'],-r['cumulative_us'],r['file'],r['function'],r['line']))[:8]
+    return sorted([*native_rows.values(),*selected],key=lambda r:(r['file'],r['function'],r['line']))
+
+
+class GuardTenSample(metadata.GuardTenSample):
+    """Profile the rejected eight-role backend once in the existing tenth guard."""
+    def __init__(self,loaded,sample):
+        self.loaded=loaded;self.sample=sample;self.result=None;self.attempted=False;self.active=False
+        self.adapter=Adapter(loaded.modules,loaded.native,loaded.kernel,original_codes=loaded.original_codes)
+        self.native_codes=native_profile_codes(loaded.native)
+
+    def __enter__(self):
+        require(not self.active and not self.attempted and self.sample.calls==0
+            and self.sample.profile is None and not self.sample.completed);self.active=True
+        self.had_wrap='wrap' in vars(self.sample);self.raw_wrap=vars(self.sample).get('wrap');original_wrap=self.sample.wrap
+        def wrap(original):
+            checked=original_wrap(original)
+            def call(*args,**kwargs):
+                if self.sample.calls!=9:return checked(*args,**kwargs)
+                require(not self.attempted and sys.getprofile() is None);self.attempted=True
+                monitoring=getattr(sys,'monitoring',None)
+                require(monitoring is None or monitoring.get_tool(monitoring.PROFILER_ID) is None)
+                initial=counts(self.loaded.native)
+                with self.adapter.installed():value=checked(*args,**kwargs)
+                require(self.adapter.restored() and self.sample.completed)
+                self.loaded.validate()
+                final=counts(self.loaded.native);delta={name:final[name]-initial[name] for name in initial}
+                require(set(delta)=={'fingerprint','persistent','custody','read','prepare'}
+                    and all(type(v) is int and 0<v<=10000000 for v in delta.values()))
+                require(all(v>0 for v in self.adapter.calls.values()) and not any(self.adapter.fallbacks.values()))
+                sources={'native_metadata_probe.py':self.loaded.base.files['native_metadata_probe.py'][0],
+                    'native_read_probe.py':self.loaded.extra_files['native_read_probe.py'][0]}
+                rows=profile_costs(pstats.Stats(self.sample.profile).stats,sources,self.native_codes)
+                require({r['function'] for r in rows if r['file']=='native-read-api.py' and r['calls']>0}
+                    >=set(NATIVE_APIS)-{'counts','read_counts'})
+                self.result={'diagnostic_only':True,'production_adopted':False,'guard_number':10,'profiled_checks':1,
+                    'extra_guard_calls':0,'original_descriptors_restored':True,'original_classes_retained':True,
+                    'direct_aliases_restored':True,'same_original_actors':True,'observation_results_retained':False,
+                    'native_calls':delta,'families':self.adapter.calls.copy(),'fallbacks':self.adapter.fallbacks.copy(),
+                    'rows':rows,**self.loaded.evidence()}
+                return value
+            return call
+        self.sample.wrap=wrap;return self
+
+
+class AtFirstGuardProfile(metadata.AtFirstGuardProfile):
+    """Original measurement start with no repeated rejected paired comparison."""
+    def __init__(self,loaded,stage_owner,measurements):
+        self.stage_owner=stage_owner;self.measurements=measurements
+        self.original=vars(stage_owner)['check'];self.entered=False;self.attempted=False
+        self.sample=GuardTenSample(loaded,measurements.sample)
