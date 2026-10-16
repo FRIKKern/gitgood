@@ -241,8 +241,12 @@ do not establish an uninstrumented deadline or full journey acceptance.
 
 An experimental hosted run now uses a pinned PyPy 3.11 v8.0.1 interpreter for
 the Root helper only. The ordinary manager/workers remain on their original
-Python 3.12 executable. All production source bytes, the complete payload,
-original actors within each allocated trial, checks and deadlines are unchanged.
+Python 3.12 executable. The complete payload, original actors within each
+allocated trial, checks and deadlines are unchanged. A lock-parser compatibility
+repair expresses the same Linux access mask through `O_WRONLY | O_RDWR` because
+the experimental interpreter does not export `O_ACCMODE`; original descriptor,
+flock and actor checks remain. Its complete component scope runs under both
+interpreters before policy allocation and staging.
 This tests a larger execution-cost change after measured Root CPU dominated the
 remaining guard wall time; it does not claim a same-actor interpreter speed ratio.
 

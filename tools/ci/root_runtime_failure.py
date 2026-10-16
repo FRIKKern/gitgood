@@ -16,7 +16,7 @@ import unittest
 
 
 SCOPES = (
-    'test_native_protected_artifact', 'test_native_root_lifecycle', 'test_native_root_artifact_policy',
+    'test_native_protected_artifact', 'test_native_root_lifecycle', 'test_native_root_controller_request', 'test_native_root_artifact_policy',
     'test_native_artifact_controller', 'test_native_root_artifact_dispatch', 'test_native_artifact_canonical_paths',
     'test_native_root_observation_pass', 'test_native_root_database_reader', 'test_native_tcp_socket_observation',
     'test_native_service_file_custody', 'test_native_root_file_parent_plan', 'test_native_process_status',

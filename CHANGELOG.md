@@ -586,6 +586,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Reuse one original read-only database observer during archive staging while keeping fresh checks before every effect. Actual staging performance and original-reader loss verification remain pending.
   Sources: [details 1](tools/deployment/native_root_database_reader.py), [details 2](tools/deployment/test_native_root_database_reader.py), [details 3](docs/implementation/native-root-database-reader.md)
 
+- Preserve exact Linux controller-lock access checks on runtimes without O_ACCMODE and verify the full descriptor scope under both hosted interpreters.
+  Sources: [details 1](docs/implementation/native-root-controller-request.md), [details 2](tools/deployment/native_root_controller_request.py), [details 3](tools/deployment/test_native_root_controller_request.py)
+
 - Require native ownership startup to match its clean compiled build candidate to the Root seal before database lease acquisition and publication.
   Sources: [details 1](docs/implementation/native-ownership-startup.md), [details 2](apps/forge/lib/gitgood/native_ownership_startup.ex)
 

@@ -37,7 +37,8 @@ def _held_lock(raw, pid, identity):
         require(len(fields[name]) == 1 and re.fullmatch('[0-9]{1,20}',fields[name][0]))
     require(int(fields['ino'][0]) == identity['inode'] and int(fields['mnt_id'][0]) > 0)
     require(len(fields['flags']) == 1 and re.fullmatch('[0-7]{1,16}',fields['flags'][0]))
-    require(int(fields['flags'][0],8) & os.O_ACCMODE == os.O_RDWR)
+    # Linux access bits are WRONLY|RDWR; PyPy need not export O_ACCMODE.
+    require(int(fields['flags'][0],8) & (os.O_WRONLY | os.O_RDWR) == os.O_RDWR)
     lock = fields['lock']
     require(len(lock) == 8 and re.fullmatch('[1-9][0-9]{0,19}:',lock[0]))
     require(lock[1:5] == ['FLOCK','ADVISORY','WRITE',str(pid)] and lock[6:] == ['0','EOF'])
