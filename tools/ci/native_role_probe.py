@@ -88,6 +88,8 @@ def same_defaults(fn,expected):
 
 def role_environment():
     sdk.sdk_environment();parents=pathlib._PathParents;sequence=_collections_abc.Sequence
+    concrete=pathlib.PosixPath if os.name=='posix' else pathlib.WindowsPath
+    for owner in (parents,concrete):require(not any('__del__' in vars(base) for base in owner.__mro__))
     require(type(_collections_abc) is types.ModuleType and pathlib.Sequence is sequence
         and parents.__module__=='pathlib' and parents.__bases__==(sequence,)
         and inspect.getattr_static(parents,'__iter__') is vars(sequence)['__iter__']
@@ -102,7 +104,6 @@ def role_environment():
         require(type(cls) is type and cls.__name__==name and cls.__module__=='builtins' and not cls.__flags__&512)
     for name in ('anchor','parts','parent','parents','name'):
         require(type(vars(pathlib.PurePath)[name]) is property)
-    concrete=pathlib.PosixPath if os.name=='posix' else pathlib.WindowsPath
     for qualified in ROLE_AST:
         owner,name=qualified.split('.')
         if owner=='PurePath':require(inspect.getattr_static(concrete,name) is vars(pathlib.PurePath)[name])

@@ -126,6 +126,15 @@ class RoleSourceContractTest(unittest.TestCase):
                 RoleContext(loaded,owner_check=lambda:None)
             planned.assert_not_called()
         finally:fn.__defaults__=saved
+    def test_parent_finalizer_callback_is_unsupported_before_role_preparation(self):
+        events=[]
+        def finalized(subject):events.append('parent finalized')
+        for owner in (pathlib._PathParents,type(Path('/'))):
+            events.clear()
+            with self.subTest(owner=owner.__name__),patch.object(owner,'__del__',finalized,create=True):
+                parents=Path('/synthetic/leaf').parents;del parents
+                self.assertEqual(events,['parent finalized'])
+                with self.assertRaises(ValueError):probe.role_environment()
 
 
 class RoleAdapterContractTest(unittest.TestCase):
@@ -393,6 +402,23 @@ class HostedRoleTest(unittest.TestCase):
                 with self.assertRaises(ValueError):self.loaded.validate()
         finally:self.loaded.native.role_prepare=original
         self.assertEqual(a.fallbacks['kernel_read'],1);self.loaded.validate()
+
+    def test_finalizer_namespace_changes_invalidate_scope_even_after_restoration(self):
+        leaf=self.leaf();events=[]
+        def finalized(subject):events.append('finalized')
+        for owner in (pathlib._PathParents,pathlib.PosixPath):
+            a=self.adapter()
+            with a.installed():
+                before=a.values()
+                with patch.object(owner,'__del__',finalized,create=True):
+                    self.assertFalse(a.eligible())
+                    parents=Path('/synthetic/leaf').parents;del parents
+                    self.assertTrue(events)
+                self.assertFalse(a.eligible())
+                self.assertEqual(self.loaded.kernel._read(leaf),'one');self.assertEqual(a.values(),before)
+            with a.installed():
+                self.assertTrue(a.eligible());self.assertEqual(self.loaded.kernel._read(leaf),'one')
+            self.assertEqual(a.values()[1][-1],before[1][-1]+1);a.close();self.loaded.validate()
 
     def test_same_pid_and_thread_real_effective_uid_gid_are_checked_for_each_role(self):
         leaf=self.leaf();read_fd,write_fd=os.pipe();pid=os.fork()

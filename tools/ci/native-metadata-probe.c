@@ -1120,6 +1120,7 @@ typedef struct {
 typedef struct {
     PyObject *cls,*mro,*meta;
     getattrofunc get;setattrofunc set;newfunc new;allocfunc alloc;
+    destructor dealloc,del,finalize;
 } DescType;
 typedef struct {PyObject *cell,*value;} DescCell;
 typedef struct {
@@ -1230,7 +1231,8 @@ static int desc_add_type(DescriptorPlan *p,PyObject *cls) {
     }
     t=&p->types[p->ntype++];t->cls=Py_NewRef(cls);t->mro=Py_NewRef(c->tp_mro);
     t->meta=Py_NewRef((PyObject *)Py_TYPE(cls));
-    t->get=c->tp_getattro;t->set=c->tp_setattro;t->new=c->tp_new;t->alloc=c->tp_alloc;return 0;
+    t->get=c->tp_getattro;t->set=c->tp_setattro;t->new=c->tp_new;t->alloc=c->tp_alloc;
+    t->dealloc=c->tp_dealloc;t->del=c->tp_del;t->finalize=c->tp_finalize;return 0;
 }
 static int desc_add_function(DescriptorPlan *p,PyObject *fn) {
     Py_ssize_t i,j;DescFunction *f;PyFunctionObject *v=(PyFunctionObject *)fn;
@@ -1269,7 +1271,8 @@ static int desc_direct(DescriptorPlan *p) {
     for(i=0;i<p->ntype;i++) {
         DescType *t=&p->types[i];PyTypeObject *c=(PyTypeObject *)t->cls;
         if((PyObject *)Py_TYPE(c)!=t->meta||c->tp_mro!=t->mro||c->tp_getattro!=t->get||
-            c->tp_setattro!=t->set||c->tp_new!=t->new||c->tp_alloc!=t->alloc)goto changed;
+            c->tp_setattro!=t->set||c->tp_new!=t->new||c->tp_alloc!=t->alloc||
+            c->tp_dealloc!=t->dealloc||c->tp_del!=t->del||c->tp_finalize!=t->finalize)goto changed;
     }
     for(i=0;i<p->nfunction;i++) {
         DescFunction *f=&p->functions[i];PyFunctionObject *v=(PyFunctionObject *)f->fn;
@@ -1404,19 +1407,23 @@ static PyObject *descriptor_bind(PyObject *unused,PyObject *args) {
             PyObject *mro=((PyTypeObject *)owner)->tp_mro;
             if(!mro||!PyTuple_CheckExact(mro)||PyTuple_GET_SIZE(mro)>16)goto invalid;
             for(j=0;j<PyTuple_GET_SIZE(mro);j++) {
-                PyObject *base=PyTuple_GET_ITEM(mro,j),*space,*hook;
+                PyObject *base=PyTuple_GET_ITEM(mro,j),*space,*hook;int h;
+                const char *hooks[]={"__getattr__","__del__"};
                 if(desc_add_type(p,base)<0)return NULL;
                 space=PyType_GetDict((PyTypeObject *)base);if(!space)return NULL;
                 k=desc_add_watch(p,space,key);if(k<0){Py_DECREF(space);return NULL;}
-                hook=PyUnicode_InternFromString("__getattr__");if(!hook){Py_DECREF(space);return NULL;}
-                k=desc_add_watch(p,space,hook);Py_DECREF(hook);Py_DECREF(space);if(k<0)return NULL;
+                for(h=0;h<2;h++) {
+                    hook=PyUnicode_InternFromString(hooks[h]);if(!hook){Py_DECREF(space);return NULL;}
+                    k=desc_add_watch(p,space,hook);Py_DECREF(hook);if(k<0){Py_DECREF(space);return NULL;}
+                }
+                Py_DECREF(space);
             }
         } else goto invalid;
     }
     if(p->lex->import_globals) {
         PyObject *spec=p->lex->import_spec,*type=p->lex->import_spec_type;
         PyObject *mro=((PyTypeObject *)type)->tp_mro,*space,*key;
-        const char *hooks[]={"_initializing","__getattribute__","__getattr__","__dict__"};
+        const char *hooks[]={"_initializing","__getattribute__","__getattr__","__dict__","__del__"};
         p->spec_dict=PyObject_GenericGetDict(spec,NULL);if(!p->spec_dict)return NULL;
         if(desc_add_watch(p,p->spec_dict,p->lex->initializing)<0)return NULL;
         key=PyUnicode_InternFromString("__spec__");if(!key)return NULL;
@@ -1425,7 +1432,7 @@ static PyObject *descriptor_bind(PyObject *unused,PyObject *args) {
         for(i=0;i<PyTuple_GET_SIZE(mro);i++) {
             PyObject *base=PyTuple_GET_ITEM(mro,i);if(desc_add_type(p,base)<0)return NULL;
             space=PyType_GetDict((PyTypeObject *)base);if(!space)return NULL;
-            for(j=0;j<4;j++) {
+            for(j=0;j<5;j++) {
                 key=PyUnicode_InternFromString(hooks[j]);if(!key){Py_DECREF(space);return NULL;}
                 k=desc_add_watch(p,space,key);Py_DECREF(key);if(k<0){Py_DECREF(space);return NULL;}
             }
@@ -1783,7 +1790,8 @@ static PyObject *role_prepare(PyObject *unused,PyObject *args) {
         if(limit<0||limit>16777216)goto unsupported;
         if(PyUnicode_CheckExact(raw))name=Py_NewRef(raw);
         else name=role_lexical_path(p,raw,p->lex->cls);
-        if(!name)goto done;if(name==Py_NotImplemented)goto unsupported;
+        if(!name)goto done;
+        if(name==Py_NotImplemented)goto unsupported;
         if(PyUnicode_GET_LENGTH(name)>8192)goto unsupported;
         parents=PyTuple_New(0);uid=PyLong_FromLong(0);if(!parents||!uid)goto done;
         result=PyTuple_Pack(5,name,parents,uid,maximum,Py_False);goto done;

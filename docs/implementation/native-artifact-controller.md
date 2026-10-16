@@ -948,12 +948,23 @@ before observations; a refusal or error after dispatch never retries through
 the original body. Constructor imports precede copying mutable raw arguments,
 and invalid user-written string caches decline before Unicode access.
 
-Twenty portable cases cover dispatch, default and SDK contracts, original-method
+The first complete-role candidate `89cf09c` failed compilation in hosted run
+38982317831: GCC rejected misleading indentation in `role_prepare` with the
+existing `-Werror` policy. The native suites and full ownership proof did not
+execute, and no semantic or performance result exists for that revision.
+The repair separates the two statements without changing compiler flags.
+A separate portable regression demonstrated that an SDK parent-iterator
+finalizer callback was admitted even though the C preparation omits that
+iterator object. Initial SDK finalizers now refuse; live type admission also
+checks deallocation/finalization slots and retains negative `__del__`
+invalidation after a callback is removed.
+
+21 portable cases cover dispatch, default and SDK contracts, original-method
 preservation, aliases imported during a scope, source-custody failure, partial
 binding and interrupted cleanup. They pass locally using test doubles and do
-not establish C execution. Twenty additional hosted Root cases reuse the
+not establish C execution. 21 additional hosted Root cases reuse the
 existing file, custody, descriptor-loss and restored-mtime fixtures, exercise all
-eight roles and four lexical witnesses, and run the original 372-case Root
+eight roles and four lexical witnesses, reject added finalizers and run the original 372-case Root
 suite under this boundary. These hosted cases are unverified until their actual
 run is reviewed. The legacy 20/43/37/39 descriptor/Path/metadata/read cases and
 their four original Root suites remain required.

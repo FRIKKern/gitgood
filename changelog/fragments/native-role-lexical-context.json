@@ -2,7 +2,7 @@
   "id": "native-role-lexical-context",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Prepare lexical arguments inside all eight C observation roles while retaining original SDK methods, closed default and parent contracts, and the unchanged whole-guard benefit gate; hosted compilation, semantics and benefit remain unverified.",
+  "summary": "Prepare lexical arguments inside all eight C observation roles while retaining original SDK methods, closed default and parent/finalizer contracts, and the unchanged whole-guard benefit gate; repair the first hosted compiler failure without relaxing warning flags. Hosted semantics and benefit remain unverified.",
   "journeys": ["J14", "J15"],
   "references": [
     "docs/implementation/native-artifact-controller.md",
