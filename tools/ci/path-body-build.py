@@ -117,7 +117,9 @@ def main():
     source=directory/'path-body-donor.pyx';generated=HEADER+body;source.write_text(generated,encoding='utf-8')
     c_source=directory/'path-body-donor.c'
     environment={**os.environ,'PYTHONPATH':str(vendor),'PYTHONNOUSERSITE':'1','PYTHONDONTWRITEBYTECODE':'1'}
-    subprocess.run([sys.executable,'-B','-s','-m','Cython','--module-name','_path_body_probe',
+    subprocess.run([sys.executable,'-B','-s','-c',
+        'from Cython.Compiler.Main import setuptools_main; raise SystemExit(setuptools_main())',
+        '--module-name','_path_body_probe',
         '-X',DIRECTIVES,'-o',str(c_source),str(source)],env=environment,check=True,timeout=120)
     suffix=sysconfig.get_config_var('EXT_SUFFIX');include=Path(sysconfig.get_path('include'))
     require(type(suffix) is str and '/' not in suffix and suffix.endswith('.so') and (include/'Python.h').is_file())
