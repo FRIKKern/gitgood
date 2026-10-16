@@ -392,11 +392,25 @@ static PyObject *plain_fields(PyObject *subject,PyObject *expected,const char **
     if(!PyType_Check(expected)||!Py_IS_TYPE(subject,(PyTypeObject *)expected)||
        Py_TYPE(subject)->tp_getattro!=PyObject_GenericGetAttr)return Py_NewRef(Py_NotImplemented);
     mro=Py_TYPE(subject)->tp_mro;
+    if(!mro||!PyTuple_CheckExact(mro))return Py_NewRef(Py_NotImplemented);
+    Py_INCREF(mro);
     for(i=0;fields[i];i++)for(j=0;j<PyTuple_GET_SIZE(mro);j++) {
-        dict=((PyTypeObject *)PyTuple_GET_ITEM(mro,j))->tp_dict;
-        if(PyDict_GetItemString(dict,fields[i]))return Py_NewRef(Py_NotImplemented);
+        /* CPython 3.12 stores static builtin namespaces per interpreter;
+         * object->tp_dict can be NULL even for a ready builtin ancestor.
+         * PyType_GetDict returns a new reference to the actual namespace.
+         * https://docs.python.org/3.12/c-api/type.html#c.PyType_GetDict */
+        dict=PyType_GetDict((PyTypeObject *)PyTuple_GET_ITEM(mro,j));
+        if(!dict){Py_DECREF(mro);if(PyErr_Occurred())return NULL;return Py_NewRef(Py_NotImplemented);}
+        int present=PyDict_GetItemString(dict,fields[i])!=NULL;
+        Py_DECREF(dict);
+        if(present){Py_DECREF(mro);return Py_NewRef(Py_NotImplemented);}
     }
-    dict=PyObject_GenericGetDict(subject,NULL);if(!dict)return NULL;
+    Py_DECREF(mro);
+    dict=PyObject_GenericGetDict(subject,NULL);
+    if(!dict) {
+        if(PyErr_ExceptionMatches(PyExc_AttributeError)){PyErr_Clear();return Py_NewRef(Py_NotImplemented);}
+        return NULL;
+    }
     if(!PyDict_CheckExact(dict)){Py_DECREF(dict);return Py_NewRef(Py_NotImplemented);}
     for(i=0;fields[i];i++)if(!PyDict_GetItemString(dict,fields[i])) {
         Py_DECREF(dict);return Py_NewRef(Py_NotImplemented);

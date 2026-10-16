@@ -407,6 +407,17 @@ class HostedReadTest(unittest.TestCase):
             with self.assertRaises(probe.Unsupported):a.custody_arguments(custody)
         finally:custody.retained[_leaf]=held
 
+    def test_preparation_reads_builtin_object_ancestor_namespace_without_observations(self):
+        owner=self.loaded.modules[2]._PersistentFingerprintPlan
+        self.assertIs(owner.__mro__[-1],object)
+        plan=owner.__new__(owner);plan.uid=0;plan.entries=();plan.directories=()
+        plan.files=();plan.parents=();plan.machine=Path('/synthetic-not-observed')
+        before=self.loaded.native.counts();counts=self.loaded.native.read_counts()
+        self.assertEqual(self.loaded.native.prepare_tables(0,plan,owner,type(plan.machine)),
+            (0,(),(),'/synthetic-not-observed',(),()))
+        self.assertEqual(self.loaded.native.counts(),before)
+        self.assertEqual(self.loaded.native.read_counts(),{'read':counts['read'],'prepare':counts['prepare']+1})
+
     def test_complete_read_preflight_and_audit_refusal_leave_counts_and_descriptors_bounded(self):
         native=self.loaded.native;before=native.read_counts();leaf=self.leaf()
         self.assertIs(native.read_file(0,str(leaf),('bad',object()),0,8,False,io.open,io.BufferedReader),NotImplemented)

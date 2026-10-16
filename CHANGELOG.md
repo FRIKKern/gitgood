@@ -404,7 +404,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Carry the original Root-validated lifecycle stage into native admission replies and match a fixed runtime, migration or bootstrap action before explicit lifecycle startup opens a lease or starts workers. Add an installed startup-boundary exercise with actual Root/input custody and explicitly synthetic stage receipts. Native product callback integration, business effects and interruption recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-worker-admission.md), [details 2](apps/forge/lib/gitgood/installation_generation_admission.ex), [details 3](apps/forge/lib/gitgood/native_lifecycle_action.ex), [details 4](tools/deployment/native_generation_lease_guard.py)
 
-- Extend the native filesystem diagnostic to complete fresh reads and lexical table preparation; diagnose its hosted read-suite crash while retaining all original tests, descriptor ownership and full staging requirements.
+- Use supported CPython 3.12 type namespaces in native filesystem argument preparation, with a built-in ancestor regression and crash traces; complete staging and recovery remain unverified.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-metadata-probe.c), [details 3](tools/ci/native_metadata_probe.py), [details 4](tools/ci/native-metadata-test.py), [details 5](tools/ci/native_read_probe.py), [details 6](tools/ci/native-read-test.py)
 
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.

@@ -2,7 +2,7 @@
   "id": "native-metadata-probe",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Extend the native filesystem diagnostic to complete fresh reads and lexical table preparation; diagnose its hosted read-suite crash while retaining all original tests, descriptor ownership and full staging requirements.",
+  "summary": "Use supported CPython 3.12 type namespaces in native filesystem argument preparation, with a built-in ancestor regression and crash traces; complete staging and recovery remain unverified.",
   "journeys": ["J14", "J15"],
   "references": [
     "docs/implementation/native-artifact-controller.md",

@@ -665,3 +665,21 @@ harness enables fatal-signal Python traces, runs focused read cases before the
 aggregate case, and emits only fixed public Root test symbols before native
 entry. Every original case remains required; these traces are diagnosis and
 establish no behavior, timing or journey acceptance.
+
+The 7f37966 trace narrowed the fault to the direct
+`prepare_tables(0, object(), object, Path)` unsupported-input check, before file
+I/O. This minimal built-in ancestor case reaches the same namespace scan used
+by ordinary heap instances. The trace does not establish complete-read or
+staging acceptance.
+
+Source review identified a CPython 3.12 namespace-access defect in finite table
+preparation: a ready built-in ancestor can have a null `tp_dict`, with its actual
+namespace held in interpreter state. The MRO scan now uses the supported
+`PyType_GetDict` API, pins the MRO during lookup, and releases owned references
+after each check. It keeps the
+same class-data-descriptor refusal and adds a focused built-in `object` ancestor
+case that prepares lexical tables without any filesystem observation. The API
+was checked locally on five built-in and heap namespaces without compiling the
+extension. The full read suite now has 26 cases; eleven still need hosted Linux
+Root execution. This source repair remains pending hosted verification and does
+not establish complete staging, runtime, recovery or production adoption.
