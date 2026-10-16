@@ -1816,12 +1816,13 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         measurements = RootStageMeasurements()
         from native_root_artifact_dispatch import _ObservedArtifactStage
         metadata = native_path_probe.Loaded(Path(seed['release']).parent/'native-metadata-probe')
-        diagnostic = native_path_probe.AtFirstGuard(metadata,_ObservedArtifactStage,measurements)
+        diagnostic = native_path_probe.AtFirstGuard(metadata,_ObservedArtifactStage,measurements,
+            comparison=native_path_probe.compare_descriptor_guard)
         try:
             with diagnostic:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if diagnostic.result is not None:seed['native_path_comparison'] = diagnostic.result
+            if diagnostic.result is not None:seed['native_descriptor_comparison'] = diagnostic.result
             seed['root_stage_measurements'] = measurements.values()
             seed['root_guard_cpu'] = measurements.cpu.values()
             sample = measurements.sample.values()
@@ -2260,7 +2261,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
         **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
-        **({'native_path_comparison':seed['native_path_comparison']} if seed.get('native_path_comparison') is not None else {}),
+        **({'native_descriptor_comparison':seed['native_descriptor_comparison']} if seed.get('native_descriptor_comparison') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2561,8 +2562,8 @@ def main(args):
                 receipt['failure']['root_guard_cpu'] = seed['root_guard_cpu']
             if seed.get('root_guard_sample') is not None:
                 receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
-            if seed.get('native_path_comparison') is not None:
-                receipt['failure']['native_path_comparison'] = seed['native_path_comparison']
+            if seed.get('native_descriptor_comparison') is not None:
+                receipt['failure']['native_descriptor_comparison'] = seed['native_descriptor_comparison']
             if seed.get('root_stage_refusal') is not None:
                 receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
             if seed.get('archive_member_metrics') is not None:

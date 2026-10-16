@@ -1,0 +1,14 @@
+{
+  "id": "native-bound-lexical-descriptors",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Prepare four C-bound lexical SDK methods with scoped code-input mutation notifications, live owner/function/type checks, restoration and saved-method fallback, additional Root regression coverage and the unchanged whole-guard benefit gate; hosted verification remains pending.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-artifact-controller.md",
+    "tools/ci/native_path_probe.py",
+    "tools/ci/native-descriptor-test.py",
+    "tools/ci/native-metadata-probe.c"
+  ],
+  "withdrawn": false
+}

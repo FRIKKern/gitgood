@@ -736,13 +736,16 @@ static PyObject *counts(PyObject *unused,PyObject *args) {
  * PyType_GetDict is required for static per-interpreter type namespaces. */
 #define LEX_CAPSULE "_native_metadata_probe.path_plan.v1"
 #define LEX_LIMIT 10000000ULL
-typedef struct {
+typedef struct LexPlan LexPlan;
+struct LexPlan {
     PyObject *tables,*cls,*mro,*cache,*names[5],*empty,*slash,*double_slash,*dot,*import_globals,*import_name;
     PyObject *import_module,*import_spec,*import_spec_type,*initializing;
     unsigned long long pid,thread,calls[4],hits,misses;
     Py_ssize_t capacity;
     int broken;
-} LexPlan;
+    int (*guard)(LexPlan *,int);
+    void *code_context;
+};
 
 static void lex_free(LexPlan *p) {
     int i;
@@ -782,6 +785,7 @@ static PyObject *lex_type_binding(PyObject *owner,PyObject *key) {
 }
 static int lex_import_admit(LexPlan *p) {
     PyObject *space,*current,*descriptor;int match;
+    if(p->guard)return p->guard(p,-1);
     if(!p->import_globals)return 1;
     if(!PyModule_CheckExact(p->import_module)||Py_TYPE(p->import_spec)!=(PyTypeObject *)p->import_spec_type||
         Py_TYPE(p->import_spec)->tp_getattro!=PyObject_GenericGetAttr)return 0;
@@ -800,6 +804,7 @@ static int lex_import_admit(LexPlan *p) {
 static int lex_admit(LexPlan *p,int op) {
     PyObject *table=PyTuple_GET_ITEM(p->tables,op);Py_ssize_t i;
     PyTypeObject *cls=(PyTypeObject *)p->cls;
+    if(p->guard)return p->guard(p,op);
     if(!lex_owner(p)||cls->tp_mro!=p->mro||cls->tp_getattro!=PyObject_GenericGetAttr||
         cls->tp_setattro!=PyObject_GenericSetAttr)return 0;
     {int imported=lex_import_admit(p);if(imported<=0)return imported;}
@@ -1022,20 +1027,11 @@ static PyObject *lex_string(LexPlan *p,PyObject *subject) {
 unsupported:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);Py_RETURN_NOTIMPLEMENTED;
 error:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);Py_XDECREF(joined);Py_XDECREF(result);return NULL;
 }
-static PyObject *lex_path_call(PyObject *unused,PyObject *args) {
-    PyObject *op_o,*capsule,*subject,*arguments,*value=NULL,*pending,*imported=NULL;LexPlan *p;unsigned long long op;int r;(void)unused;
-    if(!PyArg_ParseTuple(args,"OOOO",&op_o,&capsule,&subject,&arguments))return NULL;
-    r=u64(op_o,&op);if(r<=0||op>5||!PyTuple_CheckExact(arguments))goto invalid;
-    p=PyCapsule_GetPointer(capsule,LEX_CAPSULE);if(!p)return NULL;
+static PyObject *lex_execute(LexPlan *p,int op,PyObject *subject,PyObject *arguments) {
+    PyObject *value=NULL,*pending,*imported=NULL;int r;
     if(!lex_owner(p)) {
-        if(op<4)Py_RETURN_NOTIMPLEMENTED;
-        PyErr_SetString(PyExc_ValueError,"Lexical owner changed");return NULL;
+        Py_RETURN_NOTIMPLEMENTED;
     }
-    if(op>=4&&(subject!=Py_None||PyTuple_GET_SIZE(arguments)))goto invalid;
-    if(op==4)return Py_BuildValue("{sK,sK,sK,sK,sn,sK,sK}",
-        "constructor",p->calls[0],"load_parts",p->calls[1],"string",p->calls[2],"with_segments",p->calls[3],
-        "cache_entries",PyDict_Size(p->cache),"cache_hits",p->hits,"cache_misses",p->misses);
-    if(op==5){PyDict_Clear(p->cache);Py_RETURN_NONE;}
     if(p->broken){PyErr_SetString(PyExc_ValueError,"Poisoned lexical plan");return NULL;}
     if(Py_TYPE(subject)!=(PyTypeObject *)p->cls)Py_RETURN_NOTIMPLEMENTED;
     r=lex_admit(p,(int)op);if(r<0)return NULL;if(!r)Py_RETURN_NOTIMPLEMENTED;
@@ -1082,9 +1078,379 @@ complete:
     }
     if(value&&value!=Py_NotImplemented)p->calls[op]++;
     return value;
+}
+static PyObject *lex_path_call(PyObject *unused,PyObject *args) {
+    PyObject *op_o,*capsule,*subject,*arguments;LexPlan *p;unsigned long long op;int r;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOOO",&op_o,&capsule,&subject,&arguments))return NULL;
+    r=u64(op_o,&op);if(r<=0||op>5||!PyTuple_CheckExact(arguments))goto invalid;
+    p=PyCapsule_GetPointer(capsule,LEX_CAPSULE);if(!p)return NULL;
+    if(op>=4) {
+        if(subject!=Py_None||PyTuple_GET_SIZE(arguments))goto invalid;
+        if(!lex_owner(p)){PyErr_SetString(PyExc_ValueError,"Lexical owner changed");return NULL;}
+        if(op==4)return Py_BuildValue("{sK,sK,sK,sK,sn,sK,sK}",
+            "constructor",p->calls[0],"load_parts",p->calls[1],"string",p->calls[2],"with_segments",p->calls[3],
+            "cache_entries",PyDict_Size(p->cache),"cache_hits",p->hits,"cache_misses",p->misses);
+        PyDict_Clear(p->cache);Py_RETURN_NONE;
+    }
+    return lex_execute(p,(int)op,subject,arguments);
 invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid lexical operation");return NULL;
 }
+/* C-bound SDK methods. Notifications retain only negative code-input
+ * invalidation; every call also checks current function/type/owner fields.
+ * No file, process, database, Root admission or observation is cached here.
+ * https://docs.python.org/3.12/c-api/dict.html#c.PyDict_AddWatcher
+ * https://docs.python.org/3.12/c-api/method.html#c.PyInstanceMethod_New */
+#define DESC_CAPSULE "_native_metadata_probe.descriptor_plan.v1"
+#define DESC_BOUND 256
+typedef struct {PyObject *space,*keys;} DescWatch;
+typedef struct {
+    PyObject *fn,*code,*globals,*builtins,*closure;
+    vectorcallfunc vectorcall;
+} DescFunction;
+typedef struct {
+    PyObject *cls,*mro;
+    getattrofunc get;setattrofunc set;newfunc new;allocfunc alloc;
+} DescType;
+typedef struct {PyObject *cell,*value;} DescCell;
+typedef struct {
+    PyObject *lexical,*originals,*modules,*empty_args,*spec_dict;
+    LexPlan *lex;PyInterpreterState *interpreter;
+    DescWatch watched[DESC_BOUND];DescFunction functions[DESC_BOUND];
+    DescType types[DESC_BOUND];DescCell cells[DESC_BOUND];
+    Py_ssize_t nwatch,nfunction,ntype,ncell,nstarted;
+    unsigned long long entries[4],fallbacks[4];
+    int issued,bound,active,closed,dirty,watcher;
+} DescriptorPlan;
+/* One scope on the main interpreter. A failed/nested activation never replaces
+ * this pointer. It is cleared only after all notifications are unregistered. */
+static DescriptorPlan *descriptor_active=NULL;
+
+static int desc_name_equal(PyObject *a,PyObject *b) {
+    Py_ssize_t i,n=PyUnicode_GET_LENGTH(a);
+    if(n!=PyUnicode_GET_LENGTH(b))return 0;
+    for(i=0;i<n;i++)if(PyUnicode_READ(PyUnicode_KIND(a),PyUnicode_DATA(a),i)!=
+        PyUnicode_READ(PyUnicode_KIND(b),PyUnicode_DATA(b),i))return 0;
+    return 1;
+}
+static int desc_notification(PyDict_WatchEvent event,PyObject *space,PyObject *key,PyObject *value) {
+    DescriptorPlan *p=descriptor_active;Py_ssize_t i,j;(void)value;
+    /* No allocation, Python, I/O or error API: an existing exception is
+     * untouched, including callbacks during interrupted import/cleanup. */
+    if(!p||p->dirty||PyInterpreterState_Get()!=p->interpreter)return 0;
+    for(i=0;i<p->nwatch;i++)if(p->watched[i].space==space) {
+        if(event!=PyDict_EVENT_ADDED&&event!=PyDict_EVENT_MODIFIED&&event!=PyDict_EVENT_DELETED) {
+            p->dirty=1;return 0;
+        }
+        if(!key||!PyUnicode_CheckExact(key)){p->dirty=1;return 0;}
+        for(j=0;j<PyList_GET_SIZE(p->watched[i].keys);j++)
+            if(desc_name_equal(key,PyList_GET_ITEM(p->watched[i].keys,j))){p->dirty=1;return 0;}
+        return 0;
+    }
+    return 0;
+}
+static int desc_stop(DescriptorPlan *p) {
+    PyObject *failure=NULL;Py_ssize_t i;
+    p->active=0;
+    if(p->watcher<0)return 0;
+    for(i=0;i<p->nstarted;i++)if(PyDict_Unwatch(p->watcher,p->watched[i].space)<0) {
+        PyObject *e=PyErr_GetRaisedException();if(!failure)failure=e;else Py_XDECREF(e);
+    }
+    if(PyDict_ClearWatcher(p->watcher)<0) {
+        PyObject *e=PyErr_GetRaisedException();if(!failure)failure=e;else Py_XDECREF(e);
+    }
+    p->watcher=-1;p->nstarted=0;
+    if(descriptor_active==p)descriptor_active=NULL;
+    if(failure){p->dirty=1;PyErr_SetRaisedException(failure);return -1;}
+    return 0;
+}
+static void desc_release_schema(DescriptorPlan *p) {
+    Py_ssize_t i;
+    for(i=0;i<p->nwatch;i++){Py_CLEAR(p->watched[i].space);Py_CLEAR(p->watched[i].keys);}
+    for(i=0;i<p->nfunction;i++) {
+        DescFunction *f=&p->functions[i];
+        Py_CLEAR(f->fn);Py_CLEAR(f->code);Py_CLEAR(f->globals);Py_CLEAR(f->builtins);Py_CLEAR(f->closure);
+    }
+    for(i=0;i<p->ntype;i++){Py_CLEAR(p->types[i].cls);Py_CLEAR(p->types[i].mro);}
+    for(i=0;i<p->ncell;i++){Py_CLEAR(p->cells[i].cell);Py_CLEAR(p->cells[i].value);}
+    p->nwatch=p->nfunction=p->ntype=p->ncell=0;
+    Py_CLEAR(p->modules);Py_CLEAR(p->spec_dict);
+    if(p->lex)Py_CLEAR(p->lex->tables);
+}
+static void desc_destroy(PyObject *capsule) {
+    PyObject *pending=PyErr_GetRaisedException();
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);
+    if(p) {
+        if(desc_stop(p)<0)PyErr_Clear();
+        desc_release_schema(p);
+        if(p->lex){p->lex->guard=NULL;p->lex->code_context=NULL;}
+        Py_XDECREF(p->lexical);Py_XDECREF(p->originals);Py_XDECREF(p->empty_args);PyMem_Free(p);
+    } else PyErr_Clear();
+    PyErr_SetRaisedException(pending);
+}
+static int desc_owner(DescriptorPlan *p) {
+    return PyInterpreterState_Get()==p->interpreter&&lex_owner(p->lex);
+}
+static int desc_add_watch(DescriptorPlan *p,PyObject *space,PyObject *key) {
+    Py_ssize_t i,j;DescWatch *w;
+    if(!PyDict_CheckExact(space)||!PyUnicode_CheckExact(key))goto invalid;
+    for(i=0;i<p->nwatch;i++)if(p->watched[i].space==space)break;
+    if(i==p->nwatch) {
+        if(i>=DESC_BOUND)goto invalid;
+        w=&p->watched[p->nwatch++];w->space=Py_NewRef(space);w->keys=PyList_New(0);
+        if(!w->keys)return -1;
+    } else w=&p->watched[i];
+    for(j=0;j<PyList_GET_SIZE(w->keys);j++)if(desc_name_equal(key,PyList_GET_ITEM(w->keys,j)))return 0;
+    if(PyList_GET_SIZE(w->keys)>=DESC_BOUND)goto invalid;
+    return PyList_Append(w->keys,key);
+invalid:PyErr_SetString(PyExc_TypeError,"Invalid descriptor namespace schema");return -1;
+}
+static int desc_add_type(DescriptorPlan *p,PyObject *cls) {
+    Py_ssize_t i;DescType *t;PyTypeObject *c=(PyTypeObject *)cls;
+    for(i=0;i<p->ntype;i++)if(p->types[i].cls==cls)return 0;
+    if(p->ntype>=DESC_BOUND||!PyType_Check(cls)||Py_TYPE(cls)!=&PyType_Type||
+        !c->tp_mro||!PyTuple_CheckExact(c->tp_mro)||PyTuple_GET_SIZE(c->tp_mro)>16) {
+        PyErr_SetString(PyExc_TypeError,"Invalid descriptor type schema");return -1;
+    }
+    t=&p->types[p->ntype++];t->cls=Py_NewRef(cls);t->mro=Py_NewRef(c->tp_mro);
+    t->get=c->tp_getattro;t->set=c->tp_setattro;t->new=c->tp_new;t->alloc=c->tp_alloc;return 0;
+}
+static int desc_add_function(DescriptorPlan *p,PyObject *fn) {
+    Py_ssize_t i;DescFunction *f;PyFunctionObject *v=(PyFunctionObject *)fn;
+    for(i=0;i<p->nfunction;i++)if(p->functions[i].fn==fn)return 0;
+    /* Every admitted SDK function has no default arguments. Reject unknown
+     * mutable default containers rather than snapshot their contents. */
+    if(p->nfunction>=DESC_BOUND||!PyFunction_Check(fn)||v->func_defaults||v->func_kwdefaults) {
+        PyErr_SetString(PyExc_TypeError,"Invalid descriptor function schema");return -1;
+    }
+    f=&p->functions[p->nfunction++];f->fn=Py_NewRef(fn);f->code=Py_NewRef(v->func_code);
+    f->globals=Py_NewRef(v->func_globals);f->builtins=Py_NewRef(v->func_builtins);
+    f->closure=Py_XNewRef(v->func_closure);f->vectorcall=v->vectorcall;return 0;
+}
+static int desc_direct(DescriptorPlan *p) {
+    Py_ssize_t i;
+    if(!desc_owner(p)||p->dirty||p->closed||p->lex->broken)return 0;
+    for(i=0;i<PyTuple_GET_SIZE(p->modules);i++)if(!PyModule_CheckExact(PyTuple_GET_ITEM(p->modules,i)))goto changed;
+    for(i=0;i<p->ntype;i++) {
+        DescType *t=&p->types[i];PyTypeObject *c=(PyTypeObject *)t->cls;
+        if(Py_TYPE(c)!=&PyType_Type||c->tp_mro!=t->mro||c->tp_getattro!=t->get||
+            c->tp_setattro!=t->set||c->tp_new!=t->new||c->tp_alloc!=t->alloc)goto changed;
+    }
+    for(i=0;i<p->nfunction;i++) {
+        DescFunction *f=&p->functions[i];PyFunctionObject *v=(PyFunctionObject *)f->fn;
+        if(v->func_code!=f->code||v->func_globals!=f->globals||v->func_builtins!=f->builtins||
+            v->func_defaults||v->func_kwdefaults||v->func_closure!=f->closure||v->vectorcall!=f->vectorcall)goto changed;
+    }
+    for(i=0;i<p->ncell;i++)if(PyCell_GET(p->cells[i].cell)!=p->cells[i].value)goto changed;
+    if(p->lex->import_globals) {
+        PyObject *space;
+        if(Py_TYPE(p->lex->import_spec)!=(PyTypeObject *)p->lex->import_spec_type)goto changed;
+        space=PyObject_GenericGetDict(p->lex->import_spec,NULL);
+        if(!space)return -1;
+        i=space==p->spec_dict;Py_DECREF(space);if(!i)goto changed;
+    }
+    return 1;
+changed:p->dirty=1;return 0;
+}
+static int desc_admit(LexPlan *lex,int op) {
+    DescriptorPlan *p=lex->code_context;(void)op;
+    if(!p||!p->active||p->watcher<0)return 0;
+    return desc_direct(p);
+}
+static PyObject *descriptor_plan(PyObject *unused,PyObject *args) {
+    PyObject *cls,*originals,*pid,*thread,*capacity,*import_globals,*tables=NULL,*a=NULL,*capsule;
+    DescriptorPlan *p=NULL;Py_ssize_t i;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOOOOO",&cls,&originals,&pid,&thread,&capacity,&import_globals))return NULL;
+    if(PyInterpreterState_Get()!=PyInterpreterState_Main()||!PyTuple_CheckExact(originals)||PyTuple_GET_SIZE(originals)!=4)goto invalid;
+    for(i=0;i<4;i++)if(!PyFunction_Check(PyTuple_GET_ITEM(originals,i)))goto invalid;
+    p=PyMem_Calloc(1,sizeof(*p));if(!p)return PyErr_NoMemory();p->watcher=-1;
+    p->interpreter=PyInterpreterState_Get();p->originals=Py_NewRef(originals);p->empty_args=PyTuple_New(0);
+    if(!p->empty_args)goto error;
+    tables=PyTuple_Pack(4,p->empty_args,p->empty_args,p->empty_args,p->empty_args);if(!tables)goto error;
+    a=PyTuple_Pack(6,tables,cls,pid,thread,capacity,import_globals);if(!a)goto error;
+    p->lexical=lex_plan_new(NULL,a);if(!p->lexical)goto error;
+    p->lex=PyCapsule_GetPointer(p->lexical,LEX_CAPSULE);if(!p->lex)goto error;
+    p->lex->code_context=p;p->lex->guard=desc_admit;
+    capsule=PyCapsule_New(p,DESC_CAPSULE,desc_destroy);if(!capsule)goto error;
+    Py_DECREF(a);Py_DECREF(tables);return capsule;
+invalid:PyErr_SetString(PyExc_TypeError,"Invalid bound lexical context");
+error:
+    Py_XDECREF(a);Py_XDECREF(tables);
+    if(p){Py_XDECREF(p->lexical);Py_XDECREF(p->originals);Py_XDECREF(p->empty_args);PyMem_Free(p);}
+    return NULL;
+}
+static PyObject *desc_invoke(PyObject *capsule,PyObject *const *args,Py_ssize_t nargs,PyObject *keywords,int op) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);PyObject *arguments,*value;Py_ssize_t i;
+    if(!p)return NULL;
+    if(p->entries[op]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Descriptor counter bound");return NULL;}
+    p->entries[op]++;
+    if(!p->closed&&p->active&&!p->dirty&&!p->lex->broken&&nargs>0&&(!keywords||!PyTuple_GET_SIZE(keywords))) {
+        if(nargs==1)arguments=Py_NewRef(p->empty_args);
+        else {
+            arguments=PyTuple_New(nargs-1);if(!arguments)return NULL;
+            for(i=1;i<nargs;i++)PyTuple_SET_ITEM(arguments,i-1,Py_NewRef(args[i]));
+        }
+        value=lex_execute(p->lex,op,args[0],arguments);Py_DECREF(arguments);
+        if(!value||value!=Py_NotImplemented)return value;
+        Py_DECREF(value);
+    }
+    if(p->fallbacks[op]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Descriptor counter bound");return NULL;}
+    p->fallbacks[op]++;
+    return PyObject_Vectorcall(PyTuple_GET_ITEM(p->originals,op),args,(size_t)nargs,keywords);
+}
+#define DESC_METHOD(fn,op) \
+    static PyObject *fn(PyObject *self,PyObject *const *args,Py_ssize_t nargs,PyObject *kw) \
+    {return desc_invoke(self,args,nargs,kw,op);}
+DESC_METHOD(desc_constructor,0)
+DESC_METHOD(desc_load_parts,1)
+DESC_METHOD(desc_string,2)
+DESC_METHOD(desc_with_segments,3)
+static PyMethodDef descriptor_methods[]={
+    {"__init__",_PyCFunction_CAST(desc_constructor),METH_FASTCALL|METH_KEYWORDS,NULL},
+    {"_load_parts",_PyCFunction_CAST(desc_load_parts),METH_FASTCALL|METH_KEYWORDS,NULL},
+    {"__str__",_PyCFunction_CAST(desc_string),METH_FASTCALL|METH_KEYWORDS,NULL},
+    {"with_segments",_PyCFunction_CAST(desc_with_segments),METH_FASTCALL|METH_KEYWORDS,NULL}
+};
+static PyObject *descriptor_entries(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);PyObject *result,*module;int i;(void)unused;
+    if(!p)return NULL;
+    if(!desc_owner(p)||p->issued||p->closed){PyErr_SetString(PyExc_ValueError,"Descriptor entries unavailable");return NULL;}
+    p->issued=1;result=PyTuple_New(4);if(!result)return NULL;
+    module=PyUnicode_FromString("pathlib");if(!module){Py_DECREF(result);return NULL;}
+    for(i=0;i<4;i++) {
+        PyObject *fn=PyCFunction_NewEx(&descriptor_methods[i],capsule,module),*method;
+        if(!fn)goto error;
+        method=PyInstanceMethod_New(fn);Py_DECREF(fn);if(!method)goto error;
+        PyTuple_SET_ITEM(result,i,method);
+    }
+    Py_DECREF(module);return result;
+error:Py_DECREF(module);Py_DECREF(result);return NULL;
+}
+static PyObject *descriptor_bind(PyObject *unused,PyObject *args) {
+    PyObject *capsule,*tables,*modules,*table;DescriptorPlan *p;Py_ssize_t i,j,k;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOO",&capsule,&tables,&modules))return NULL;
+    p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
+    if(!desc_owner(p)||p->closed||!p->issued||p->bound)goto invalid;
+    p->bound=-1; /* A partial schema can only be closed, never rebound. */
+    if(!PyTuple_CheckExact(tables)||PyTuple_GET_SIZE(tables)!=4||!PyTuple_CheckExact(modules)||
+        PyTuple_GET_SIZE(modules)==0||PyTuple_GET_SIZE(modules)>16)goto invalid;
+    table=PyTuple_GET_ITEM(tables,0);
+    if(!PyTuple_CheckExact(table)||PyTuple_GET_SIZE(table)==0||PyTuple_GET_SIZE(table)>128)goto invalid;
+    for(i=1;i<4;i++) {
+        PyObject *other=PyTuple_GET_ITEM(tables,i);
+        if(!PyTuple_CheckExact(other)||PyTuple_GET_SIZE(other)!=PyTuple_GET_SIZE(table))goto invalid;
+        for(j=0;j<PyTuple_GET_SIZE(table);j++)if(PyTuple_GET_ITEM(other,j)!=PyTuple_GET_ITEM(table,j))goto invalid;
+    }
+    for(i=0;i<PyTuple_GET_SIZE(modules);i++)if(!PyModule_CheckExact(PyTuple_GET_ITEM(modules,i)))goto invalid;
+    p->modules=Py_NewRef(modules);Py_SETREF(p->lex->tables,Py_NewRef(tables));
+    for(i=0;i<PyTuple_GET_SIZE(table);i++) {
+        PyObject *row=PyTuple_GET_ITEM(table,i),*owner,*key;
+        if(!PyTuple_CheckExact(row)||PyTuple_GET_SIZE(row)!=3)goto invalid;
+        owner=PyTuple_GET_ITEM(row,0);key=PyTuple_GET_ITEM(row,1);
+        if(!PyUnicode_CheckExact(key)||!PyUnicode_GET_LENGTH(key)||PyUnicode_GET_LENGTH(key)>128)goto invalid;
+        if(PyDict_CheckExact(owner)) {if(desc_add_watch(p,owner,key)<0)return NULL;}
+        else if(PyFunction_Check(owner)) {
+            if(PyUnicode_CompareWithASCIIString(key,"__code__"))goto invalid;
+            if(desc_add_function(p,owner)<0)return NULL;
+        } else if(PyCell_Check(owner)) {
+            DescCell *cell;
+            if(PyUnicode_CompareWithASCIIString(key,"cell_contents")||p->ncell>=DESC_BOUND)goto invalid;
+            cell=&p->cells[p->ncell++];cell->cell=Py_NewRef(owner);cell->value=Py_NewRef(PyTuple_GET_ITEM(row,2));
+        } else if(PyType_Check(owner)&&Py_TYPE(owner)==&PyType_Type) {
+            PyObject *mro=((PyTypeObject *)owner)->tp_mro;
+            if(!mro||!PyTuple_CheckExact(mro)||PyTuple_GET_SIZE(mro)>16)goto invalid;
+            for(j=0;j<PyTuple_GET_SIZE(mro);j++) {
+                PyObject *base=PyTuple_GET_ITEM(mro,j),*space,*hook;
+                if(desc_add_type(p,base)<0)return NULL;
+                space=PyType_GetDict((PyTypeObject *)base);if(!space)return NULL;
+                k=desc_add_watch(p,space,key);if(k<0){Py_DECREF(space);return NULL;}
+                hook=PyUnicode_InternFromString("__getattr__");if(!hook){Py_DECREF(space);return NULL;}
+                k=desc_add_watch(p,space,hook);Py_DECREF(hook);Py_DECREF(space);if(k<0)return NULL;
+            }
+        } else goto invalid;
+    }
+    if(p->lex->import_globals) {
+        PyObject *spec=p->lex->import_spec,*type=p->lex->import_spec_type;
+        PyObject *mro=((PyTypeObject *)type)->tp_mro,*space,*key;
+        const char *hooks[]={"_initializing","__getattribute__","__getattr__","__dict__"};
+        p->spec_dict=PyObject_GenericGetDict(spec,NULL);if(!p->spec_dict)return NULL;
+        if(desc_add_watch(p,p->spec_dict,p->lex->initializing)<0)return NULL;
+        key=PyUnicode_InternFromString("__spec__");if(!key)return NULL;
+        k=desc_add_watch(p,PyModule_GetDict(p->lex->import_module),key);Py_DECREF(key);if(k<0)return NULL;
+        if(!mro||!PyTuple_CheckExact(mro)||PyTuple_GET_SIZE(mro)>16)goto invalid;
+        for(i=0;i<PyTuple_GET_SIZE(mro);i++) {
+            PyObject *base=PyTuple_GET_ITEM(mro,i);if(desc_add_type(p,base)<0)return NULL;
+            space=PyType_GetDict((PyTypeObject *)base);if(!space)return NULL;
+            for(j=0;j<4;j++) {
+                key=PyUnicode_InternFromString(hooks[j]);if(!key){Py_DECREF(space);return NULL;}
+                k=desc_add_watch(p,space,key);Py_DECREF(key);if(k<0){Py_DECREF(space);return NULL;}
+            }
+            Py_DECREF(space);
+        }
+    }
+    if(p->nwatch+p->nfunction+p->ntype+p->ncell>DESC_BOUND)goto invalid;
+    p->bound=1;Py_RETURN_NONE;
+invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid bound lexical schema");return NULL;
+}
+static PyObject *descriptor_phase(PyObject *unused,PyObject *args) {
+    PyObject *capsule,*phase_o;DescriptorPlan *p;unsigned long long phase;int r;Py_ssize_t i;(void)unused;
+    if(!PyArg_ParseTuple(args,"OO",&capsule,&phase_o))return NULL;
+    r=u64(phase_o,&phase);if(r<=0||phase>1)goto invalid;
+    p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
+    if(!desc_owner(p)||p->closed||(phase!=0&&phase!=1))goto invalid;
+    if(phase==1){if(desc_stop(p)<0)return NULL;Py_RETURN_NONE;}
+    if(p->active||p->bound!=1||descriptor_active)goto invalid;
+    p->dirty=0;
+    p->watcher=PyDict_AddWatcher(desc_notification);if(p->watcher<0)return NULL;
+    descriptor_active=p;
+    for(i=0;i<p->nwatch;i++) {
+        if(PyDict_Watch(p->watcher,p->watched[i].space)<0)goto failure;
+        p->nstarted++;
+    }
+    /* Full original namespace/MRO admission at each activation, after the
+     * notifications are installed and before native handling can begin. */
+    p->lex->guard=NULL;r=lex_admit(p->lex,0);p->lex->guard=desc_admit;
+    if(r<0)goto failure;
+    if(!r)goto refused;
+    r=desc_direct(p);if(r<0)goto failure;if(!r)goto refused;
+    p->active=1;Py_RETURN_NONE;
+refused:PyErr_SetString(PyExc_ValueError,"Bound lexical code inputs changed");
+failure: {
+        PyObject *pending=PyErr_GetRaisedException();p->dirty=1;
+        if(desc_stop(p)<0)PyErr_Clear();
+        PyErr_SetRaisedException(pending);return NULL;
+    }
+invalid:PyErr_SetString(PyExc_ValueError,"Invalid bound lexical phase");return NULL;
+}
+static PyObject *descriptor_counts(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);const char *phase;(void)unused;
+    if(!p)return NULL;
+    if(!desc_owner(p)){PyErr_SetString(PyExc_ValueError,"Descriptor owner changed");return NULL;}
+    phase=p->closed?"closed":p->active?"active":p->bound==1?"inactive":"prepared";
+    return Py_BuildValue("{s:{sK,sK,sK,sK},s:{sK,sK,sK,sK},s:{sK,sK,sK,sK},sn,sK,sK,ss,sO,sO,sn}",
+        "calls","constructor",p->lex->calls[0],"load_parts",p->lex->calls[1],"string",p->lex->calls[2],"with_segments",p->lex->calls[3],
+        "entries","constructor",p->entries[0],"load_parts",p->entries[1],"string",p->entries[2],"with_segments",p->entries[3],
+        "fallbacks","constructor",p->fallbacks[0],"load_parts",p->fallbacks[1],"string",p->fallbacks[2],"with_segments",p->fallbacks[3],
+        "cache_entries",PyDict_Size(p->lex->cache),"cache_hits",p->lex->hits,"cache_misses",p->lex->misses,
+        "phase",phase,"watching",p->watcher>=0?Py_True:Py_False,"code_changed",p->dirty?Py_True:Py_False,
+        "code_inputs",p->nwatch+p->nfunction+p->ntype+p->ncell);
+}
+static PyObject *descriptor_close(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);(void)unused;
+    if(!p)return NULL;
+    if(!desc_owner(p)||p->active){PyErr_SetString(PyExc_ValueError,"Cannot close active descriptor context");return NULL;}
+    if(!p->closed) {
+        if(desc_stop(p)<0)return NULL;
+        p->closed=1;PyDict_Clear(p->lex->cache);desc_release_schema(p);
+    }
+    Py_RETURN_NONE;
+}
 static PyMethodDef methods[]={
+    {"descriptor_plan",descriptor_plan,METH_VARARGS,"Prepare a main-interpreter lexical method context."},
+    {"descriptor_entries",descriptor_entries,METH_O,"Create four capsule-bound SDK instance methods once."},
+    {"descriptor_bind",descriptor_bind,METH_VARARGS,"Bind finite live code inputs once; no observations."},
+    {"descriptor_phase",descriptor_phase,METH_VARARGS,"Fresh admission and dictionary notification lifecycle."},
+    {"descriptor_counts",descriptor_counts,METH_O,"Closed bounded native entry/fallback/cache counters."},
+    {"descriptor_close",descriptor_close,METH_O,"Release code inputs and cache; saved methods fall back."},
     {"path_plan",lex_plan_new,METH_VARARGS,"Prepare immutable lexical code/schema context; no filesystem results."},
     {"path_call",lex_path_call,METH_VARARGS,"Original-class lexical SDK operations with fresh live admission."},
     {"prepare_tables",prepare_tables,METH_VARARGS,"Finite ephemeral lexical argument preparation; no observations."},

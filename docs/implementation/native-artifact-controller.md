@@ -797,8 +797,18 @@ original stage measurements. Descriptors and source custody are restored and
 lexical plans cleared before effects; all seventeen timers, CPU windows,
 existing guard-ten sample, actors, complete archive and deadlines are retained.
 The unchanged benefit gate requires median ratio at most 0.80 and at least
-18 of 20 faster prototype samples. Hosted semantics and benefit remain
-unverified; the previous whole-guard filesystem profile remains rejected.
+18 of 20 faster prototype samples. Exact review of candidate `06f6c5f` verified
+all 37 metadata, 39 read and 43 Path cases, three original 372-case Root suites,
+82 ownership fixtures and 59 installed production source hashes. The twenty
+alternating whole-guard pairs rejected the lexical candidate: median ratio
+1.766213, zero of twenty faster, baseline median 24.648 ms and prototype median
+43.732 ms. Every role was exercised with zero fallback and equal observations;
+original classes/descriptors were retained/restored and the immutable cache
+cleared before effects. Full staging still timed out at 240157 ms in Root and
+240295 ms in the ordinary controller, with zero output checks on the complete
+9409-member, 159520534-byte archive. The subsequent exclusion-client refusal
+does not independently establish the primary timeout cause. This backend is
+rejected; do not repeat its unchanged pairs, baseline-only stage or profile.
 
 Ubuntu's `ntpath-import.diff` changes the original constructor: it imports
 `ntpath` locally and omits that global from `pathlib`. The closed SDK contract
@@ -814,3 +824,49 @@ The native lane admits the original module/spec identity, generic metadata
 lookup and a plain false initialization flag afresh. Changed metadata executes
 the whole original SDK before any C import or slot mutation; this preserves
 callbacks that change path arguments before the SDK copies them.
+
+The next diagnostic uses C-bound instance methods for all four lexical roles,
+removing the Python wrapper and `path_call` round trip. `DescriptorAdapter` in
+`tools/ci/native_path_probe.py` authenticates the same closed SDK bodies and
+prepares finite code inputs. The C `descriptor_plan`, `descriptor_entries` and
+one-shot `descriptor_bind` APIs create opaque contexts and four SDK descriptors.
+Actual SDK classes and every filesystem method stay original. The existing
+lexical implementation and 43-case suite remain as regression coverage.
+
+Each installed scope registers CPython 3.12 dictionary notifications before
+fresh full namespace/MRO admission. Notifications only set a negative
+invalidation flag: no Python, allocation, exception changes or I/O. Relevant
+module/class keys include absent inherited shadows and import metadata;
+unrelated dictionary writes do not disable the lane. Clearing/cloning a watched
+dictionary conservatively invalidates it. A changed input disables native
+handling for the rest of that scope, including after the binding is restored.
+Every operation still checks original Root credentials, PID, thread and
+interpreter, current function code/globals/builtins/defaults/closure/vectorcall,
+class cells, type/MRO/slot fields, module types and import-spec dictionary
+identity. These are code inputs only; no Root or filesystem admission result,
+observation, database read or effect authorization is retained.
+
+`descriptor_phase` unregisters notifications before Python restores all touched
+SDK descriptors on every exit. Closing clears immutable lexical entries and
+releases code-input reference cycles. Saved methods after close execute the
+original SDK; foreign-thread calls use original fallback. Bounded counters
+separately witness C entries, supported calls and fallbacks. Native errors are
+never retried. A comparison requires positive equal entry/call counts in all
+four roles, zero fallback, equal original observations, descriptor restoration,
+watcher removal and fresh source custody before effects.
+
+`tools/ci/native-descriptor-test.py` adds seven portable scope contracts and ten
+actual hosted Linux Root cases. The latter cover C descriptor identity and
+values, immutable-cache bounds and fresh lists, original metadata reads,
+permanent dictionary invalidation, inherited shadows/noninterned keys,
+function/default/cell changes, module-class hooks, constructor import metadata
+and argument callbacks, spec-dictionary replacement, foreign threads, saved
+methods, interruption, one-shot/nested lifecycle refusal, and a fourth complete
+original 372-case Root suite. Portable fixtures establish no C execution or
+speedup. Full proof now records `native_descriptor_comparison`; it retains the
+same twenty alternating original-actor guard pairs and 0.80/18 benefit gate,
+seventeen timers, CPU windows, guard-ten diagnostic, actors, two Root observation
+passes, complete archive, guard counts and production deadlines. The bound
+descriptor implementation remains unverified until exact hosted review. Full
+uninstrumented staging/output/runtime, listener/provisioning, interrupted-effect
+reconciliation, installation and actual replacement-host restore remain open.

@@ -27,6 +27,8 @@ from path_body_probe import _read_owned
 
 ROLES=('constructor','load_parts','string','with_segments')
 APIS=('path_plan','path_call')
+DESCRIPTOR_APIS=('descriptor_plan','descriptor_entries','descriptor_bind','descriptor_phase',
+    'descriptor_counts','descriptor_close')
 HELPERS=(*read_backend.HELPERS,'native_path_probe.py')
 TARGETS=((pathlib.Path,'__init__'),(pathlib.PurePath,'_load_parts'),
     (pathlib.PurePath,'__str__'),(pathlib.PurePath,'with_segments'))
@@ -120,14 +122,14 @@ class Loaded:
         self.directory=self.base.directory;self.native=self.base.native
         require(all(type(getattr(self.native,name,None)) is types.BuiltinFunctionType
             and getattr(self.native,name).__module__=='_native_metadata_probe'
-            and getattr(self.native,name).__name__==name for name in APIS))
-        self.apis={name:getattr(self.native,name) for name in APIS}
+            and getattr(self.native,name).__name__==name for name in (*APIS,*DESCRIPTOR_APIS)))
+        self.apis={name:getattr(self.native,name) for name in (*APIS,*DESCRIPTOR_APIS)}
         self.extra_files={'native_path_probe.py':_read_owned(self.directory/'native_path_probe.py',262144)}
         require(self.extra_files['native_path_probe.py'][0]==Path(__file__).read_bytes())
         own_codes=metadata.functions(compile(self.extra_files['native_path_probe.py'][0],__file__,'exec'))
         candidates=[]
         for value in (*vars(sys.modules[__name__]).values(),
-                *(v for owner in (Loaded,Adapter,AtFirstGuard) for v in vars(owner).values())):
+                *(v for owner in (Loaded,Adapter,DescriptorAdapter,AtFirstGuard) for v in vars(owner).values())):
             fn=raw_function(value)
             for candidate in (fn,getattr(fn,'__wrapped__',None)):
                 if type(candidate) is types.FunctionType and candidate.__code__.co_filename==__file__:
@@ -135,6 +137,12 @@ class Loaded:
                     candidates.append(candidate)
         self.own_functions=tuple(candidates)
         self.own_codes={id(fn):fn.__code__ for fn in candidates}
+        self.own_closures={}
+        for fn in candidates:
+            closure=fn.__closure__
+            for name,cell in zip(fn.__code__.co_freevars,closure or ()):
+                if name=='__class__':require(cell.cell_contents is globals()[fn.__qualname__.split('.')[0]])
+            self.own_closures[id(fn)]=(closure,tuple((cell,cell.cell_contents) for cell in closure or ()))
         self.sdk_path=Path(pathlib.__file__);self.sdk=_read_owned(self.sdk_path,262144)
         self.codes=sdk_code(self.sdk[0],str(self.sdk_path))
         self.posix_path=Path(posixpath.__file__);self.posix=_read_owned(self.posix_path,262144)
@@ -144,6 +152,8 @@ class Loaded:
         for fn in self.own_functions:
             require(fn.__code__ is self.own_codes[id(fn)] and fn.__globals__ is globals()
                 and fn.__builtins__ is vars(builtins))
+            closure,cells=self.own_closures[id(fn)]
+            require(fn.__closure__ is closure and all(cell.cell_contents is value for cell,value in cells))
         require(all(getattr(self.native,name,None) is value for name,value in self.apis.items()))
         for qualified in SDK_AST:
             owner,name=qualified.split('.');fn=raw_function(vars(getattr(pathlib,owner))[name])
@@ -171,7 +181,7 @@ class Loaded:
 
 
 class Adapter:
-    def __init__(self,native,*,owner_check=None,sdk_codes=None):
+    def __init__(self,native,*,owner_check=None,sdk_codes=None,_prepare_only=False):
         self.owner_check=metadata.root_owner if owner_check is None else owner_check;self.owner_check()
         sdk_environment()
         self.owner=(os.getpid(),threading.get_ident())
@@ -221,6 +231,11 @@ class Adapter:
         self.replacements=tuple(replacement(op,fn) for op,fn in enumerate(self.originals))
         self.entries=tuple((owner,name,old,new) for (owner,name),old,new in zip(TARGETS,self.originals,self.replacements))
 
+        self.tables=self.binding_tables()
+        self.plan=None if _prepare_only else native.path_plan(
+            self.tables,self.concrete,*self.owner,256,self.import_globals)
+
+    def binding_tables(self,extra=()):
         shared=[]
         def capture(owner,names):
             namespace=vars(owner)
@@ -231,7 +246,7 @@ class Adapter:
         capture(os,('fspath',));capture(sys,('intern',))
         capture(sys,('modules',));shared.append((sys.modules,'ntpath',ntpath))
         capture(posixpath,('join','splitroot','splitdrive','sep','altsep'))
-        shared.extend((vars(native),name,getattr(native,name)) for name in APIS)
+        shared.extend((vars(self.native),name,getattr(self.native,name)) for name in (*APIS,*extra))
         # Raw class descriptors and function code are separate live bindings.
         # In-place code and class-cell changes must not reuse a prior admission.
         for owner in (pathlib.Path,pathlib.PurePath,pathlib.PurePosixPath,object):
@@ -256,7 +271,8 @@ class Adapter:
                 if name=='_flavour' else pathlib.PurePath)
             require(current is vars(defining)[name])
             shared.append((self.concrete,name,replacement_names.get(name,current)))
-        for fn in self.replacements:shared.append((fn,'__code__',fn.__code__))
+        for fn in self.replacements:
+            if type(fn) is types.FunctionType:shared.append((fn,'__code__',fn.__code__))
         for name in ('_parse_path','_format_parsed_parts','drive','root','_tail'):
             shared.append((pathlib.PurePath,name,vars(pathlib.PurePath)[name]))
         for _owner,_name,value in tuple(shared):
@@ -265,8 +281,7 @@ class Adapter:
         shared=list({(id(owner),name,id(value)):(owner,name,value) for owner,name,value in shared}.values())
         tables=tuple(tuple(shared) for _ in ROLES)
         require(all(len(table)<=128 for table in tables))
-        self.tables=tables
-        self.plan=native.path_plan(tables,self.concrete,*self.owner,256,self.import_globals)
+        return tables
 
     def check(self):
         self.owner_check();require(not self.broken and not self.closed and self.owner==(os.getpid(),threading.get_ident()))
@@ -317,12 +332,102 @@ class Adapter:
             self.plan=None;self.closed=True
 
 
-def compare_guard(loaded,original_guard,stage):
+class DescriptorAdapter(Adapter):
+    """C-bound methods and code-input notifications; scoped and diagnostic."""
+    def __init__(self,native,*,owner_check=None,sdk_codes=None):
+        super().__init__(native,owner_check=owner_check,sdk_codes=sdk_codes,_prepare_only=True)
+        self.descriptor_apis={name:getattr(native,name) for name in DESCRIPTOR_APIS}
+        if owner_check is None:
+            require(all(type(fn) is types.BuiltinFunctionType and fn.__self__ is native
+                and fn.__module__=='_native_metadata_probe' and fn.__name__==name
+                for name,fn in self.descriptor_apis.items()))
+        self.plan=native.descriptor_plan(self.concrete,self.originals,*self.owner,256,self.import_globals)
+        try:
+            self.replacements=native.descriptor_entries(self.plan)
+            require(type(self.replacements) is tuple and len(self.replacements)==4)
+            self.entries=tuple((owner,name,old,new) for (owner,name),old,new in zip(
+                TARGETS,self.originals,self.replacements))
+            self.tables=self.binding_tables(DESCRIPTOR_APIS)
+            self.modules=(pathlib,builtins,os,sys,posixpath,ntpath,native)
+            native.descriptor_bind(self.plan,self.tables,self.modules)
+            self.values()
+        except BaseException:
+            pending=sys.exception()
+            try:native.descriptor_close(self.plan)
+            except BaseException:pass
+            self.plan=None;self.closed=True;self.broken=True
+            raise pending
+
+    def details(self):
+        if self.closed:
+            require(self.final_details is not None)
+            return {name:value.copy() if type(value) is dict else value for name,value in self.final_details.items()}
+        result=self.descriptor_apis['descriptor_counts'](self.plan)
+        require(type(result) is dict and set(result)=={'calls','entries','fallbacks','cache_entries',
+            'cache_hits','cache_misses','phase','watching','code_changed','code_inputs'})
+        for name in ('calls','entries','fallbacks'):
+            value=result[name]
+            require(type(value) is dict and set(value)==set(ROLES)
+                and all(type(v) is int and 0<=v<=10000000 for v in value.values()))
+        for name in ('cache_entries','cache_hits','cache_misses','code_inputs'):
+            require(type(result[name]) is int and 0<=result[name]<=10000000)
+        require(result['cache_entries']<=256 and result['code_inputs']<=256
+            and type(result['phase']) is str and result['phase'] in {'prepared','inactive','active','closed'}
+            and type(result['watching']) is bool and type(result['code_changed']) is bool)
+        return result
+
+    def values(self):
+        details=self.details()
+        self.calls=details['calls'].copy();self.fallbacks=details['fallbacks'].copy()
+        return {**self.calls,**{name:details[name] for name in ('cache_entries','cache_hits','cache_misses')}}
+
+    @contextmanager
+    def installed(self):
+        self.check();require(not self.active and self.restored());self.active=True;changed=[]
+        try:
+            for owner,name,old,new in self.entries:
+                changed.append((owner,name,old));setattr(owner,name,new)
+            self.descriptor_apis['descriptor_phase'](self.plan,0)
+            yield
+            self.check();require(all(vars(owner).get(name) is new for owner,name,_old,new in self.entries))
+        finally:
+            pending=sys.exception();errors=[]
+            try:self.descriptor_apis['descriptor_phase'](self.plan,1)
+            except BaseException as error:errors.append(error)
+            for owner,name,old in reversed(changed):
+                try:setattr(owner,name,old)
+                except BaseException as error:errors.append(error)
+            self.active=False;self.broken=bool(errors) or not self.restored()
+            if pending is None:require(not self.broken)
+
+    def clear(self):
+        # Clearing also ends this context. Reuse requires a fresh prepared
+        # schema; a saved descriptor continues through the original SDK.
+        self.close()
+
+    def close(self):
+        if self.closed:return
+        require(not self.active)
+        pending=sys.exception();self.final_details=None
+        try:
+            self.descriptor_apis['descriptor_close'](self.plan)
+            self.final_details=self.details()
+            require(self.final_details['cache_entries']==0 and not self.final_details['watching']
+                and self.final_details['phase']=='closed' and self.final_details['code_inputs']==0)
+        except BaseException:
+            self.broken=True
+            if pending is None:raise
+        finally:
+            self.plan=None;self.tables=();self.modules=();self.closed=True
+
+
+def compare_guard(loaded,original_guard,stage,*,adapter_type=None):
     """Twenty alternating original-actor pairs; restore and clear before effects."""
     metadata.root_owner();require(stage.usable and stage.state=='ready' and sys.getprofile() is None)
     monitoring=getattr(sys,'monitoring',None)
     require(monitoring is None or monitoring.get_tool(monitoring.PROFILER_ID) is None)
-    adapter=Adapter(loaded.native,sdk_codes=loaded.codes);rows=[];started=time.monotonic_ns()
+    adapter=(Adapter if adapter_type is None else adapter_type)(loaded.native,sdk_codes=loaded.codes)
+    rows=[];started=time.monotonic_ns()
     try:
         initial=adapter.values()
         for number in range(20):
@@ -348,12 +453,20 @@ def compare_guard(loaded,original_guard,stage):
         final=adapter.values();native={name:final[name]-initial[name] for name in ROLES}
         require(all(0<value<=10000000 for value in native.values())
             and native==adapter.calls and not any(adapter.fallbacks.values()))
+        descriptor_details=None
+        if isinstance(adapter,DescriptorAdapter):
+            descriptor_details=adapter.details()
+            require(descriptor_details['entries']==descriptor_details['calls']
+                and not descriptor_details['watching'] and not descriptor_details['code_changed'])
         result={'diagnostic_only':True,'production_adopted':False,'original_classes_retained':True,
             'original_descriptors_restored':True,'module_path_symbols_retained':True,'same_original_actors':True,
             'observations_equal':True,'observation_results_retained':False,'admission_results_retained':False,
             'pairs':rows,'paired_checks':40,'native_calls':native,'fallbacks':adapter.fallbacks.copy(),
             'cache_capacity':256,'lexical_cache_entries':final['cache_entries'],
             'lexical_cache_hits':final['cache_hits'],'lexical_cache_misses':final['cache_misses']}
+        if descriptor_details is not None:
+            result.update(implementation='C-bound-live-code-inputs',native_entries=descriptor_details['entries'],
+                dictionary_notifications_removed=True,code_inputs=descriptor_details['code_inputs'])
     finally:adapter.close()
     require(adapter.restored() and adapter.values()['cache_entries']==0)
     loaded.validate()
@@ -362,16 +475,22 @@ def compare_guard(loaded,original_guard,stage):
     return result
 
 
+def compare_descriptor_guard(loaded,original_guard,stage):
+    loaded.validate()
+    return compare_guard(loaded,original_guard,stage,adapter_type=DescriptorAdapter)
+
+
 class AtFirstGuard:
     """Run the materially changed comparison before original measurements."""
-    def __init__(self,loaded,stage_owner,measurements):
+    def __init__(self,loaded,stage_owner,measurements,*,comparison=None):
         self.loaded=loaded;self.stage_owner=stage_owner;self.measurements=measurements
         self.original=vars(stage_owner)['check'];self.entered=False;self.attempted=False;self.result=None
+        self.comparison=comparison
     def __enter__(self):
         def first(stage,*args,**kwargs):
             try:
                 require(not self.attempted and not args and not kwargs);self.attempted=True
-                self.result=compare_guard(self.loaded,self.original,stage)
+                self.result=(compare_guard if self.comparison is None else self.comparison)(self.loaded,self.original,stage)
                 self.stage_owner.check=self.original;self.measurements.__enter__();self.entered=True
                 return self.stage_owner.check(stage)
             except BaseException:

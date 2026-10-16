@@ -368,6 +368,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Avoid repeated resolving walks at Root artifact directory and private-file boundaries while retaining fresh ancestor, ownership, mode and original descriptor checks.
   Sources: [details 1](docs/implementation/native-root-artifact-policy.md), [details 2](docs/implementation/native-protected-artifact.md), [details 3](tools/deployment/native_root_artifact_policy.py), [details 4](tools/deployment/native_protected_artifact.py), [details 5](tools/deployment/test_native_artifact_canonical_paths.py), [details 6](.github/workflows/product.yml)
 
+- Prepare four C-bound lexical SDK methods with scoped code-input mutation notifications, live owner/function/type checks, restoration and saved-method fallback, additional Root regression coverage and the unchanged whole-guard benefit gate; hosted verification remains pending.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_path_probe.py), [details 3](tools/ci/native-descriptor-test.py), [details 4](tools/ci/native-metadata-probe.c)
+
 - Hash the five Root-controlled executables once per generation-guard capture, with repeated original file custody checks and both configuration/database observations retained; actual service timing remains unverified.
   Sources: [details 1](docs/implementation/native-generation-lease-guard.md), [details 2](docs/implementation/native-durable-bindings.md), [details 3](tools/deployment/native_durable_binding.py)
 
@@ -437,7 +440,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Parse each freshly observed process status once while preserving duplicate-field, UID/GID, group, capability and namespace checks. Keep all process and effect observations fresh.
   Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_process_status.py), [details 4](.github/workflows/product.yml)
 
-- Add an isolated four-role native lexical SDK candidate with original Ubuntu constructor imports, fresh admission, bounded immutable plans, Root regressions and twenty alternating whole-guard comparisons; hosted semantics and benefit remain unverified.
+- Verify the four-role lexical SDK candidate's semantic scopes but reject its 1.766213 median guard ratio and zero of twenty faster pairs; complete original staging still times out, so production adoption remains refused.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_path_probe.py), [details 3](tools/ci/native-path-test.py), [details 4](tools/ci/native-metadata-probe.c)
 
 - Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.
