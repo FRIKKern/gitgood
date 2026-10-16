@@ -404,7 +404,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Carry the original Root-validated lifecycle stage into native admission replies and match a fixed runtime, migration or bootstrap action before explicit lifecycle startup opens a lease or starts workers. Add an installed startup-boundary exercise with actual Root/input custody and explicitly synthetic stage receipts. Native product callback integration, business effects and interruption recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-worker-admission.md), [details 2](apps/forge/lib/gitgood/installation_generation_admission.ex), [details 3](apps/forge/lib/gitgood/native_lifecycle_action.ex), [details 4](tools/deployment/native_generation_lease_guard.py)
 
-- Reject the slower native filesystem backend and attribute all native API costs in the existing guard profile, including counter calls, while preserving fresh checks, complete staging and recovery requirements.
+- Verify native guard attribution and counter consistency while retaining the backend's failed benefit gate and incomplete full staging, installation and recovery requirements.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-metadata-probe.c), [details 3](tools/ci/native_metadata_probe.py), [details 4](tools/ci/native-metadata-test.py), [details 5](tools/ci/native_read_probe.py), [details 6](tools/ci/native-read-test.py)
 
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
@@ -436,6 +436,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Parse each freshly observed process status once while preserving duplicate-field, UID/GID, group, capability and namespace checks. Keep all process and effect observations fresh.
   Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_process_status.py), [details 4](.github/workflows/product.yml)
+
+- Add an isolated four-role native lexical SDK candidate with fresh admission, bounded immutable plans, original Root regressions and twenty alternating whole-guard comparisons; hosted semantics and benefit remain unverified.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_path_probe.py), [details 3](tools/ci/native-path-test.py), [details 4](tools/ci/native-metadata-probe.c)
 
 - Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py), [details 3](tools/deployment/test_native_systemd_properties.py)

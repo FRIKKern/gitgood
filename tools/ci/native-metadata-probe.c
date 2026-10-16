@@ -731,7 +731,316 @@ static PyObject *counts(PyObject *unused,PyObject *args) {
     (void)unused;(void)args;
     return Py_BuildValue("{sK,sK,sK}","fingerprint",fingerprint_calls,"persistent",plan_calls,"custody",custody_calls);
 }
+/* Pure lexical SDK candidate. The cache owns immutable strings/tuples only.
+ * Admission is performed afresh; a prepared schema is not an admission result.
+ * PyType_GetDict is required for static per-interpreter type namespaces. */
+#define LEX_CAPSULE "_native_metadata_probe.path_plan.v1"
+#define LEX_LIMIT 10000000ULL
+typedef struct {
+    PyObject *tables,*cls,*mro,*cache,*names[5],*empty,*slash,*double_slash,*dot;
+    unsigned long long pid,thread,calls[4],hits,misses;
+    Py_ssize_t capacity;
+    int broken;
+} LexPlan;
+
+static void lex_free(LexPlan *p) {
+    int i;
+    if(!p)return;
+    Py_XDECREF(p->tables);Py_XDECREF(p->cls);Py_XDECREF(p->mro);Py_XDECREF(p->cache);
+    for(i=0;i<5;i++)Py_XDECREF(p->names[i]);
+    Py_XDECREF(p->empty);Py_XDECREF(p->slash);Py_XDECREF(p->double_slash);Py_XDECREF(p->dot);
+    PyMem_Free(p);
+}
+static void lex_destroy(PyObject *capsule) {
+    PyObject *pending=PyErr_GetRaisedException();
+    LexPlan *p=PyCapsule_GetPointer(capsule,LEX_CAPSULE);
+    if(p)lex_free(p);else PyErr_Clear();
+    PyErr_SetRaisedException(pending);
+}
+static int lex_owner(LexPlan *p) {
+    return p->pid==(unsigned long long)getpid() &&
+        p->thread==(unsigned long long)PyThread_get_thread_ident() &&
+        getuid()==0 && geteuid()==0 && getgid()==0 && getegid()==0;
+}
+static PyObject *lex_type_binding(PyObject *owner,PyObject *key) {
+    PyObject *mro=((PyTypeObject *)owner)->tp_mro,*result=NULL;Py_ssize_t i;
+    if(!mro||!PyTuple_CheckExact(mro)||PyTuple_GET_SIZE(mro)>16)return NULL;
+    Py_INCREF(mro);
+    for(i=0;i<PyTuple_GET_SIZE(mro);i++) {
+        PyObject *base=PyTuple_GET_ITEM(mro,i),*space,*value;
+        if(!PyType_Check(base))break;
+        space=PyType_GetDict((PyTypeObject *)base);if(!space)break;
+        value=PyDict_GetItemWithError(space,key);
+        if(value)result=Py_NewRef(value);
+        Py_DECREF(space);
+        if(result||PyErr_Occurred())break;
+    }
+    Py_DECREF(mro);return result;
+}
+static int lex_admit(LexPlan *p,int op) {
+    PyObject *table=PyTuple_GET_ITEM(p->tables,op);Py_ssize_t i;
+    PyTypeObject *cls=(PyTypeObject *)p->cls;
+    if(!lex_owner(p)||cls->tp_mro!=p->mro||cls->tp_getattro!=PyObject_GenericGetAttr||
+        cls->tp_setattro!=PyObject_GenericSetAttr)return 0;
+    for(i=0;i<PyTuple_GET_SIZE(table);i++) {
+        PyObject *row=PyTuple_GET_ITEM(table,i),*owner=PyTuple_GET_ITEM(row,0);
+        PyObject *key=PyTuple_GET_ITEM(row,1),*expected=PyTuple_GET_ITEM(row,2),*current=NULL;
+        int match;
+        if(PyDict_CheckExact(owner)) {
+            PyObject *v=PyDict_GetItemWithError(owner,key);if(v)current=Py_NewRef(v);
+        } else if(PyFunction_Check(owner))current=Py_NewRef(PyFunction_GetCode(owner));
+        else if(PyCell_Check(owner))current=PyCell_Get(owner);
+        else current=lex_type_binding(owner,key);
+        if(!current)return PyErr_Occurred()?-1:0;
+        match=current==expected;Py_DECREF(current);if(!match)return 0;
+    }
+    return 1;
+}
+static PyObject *lex_plan_new(PyObject *unused,PyObject *args) {
+    PyObject *tables,*cls,*pid_o,*thread_o,*cap_o,*capsule;LexPlan *p=NULL;
+    unsigned long long pid,thread,cap;Py_ssize_t op,i;int r;(void)unused;
+    const char *names[]={"_raw_paths","_drv","_root","_tail_cached","_str"};
+    if(!PyArg_ParseTuple(args,"OOOOO",&tables,&cls,&pid_o,&thread_o,&cap_o))return NULL;
+    r=u64(pid_o,&pid);if(r<=0)goto invalid;r=u64(thread_o,&thread);if(r<=0)goto invalid;
+    r=u64(cap_o,&cap);if(r<=0)goto invalid;
+    if(cap!=256||!PyTuple_CheckExact(tables)||PyTuple_GET_SIZE(tables)!=4||
+        !PyType_Check(cls)||Py_TYPE(cls)!=&PyType_Type||strcmp(((PyTypeObject *)cls)->tp_name,"PosixPath")||
+        !((PyTypeObject *)cls)->tp_mro||((PyTypeObject *)cls)->tp_dictoffset!=0||
+        ((PyTypeObject *)cls)->tp_getattro!=PyObject_GenericGetAttr||
+        ((PyTypeObject *)cls)->tp_setattro!=PyObject_GenericSetAttr)goto invalid;
+    for(op=0;op<4;op++) {
+        PyObject *table=PyTuple_GET_ITEM(tables,op);
+        if(!PyTuple_CheckExact(table)||PyTuple_GET_SIZE(table)>128)goto invalid;
+        for(i=0;i<PyTuple_GET_SIZE(table);i++) {
+            PyObject *row=PyTuple_GET_ITEM(table,i),*owner,*key;
+            if(!PyTuple_CheckExact(row)||PyTuple_GET_SIZE(row)!=3)goto invalid;
+            owner=PyTuple_GET_ITEM(row,0);key=PyTuple_GET_ITEM(row,1);
+            if(!PyUnicode_CheckExact(key)||PyUnicode_GET_LENGTH(key)==0||PyUnicode_GET_LENGTH(key)>128)goto invalid;
+            if(PyFunction_Check(owner)) {
+                if(PyUnicode_CompareWithASCIIString(key,"__code__"))goto invalid;
+            } else if(PyCell_Check(owner)) {
+                if(PyUnicode_CompareWithASCIIString(key,"cell_contents"))goto invalid;
+            } else if(!PyDict_CheckExact(owner)&&!(PyType_Check(owner)&&Py_TYPE(owner)==&PyType_Type))goto invalid;
+        }
+    }
+    p=PyMem_Calloc(1,sizeof(*p));if(!p)return PyErr_NoMemory();
+    p->tables=Py_NewRef(tables);p->cls=Py_NewRef(cls);
+    p->mro=Py_NewRef(((PyTypeObject *)cls)->tp_mro);p->pid=pid;p->thread=thread;p->capacity=(Py_ssize_t)cap;
+    p->cache=PyDict_New();p->empty=PyUnicode_FromString("");p->slash=PyUnicode_FromString("/");
+    p->double_slash=PyUnicode_FromString("//");p->dot=PyUnicode_FromString(".");
+    if(!p->cache||!p->empty||!p->slash||!p->double_slash||!p->dot)goto error;
+    for(i=0;i<5;i++){p->names[i]=PyUnicode_InternFromString(names[i]);if(!p->names[i])goto error;}
+    if(!lex_owner(p))goto invalid;
+    capsule=PyCapsule_New(p,LEX_CAPSULE,lex_destroy);if(!capsule)goto error;
+    return capsule;
+invalid:
+    if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid lexical code/schema plan");
+error:lex_free(p);return NULL;
+}
+static PyObject *lex_attr(LexPlan *p,PyObject *subject,int slot) {
+    PyObject *v=PyObject_GenericGetAttr(subject,p->names[slot]);
+    if(!v&&PyErr_ExceptionMatches(PyExc_AttributeError))PyErr_Clear();
+    return v;
+}
+static int lex_strings(PyObject *list,Py_ssize_t *length) {
+    Py_ssize_t i,n;
+    if(!PyList_CheckExact(list)||(n=PyList_GET_SIZE(list))>64)return 0;
+    for(i=0;i<n;i++) {
+        PyObject *s=PyList_GET_ITEM(list,i);
+        if(!PyUnicode_CheckExact(s)||PyUnicode_GET_LENGTH(s)>8192-*length)return 0;
+        *length+=PyUnicode_GET_LENGTH(s);
+    }
+    return 1;
+}
+static int lex_old_slots(LexPlan *p,PyObject *subject,int first,int last) {
+    int i;
+    for(i=first;i<=last;i++) {
+        PyObject *v=lex_attr(p,subject,i);Py_ssize_t length=0;int valid;
+        if(!v){if(PyErr_Occurred())return -1;continue;}
+        valid=(i==0||i==3)?lex_strings(v,&length):PyUnicode_CheckExact(v);
+        Py_DECREF(v);if(!valid)return 0;
+    }
+    return 1;
+}
+static PyObject *lex_raw(LexPlan *p,PyObject *args) {
+    PyObject *list=PyList_New(0);Py_ssize_t i,j,length=0;
+    if(!list)return NULL;
+    if(PyTuple_GET_SIZE(args)>64)goto unsupported;
+    for(i=0;i<PyTuple_GET_SIZE(args);i++) {
+        PyObject *arg=PyTuple_GET_ITEM(args,i);
+        if(PyUnicode_CheckExact(arg)) {
+            if(PyUnicode_GET_LENGTH(arg)>8192-length||PyList_GET_SIZE(list)>=64)goto unsupported;
+            length+=PyUnicode_GET_LENGTH(arg);if(PyList_Append(list,arg)<0)goto error;
+        } else if(Py_TYPE(arg)==(PyTypeObject *)p->cls) {
+            PyObject *raw=lex_attr(p,arg,0);int valid;
+            if(!raw){if(PyErr_Occurred())goto error;goto unsupported;}
+            valid=lex_strings(raw,&length);
+            if(!valid||PyList_GET_SIZE(raw)>64-PyList_GET_SIZE(list)){Py_DECREF(raw);goto unsupported;}
+            for(j=0;j<PyList_GET_SIZE(raw);j++)if(PyList_Append(list,PyList_GET_ITEM(raw,j))<0){Py_DECREF(raw);goto error;}
+            Py_DECREF(raw);
+        } else goto unsupported;
+    }
+    return list;
+unsupported:Py_DECREF(list);Py_RETURN_NOTIMPLEMENTED;
+error:Py_DECREF(list);return NULL;
+}
+static PyObject *lex_join(LexPlan *p,PyObject *raw) {
+    PyObject *joined=Py_NewRef(p->empty);Py_ssize_t i;
+    for(i=0;i<PyList_GET_SIZE(raw);i++) {
+        PyObject *part=PyList_GET_ITEM(raw,i),*next;
+        Py_ssize_t n=PyUnicode_GET_LENGTH(joined),m=PyUnicode_GET_LENGTH(part);
+        if(m&&PyUnicode_READ_CHAR(part,0)=='/')next=Py_NewRef(part);
+        else if(!n||PyUnicode_READ_CHAR(joined,n-1)=='/')next=PyUnicode_Concat(joined,part);
+        else {
+            PyObject *prefix=PyUnicode_Concat(joined,p->slash);
+            if(!prefix){Py_DECREF(joined);return NULL;}
+            next=PyUnicode_Concat(prefix,part);Py_DECREF(prefix);
+        }
+        Py_DECREF(joined);if(!next)return NULL;joined=next;
+    }
+    return joined;
+}
+static PyObject *lex_parsed(LexPlan *p,PyObject *path) {
+    PyObject *v=PyDict_GetItemWithError(p->cache,path),*split=NULL,*tail=NULL,*value=NULL,*root=p->empty;
+    Py_ssize_t i,n=0,size=PyUnicode_GET_LENGTH(path);
+    if(v) {
+        if(p->hits>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Lexical counter bound");return NULL;}
+        p->hits++;return Py_NewRef(v);
+    }
+    if(PyErr_Occurred())return NULL;
+    if(size>8192)Py_RETURN_NOTIMPLEMENTED;
+    if(size&&PyUnicode_READ_CHAR(path,0)=='/') {
+        root=(size>1&&PyUnicode_READ_CHAR(path,1)=='/'&&(size==2||PyUnicode_READ_CHAR(path,2)!='/'))?
+            p->double_slash:p->slash;
+    }
+    split=PyUnicode_Split(path,p->slash,-1);if(!split)goto error;
+    for(i=0;i<PyList_GET_SIZE(split);i++) {
+        PyObject *part=PyList_GET_ITEM(split,i);
+        if(PyUnicode_GET_LENGTH(part)&&PyUnicode_Compare(part,p->dot))n++;
+    }
+    if(n>64){Py_DECREF(split);Py_RETURN_NOTIMPLEMENTED;}
+    tail=PyTuple_New(n);if(!tail)goto error;n=0;
+    for(i=0;i<PyList_GET_SIZE(split);i++) {
+        PyObject *part=PyList_GET_ITEM(split,i);
+        if(!PyUnicode_GET_LENGTH(part)||!PyUnicode_Compare(part,p->dot))continue;
+        part=Py_NewRef(part);PyUnicode_InternInPlace(&part);
+        if(!part)goto error;
+        PyTuple_SET_ITEM(tail,n++,part);
+    }
+    value=PyTuple_Pack(2,root,tail);if(!value)goto error;
+    if(PyDict_Size(p->cache)>=p->capacity) {
+        Py_ssize_t pos=0;PyObject *key,*item;
+        if(PyDict_Next(p->cache,&pos,&key,&item)) {
+            key=Py_NewRef(key);i=PyDict_DelItem(p->cache,key);Py_DECREF(key);if(i<0)goto error;
+        }
+    }
+    if(p->misses>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Lexical counter bound");goto error;}
+    if(PyDict_SetItem(p->cache,path,value)<0)goto error;
+    p->misses++;Py_DECREF(split);Py_DECREF(tail);return value;
+error:Py_XDECREF(split);Py_XDECREF(tail);Py_XDECREF(value);return NULL;
+}
+static PyObject *lex_parts(LexPlan *p,PyObject *subject) {
+    PyObject *raw=lex_attr(p,subject,0),*path,*parsed;Py_ssize_t length=0;
+    if(!raw){if(PyErr_Occurred())return NULL;Py_RETURN_NOTIMPLEMENTED;}
+    if(!lex_strings(raw,&length)){Py_DECREF(raw);Py_RETURN_NOTIMPLEMENTED;}
+    path=lex_join(p,raw);Py_DECREF(raw);if(!path)return NULL;
+    parsed=lex_parsed(p,path);Py_DECREF(path);return parsed;
+}
+static int lex_store_parts(LexPlan *p,PyObject *subject,PyObject *parsed) {
+    PyObject *tail=PySequence_List(PyTuple_GET_ITEM(parsed,1));int r;
+    if(!tail)return -1;
+    r=PyObject_GenericSetAttr(subject,p->names[1],p->empty);
+    if(r==0)r=PyObject_GenericSetAttr(subject,p->names[2],PyTuple_GET_ITEM(parsed,0));
+    if(r==0)r=PyObject_GenericSetAttr(subject,p->names[3],tail);
+    Py_DECREF(tail);return r;
+}
+static PyObject *lex_load(LexPlan *p,PyObject *subject) {
+    PyObject *parsed;int r=lex_old_slots(p,subject,1,3);
+    if(r<0)return NULL;
+    if(!r)Py_RETURN_NOTIMPLEMENTED;
+    parsed=lex_parts(p,subject);if(!parsed||parsed==Py_NotImplemented)return parsed;
+    r=lex_store_parts(p,subject,parsed);Py_DECREF(parsed);if(r<0)return NULL;
+    Py_RETURN_NONE;
+}
+static PyObject *lex_string(LexPlan *p,PyObject *subject) {
+    PyObject *cached=lex_attr(p,subject,4),*drv=NULL,*root=NULL,*tail=NULL,*joined=NULL,*result=NULL;
+    Py_ssize_t length=0;int missing;
+    if(cached)return cached;
+    if(PyErr_Occurred())return NULL;
+    drv=lex_attr(p,subject,1);if(PyErr_Occurred())goto error;
+    root=lex_attr(p,subject,2);if(PyErr_Occurred())goto error;
+    tail=lex_attr(p,subject,3);if(PyErr_Occurred())goto error;
+    missing=(!drv)+(!root)+(!tail);
+    if(missing&&missing!=3)goto unsupported;
+    if(missing==3) {
+        PyObject *parsed=lex_parts(p,subject);
+        if(!parsed)goto error;
+        if(parsed==Py_NotImplemented){Py_DECREF(parsed);goto unsupported;}
+        if(lex_store_parts(p,subject,parsed)<0){Py_DECREF(parsed);goto error;}
+        drv=Py_NewRef(p->empty);root=Py_NewRef(PyTuple_GET_ITEM(parsed,0));
+        tail=PySequence_List(PyTuple_GET_ITEM(parsed,1));Py_DECREF(parsed);if(!tail)goto error;
+    }
+    if(!PyUnicode_CheckExact(drv)||PyUnicode_GET_LENGTH(drv)||!PyUnicode_CheckExact(root)||!lex_strings(tail,&length))goto unsupported;
+    joined=PyUnicode_Join(p->slash,tail);if(!joined)goto error;
+    result=PyUnicode_Concat(root,joined);if(!result)goto error;
+    if(!PyUnicode_GET_LENGTH(result))Py_SETREF(result,Py_NewRef(p->dot));
+    if(PyObject_GenericSetAttr(subject,p->names[4],result)<0){Py_CLEAR(result);goto error;}
+    Py_DECREF(drv);Py_DECREF(root);Py_DECREF(tail);Py_DECREF(joined);return result;
+unsupported:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);Py_RETURN_NOTIMPLEMENTED;
+error:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);Py_XDECREF(joined);Py_XDECREF(result);return NULL;
+}
+static PyObject *lex_path_call(PyObject *unused,PyObject *args) {
+    PyObject *op_o,*capsule,*subject,*arguments,*value=NULL,*pending;LexPlan *p;unsigned long long op;int r;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOOO",&op_o,&capsule,&subject,&arguments))return NULL;
+    r=u64(op_o,&op);if(r<=0||op>5||!PyTuple_CheckExact(arguments))goto invalid;
+    p=PyCapsule_GetPointer(capsule,LEX_CAPSULE);if(!p)return NULL;
+    if(!lex_owner(p)) {
+        if(op<4)Py_RETURN_NOTIMPLEMENTED;
+        PyErr_SetString(PyExc_ValueError,"Lexical owner changed");return NULL;
+    }
+    if(op>=4&&(subject!=Py_None||PyTuple_GET_SIZE(arguments)))goto invalid;
+    if(op==4)return Py_BuildValue("{sK,sK,sK,sK,sn,sK,sK}",
+        "constructor",p->calls[0],"load_parts",p->calls[1],"string",p->calls[2],"with_segments",p->calls[3],
+        "cache_entries",PyDict_Size(p->cache),"cache_hits",p->hits,"cache_misses",p->misses);
+    if(op==5){PyDict_Clear(p->cache);Py_RETURN_NONE;}
+    if(p->broken){PyErr_SetString(PyExc_ValueError,"Poisoned lexical plan");return NULL;}
+    if(Py_TYPE(subject)!=(PyTypeObject *)p->cls)Py_RETURN_NOTIMPLEMENTED;
+    r=lex_admit(p,(int)op);if(r<0)return NULL;if(!r)Py_RETURN_NOTIMPLEMENTED;
+    if(p->calls[op]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Lexical counter bound");return NULL;}
+    if((op==1||op==2)&&PyTuple_GET_SIZE(arguments))Py_RETURN_NOTIMPLEMENTED;
+    if(op==0||op==3) {
+        PyObject *raw=lex_raw(p,arguments);
+        if(!raw||raw==Py_NotImplemented)return raw;
+        if(op==0) {
+            r=lex_old_slots(p,subject,0,0);
+            if(r<0){Py_DECREF(raw);return NULL;}
+            if(!r){Py_DECREF(raw);Py_RETURN_NOTIMPLEMENTED;}
+            r=PyObject_GenericSetAttr(subject,p->names[0],raw);
+            if(r==0)value=Py_NewRef(Py_None);
+        } else {
+            value=PyType_GenericAlloc((PyTypeObject *)p->cls,0);
+            if(value&&PyObject_GenericSetAttr(value,p->names[0],raw)<0)Py_CLEAR(value);
+        }
+        Py_DECREF(raw);
+    } else if(op==1)value=lex_load(p,subject);
+    else value=lex_string(p,subject);
+    pending=PyErr_GetRaisedException();r=lex_admit(p,(int)op);
+    if(r<=0){p->broken=1;PyDict_Clear(p->cache);}
+    if(pending) {
+        PyErr_Clear();PyErr_SetRaisedException(pending);Py_XDECREF(value);return NULL;
+    }
+    if(r<=0) {
+        Py_XDECREF(value);
+        if(!PyErr_Occurred())PyErr_SetString(PyExc_ValueError,"Lexical bindings changed during computation");
+        return NULL;
+    }
+    if(value&&value!=Py_NotImplemented)p->calls[op]++;
+    return value;
+invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid lexical operation");return NULL;
+}
 static PyMethodDef methods[]={
+    {"path_plan",lex_plan_new,METH_VARARGS,"Prepare immutable lexical code/schema context; no filesystem results."},
+    {"path_call",lex_path_call,METH_VARARGS,"Original-class lexical SDK operations with fresh live admission."},
     {"prepare_tables",prepare_tables,METH_VARARGS,"Finite ephemeral lexical argument preparation; no observations."},
     {"read_file",read_file,METH_VARARGS,"Fresh complete Root/private/raw reads; no retained observations."},
     {"read_counts",read_counts,METH_NOARGS,"Bounded complete-read diagnostic counts."},

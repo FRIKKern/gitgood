@@ -743,3 +743,59 @@ all eight roles and original observations in this sample; both original Root
 suites and all earlier cases remain required. These profiling changes require
 fresh hosted verification and make no production benefit or adoption claim.
 The rejected twenty-pair and baseline-only runs are not repeated.
+
+Exact review of 5e16122 subsequently verified all 37 metadata cases, all 39 read
+cases, both original 372-case Root suites, 82 ownership fixtures, 59 installed
+production hashes and retained regression scopes. The single tenth guard
+exercised all eight roles and five native counter groups with zero fallback,
+all original actors and classes, complete descriptor and alias restoration,
+and fresh source custody before effects. Its eight native API rows and eight
+Python rows met the closed schema. All API call counts matched the independent
+operation counters, including eight counter-reporting calls and 536 separate
+before/after admission calls. No paired benefit comparison was repeated.
+
+This profiled guard spent 3559 microseconds in the admission API and 4522 in
+complete native reads. The unchanged coarse partition still attributed 11335
+microseconds of self time to pathlib. These values identify remaining work;
+overlapping cumulative rows must not be added, and different hosted samples
+must not be compared as a production speedup. The earlier failed benefit gate
+still rejects this backend. Full original staging timed out at 240205 ms with
+zero output checks on the same complete archive. Complete uninstrumented
+staging/runtime and the remaining installation and recovery gates stay open.
+
+The next candidate's SDK adapter boundary is implemented in
+`tools/ci/native_path_probe.py`. It retains the original Path classes and scopes
+four descriptor changes to construction, lazy parts, rendering and derived
+paths. It authenticates a closed set of actual CPython 3.12 method bodies and
+pins live code-object identities, globals and class cells separately. Its C
+entry points retain only bounded immutable lexical strings and tuples;
+every Path object and mutable list must remain fresh. Mutable SDK hooks must
+be admitted on every call, and no filesystem or validation result is retained.
+
+The candidate adds `path_plan` and `path_call` to the existing authenticated C
+extension. Every supported call checks the actual Root PID/thread and current
+raw MRO descriptors, function code, cells and namespace bindings before and
+after computation. Unsupported input executes the original SDK before any
+mutation; native errors are not retried. Filesystem methods remain original.
+The 256-entry cache contains only immutable parsed lexical strings/tuples;
+new paths and mutable lists are fresh, and closing clears the cache and drops
+the native capsule, including after interruption.
+
+Thirty portable checks cover this boundary, including SDK/POSIX source
+authentication, lazy slots, mutable isolation, metadata hooks, live code and
+class cells, partial installation, restoration and pending-error precedence.
+The comparison cases also verify twenty alternating pairs, equal observations,
+positive counts for every role, zero fallback, and source custody before effects.
+They use a test double and deterministic fixture clocks, so establish no C
+execution or speedup. Ten actual Linux Root cases add SDK value/error/cache and
+mutation checks plus a third complete original 372-case Root suite.
+
+The existing hosted workflow builds the candidate, runs all retained metadata
+and read cases, then the new Root cases. Full proof now records
+`native_path_comparison` from twenty same-actor whole-guard pairs before the
+original stage measurements. Descriptors and source custody are restored and
+lexical plans cleared before effects; all seventeen timers, CPU windows,
+existing guard-ten sample, actors, complete archive and deadlines are retained.
+The unchanged benefit gate requires median ratio at most 0.80 and at least
+18 of 20 faster prototype samples. Hosted semantics and benefit remain
+unverified; the rejected filesystem profile is still the last verified result.

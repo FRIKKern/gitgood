@@ -1,0 +1,14 @@
+{
+  "id": "native-pure-lexical-path",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Add an isolated four-role native lexical SDK candidate with fresh admission, bounded immutable plans, original Root regressions and twenty alternating whole-guard comparisons; hosted semantics and benefit remain unverified.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-artifact-controller.md",
+    "tools/ci/native_path_probe.py",
+    "tools/ci/native-path-test.py",
+    "tools/ci/native-metadata-probe.c"
+  ],
+  "withdrawn": false
+}

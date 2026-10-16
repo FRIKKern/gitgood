@@ -55,6 +55,14 @@ Put permission, merge and recovery rules in the forge. Keep browser draft state 
 
 For backend behavior, start with the corresponding file in [forge tests](../apps/forge/test/gitgood/). HTTP boundaries have [web-layer backend tests](../apps/forge/test/gitgood_web/); real browser workflows live in [web e2e tests](../apps/web/e2e/). Native operator tests live alongside their components in [tools/deployment](../tools/deployment/), with recovery checks under [operation tests](../apps/forge/test/operations/). Choose the checks that exercise the changed behavior; see [development](DEVELOPMENT.md#4-check-your-change) for the entry points.
 
+[native_path_probe.py](../tools/ci/native_path_probe.py) and
+[native-path-test.py](../tools/ci/native-path-test.py) exercise an isolated pure
+lexical SDK candidate implemented in [native-metadata-probe.c](../tools/ci/native-metadata-probe.c).
+The hosted workflow runs its actual Root cases and original-actor comparison;
+portable SDK tests alone do not establish native semantics or production benefit.
+Read [artifact controller diagnostics](implementation/native-artifact-controller.md)
+before changing the original guard, filesystem observations or staging budget.
+
 ## Generated and local files
 
 Native ownership startup is coordinated by [native_ownership_startup.ex](../apps/forge/lib/gitgood/native_ownership_startup.ex)

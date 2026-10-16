@@ -2,7 +2,7 @@
   "id": "native-metadata-probe",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Reject the slower native filesystem backend and attribute all native API costs in the existing guard profile, including counter calls, while preserving fresh checks, complete staging and recovery requirements.",
+  "summary": "Verify native guard attribution and counter consistency while retaining the backend's failed benefit gate and incomplete full staging, installation and recovery requirements.",
   "journeys": ["J14", "J15"],
   "references": [
     "docs/implementation/native-artifact-controller.md",
