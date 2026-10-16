@@ -16,7 +16,7 @@ import threading
 from inspect_native_artifact import inspect_native_artifact
 from native_lifecycle_responsibility import validate_request
 from native_root_controller import NativeRootControllerObservation
-from native_service_scope import _CapturedRootFiles, root_file
+from native_service_scope import _CapturedRootFiles, _root_file_parents, root_file
 from resource_generations import canonical, digest, identifier
 
 RESERVE = 20 * 1024**3
@@ -60,9 +60,16 @@ def fingerprint(info):
         ('st_dev', 'st_ino', 'st_uid', 'st_gid', 'st_mode', 'st_nlink', 'st_size', 'st_mtime_ns', 'st_ctime_ns'))
 
 
+def _artifact_path(path):
+    """Canonical spelling and fresh link refusal; no path observations cached."""
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts)
+    for parent, _ in _root_file_parents(path):require(stat.S_ISDIR(parent.lstat().st_mode))
+    require(not stat.S_ISLNK(path.lstat().st_mode))
+    return path
+
+
 def directory(path, uid, *, private=False):
-    path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    path = _artifact_path(Path(path))
     info = path.lstat()
     require(stat.S_ISDIR(info.st_mode) and info.st_uid == uid and not info.st_mode & 0o022)
     require(not private or stat.S_IMODE(info.st_mode) == 0o700)
@@ -149,7 +156,7 @@ class NativeProtectedArtifactStage:
         return NativeRootControllerObservation(self.installation)
 
     def _private(self, path, maximum):
-        require(path.resolve(strict=True) == path)
+        _artifact_path(path)
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
         try:
             before = os.fstat(fd)

@@ -19,7 +19,7 @@ from native_protected_artifact import (_BoundedTarHeaders, MAX_ARCHIVE, MAX_CONT
     MAX_MEMBERS, RESERVE, fingerprint, parse_policy)
 from native_root_database_exclusion import NativeRootDatabaseExclusionObservation
 from native_root_controller_request import _held_lock
-from native_service_scope import read_bytes
+from native_service_scope import _root_file_parents, read_bytes
 from resource_generations import canonical, digest, identifier
 from upgrade_journal import fcntl
 
@@ -52,6 +52,13 @@ def _inspection_receipt(installation, operation, inspection):
 def _root_directory(path):
     path = Path(path)
     require(path.resolve(strict=True) == path)
+    info = path.lstat()
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid == info.st_gid == 0 and not info.st_mode & 0o022)
+    return (info.st_dev,info.st_ino,info.st_uid,info.st_gid,info.st_mode)
+
+
+def _root_directory_metadata(path):
+    """Fresh metadata only; the allocation walk checks every named ancestor."""
     info = path.lstat()
     require(stat.S_ISDIR(info.st_mode) and info.st_uid == info.st_gid == 0 and not info.st_mode & 0o022)
     return (info.st_dev,info.st_ino,info.st_uid,info.st_gid,info.st_mode)
@@ -113,8 +120,11 @@ class NativeRootArtifactPolicyAllocation:
 
     def _directory(self, path):
         path = Path(path)
-        for ancestor in path.parents:_root_directory(ancestor)
-        named = _root_directory(path)
+        require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts)
+        # Every prefix is freshly checked, including its Root owner/group and
+        # mode. Resolving all prefixes separately repeats the same link walk.
+        for ancestor, _ in _root_file_parents(path):_root_directory_metadata(ancestor)
+        named = _root_directory_metadata(path)
         if path not in self.directories:
             fd = os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
             try:

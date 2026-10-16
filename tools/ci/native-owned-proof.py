@@ -1331,9 +1331,9 @@ def root_reader_loss_checks(seed, database, server_scope):
 def root_stage_profile(profile):
     """Closed installed/stdlib counters only; no stacks, callers or values."""
     allowed = {
-        'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_archive_input','_check_output'},
+        'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_archive_input','_check_output','directory','_artifact_path'},
         'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
-        'native_root_artifact_policy.py':{'allocate','check','_inspect'},
+        'native_root_artifact_policy.py':{'allocate','check','_inspect','_directory','_root_directory_metadata'},
         'native_root_database_exclusion.py':{'check','_base','_query','_socket','_client'},
         'native_root_database_reader.py':{'_base','_exchange','_client','_configuration'},
         'native_root_live_binding.py':{'check','_observe','_current'},

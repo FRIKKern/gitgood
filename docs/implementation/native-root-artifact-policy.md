@@ -31,6 +31,15 @@ kernel `FLOCK` remain checked. A competing allocator refuses without replacing
 that inode. Input must be an unchanged, single-link, read-only Root file of the
 declared size.
 
+Allocation directory observation validates canonical POSIX spelling and freshly
+checks every named ancestor and leaf for Root UID/GID, directory type and safe
+mode before comparing the original held descriptor. It reuses only bounded
+immutable lexical parent paths; it does not resolve the same prefixes once for
+each ancestor or retain any filesystem observation. The standalone
+`_root_directory` contract remains unchanged. Owned Root namespace tests cover
+aliases, ancestor owner/group/mode changes, named replacement and repeated fresh
+walks without the scratch-ancestor exemption used by the older allocation tests.
+
 ## Inspection and publication
 
 Before policy publication, bound gzip/tar header parsing and inventory with the

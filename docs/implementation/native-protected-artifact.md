@@ -27,6 +27,16 @@ fixed. This component does not replay journal history or allocate that policy.
 The future allocator must independently validate original request/history and
 stage admission before issuing it; a snapshot receipt alone grants no effects.
 
+Directory and private-file admission validate canonical POSIX spelling, freshly
+check every named ancestor as a directory and refuse a symlink leaf. The lexical
+walk reuses bounded immutable paths from the existing parent plan and retains no
+metadata, content or validation result. The original leaf UID/mode predicates,
+private-file UID/GID, link/size limits, no-follow open, before/after descriptor
+metadata and named identity comparison remain required. Owned Root filesystem
+tests include alias/ancestor changes, directory replacement, private hardlinks,
+mutation during a read and twenty repeated observation sets. Component checks
+do not establish the full archive's deadline or subsequent staged runtime.
+
 ## Bounded extraction and publication
 
 Inspection requires the expected clean candidate, independent digest, safe closed
