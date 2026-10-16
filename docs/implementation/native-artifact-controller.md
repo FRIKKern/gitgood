@@ -239,16 +239,19 @@ refuse invalid counters, and no arguments, paths, returned values or private
 attributes are emitted. These clocks guide the next performance repair; they
 do not establish an uninstrumented deadline or full journey acceptance.
 
-An experimental hosted run now uses a pinned PyPy 3.11 v8.0.1 interpreter for
-the Root helper only. The ordinary manager/workers remain on their original
+An earlier hosted trial used a pinned PyPy 3.11 v8.0.1 interpreter for
+the Root helper only. The ordinary manager/workers retained their original
 Python 3.12 executable. The complete payload, original actors within each
 allocated trial, checks and deadlines are unchanged. A lock-parser compatibility
 repair expresses the same Linux access mask through `O_WRONLY | O_RDWR` because
 the experimental interpreter does not export `O_ACCMODE`; original descriptor,
-flock and actor checks remain. Its complete component scope runs under both
-interpreters before policy allocation and staging.
-This tests a larger execution-cost change after measured Root CPU dominated the
-remaining guard wall time; it does not claim a same-actor interpreter speed ratio.
+flock and actor checks remain. Its complete component scope passed under PyPy,
+with the original CPython checks retained. The trial tested a larger
+execution-cost change after measured Root CPU dominated guard wall time.
+It passed 372 Root component cases, actual pidfd/SQL cases and installed source
+identity checks, but the full archive still reached the original 240-second
+deadline before output verification. PyPy adoption was rejected; the active
+proof again uses CPython. This is no same-actor interpreter speed comparison.
 
 The fixture installer verifies the publisher's
 [archive checksum](https://pypy.org/checksums.html), bounded paths, link targets,
@@ -260,17 +263,17 @@ interpreter. Runtime downloads and execution happen only on the disposable
 hosted runner. No local runtime, dependency payload or VM is created.
 
 All original selected Root component scopes and the production PostgreSQL cases
-run under PyPy before the full installed ownership/stage/runtime proof.
-The CPython-specific single-guard profiler is explicitly unsupported in this
-trial and is not started; original method counts and process/thread CPU clocks
-remain. CPython fixture regressions still verify the original profiler path.
+ran under PyPy before the full installed ownership/stage/runtime proof.
+The CPython-specific single-guard profiler was explicitly unsupported in that
+trial; original method counts and process/thread CPU clocks remained.
+The active CPython proof retains its original profiler path.
 The receipt labels the runtime diagnostic only and production adoption false.
 A complete result must still preserve every security and recovery gate, and any
 runtime adoption requires installation, packaging, cold-start and recovery work
 plus uninstrumented acceptance. A component or experimental pass alone cannot
 authorize VM retirement or establish release readiness.
 
-If an original PyPy component scope fails, the hosted workflow reruns that fixed
+For a failed PyPy component scope, the historical trial reran that fixed
 synthetic scope with failure-only exception-site tracing. At most 64 source
 locations and closed exception type labels from the first failing case are
 reported, with an explicit omission count. Only exact repository production
@@ -285,7 +288,18 @@ interpreter omits Python's pidfd functions, a hosted-only bridge invokes the
 same libc `pidfd_open` and `pidfd_send_signal` operations with fixed zero flags
 and `SIGKILL`; it never substitutes a PID-based signal. Native API failures
 propagate without retry through libc, and the original descriptor always closes.
-Both interpreters test actual owned child identities, close-on-exec, unrelated
+Both interpreters verified actual owned child identities, close-on-exec, unrelated
 child survival, dead targets and closed descriptors, including the forced libc
 path. This is a fixture compatibility bridge and changes no production module,
 stage guard, operation deadline or recovery acceptance requirement.
+
+The active CPython sample attributes direct calls into its exact loaded pathlib
+code to fixed installed module/function pairs and their public source lines.
+At most eight callers, ranked by cumulative edge time, share the original
+combined 64-row cap with the required counters. These overlapping edge costs
+have zero attributed self time and are not a disjoint CPU partition. Unknown
+source labels, private paths, arguments and stack contents are excluded;
+counter/type/time bounds and aggregate overflow are checked. This postprocesses
+the same guard-ten profile, invokes no additional guard or filesystem read, and
+guides the scope of the next repair while retaining complete staging and
+recovery requirements.

@@ -1462,8 +1462,35 @@ def root_guard_hot_self(stats,excluded_path_codes):
     return selected(module_totals,8)+selected(builtin_totals,8)+selected(path_totals,9)
 
 
+def root_guard_path_callers(stats, allowed, path_codes):
+    """Direct public source-to-pathlib edge totals from the existing sample."""
+    totals = {}
+    for key, values in stats.items():
+        if key not in path_codes:continue
+        callers = values[4];require(type(callers) is dict)
+        for caller, costs in callers.items():
+            if type(caller) is not tuple or len(caller) != 3:continue
+            filename,line,function = caller
+            if type(filename) is not str or type(function) is not str:continue
+            path = Path(filename)
+            if (path.parent != MODULES or not path.name.startswith('native_') or
+                    path.name not in allowed or function not in allowed[path.name]):continue
+            require(type(line) is int and 0 < line < 10000)
+            require(type(costs) is tuple and len(costs) == 4)
+            primitive,calls,total,cumulative = costs
+            require(all(type(value) is int and 0 <= value <= 10000000 for value in (primitive,calls)))
+            require(all(type(value) in {int,float} and 0 <= value <= 1200 for value in (total,cumulative)))
+            label = (path.name[:-3]+'.'+function,line)
+            count,elapsed = totals.get(label,(0,0.0));count += calls;elapsed += cumulative
+            require(count <= 10000000 and elapsed <= 1200);totals[label] = count,elapsed
+    rows = [{'file':'path-callers.py','function':function,'line':line,'calls':calls,
+        'self_ms':0,'self_us':0,'cumulative_ms':int(elapsed*1000),'cumulative_us':int(elapsed*1000000)}
+        for (function,line),(calls,elapsed) in totals.items()]
+    return sorted(rows,key=lambda row:(-row['cumulative_us'],-row['calls'],row['function'],row['line']))[:8]
+
+
 def root_stage_profile(profile):
-    """Closed installed/stdlib counters only; no stacks, callers or values."""
+    """Closed public code counters only; no stacks, argument values or paths."""
     allowed = {
         'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_archive_input','_check_output','directory','_artifact_path'},
         'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
@@ -1536,6 +1563,9 @@ def root_stage_profile(profile):
             for filename,line,function in stats):
         rows.extend(root_guard_self_costs(stats))
         rows.extend(root_guard_hot_self(stats,path_codes))
+        callers = root_guard_path_callers(stats,allowed,path_codes | set(root_guard_path_helper_codes(path_codes)))
+        rows.extend(callers)
+        reserved.update((row['file'],row['function']) for row in callers)
     # Reserve the fixed diagnostic questions before filling remaining slots by
     # cost. Low-cost required helpers must not disappear at the 64-row cap.
     rows = sorted(rows,key=lambda value:(0 if (value['file'],value['function']) in reserved else

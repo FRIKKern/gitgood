@@ -25,6 +25,60 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_path_callers_attribute_only_direct_loaded_path_edges_to_fixed_source(self):
+        path_key=('loaded/pathlib.py',10,'stat');caller=(str(proof.MODULES/'native_root_lifecycle.py'),350,'_current')
+        allowed={'native_root_lifecycle.py':{'_current'}}
+        stats={path_key:(2,2,.001,.004,{caller:(2,2,.001,.003)}),
+            ('foreign/pathlib.py',10,'stat'):(1,1,.001,.010,{caller:(1,1,.001,.010)})}
+        self.assertEqual(proof.root_guard_path_callers(stats,allowed,{path_key}),[{
+            'file':'path-callers.py','function':'native_root_lifecycle._current','line':350,'calls':2,
+            'self_ms':0,'self_us':0,'cumulative_ms':3,'cumulative_us':3000}])
+
+    def test_path_callers_exclude_foreign_source_unknown_symbols_and_private_names(self):
+        path_key=('loaded/pathlib.py',10,'stat')
+        allowed={'native_root_lifecycle.py':{'_current'}}
+        callers={('/synthetic/private/native_root_lifecycle.py',350,'_current'):(1,1,.001,.001),
+            (str(proof.MODULES/'native_root_lifecycle.py'),350,'private_unknown'):(1,1,.001,.001),
+            (str(proof.MODULES/'private_unknown.py'),350,'_current'):(1,1,.001,.001)}
+        self.assertEqual(proof.root_guard_path_callers({path_key:(1,1,.001,.001,callers)},allowed,{path_key}),[])
+
+    def test_path_callers_refuse_invalid_types_bounds_and_aggregate_overflow(self):
+        keys=[('loaded/pathlib.py',number,'stat') for number in (10,11)]
+        caller=(str(proof.MODULES/'native_root_lifecycle.py'),350,'_current')
+        allowed={'native_root_lifecycle.py':{'_current'}}
+        for costs in ((True,1,0,0),(1,-1,0,0),(1,1,float('nan'),0),(1,1,0,1201),(1,1,0)):
+            with self.subTest(costs=costs),self.assertRaises(ValueError):
+                proof.root_guard_path_callers({keys[0]:(1,1,0,0,{caller:costs})},allowed,set(keys))
+        stats={key:(1,1,0,0,{caller:(1,6000000,0,601)}) for key in keys}
+        with self.assertRaises(ValueError):proof.root_guard_path_callers(stats,allowed,set(keys))
+
+    def test_path_callers_keep_deterministic_top_eight_within_original_sample_cap(self):
+        key=(proof.Path.stat.__code__.co_filename,proof.Path.stat.__code__.co_firstlineno,proof.Path.stat.__code__.co_name)
+        source=str(proof.MODULES/'native_root_lifecycle.py')
+        callers={(source,number,'_current'):(1,1,0,.001) for number in range(1,25)}
+        stats={key:(1,1,0,.024,callers),
+            (str(proof.MODULES/'native_root_artifact_dispatch.py'),90,'check'):(1,1,0,.024,{})}
+        result=proof.root_guard_path_callers(stats,{'native_root_lifecycle.py':{'_current'}},{key})
+        self.assertEqual([row['line'] for row in result],list(range(1,9)))
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(object())
+        self.assertLessEqual(len(rows),64)
+        self.assertEqual([row for row in rows if row['file']=='path-callers.py'],result)
+        self.assertTrue(any(row['file']=='guard-self-costs.py' and row['function']=='pathlib_python' for row in rows))
+
+    def test_path_callers_observe_actual_profile_counter_schema_without_private_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'owned';path.write_bytes(b'synthetic')
+            scope={};exec(compile('def _current(path):\n    return path.stat()\n',
+                str(proof.MODULES/'native_root_lifecycle.py'),'exec'),scope)
+            profile=proof.cProfile.Profile();profile.runcall(scope['_current'],path)
+            stats=proof.pstats.Stats(profile).stats
+            keys={(Path.stat.__code__.co_filename,Path.stat.__code__.co_firstlineno,Path.stat.__code__.co_name)}
+            rows=proof.root_guard_path_callers(stats,{'native_root_lifecycle.py':{'_current'}},keys)
+            self.assertEqual(len(rows),1);self.assertEqual(rows[0]['calls'],1)
+            self.assertEqual(rows[0]['function'],'native_root_lifecycle._current')
+            self.assertNotIn(directory,json.dumps(rows));self.assertNotIn('synthetic',json.dumps(rows))
+
     def test_non_cpython_runtime_forwards_guard_without_claiming_a_cpython_profile(self):
         sample=proof.RootGuardSample();sample.calls=9;result=object();original=Mock(return_value=result)
         with patch.object(proof.sys,'implementation',SimpleNamespace(name='pypy')), \

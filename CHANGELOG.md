@@ -455,6 +455,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Compose Root staging guards from two private read-only observation passes, reusing duplicated upstream observations only within each pass. Start the final pass fresh before every write, poison observed loss and discard all results at boundaries. Preserve original SQL/descriptor/exclusion checks, archive bounds and deadlines; full staging remains subject to exact hosted verification.
   Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/deployment/native_root_controller.py), [details 3](tools/deployment/native_root_artifact_dispatch.py), [details 4](tools/deployment/test_native_root_observation_pass.py), [details 5](tools/deployment/test_native_root_artifact_dispatch.py), [details 6](.github/workflows/product.yml)
 
+- Return hosted Root proof to CPython after the PyPy deadline failure and attribute pathlib costs to bounded public source callers within the original profile cap.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Prepare the two fixed read-only Root observation statements in their original session while retaining fresh results, nonce validation and custody checks.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/deployment/native_root_database_reader.py), [details 3](tools/deployment/test_native_root_database_reader.py), [details 4](tools/ci/native-prepared-test.py)
 
