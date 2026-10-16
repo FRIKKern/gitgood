@@ -238,3 +238,30 @@ single guard-ten profile and method restoration remain. Numeric/type bounds
 refuse invalid counters, and no arguments, paths, returned values or private
 attributes are emitted. These clocks guide the next performance repair; they
 do not establish an uninstrumented deadline or full journey acceptance.
+
+An experimental hosted run now uses a pinned PyPy 3.11 v8.0.1 interpreter for
+the Root helper only. The ordinary manager/workers remain on their original
+Python 3.12 executable. All production source bytes, the complete payload,
+original actors within each allocated trial, checks and deadlines are unchanged.
+This tests a larger execution-cost change after measured Root CPU dominated the
+remaining guard wall time; it does not claim a same-actor interpreter speed ratio.
+
+The fixture installer verifies the publisher's
+[archive checksum](https://pypy.org/checksums.html), bounded paths, link targets,
+entry/byte limits and available space before extracting a new Root-owned runtime
+namespace. It retains at least 20 GiB free after estimated archive, extraction
+and metadata allocations. An immutable package-tree hash, executable hash,
+archive hash and closed implementation/version fields identify the actual
+interpreter. Runtime downloads and execution happen only on the disposable
+hosted runner. No local runtime, dependency payload or VM is created.
+
+All original selected Root component scopes and the production PostgreSQL cases
+run under PyPy before the full installed ownership/stage/runtime proof.
+The CPython-specific single-guard profiler is explicitly unsupported in this
+trial and is not started; original method counts and process/thread CPU clocks
+remain. CPython fixture regressions still verify the original profiler path.
+The receipt labels the runtime diagnostic only and production adoption false.
+A complete result must still preserve every security and recovery gate, and any
+runtime adoption requires installation, packaging, cold-start and recovery work
+plus uninstrumented acceptance. A component or experimental pass alone cannot
+authorize VM retirement or establish release readiness.

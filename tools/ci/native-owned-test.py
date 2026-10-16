@@ -25,6 +25,14 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_non_cpython_runtime_forwards_guard_without_claiming_a_cpython_profile(self):
+        sample=proof.RootGuardSample();sample.calls=9;result=object();original=Mock(return_value=result)
+        with patch.object(proof.sys,'implementation',SimpleNamespace(name='pypy')), \
+                patch.object(proof.cProfile,'Profile') as profile:
+            self.assertIs(sample.wrap(original)('original'),result);profile.assert_not_called()
+        original.assert_called_once_with('original');self.assertEqual(sample.calls,10)
+        self.assertIsNone(sample.values())
+
     def clocks(self):
         stack=contextlib.ExitStack();self.addCleanup(stack.close)
         stack.enter_context(patch.object(proof.time,'monotonic_ns',side_effect=[100000000,350000000]))

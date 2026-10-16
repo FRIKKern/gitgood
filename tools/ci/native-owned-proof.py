@@ -36,6 +36,7 @@ import urllib.error
 import urllib.request
 import socket
 import ssl
+import root_runtime_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -1552,7 +1553,7 @@ class RootGuardSample:
     def wrap(self, original):
         def checked(*arguments, **keywords):
             self.calls += 1
-            if self.calls != 10:
+            if self.calls != 10 or sys.implementation.name != 'cpython':
                 return original(*arguments, **keywords)
             monitoring = getattr(sys,'monitoring',None)
             if (sys.getprofile() is not None or (monitoring is not None
@@ -2173,6 +2174,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
 
 def preflight(args):
     require(sys.platform == "linux" and platform.machine() == "x86_64" and os.geteuid() == 0)
+    require(sys.implementation.name in {'cpython','pypy'})
     require(os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted")
     require(Path("/proc/1/comm").read_text() == "systemd\n")
     release = Path("/etc/os-release").read_text()
@@ -2240,6 +2242,9 @@ def main(args):
         args.output.mkdir(mode=0o755)
         os.chmod(args.output, 0o755)
         output = args.output
+        if sys.implementation.name == 'pypy':
+            phase = 'verify-diagnostic-root-runtime'
+            receipt['root_runtime_probe'] = root_runtime_probe.observe()
         phase = "secure-disposable-host-opt"
         receipt["hosted_opt_custody"] = harden_hosted_opt()
         phase = "create-protected-runtime-prefix"
