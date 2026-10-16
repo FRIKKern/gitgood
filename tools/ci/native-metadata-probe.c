@@ -1,7 +1,7 @@
 /* Diagnostic prototype only. No production use or acceptance.
- * Four finite original metadata families: Root files, executables, persistent
- * paths and held history custody. Preserve ordered fresh lstat/fstat operations,
- * predicates and tuple fields. No observation survives a call.
+ * Eight finite filesystem roles: four metadata families and distinct complete
+ * Root/private/service/kernel reads. Preserve ordered fresh observations,
+ * predicates, buffering and tuple fields. No observation survives a call.
  * C API references:
  * https://docs.python.org/3.12/c-api/unicode.html#c.PyUnicode_EncodeFSDefault
  * https://docs.python.org/3.12/c-api/exceptions.html#c.PyErr_SetFromErrnoWithFilenameObject
@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 static unsigned long long fingerprint_calls=0, plan_calls=0, custody_calls=0;
+static unsigned long long read_calls=0, prepare_calls=0;
 
 static int fresh_lstat(PyObject *name, struct stat *info)
 {
@@ -257,6 +258,308 @@ static int add_meta(PyObject *result,PyObject *key,struct stat *s,int full) {
     if(!v)return -1;
     r=PyDict_SetItem(result,key,v);Py_DECREF(v);return r;
 }
+
+/* Complete reads keep CPython's original buffering, maximum+1 read and GIL /
+ * EINTR behavior. The I/O wrapper borrows the newly opened descriptor;
+ * this backend alone closes it once, after the original after-read fstat.
+ * https://docs.python.org/3.12/library/functions.html#open
+ * https://github.com/python/cpython/blob/v3.12.3/Modules/_io/fileio.c
+ * No data or metadata survives a call except its fresh return value. */
+static int read_open(PyObject *name,int flags) {
+    PyObject *encoded;int fd,saved;
+    if(PyErr_CheckSignals()<0)return -1;
+    encoded=PyUnicode_EncodeFSDefault(name);if(!encoded)return -1;
+    if(memchr(PyBytes_AS_STRING(encoded),0,(size_t)PyBytes_GET_SIZE(encoded))) {
+        Py_DECREF(encoded);PyErr_SetString(PyExc_ValueError,"embedded null byte");return -1;
+    }
+    if(PySys_Audit("open","OOi",name,Py_None,flags)<0){Py_DECREF(encoded);return -1;}
+    for(;;) {
+        Py_BEGIN_ALLOW_THREADS
+        fd=open(PyBytes_AS_STRING(encoded),flags);saved=errno;
+        Py_END_ALLOW_THREADS
+        if(fd>=0||saved!=EINTR)break;
+        if(PyErr_CheckSignals()<0){Py_DECREF(encoded);return -1;}
+    }
+    Py_DECREF(encoded);
+    if(fd<0){errno=saved;PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError,name);}
+    return fd;
+}
+
+static int close_read(PyObject *reader,int fd) {
+    PyObject *pending=PyErr_GetRaisedException(),*cleanup=NULL,*closed;
+    int result,saved;
+    if(reader) {
+        closed=PyObject_CallMethod(reader,"close",NULL);
+        if(!closed)cleanup=PyErr_GetRaisedException();
+        Py_XDECREF(closed);
+    }
+    if(fd>=0) {
+        /* Never retry close after EINTR: the descriptor may already be gone. */
+        Py_BEGIN_ALLOW_THREADS
+        result=close(fd);saved=errno;
+        Py_END_ALLOW_THREADS
+        if(result<0&&!cleanup){errno=saved;PyErr_SetFromErrno(PyExc_OSError);cleanup=PyErr_GetRaisedException();}
+    }
+    if(pending){Py_XDECREF(cleanup);PyErr_SetRaisedException(pending);return -1;}
+    if(cleanup){PyErr_SetRaisedException(cleanup);return -1;}
+    return 0;
+}
+
+static int reader_fd(PyObject *reader,int expected) {
+    PyObject *value=PyObject_CallMethod(reader,"fileno",NULL);long actual;
+    if(!value)return -1;
+    actual=PyLong_AsLong(value);Py_DECREF(value);
+    if(actual==-1&&PyErr_Occurred())return -1;
+    if(actual!=expected){PyErr_SetString(PyExc_ValueError,"Owned reader descriptor changed");return -1;}
+    return expected;
+}
+
+static PyObject *read_file(PyObject *unused,PyObject *args) {
+    PyObject *kind_o,*name,*parents,*uid_o,*maximum_o,*executable_o,*opener,*reader_type;
+    PyObject *reader=NULL,*call_args=NULL,*keywords=NULL,*entered=NULL,*raw=NULL;
+    PyObject *before=NULL,*after=NULL,*result=NULL;
+    unsigned long long uid;long long maximum;long kind;Py_ssize_t i;int fd=-1,flags,r;
+    struct stat info;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOOOOOOO",&kind_o,&name,&parents,&uid_o,&maximum_o,&executable_o,&opener,&reader_type))return NULL;
+    if(!PyLong_CheckExact(kind_o)||!PyUnicode_CheckExact(name)||PyUnicode_GET_LENGTH(name)>8192 ||
+       !PyTuple_CheckExact(parents)||PyTuple_GET_SIZE(parents)>64||!PyBool_Check(executable_o)||
+       !PyCFunction_Check(opener)||!PyType_Check(reader_type))goto unsupported;
+    kind=PyLong_AsLong(kind_o);if(PyErr_Occurred())return NULL;
+    if(kind<0||kind>3)goto unsupported;
+    r=u64(uid_o,&uid);if(r<=0)goto unsupported;
+    r=i64(maximum_o,&maximum);if(r<=0)goto unsupported;
+    if(maximum<0||maximum>16777216||((kind==0||kind==1)&&maximum==0))goto unsupported;
+    if((kind!=1&&uid!=0)||(kind!=0&&executable_o!=Py_False)||(kind>=2&&PyTuple_GET_SIZE(parents)!=0))goto unsupported;
+    for(i=0;i<PyTuple_GET_SIZE(parents);i++) {
+        PyObject *parent=PyTuple_GET_ITEM(parents,i);
+        if(!PyUnicode_CheckExact(parent)||PyUnicode_GET_LENGTH(parent)>8192)goto unsupported;
+    }
+    if(++read_calls>10000000){PyErr_SetString(PyExc_RuntimeError,"Read probe counter bound");return NULL;}
+    for(i=0;i<PyTuple_GET_SIZE(parents);i++) {
+        if(fresh_lstat(PyTuple_GET_ITEM(parents,i),&info)<0)goto done;
+        if(!S_ISDIR(info.st_mode)||(kind==0&&(info.st_uid!=0||(info.st_mode&0022))))goto refused;
+    }
+    if(kind==1) {
+        if(fresh_lstat(name,&info)<0)goto done;
+        if(!S_ISREG(info.st_mode))goto refused;
+    }
+    flags=O_RDONLY|O_NOFOLLOW|O_CLOEXEC;
+    if(kind==1||kind==3)flags|=O_NONBLOCK;
+    fd=read_open(name,flags);if(fd<0)goto done;
+    call_args=Py_BuildValue("(is)",fd,"rb");keywords=Py_BuildValue("{sO}","closefd",Py_False);
+    if(!call_args||!keywords)goto done;
+    reader=PyObject_Call(opener,call_args,keywords);if(!reader)goto done;
+    if(!Py_IS_TYPE(reader,(PyTypeObject *)reader_type)) {
+        PyErr_SetString(PyExc_ValueError,"Unsupported owned buffered reader");goto done;
+    }
+    entered=PyObject_CallMethod(reader,"__enter__",NULL);if(!entered)goto done;
+    if(entered!=reader){PyErr_SetString(PyExc_ValueError,"Owned reader entry changed");goto done;}
+    if(kind<2) {
+        if(reader_fd(reader,fd)<0||fresh_fd(fd,&info)<0)goto done;
+        if(!S_ISREG(info.st_mode)||(unsigned long long)info.st_uid!=uid||info.st_nlink!=1||
+            info.st_size<=0||info.st_size>maximum ||
+            (kind==0?((info.st_mode&0022)!=0 || (executable_o==Py_True&&!(info.st_mode&0111))):
+                (info.st_mode&07777)!=0600))goto refused;
+        before=meta8(&info);if(!before)goto done;
+    } else {before=Py_NewRef(Py_None);after=Py_NewRef(Py_None);}
+    raw=PyObject_CallMethod(reader,"read","n",(Py_ssize_t)(maximum+1));if(!raw)goto done;
+    if(kind<2) {
+        if(reader_fd(reader,fd)<0||fresh_fd(fd,&info)<0)goto done;
+        after=meta8(&info);if(!after)goto done;
+    }
+    /* The original length, metadata equality, hash and ASCII checks occur
+     * after the same close boundary in the Python family wrapper. raw=None
+     * from a nonblocking reader is preserved for the original len error. */
+    result=PyTuple_Pack(3,raw,before,after);goto done;
+refused:result=Py_NewRef(Py_None);
+done:
+    if(close_read(reader,fd)<0)Py_CLEAR(result);
+    Py_XDECREF(reader);Py_XDECREF(call_args);Py_XDECREF(keywords);Py_XDECREF(entered);
+    Py_XDECREF(raw);Py_XDECREF(before);Py_XDECREF(after);return result;
+unsupported:if(PyErr_Occurred())return NULL;Py_RETURN_NOTIMPLEMENTED;
+}
+
+static PyObject *read_counts(PyObject *unused,PyObject *args) {
+    (void)unused;(void)args;
+    return Py_BuildValue("{sK,sK}","read",read_calls,"prepare",prepare_calls);
+}
+
+/* Convert only finite lexical tables from an exact original instance. Never
+ * call a data descriptor, custom attribute reader, or filesystem hook here.
+ * Unsupported schemas return before the persistent/custody observation API. */
+static PyObject *plain_fields(PyObject *subject,PyObject *expected,const char **fields) {
+    PyObject *mro,*dict;Py_ssize_t i,j;
+    if(!PyType_Check(expected)||!Py_IS_TYPE(subject,(PyTypeObject *)expected)||
+       Py_TYPE(subject)->tp_getattro!=PyObject_GenericGetAttr)return Py_NewRef(Py_NotImplemented);
+    mro=Py_TYPE(subject)->tp_mro;
+    for(i=0;fields[i];i++)for(j=0;j<PyTuple_GET_SIZE(mro);j++) {
+        dict=((PyTypeObject *)PyTuple_GET_ITEM(mro,j))->tp_dict;
+        if(PyDict_GetItemString(dict,fields[i]))return Py_NewRef(Py_NotImplemented);
+    }
+    dict=PyObject_GenericGetDict(subject,NULL);if(!dict)return NULL;
+    if(!PyDict_CheckExact(dict)){Py_DECREF(dict);return Py_NewRef(Py_NotImplemented);}
+    for(i=0;fields[i];i++)if(!PyDict_GetItemString(dict,fields[i])) {
+        Py_DECREF(dict);return Py_NewRef(Py_NotImplemented);
+    }
+    return dict;
+}
+static PyObject *lexical_path(PyObject *path,PyObject *path_type) {
+    PyObject *name;
+    if(!Py_IS_TYPE(path,(PyTypeObject *)path_type))return Py_NewRef(Py_NotImplemented);
+    name=PyObject_Str(path);if(!name)return NULL;
+    if(!PyUnicode_CheckExact(name)||PyUnicode_GET_LENGTH(name)>8192) {
+        Py_DECREF(name);return Py_NewRef(Py_NotImplemented);
+    }
+    return name;
+}
+static PyObject *path_rows(PyObject *source,PyObject *path_type,const char *spec,Py_ssize_t limit,int names) {
+    PyObject *result,*v,*name,*copy,*set,*tuple;Py_ssize_t i,j,n=(Py_ssize_t)strlen(spec);int r;
+    if(!PyTuple_CheckExact(source)||PyTuple_GET_SIZE(source)>limit)return Py_NewRef(Py_NotImplemented);
+    result=PyTuple_New(PyTuple_GET_SIZE(source));if(!result)return NULL;
+    for(i=0;i<PyTuple_GET_SIZE(source);i++) {
+        v=PyTuple_GET_ITEM(source,i);
+        if(!PyTuple_CheckExact(v)||PyTuple_GET_SIZE(v)!=n)goto unsupported;
+        name=lexical_path(PyTuple_GET_ITEM(v,0),path_type);
+        if(!name)goto error;
+        if(name==Py_NotImplemented){Py_DECREF(name);goto unsupported;}
+        copy=PyTuple_New(n);if(!copy){Py_DECREF(name);goto error;}
+        PyTuple_SET_ITEM(copy,0,name);
+        for(j=1;j<n;j++)PyTuple_SET_ITEM(copy,j,Py_NewRef(PyTuple_GET_ITEM(v,j)));
+        if(names) {
+            set=PyTuple_GET_ITEM(v,1);
+            if(!PyFrozenSet_CheckExact(set)||PySet_GET_SIZE(set)>1024){Py_DECREF(copy);goto unsupported;}
+            tuple=PySequence_Tuple(set);if(!tuple){Py_DECREF(copy);goto error;}
+            Py_DECREF(PyTuple_GET_ITEM(copy,1));PyTuple_SET_ITEM(copy,1,tuple);
+            for(j=0;j<PyTuple_GET_SIZE(tuple);j++)if(!PyUnicode_CheckExact(PyTuple_GET_ITEM(tuple,j))) {
+                Py_DECREF(copy);goto unsupported;
+            }
+        }
+        r=row(copy,spec);if(r<=0){Py_DECREF(copy);if(r<0)goto error;goto unsupported;}
+        PyTuple_SET_ITEM(result,i,copy);
+    }
+    return result;
+unsupported:Py_DECREF(result);return Py_NewRef(Py_NotImplemented);
+error:Py_DECREF(result);return NULL;
+}
+static PyObject *prepare_plan(PyObject *subject,PyObject *owner,PyObject *path_type) {
+    const char *fields[]={"uid","entries","directories","machine","files","parents",NULL};
+    PyObject *dict=plain_fields(subject,owner,fields),*entries=NULL,*dirs=NULL,*machine=NULL,*files=NULL,*parents=NULL,*result=NULL;
+    unsigned long long uid;int r;
+    if(!dict||dict==Py_NotImplemented)return dict;
+    r=u64(PyDict_GetItemString(dict,"uid"),&uid);if(r<=0)goto unsupported;
+    entries=path_rows(PyDict_GetItemString(dict,"entries"),path_type,"st",16,1);
+    if(!entries)goto done;
+    if(entries==Py_NotImplemented)goto unsupported;
+    dirs=path_rows(PyDict_GetItemString(dict,"directories"),path_type,"ssuuu",64,0);
+    if(!dirs)goto done;
+    if(dirs==Py_NotImplemented)goto unsupported;
+    machine=lexical_path(PyDict_GetItemString(dict,"machine"),path_type);
+    if(!machine)goto done;
+    if(machine==Py_NotImplemented)goto unsupported;
+    files=path_rows(PyDict_GetItemString(dict,"files"),path_type,"ssubnuu",64,0);
+    if(!files)goto done;
+    if(files==Py_NotImplemented)goto unsupported;
+    parents=path_rows(PyDict_GetItemString(dict,"parents"),path_type,"ssbb",256,0);
+    if(!parents)goto done;
+    if(parents==Py_NotImplemented)goto unsupported;
+    result=PyTuple_Pack(6,PyDict_GetItemString(dict,"uid"),entries,dirs,machine,files,parents);goto done;
+unsupported:if(!PyErr_Occurred())result=Py_NewRef(Py_NotImplemented);
+done:Py_DECREF(dict);Py_XDECREF(entries);Py_XDECREF(dirs);Py_XDECREF(machine);Py_XDECREF(files);Py_XDECREF(parents);return result;
+}
+static int descriptor(PyObject *value) {
+    unsigned long long fd;int r=u64(value,&fd);return r<=0?r:fd<=INT_MAX;
+}
+static PyObject *parent_descriptor(PyObject *directories,PyObject *path) {
+    PyObject *parent=PyObject_GetAttrString(path,"parent"),*item;
+    if(!parent)return NULL;
+    item=PyDict_GetItemWithError(directories,parent);Py_DECREF(parent);
+    if(!item){if(PyErr_Occurred())return NULL;return Py_NewRef(Py_NotImplemented);}
+    if(!PyTuple_CheckExact(item)||PyTuple_GET_SIZE(item)!=2)return Py_NewRef(Py_NotImplemented);
+    return Py_NewRef(PyTuple_GET_ITEM(item,0));
+}
+static PyObject *prepare_custody(PyObject *subject,PyObject *owner,PyObject *path_type) {
+    const char *fields[]={"uid","gid","root","directory","lock_path","directories","known","retained","entries","directory_metadata","lock",NULL};
+    PyObject *dict=plain_fields(subject,owner,fields),*directories,*known,*retained,*entries,*metadata;
+    PyObject *rows_o=NULL,*leaves=NULL,*lock=NULL,*path,*item,*original,*extra,*names;
+    PyObject *name=NULL,*parent=NULL,*temp=NULL,*result=NULL,*v;Py_ssize_t pos=0,i=0;unsigned long long uid,gid;int r,equal;
+    if(!dict||dict==Py_NotImplemented)return dict;
+    r=u64(PyDict_GetItemString(dict,"uid"),&uid);if(r<=0)goto unsupported;
+    r=u64(PyDict_GetItemString(dict,"gid"),&gid);if(r<=0)goto unsupported;
+    for(i=2;i<5;i++) {
+        temp=lexical_path(PyDict_GetItemString(dict,fields[i]),path_type);
+        if(!temp)goto done;
+        if(temp==Py_NotImplemented)goto unsupported;
+        Py_CLEAR(temp);
+    }
+    directories=PyDict_GetItemString(dict,"directories");known=PyDict_GetItemString(dict,"known");
+    retained=PyDict_GetItemString(dict,"retained");entries=PyDict_GetItemString(dict,"entries");metadata=PyDict_GetItemString(dict,"directory_metadata");
+    if(!PyDict_CheckExact(directories)||PyDict_GET_SIZE(directories)>256 || !PyDict_CheckExact(known)||PyDict_GET_SIZE(known)>1024 ||
+       !PyDict_CheckExact(retained)||!PyDict_CheckExact(metadata)||(entries!=Py_None&&!PyDict_CheckExact(entries)))goto unsupported;
+    rows_o=PyTuple_New(PyDict_GET_SIZE(directories));leaves=PyTuple_New(PyDict_GET_SIZE(known));if(!rows_o||!leaves)goto done;
+    i=0;
+    while(PyDict_Next(directories,&pos,&path,&item)) {
+        if(!Py_IS_TYPE(path,(PyTypeObject *)path_type)||!PyTuple_CheckExact(item)||PyTuple_GET_SIZE(item)!=2)goto unsupported;
+        r=descriptor(PyTuple_GET_ITEM(item,0));if(r<=0)goto unsupported;
+        original=PyTuple_GET_ITEM(item,1);r=row(original,"uuuuunn");if(r<=0)goto unsupported;
+        equal=PyObject_RichCompareBool(path,PyDict_GetItemString(dict,"directory"),Py_EQ);if(equal<0)goto done;
+        if(equal){parent=Py_NewRef(Py_None);name=lexical_path(path,path_type);}
+        else {
+            parent=parent_descriptor(directories,path);if(!parent)goto done;
+            if(parent==Py_NotImplemented)goto unsupported;
+            r=descriptor(parent);if(r<=0)goto unsupported;
+            name=PyObject_GetAttrString(path,"name");
+        }
+        if(!name)goto done;
+        if(name==Py_NotImplemented)goto unsupported;
+        extra=entries==Py_None?Py_None:PyDict_GetItemWithError(metadata,path);
+        names=entries==Py_None?Py_None:PyDict_GetItemWithError(entries,path);
+        if(!extra||!names){if(PyErr_Occurred())goto done;goto unsupported;}
+        if(entries!=Py_None){r=row(extra,"uuuuuunnn");if(r<=0)goto unsupported;if(!strings(names,0))goto unsupported;}
+        v=PyTuple_Pack(6,name,parent,PyTuple_GET_ITEM(item,0),original,extra,names);if(!v)goto done;
+        r=row(v,"szutOL");if(r<=0){Py_DECREF(v);goto unsupported;}
+        PyTuple_SET_ITEM(rows_o,i++,v);Py_CLEAR(parent);Py_CLEAR(name);
+    }
+    pos=0;i=0;
+    while(PyDict_Next(known,&pos,&path,&original)) {
+        if(!Py_IS_TYPE(path,(PyTypeObject *)path_type))goto unsupported;
+        r=row(original,"uuuuuunnn");if(r<=0)goto unsupported;
+        parent=parent_descriptor(directories,path);if(!parent)goto done;
+        if(parent==Py_NotImplemented)goto unsupported;
+        r=descriptor(parent);if(r<=0)goto unsupported;
+        item=PyDict_GetItemWithError(retained,path);if(!item&&PyErr_Occurred())goto done;
+        if(item){r=descriptor(item);if(r<=0)goto unsupported;}else item=Py_None;
+        name=PyObject_GetAttrString(path,"name");if(!name)goto done;
+        v=PyTuple_Pack(4,name,parent,original,item);if(!v)goto done;
+        r=row(v,"sutz");if(r<=0){Py_DECREF(v);goto unsupported;}
+        PyTuple_SET_ITEM(leaves,i++,v);Py_CLEAR(parent);Py_CLEAR(name);
+    }
+    item=PyDict_GetItemString(dict,"lock");
+    if(item==Py_None)lock=Py_NewRef(Py_None);
+    else {
+        r=descriptor(item);if(r<=0)goto unsupported;
+        original=PyDict_GetItemWithError(known,PyDict_GetItemString(dict,"lock_path"));
+        if(!original){if(PyErr_Occurred())goto done;goto unsupported;}
+        r=row(original,"uuuuuunnn");if(r<=0)goto unsupported;
+        lock=PyTuple_Pack(2,item,original);if(!lock)goto done;
+    }
+    result=PyTuple_Pack(5,PyDict_GetItemString(dict,"uid"),PyDict_GetItemString(dict,"gid"),rows_o,leaves,lock);goto done;
+unsupported:if(!PyErr_Occurred())result=Py_NewRef(Py_NotImplemented);
+done:Py_DECREF(dict);Py_XDECREF(rows_o);Py_XDECREF(leaves);Py_XDECREF(lock);Py_XDECREF(name);Py_XDECREF(parent);Py_XDECREF(temp);return result;
+}
+static PyObject *prepare_tables(PyObject *unused,PyObject *args) {
+    PyObject *kind_o,*subject,*owner,*path_type,*result;long kind;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOOO",&kind_o,&subject,&owner,&path_type))return NULL;
+    if(!PyLong_CheckExact(kind_o)||!PyType_Check(path_type))Py_RETURN_NOTIMPLEMENTED;
+    kind=PyLong_AsLong(kind_o);if(PyErr_Occurred())return NULL;
+    if(kind==0)result=prepare_plan(subject,owner,path_type);
+    else if(kind==1)result=prepare_custody(subject,owner,path_type);
+    else Py_RETURN_NOTIMPLEMENTED;
+    if(result&&result!=Py_NotImplemented&&++prepare_calls>10000000) {
+        Py_DECREF(result);PyErr_SetString(PyExc_RuntimeError,"Preparation probe counter bound");return NULL;
+    }
+    return result;
+}
+
 static PyObject *persistent(PyObject *unused,PyObject *args) {
     PyObject *uid_o,*entries,*dirs,*machine,*files,*parents,*listdir,*result=NULL;
     unsigned long long uid;Py_ssize_t i,j;int r;struct stat info;(void)unused;
@@ -398,9 +701,14 @@ static PyObject *same_bindings(PyObject *unused,PyObject *args) {
                 PyErr_SetString(PyExc_TypeError,"Unsupported metadata function binding");return NULL;
             }
             current=Py_NewRef(PyFunction_GetCode(owner));
-        } else current=PyObject_GetItem(owner,PyTuple_GET_ITEM(v,1));
-        if(!current){if(PyErr_ExceptionMatches(PyExc_KeyError)){PyErr_Clear();Py_RETURN_FALSE;}return NULL;}
-        r=current==PyTuple_GET_ITEM(v,2);Py_DECREF(current);if(!r)Py_RETURN_FALSE;
+        } else if(PyType_Check(owner))current=PyObject_GetAttr(owner,PyTuple_GET_ITEM(v,1));
+        else current=PyObject_GetItem(owner,PyTuple_GET_ITEM(v,1));
+        if(!current){if(PyErr_ExceptionMatches(PyExc_KeyError)||PyErr_ExceptionMatches(PyExc_AttributeError)){PyErr_Clear();Py_RETURN_FALSE;}return NULL;}
+        if(PyType_Check(owner)&&PyMethod_Check(current)&&PyMethod_Check(PyTuple_GET_ITEM(v,2))) {
+            PyObject *expected=PyTuple_GET_ITEM(v,2);
+            r=PyMethod_GET_FUNCTION(current)==PyMethod_GET_FUNCTION(expected)&&PyMethod_GET_SELF(current)==PyMethod_GET_SELF(expected);
+        } else r=current==PyTuple_GET_ITEM(v,2);
+        Py_DECREF(current);if(!r)Py_RETURN_FALSE;
     }
     Py_RETURN_TRUE;
 unsupported:if(PyErr_Occurred())return NULL;PyErr_SetString(PyExc_TypeError,"Invalid metadata hook bindings");return NULL;
@@ -410,6 +718,9 @@ static PyObject *counts(PyObject *unused,PyObject *args) {
     return Py_BuildValue("{sK,sK,sK}","fingerprint",fingerprint_calls,"persistent",plan_calls,"custody",custody_calls);
 }
 static PyMethodDef methods[]={
+    {"prepare_tables",prepare_tables,METH_VARARGS,"Finite ephemeral lexical argument preparation; no observations."},
+    {"read_file",read_file,METH_VARARGS,"Fresh complete Root/private/raw reads; no retained observations."},
+    {"read_counts",read_counts,METH_NOARGS,"Bounded complete-read diagnostic counts."},
     {"fingerprint",fingerprint,METH_VARARGS,"Fresh ordered Root file metadata."},
     {"persistent",persistent,METH_VARARGS,"Fresh fixed persistent metadata; no retained observations."},
     {"custody",custody,METH_VARARGS,"Fresh held and named Root custody metadata."},

@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import io
 import os
+import pathlib
 import pstats
 from pathlib import Path
 import shutil
@@ -25,8 +26,13 @@ class FakeNative:
     def __init__(self):self.values={'fingerprint':0,'persistent':0,'custody':0}
     def counts(self):return dict(self.values)
     def same_bindings(self,bindings,*_):
-        return all((namespace.__code__ if type(namespace) is types.FunctionType and key=='__code__'
-            else namespace.get(key)) is value for namespace,key,value in bindings)
+        for namespace,key,value in bindings:
+            current=(namespace.__code__ if type(namespace) is types.FunctionType and key=='__code__'
+                else getattr(namespace,key) if isinstance(namespace,type) else namespace.get(key))
+            if type(current) is types.MethodType and type(value) is types.MethodType:
+                if current.__func__ is not value.__func__ or current.__self__ is not value.__self__:return False
+            elif current is not value:return False
+        return True
     def fingerprint(self,*_):
         self.values['fingerprint']+=1
         return (1,2,3,4,5,0,0o100600,1),(('parent',1,2,0,0o40700),)
@@ -104,6 +110,15 @@ class AdapterTest(unittest.TestCase):
         cls=self.modules[2]._PersistentFingerprintPlan;subject=cls()
         with self.adapter.installed():self.assertEqual(subject.read(),{'original':True})
         self.assertEqual(self.native.counts()['persistent'],0);self.assertEqual(self.adapter.fallbacks['persistent'],1)
+    def test_sdk_global_and_concrete_path_hook_changes_fall_back_before_native(self):
+        with self.adapter.installed():
+            with patch.object(pathlib,'os',Mock(wraps=os)):
+                self.assertFalse(self.adapter.eligible())
+                self.assertEqual(self.modules[0]._CapturedRootFiles._fingerprint('/synthetic',7,False)[1:],(7,False))
+            with patch.object(self.adapter.path_type,'stat',Mock()):
+                self.assertFalse(self.adapter.eligible())
+                self.assertEqual(self.modules[0]._CapturedRootFiles._fingerprint('/synthetic',8,False)[1:],(8,False))
+        self.assertEqual(self.native.counts()['fingerprint'],0);self.assertEqual(self.adapter.fallbacks['root_files'],2)
     def test_in_place_metadata_code_change_falls_back_before_native(self):
         fn=Path.stat;original=fn.__code__
         def altered(self,*,follow_symlinks=True):raise KeyboardInterrupt('metadata hook')
@@ -546,6 +561,23 @@ class HostedMetadataTest(unittest.TestCase):
         with a.installed(),patch.object(Path,'lstat',side_effect=failure):
             with self.assertRaises(KeyboardInterrupt) as caught:service._CapturedRootFiles._fingerprint('/synthetic',4096,False)
         self.assertIs(caught.exception,failure);self.assertGreater(a.fallbacks['root_files'],0)
+    def test_native_sdk_global_and_effective_concrete_hook_changes_preserve_original_error(self):
+        service=self.loaded.modules[0];a=self.adapter();failure=KeyboardInterrupt('original SDK hook')
+        class ChangedOS:
+            def __getattr__(self,name):return getattr(os,name)
+            stat=Mock(side_effect=failure)
+        before=self.loaded.native.counts()
+        with a.installed():
+            with patch.object(pathlib,'os',ChangedOS()):
+                self.assertFalse(a.eligible())
+                with self.assertRaises(KeyboardInterrupt) as caught:service._CapturedRootFiles._fingerprint('/synthetic',4096,False)
+                self.assertIs(caught.exception,failure)
+            with patch.object(a.path_type,'stat',side_effect=failure):
+                self.assertFalse(a.eligible())
+                with self.assertRaises(KeyboardInterrupt) as caught:service._CapturedRootFiles._fingerprint('/synthetic',4096,False)
+                self.assertIs(caught.exception,failure)
+        self.assertEqual(self.loaded.native.counts(),before);self.assertEqual(a.fallbacks['root_files'],2)
+        self.loaded.validate()
     def test_code_custody_is_reread_after_comparison(self):
         path=self.root/'native-metadata-probe.c';raw=path.read_bytes()
         try:

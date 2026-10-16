@@ -37,7 +37,7 @@ import urllib.request
 import socket
 import ssl
 import root_runtime_probe
-import native_metadata_probe
+import native_read_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -1814,13 +1814,13 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         # justify production timing acceptance or change the response deadline.
         measurements = RootStageMeasurements()
         from native_root_artifact_dispatch import _ObservedArtifactStage
-        metadata = native_metadata_probe.Loaded(Path(seed['release']).parent/'native-metadata-probe')
-        comparison = native_metadata_probe.AtFirstGuardProfile(metadata,_ObservedArtifactStage,measurements)
+        metadata = native_read_probe.Loaded(Path(seed['release']).parent/'native-metadata-probe')
+        comparison = native_read_probe.AtFirstGuard(metadata,_ObservedArtifactStage,measurements)
         try:
             with comparison:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if comparison.result is not None:seed['native_metadata_profile'] = comparison.result
+            if comparison.result is not None:seed['native_fresh_read_comparison'] = comparison.result
             seed['root_stage_measurements'] = measurements.values()
             seed['root_guard_cpu'] = measurements.cpu.values()
             sample = measurements.sample.values()
@@ -2259,7 +2259,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
         **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
-        **({'native_metadata_profile':seed['native_metadata_profile']} if seed.get('native_metadata_profile') is not None else {}),
+        **({'native_fresh_read_comparison':seed['native_fresh_read_comparison']} if seed.get('native_fresh_read_comparison') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2299,8 +2299,8 @@ def preflight(args):
     extra = [workspace / 'tools/ci' / name for name in ('native-owned-manager.py', 'native-owned-worker.exs', 'native-successor-manager.py')]
     extra += [workspace / 'tools/deployment' / name for name in module_closure(workspace / 'tools/deployment')]
     extra += [workspace / '.gitgood/native-web-product', workspace / 'docs/deployment/Caddyfile.example']
-    extra += [workspace/'tools/ci'/name for name in native_metadata_probe.HELPERS]
-    extra += [workspace/'.gitgood/native-metadata-probe'/name for name in ('manifest.json',native_metadata_probe.extension_name())]
+    extra += [workspace/'tools/ci'/name for name in native_read_probe.HELPERS]
+    extra += [workspace/'.gitgood/native-metadata-probe'/name for name in ('manifest.json',native_read_probe.metadata.extension_name())]
     total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git"), *extra])
     require(total <= COPY_LIMIT, "bounded copy preflight")
     # Include the private runtime copy and complete archive/output staging;
@@ -2364,9 +2364,9 @@ def main(args):
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
         phase = 'copy-fresh-native-metadata-diagnostic'
         metadata_directory = runtime/'native-metadata-probe';metadata_directory.mkdir(mode=0o755)
-        for name in native_metadata_probe.HELPERS:
+        for name in native_read_probe.HELPERS:
             copy_runtime(workspace/'tools/ci'/name,metadata_directory/name)
-        for name in ('manifest.json',native_metadata_probe.extension_name()):
+        for name in ('manifest.json',native_read_probe.metadata.extension_name()):
             copy_runtime(workspace/'.gitgood/native-metadata-probe'/name,metadata_directory/name)
         phase = "relocate-private-postgresql-client"
         receipt["postgresql_client_relocation"] = relocate_postgresql_client(runtime)
@@ -2560,8 +2560,8 @@ def main(args):
                 receipt['failure']['root_guard_cpu'] = seed['root_guard_cpu']
             if seed.get('root_guard_sample') is not None:
                 receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
-            if seed.get('native_metadata_profile') is not None:
-                receipt['failure']['native_metadata_profile'] = seed['native_metadata_profile']
+            if seed.get('native_fresh_read_comparison') is not None:
+                receipt['failure']['native_fresh_read_comparison'] = seed['native_fresh_read_comparison']
             if seed.get('root_stage_refusal') is not None:
                 receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
             if seed.get('archive_member_metrics') is not None:

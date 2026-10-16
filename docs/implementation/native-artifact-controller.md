@@ -544,8 +544,8 @@ A native error or failed predicate refuses without a Python retry. The adapter
 retains all four original classes and restores all four method descriptors after
 each prototype pair, interruption or partial installation.
 
-Thirty-five cases include portable admission, refusal, interruption, alternation,
-profile redaction and restoration checks. Fourteen require actual Linux Root, including all 372
+The follow-up suite has thirty-seven cases for admission, refusal, interruption,
+alternation, profile redaction and restoration. Fifteen require actual Linux Root, including all 372
 unchanged original Root cases and dedicated ordinary-owned history resources
 with real held descriptors, rebinding/loss, metadata/entry mutation, restored
 mtime and separate observation passes. These hosted cases remain pending.
@@ -565,7 +565,8 @@ function object. Final code custody is checked before invoking metadata hooks.
 A present retained-history entry with a `None` descriptor is unsupported and
 uses the original body before native observation; it cannot be treated as an
 absent retained entry. Regressions cover both portable admission and actual Linux
-Root error/custody behavior. Hosted verification of this repair remains pending.
+Root error/custody behavior. Both repairs subsequently passed hosted verification
+with the 35-case sampling candidate and all 372 original Root cases.
 
 The first metadata candidate passed all 21 cases and all 372 original Root cases
 with the adapter active. Exact review verified all 59 installed production hashes,
@@ -580,7 +581,7 @@ without adding guard calls, profiling effects or repeating an unchanged rejected
 timing comparison. A fresh benefit comparison and complete uninstrumented
 staging/runtime remain required for any later adoption proposal.
 
-The next diagnostic enables the metadata adapter only within the existing
+The guard-ten diagnostic enables the metadata adapter only within the existing
 read-only guard-ten profile. It starts the original measurements at the first
 guard, makes no extra guard call and restores the four original descriptors
 before the next effect or guard. It does not repeat the rejected paired timing
@@ -595,5 +596,63 @@ their values. The original guard-ten profile, seventeen method timers, CPU
 scope, production reads, archive and deadlines remain intact. Nine portable
 regressions and one actual Linux Root sample case cover exact guard count,
 interruption/error identity, complete restoration, profiler-label admission,
-private-data exclusion and deterministic bounds. Hosted sample evidence remains
-pending; diagnostic timing cannot establish full-stage deadline acceptance.
+private-data exclusion and deterministic bounds. Exact hosted review of candidate
+1946ce1 verified all 35 cases, all 372 original Root cases, 59 installed source
+hashes, 82 ownership fixtures and retained regression scopes. The sample ran once
+with no extra guard, all four families active, zero fallback and complete
+restoration. Its native admission scan used 935 microseconds, custody argument
+construction 927 microseconds, and the profiled guard 41922 microseconds. These
+costs overlap and do not establish uninstrumented timing. Full staging failed at
+240088 ms with no output checks; the full archive and deadlines are unchanged.
+
+Portable characterization then exposed SDK admission gaps for rebinding
+`pathlib.os` and overriding the concrete path class's metadata methods. The local
+repair checks those globals and effective concrete-class attributes, normalizing
+bound class methods by their original function and owner. Its 37-case suite has
+22 portable passes and fifteen Linux Root cases pending. This repair is not
+covered by the earlier hosted result. The next experiment must cover complete
+fresh file reads and argument preparation across the filesystem path; reducing
+admission checks alone is insufficient evidence for the unchanged whole-guard
+benefit gate. The earlier hosted result does not verify the following extension.
+
+The diagnostic now includes the four distinct complete-read roles in
+`native_service_scope.root_file`, `native_durable_binding.private_file`,
+`native_service_scope.read_bytes` and `native_kernel_backend._read`, alongside
+the four metadata roles. The C reader retains each role's original ancestor,
+leaf, open flags, buffered maximum-plus-one read, before/after metadata and close
+boundary. Hashing, returned records, size predicates and kernel ASCII conversion
+remain after that boundary. A borrowed buffered wrapper leaves the C backend
+responsible for closing its one opened descriptor even if construction or an
+audit hook fails. It does not merge fingerprint and content observations.
+
+Finite C preparation converts the original persistent and custody instances into
+ephemeral lexical argument tables. It refuses unsupported shapes, custom
+attribute readers and class data descriptors before filesystem observations.
+No observed metadata or validation result is cached. Per-role admission checks
+the relevant live SDK globals, concrete path attributes, helper identities and
+Python code objects on every call. Unsupported inputs fall back before native
+observations; native errors and refusals never retry. Every original class stays
+in place, and direct aliases in installed modules are restored after each sample,
+including aliases first imported during a check. A restoration failure poisons
+the adapter while preserving an already pending exception.
+
+The existing hosted workflow retains the 37 metadata regressions and adds the
+complete-read suite. Its portable cases cover return shapes, post-close size and
+ASCII predicates, fallback boundaries, error identity, native preparation,
+partial installation, alias restoration, poisoning and exact alternating pairs.
+Linux Root cases require actual C execution for file/link/owner/mode/size
+refusals, replacement and restored timestamps, descriptor construction and audit
+errors, source/hook mutation, table equivalence and all 372 original Root cases.
+The portable post-close metadata-mismatch fixture supplies a changed after-record;
+it is not evidence of a concurrent kernel mutation. Native API replacement must
+fall back before observations and fail the final code-custody check.
+
+Before existing timers, CPU measurements, guard-ten profiling and effects, the
+new backend compares 20 alternating unprofiled whole-guard pairs with the same
+original actors. All eight roles and all five native counters must be positive,
+with zero fallback and complete restoration between baselines and before the
+original stage. The benefit gate remains a median ratio at most 0.80 and at least
+18 of 20 faster pairs. Compilation, actual Linux semantics and benefit are still
+pending; no adoption or staging success is claimed. Full uninstrumented output,
+the staged normal runtime, listener provisioning, interruption reconciliation,
+installation and actual replacement restoration remain required.

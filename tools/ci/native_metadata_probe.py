@@ -47,6 +47,7 @@ def functions(code):
 
 
 def raw_function(value):
+    if type(value) is types.MethodType:return value.__func__
     if type(value) in {staticmethod,classmethod}:return value.__func__
     if type(value) is property:return value.fget
     return value
@@ -160,6 +161,11 @@ class Adapter:
                 (self.lifecycle,('Path','os','stat','require','root_owner','private_directory','directory_identity','_within_root_observation_pass','_RootReadOnlyCustody'))):
             capture(module,names)
         capture(custody_owner,('_file','_names','_directory_metadata'))
+        capture(pathlib,('os','Path','PurePath','PosixPath','WindowsPath'))
+        for name in ('stat','lstat','resolve','iterdir','__init__','__new__','__str__','__fspath__',
+                'name','parent','parents','parts','anchor','is_absolute','with_segments','_parse_path',
+                '_load_parts','_from_parsed_parts','_format_parsed_parts','_flavour'):
+            self.bindings.append((self.path_type,name,getattr(self.path_type,name)))
         identity=self.lifecycle.directory_identity
         if type(identity) is types.FunctionType:
             for name in ('require','stat'):
@@ -195,37 +201,37 @@ class Adapter:
 
         @wraps(original_root)
         def root_files(path,maximum,executable):
-            if not self.eligible() or type(path) not in {str,self.path_type} or type(maximum) is not int or not 0<maximum<2**63 or type(executable) is not bool:
+            if not self.eligible('root_files') or type(path) not in {str,self.path_type} or type(maximum) is not int or not 0<maximum<2**63 or type(executable) is not bool:
                 return fallback('root_files',original_root,path,maximum,executable)
             path=self.service._root_file_path(path)
             if len(str(path))>8192 or len(path.parts)>64:return fallback('root_files',original_root,path,maximum,executable)
             parents=tuple(name for _parent,name in self.service._root_file_parents(path))
             self.count('root_files');value=native.fingerprint(str(path),parents,maximum,executable)
-            self.service.require(value is not None);self.after();return value
+            self.service.require(value is not None);self.after('root_files');return value
 
         @wraps(original_exec)
         def executables(raw):
-            if not self.eligible() or type(raw) not in {str,self.path_type}:return fallback('executables',original_exec,raw)
+            if not self.eligible('executables') or type(raw) not in {str,self.path_type}:return fallback('executables',original_exec,raw)
             path=self.binding.Path(raw).resolve(strict=True)
             if len(str(path))>8192 or len(path.parts)>64:return fallback('executables',original_exec,raw)
             self.count('executables')
             value=native.fingerprint(str(path),tuple(str(parent) for parent in path.parents),268435456,True)
-            self.binding.require(value is not None);self.after()
+            self.binding.require(value is not None);self.after('executables')
             return str(path),value[0],value[1]
 
         @wraps(original_plan)
         def persistent(subject):
-            if not self.eligible() or type(subject) is not plan_owner:return fallback('persistent',original_plan,subject)
+            if not self.eligible('persistent') or type(subject) is not plan_owner:return fallback('persistent',original_plan,subject)
             try:arguments=self.plan_arguments(subject)
             except (Unsupported,AttributeError):return fallback('persistent',original_plan,subject)
             before=native.counts();value=native.persistent(*arguments,os.listdir)
             if value is NotImplemented:
                 require(native.counts()==before);return fallback('persistent',original_plan,subject)
-            self.count('persistent');self.generation.require(value is not None);self.after();return value
+            self.count('persistent');self.generation.require(value is not None);self.after('persistent');return value
 
         @wraps(self.original_custody_body)
         def custody(subject):
-            if not self.eligible() or type(subject) is not custody_owner or any(
+            if not self.eligible('custody') or type(subject) is not custody_owner or any(
                     key in vars(subject) for key in ('_file','_names','_directory_metadata')):
                 return fallback('custody',self.original_custody_body,subject)
             if vars(subject).get('usable') is not True or vars(subject).get('owner')!=self.owner:
@@ -241,7 +247,7 @@ class Adapter:
                 # is completed before any original observation below.
                 raise ValueError('Admitted custody arguments were unsupported')
             require(native.counts()!=before);self.count('custody')
-            self.lifecycle.require(value is True);self.after()
+            self.lifecycle.require(value is True);self.after('custody')
 
         wrapped_custody=self.lifecycle._within_root_observation_pass(custody)
         self.entries=((service_owner,'_fingerprint',originals[0],staticmethod(root_files)),
@@ -251,13 +257,13 @@ class Adapter:
     def count(self,name):
         self.calls[name]+=1;require(self.calls[name]<=10000000)
 
-    def eligible(self):
+    def eligible(self,family=None):
         return self.native.same_bindings(self.bindings,*self.owner)
 
-    def after(self):
+    def after(self,family=None):
         # A failed admission after native observations is a refusal, never a
         # reason to retry through Python.
-        require(self.eligible())
+        require(self.eligible(family))
 
     def path(self,value):
         if type(value) is not self.path_type:raise Unsupported()
