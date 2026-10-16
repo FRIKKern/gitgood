@@ -589,6 +589,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Preserve exact Linux controller-lock access checks on runtimes without O_ACCMODE and verify the full descriptor scope under both hosted interpreters.
   Sources: [details 1](docs/implementation/native-root-controller-request.md), [details 2](tools/deployment/native_root_controller_request.py), [details 3](tools/deployment/test_native_root_controller_request.py)
 
+- Preserve descriptor-bound helper-loss injection in the hosted runtime trial when Python pidfd functions are unavailable, with owned-child tests under both interpreters.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/root_runtime_probe.py), [details 3](tools/ci/root-runtime-pidfd-test.py)
+
 - Require native ownership startup to match its clean compiled build candidate to the Root seal before database lease acquisition and publication.
   Sources: [details 1](docs/implementation/native-ownership-startup.md), [details 2](apps/forge/lib/gitgood/native_ownership_startup.ex)
 

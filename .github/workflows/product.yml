@@ -226,6 +226,8 @@ jobs:
           set -euo pipefail
           sudo -n "$GITGOOD_PYTHON" -B tools/ci/root-runtime-test.py
           "$GITGOOD_PYTHON" -B tools/ci/root-runtime-failure-test.py
+          sudo -n env "GITHUB_ACTIONS=$GITHUB_ACTIONS" "RUNNER_ENVIRONMENT=$RUNNER_ENVIRONMENT" \
+            "$GITGOOD_PYTHON" -B tools/ci/root-runtime-pidfd-test.py
           sudo -n env \
             "GITHUB_ACTIONS=$GITHUB_ACTIONS" \
             "RUNNER_ENVIRONMENT=$RUNNER_ENVIRONMENT" \
@@ -235,6 +237,8 @@ jobs:
         run: |
           set -euo pipefail
           sudo -n "$GITGOOD_ROOT_PROBE_PYTHON" -B tools/ci/root-runtime-failure-test.py
+          sudo -n env "GITHUB_ACTIONS=$GITHUB_ACTIONS" "RUNNER_ENVIRONMENT=$RUNNER_ENVIRONMENT" \
+            "$GITGOOD_ROOT_PROBE_PYTHON" -B tools/ci/root-runtime-pidfd-test.py
           for module in \
             test_native_protected_artifact test_native_root_lifecycle test_native_root_controller_request test_native_root_artifact_policy \
             test_native_artifact_controller test_native_root_artifact_dispatch test_native_artifact_canonical_paths \

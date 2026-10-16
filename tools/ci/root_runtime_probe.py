@@ -1,4 +1,5 @@
 """Pinned Root-interpreter experiment, only on a disposable hosted runner."""
+import ctypes
 import hashlib
 import itertools
 import json
@@ -8,6 +9,7 @@ import platform
 import posixpath
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -44,6 +46,32 @@ def root_directory(path):
     for parent in (path, *path.parents):
         info = parent.lstat()
         require(stat.S_ISDIR(info.st_mode) and info.st_uid == info.st_gid == 0 and not info.st_mode & 0o022)
+
+
+def _pidfd_call(name, arguments, types):
+    """The same Linux pidfd operation, only in the fixed hosted diagnostic."""
+    host()
+    library = ctypes.CDLL('libc.so.6', use_errno=True)
+    function = getattr(library, name);function.argtypes = types;function.restype = ctypes.c_int
+    result = function(*arguments)
+    if result < 0:
+        number = ctypes.get_errno();raise OSError(number, os.strerror(number))
+    return result
+
+
+def pidfd_open(pid):
+    require(type(pid) is int and 0 < pid < 2**31)
+    native = getattr(os, 'pidfd_open', None)
+    if native is not None:return native(pid, 0)
+    return _pidfd_call('pidfd_open', (pid, 0), [ctypes.c_int, ctypes.c_uint])
+
+
+def pidfd_sigkill(descriptor):
+    require(type(descriptor) is int and 0 <= descriptor < 1048576)
+    native = getattr(signal, 'pidfd_send_signal', None)
+    if native is not None:return native(descriptor, signal.SIGKILL)
+    require(_pidfd_call('pidfd_send_signal', (descriptor, signal.SIGKILL, None, 0),
+        [ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint]) == 0)
 
 
 def members(source):

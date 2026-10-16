@@ -278,3 +278,14 @@ source paths are traced; paths, exception messages, arguments and locals are
 absent from the receipt. An existing trace is never displaced, and trace state
 is restored on exit. The repeated diagnostic cannot pass the failed gate or
 run the dependent full staging proof, even if the repeated scope passes.
+
+The diagnostic's helper-loss injection retains its original pidfd custody and
+PID/birth/UID/parent/cgroup and live-state checks before signalling. If the
+interpreter omits Python's pidfd functions, a hosted-only bridge invokes the
+same libc `pidfd_open` and `pidfd_send_signal` operations with fixed zero flags
+and `SIGKILL`; it never substitutes a PID-based signal. Native API failures
+propagate without retry through libc, and the original descriptor always closes.
+Both interpreters test actual owned child identities, close-on-exec, unrelated
+child survival, dead targets and closed descriptors, including the forced libc
+path. This is a fixture compatibility bridge and changes no production module,
+stage guard, operation deadline or recovery acceptance requirement.

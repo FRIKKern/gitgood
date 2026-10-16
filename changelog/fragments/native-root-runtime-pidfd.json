@@ -1,0 +1,9 @@
+{
+  "id": "native-root-runtime-pidfd",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Preserve descriptor-bound helper-loss injection in the hosted runtime trial when Python pidfd functions are unavailable, with owned-child tests under both interpreters.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/ci/root_runtime_probe.py", "tools/ci/root-runtime-pidfd-test.py"],
+  "withdrawn": false
+}

@@ -1008,12 +1008,12 @@ def capture_default_attachment(seed, launched, config, database, server_scope):
 def inject_loss(label, captured, session, database):
     if label == "helper-loss":
         helper = captured["helper"]
-        descriptor = os.pidfd_open(helper["pid"], 0)
+        descriptor = root_runtime_probe.pidfd_open(helper["pid"])
         try:
             current = process(helper["pid"])
             require(all(current[name] == helper[name] for name in ["pid", "birth", "uid", "parent", "cgroup"]))
             require(current["state"] not in ["Z", "X"])
-            signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+            root_runtime_probe.pidfd_sigkill(descriptor)
         finally:
             os.close(descriptor)
     elif label == "marker-permission-loss":
