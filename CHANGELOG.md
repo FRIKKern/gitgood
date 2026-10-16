@@ -449,7 +449,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py), [details 3](tools/deployment/test_native_systemd_properties.py)
 
-- Reject the identity-query candidate's 1.206218 guard ratio and prepare an original-SDK code context for lexical work inside complete native observation roles; C role dispatch and hosted benefit remain unimplemented and unverified.
+- Prepare lexical arguments inside all eight C observation roles while retaining original SDK methods, closed default and parent contracts, and the unchanged whole-guard benefit gate; hosted compilation, semantics and benefit remain unverified.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_role_probe.py), [details 3](tools/ci/native-role-test.py), [details 4](tools/ci/native_path_probe.py)
 
 - Share the original Root reader's validated private configuration only within each existing read-only observation pass. Keep fresh next-pass and standalone observations, full metadata fingerprints, original SQL/client/socket/history checks and every staging effect boundary. Require actual filesystem and full staged-runtime evidence.

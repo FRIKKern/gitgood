@@ -39,6 +39,7 @@ import ssl
 import root_runtime_probe
 import native_read_probe
 import native_path_probe
+import native_role_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -1810,19 +1811,19 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         seed['proof_phase'] = 'original-root-read-only-observer-loss-checks'
         seed['root_reader_refusal_observation'] = root_reader_loss_checks(seed,database,server_scope)
         seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
-        # Compare the four-role pure lexical candidate on the original guard,
-        # then restore SDK descriptors, clear plans and revalidate custody before
+        # Compare complete C roles on the original guard, retaining SDK methods,
+        # then restore role entries, clear plans and revalidate custody before
         # original measurements/effects. Full staging and deadlines are unchanged.
         measurements = RootStageMeasurements()
         from native_root_artifact_dispatch import _ObservedArtifactStage
-        metadata = native_path_probe.Loaded(Path(seed['release']).parent/'native-metadata-probe')
+        metadata = native_role_probe.Loaded(Path(seed['release']).parent/'native-metadata-probe')
         diagnostic = native_path_probe.AtFirstGuard(metadata,_ObservedArtifactStage,measurements,
-            comparison=native_path_probe.compare_descriptor_guard)
+            comparison=native_role_probe.compare_guard)
         try:
             with diagnostic:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if diagnostic.result is not None:seed['native_descriptor_comparison'] = diagnostic.result
+            if diagnostic.result is not None:seed['native_role_comparison'] = diagnostic.result
             seed['root_stage_measurements'] = measurements.values()
             seed['root_guard_cpu'] = measurements.cpu.values()
             sample = measurements.sample.values()
@@ -2261,7 +2262,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
         **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
-        **({'native_descriptor_comparison':seed['native_descriptor_comparison']} if seed.get('native_descriptor_comparison') is not None else {}),
+        **({'native_role_comparison':seed['native_role_comparison']} if seed.get('native_role_comparison') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2301,7 +2302,7 @@ def preflight(args):
     extra = [workspace / 'tools/ci' / name for name in ('native-owned-manager.py', 'native-owned-worker.exs', 'native-successor-manager.py')]
     extra += [workspace / 'tools/deployment' / name for name in module_closure(workspace / 'tools/deployment')]
     extra += [workspace / '.gitgood/native-web-product', workspace / 'docs/deployment/Caddyfile.example']
-    extra += [workspace/'tools/ci'/name for name in native_path_probe.HELPERS]
+    extra += [workspace/'tools/ci'/name for name in native_role_probe.HELPERS]
     extra += [workspace/'.gitgood/native-metadata-probe'/name for name in ('manifest.json',native_read_probe.metadata.extension_name())]
     total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git"), *extra])
     require(total <= COPY_LIMIT, "bounded copy preflight")
@@ -2366,7 +2367,7 @@ def main(args):
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
         phase = 'copy-fresh-native-metadata-diagnostic'
         metadata_directory = runtime/'native-metadata-probe';metadata_directory.mkdir(mode=0o755)
-        for name in native_path_probe.HELPERS:
+        for name in native_role_probe.HELPERS:
             copy_runtime(workspace/'tools/ci'/name,metadata_directory/name)
         for name in ('manifest.json',native_read_probe.metadata.extension_name()):
             copy_runtime(workspace/'.gitgood/native-metadata-probe'/name,metadata_directory/name)
@@ -2562,8 +2563,8 @@ def main(args):
                 receipt['failure']['root_guard_cpu'] = seed['root_guard_cpu']
             if seed.get('root_guard_sample') is not None:
                 receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
-            if seed.get('native_descriptor_comparison') is not None:
-                receipt['failure']['native_descriptor_comparison'] = seed['native_descriptor_comparison']
+            if seed.get('native_role_comparison') is not None:
+                receipt['failure']['native_role_comparison'] = seed['native_role_comparison']
             if seed.get('root_stage_refusal') is not None:
                 receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
             if seed.get('archive_member_metrics') is not None:

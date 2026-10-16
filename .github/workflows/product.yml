@@ -261,6 +261,7 @@ jobs:
           sudo -n "$GITGOOD_PYTHON" -B tools/ci/native-read-test.py
           sudo -n "$GITGOOD_PYTHON" -B tools/ci/native-path-test.py
           sudo -n "$GITGOOD_PYTHON" -B tools/ci/native-descriptor-test.py
+          sudo -n "$GITGOOD_PYTHON" -B tools/ci/native-role-test.py
       - name: Verify protected native ownership on actual systemd
         # Adds complete production archive staging and content verification;
         # this hosted test budget does not alter production operation deadlines.

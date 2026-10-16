@@ -1114,11 +1114,11 @@ invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid lexical op
 #define DESC_BOUND 256
 typedef struct {PyObject *space,*keys;} DescWatch;
 typedef struct {
-    PyObject *fn,*code,*globals,*builtins,*closure;
+    PyObject *fn,*code,*globals,*builtins,*closure,*defaults,*kwdefaults,*kwitems;
     vectorcallfunc vectorcall;
 } DescFunction;
 typedef struct {
-    PyObject *cls,*mro;
+    PyObject *cls,*mro,*meta;
     getattrofunc get;setattrofunc set;newfunc new;allocfunc alloc;
 } DescType;
 typedef struct {PyObject *cell,*value;} DescCell;
@@ -1129,6 +1129,7 @@ typedef struct {
     DescType types[DESC_BOUND];DescCell cells[DESC_BOUND];
     Py_ssize_t nwatch,nfunction,ntype,ncell,nstarted;
     unsigned long long entries[4],fallbacks[4];
+    unsigned long long role_prepares[8],role_calls[8];
     int issued,bound,active,closed,dirty,watcher;
 } DescriptorPlan;
 /* One scope on the main interpreter. A failed/nested activation never replaces
@@ -1152,6 +1153,8 @@ static int desc_notification(PyDict_WatchEvent event,PyObject *space,PyObject *k
             p->dirty=1;return 0;
         }
         if(!key||!PyUnicode_CheckExact(key)){p->dirty=1;return 0;}
+        for(j=0;j<PyList_GET_SIZE(p->watched[i].keys);j++)
+            if(PyList_GET_ITEM(p->watched[i].keys,j)==Py_None){p->dirty=1;return 0;}
         for(j=0;j<PyList_GET_SIZE(p->watched[i].keys);j++)
             if(desc_name_equal(key,PyList_GET_ITEM(p->watched[i].keys,j))){p->dirty=1;return 0;}
         return 0;
@@ -1179,8 +1182,9 @@ static void desc_release_schema(DescriptorPlan *p) {
     for(i=0;i<p->nfunction;i++) {
         DescFunction *f=&p->functions[i];
         Py_CLEAR(f->fn);Py_CLEAR(f->code);Py_CLEAR(f->globals);Py_CLEAR(f->builtins);Py_CLEAR(f->closure);
+        Py_CLEAR(f->defaults);Py_CLEAR(f->kwdefaults);Py_CLEAR(f->kwitems);
     }
-    for(i=0;i<p->ntype;i++){Py_CLEAR(p->types[i].cls);Py_CLEAR(p->types[i].mro);}
+    for(i=0;i<p->ntype;i++){Py_CLEAR(p->types[i].cls);Py_CLEAR(p->types[i].mro);Py_CLEAR(p->types[i].meta);}
     for(i=0;i<p->ncell;i++){Py_CLEAR(p->cells[i].cell);Py_CLEAR(p->cells[i].value);}
     p->nwatch=p->nfunction=p->ntype=p->ncell=0;
     Py_CLEAR(p->modules);Py_CLEAR(p->spec_dict);
@@ -1202,14 +1206,17 @@ static int desc_owner(DescriptorPlan *p) {
 }
 static int desc_add_watch(DescriptorPlan *p,PyObject *space,PyObject *key) {
     Py_ssize_t i,j;DescWatch *w;
-    if(!PyDict_CheckExact(space)||!PyUnicode_CheckExact(key))goto invalid;
+    if(!PyDict_CheckExact(space)||(key!=Py_None&&!PyUnicode_CheckExact(key)))goto invalid;
     for(i=0;i<p->nwatch;i++)if(p->watched[i].space==space)break;
     if(i==p->nwatch) {
         if(i>=DESC_BOUND)goto invalid;
         w=&p->watched[p->nwatch++];w->space=Py_NewRef(space);w->keys=PyList_New(0);
         if(!w->keys)return -1;
     } else w=&p->watched[i];
-    for(j=0;j<PyList_GET_SIZE(w->keys);j++)if(desc_name_equal(key,PyList_GET_ITEM(w->keys,j)))return 0;
+    for(j=0;j<PyList_GET_SIZE(w->keys);j++) {
+        PyObject *old=PyList_GET_ITEM(w->keys,j);
+        if(old==key||(old!=Py_None&&key!=Py_None&&desc_name_equal(key,old)))return 0;
+    }
     if(PyList_GET_SIZE(w->keys)>=DESC_BOUND)goto invalid;
     return PyList_Append(w->keys,key);
 invalid:PyErr_SetString(PyExc_TypeError,"Invalid descriptor namespace schema");return -1;
@@ -1217,24 +1224,43 @@ invalid:PyErr_SetString(PyExc_TypeError,"Invalid descriptor namespace schema");r
 static int desc_add_type(DescriptorPlan *p,PyObject *cls) {
     Py_ssize_t i;DescType *t;PyTypeObject *c=(PyTypeObject *)cls;
     for(i=0;i<p->ntype;i++)if(p->types[i].cls==cls)return 0;
-    if(p->ntype>=DESC_BOUND||!PyType_Check(cls)||Py_TYPE(cls)!=&PyType_Type||
+    if(p->ntype>=DESC_BOUND||!PyType_Check(cls)||
         !c->tp_mro||!PyTuple_CheckExact(c->tp_mro)||PyTuple_GET_SIZE(c->tp_mro)>16) {
         PyErr_SetString(PyExc_TypeError,"Invalid descriptor type schema");return -1;
     }
     t=&p->types[p->ntype++];t->cls=Py_NewRef(cls);t->mro=Py_NewRef(c->tp_mro);
+    t->meta=Py_NewRef((PyObject *)Py_TYPE(cls));
     t->get=c->tp_getattro;t->set=c->tp_setattro;t->new=c->tp_new;t->alloc=c->tp_alloc;return 0;
 }
 static int desc_add_function(DescriptorPlan *p,PyObject *fn) {
-    Py_ssize_t i;DescFunction *f;PyFunctionObject *v=(PyFunctionObject *)fn;
+    Py_ssize_t i,j;DescFunction *f;PyFunctionObject *v=(PyFunctionObject *)fn;
     for(i=0;i<p->nfunction;i++)if(p->functions[i].fn==fn)return 0;
-    /* Every admitted SDK function has no default arguments. Reject unknown
-     * mutable default containers rather than snapshot their contents. */
-    if(p->nfunction>=DESC_BOUND||!PyFunction_Check(fn)||v->func_defaults||v->func_kwdefaults) {
+    if(p->nfunction>=DESC_BOUND||!PyFunction_Check(fn)) {
         PyErr_SetString(PyExc_TypeError,"Invalid descriptor function schema");return -1;
     }
     f=&p->functions[p->nfunction++];f->fn=Py_NewRef(fn);f->code=Py_NewRef(v->func_code);
     f->globals=Py_NewRef(v->func_globals);f->builtins=Py_NewRef(v->func_builtins);
-    f->closure=Py_XNewRef(v->func_closure);f->vectorcall=v->vectorcall;return 0;
+    f->closure=Py_XNewRef(v->func_closure);f->vectorcall=v->vectorcall;
+    f->defaults=Py_XNewRef(v->func_defaults);f->kwdefaults=Py_XNewRef(v->func_kwdefaults);
+    if(f->defaults) {
+        if(!PyTuple_CheckExact(f->defaults)||PyTuple_GET_SIZE(f->defaults)>16)goto invalid;
+        for(j=0;j<PyTuple_GET_SIZE(f->defaults);j++) {
+            PyObject *d=PyTuple_GET_ITEM(f->defaults,j);
+            if(d!=Py_None&&!PyBool_Check(d)&&!PyLong_CheckExact(d)&&!PyUnicode_CheckExact(d))goto invalid;
+        }
+    }
+    if(f->kwdefaults) {
+        if(!PyDict_CheckExact(f->kwdefaults)||PyDict_Size(f->kwdefaults)>16)goto invalid;
+        f->kwitems=PyDict_Items(f->kwdefaults);if(!f->kwitems)return -1;
+        for(j=0;j<PyList_GET_SIZE(f->kwitems);j++) {
+            PyObject *row=PyList_GET_ITEM(f->kwitems,j),*d=PyTuple_GET_ITEM(row,1);
+            if(!PyUnicode_CheckExact(PyTuple_GET_ITEM(row,0))||
+                (d!=Py_None&&!PyBool_Check(d)&&!PyLong_CheckExact(d)&&!PyUnicode_CheckExact(d)))goto invalid;
+        }
+        if(desc_add_watch(p,f->kwdefaults,Py_None)<0)return -1;
+    }
+    return 0;
+invalid:PyErr_SetString(PyExc_TypeError,"Mutable or unsupported code defaults");return -1;
 }
 static int desc_direct(DescriptorPlan *p) {
     Py_ssize_t i;
@@ -1242,13 +1268,22 @@ static int desc_direct(DescriptorPlan *p) {
     for(i=0;i<PyTuple_GET_SIZE(p->modules);i++)if(!PyModule_CheckExact(PyTuple_GET_ITEM(p->modules,i)))goto changed;
     for(i=0;i<p->ntype;i++) {
         DescType *t=&p->types[i];PyTypeObject *c=(PyTypeObject *)t->cls;
-        if(Py_TYPE(c)!=&PyType_Type||c->tp_mro!=t->mro||c->tp_getattro!=t->get||
+        if((PyObject *)Py_TYPE(c)!=t->meta||c->tp_mro!=t->mro||c->tp_getattro!=t->get||
             c->tp_setattro!=t->set||c->tp_new!=t->new||c->tp_alloc!=t->alloc)goto changed;
     }
     for(i=0;i<p->nfunction;i++) {
         DescFunction *f=&p->functions[i];PyFunctionObject *v=(PyFunctionObject *)f->fn;
         if(v->func_code!=f->code||v->func_globals!=f->globals||v->func_builtins!=f->builtins||
-            v->func_defaults||v->func_kwdefaults||v->func_closure!=f->closure||v->vectorcall!=f->vectorcall)goto changed;
+            v->func_defaults!=f->defaults||v->func_kwdefaults!=f->kwdefaults||v->func_closure!=f->closure||v->vectorcall!=f->vectorcall)goto changed;
+        if(f->kwdefaults) {
+            Py_ssize_t j;
+            if(PyDict_Size(f->kwdefaults)!=PyList_GET_SIZE(f->kwitems))goto changed;
+            for(j=0;j<PyList_GET_SIZE(f->kwitems);j++) {
+                PyObject *row=PyList_GET_ITEM(f->kwitems,j),*value=PyDict_GetItemWithError(f->kwdefaults,PyTuple_GET_ITEM(row,0));
+                if(PyErr_Occurred())return -1;
+                if(value!=PyTuple_GET_ITEM(row,1))goto changed;
+            }
+        }
     }
     for(i=0;i<p->ncell;i++)if(PyCell_GET(p->cells[i].cell)!=p->cells[i].value)goto changed;
     if(p->lex->import_globals) {
@@ -1344,7 +1379,7 @@ static PyObject *descriptor_bind(PyObject *unused,PyObject *args) {
     if(!PyTuple_CheckExact(tables)||PyTuple_GET_SIZE(tables)!=4||!PyTuple_CheckExact(modules)||
         PyTuple_GET_SIZE(modules)==0||PyTuple_GET_SIZE(modules)>16)goto invalid;
     table=PyTuple_GET_ITEM(tables,0);
-    if(!PyTuple_CheckExact(table)||PyTuple_GET_SIZE(table)==0||PyTuple_GET_SIZE(table)>128)goto invalid;
+    if(!PyTuple_CheckExact(table)||PyTuple_GET_SIZE(table)==0||PyTuple_GET_SIZE(table)>512)goto invalid;
     for(i=1;i<4;i++) {
         PyObject *other=PyTuple_GET_ITEM(tables,i);
         if(!PyTuple_CheckExact(other)||PyTuple_GET_SIZE(other)!=PyTuple_GET_SIZE(table))goto invalid;
@@ -1365,7 +1400,7 @@ static PyObject *descriptor_bind(PyObject *unused,PyObject *args) {
             DescCell *cell;
             if(PyUnicode_CompareWithASCIIString(key,"cell_contents")||p->ncell>=DESC_BOUND)goto invalid;
             cell=&p->cells[p->ncell++];cell->cell=Py_NewRef(owner);cell->value=Py_NewRef(PyTuple_GET_ITEM(row,2));
-        } else if(PyType_Check(owner)&&Py_TYPE(owner)==&PyType_Type) {
+        } else if(PyType_Check(owner)) {
             PyObject *mro=((PyTypeObject *)owner)->tp_mro;
             if(!mro||!PyTuple_CheckExact(mro)||PyTuple_GET_SIZE(mro)>16)goto invalid;
             for(j=0;j<PyTuple_GET_SIZE(mro);j++) {
@@ -1454,7 +1489,390 @@ static PyObject *descriptor_close(PyObject *unused,PyObject *capsule) {
     }
     Py_RETURN_NONE;
 }
+
+/* Lexical preparation inside a single admitted observation role. These helpers
+ * retain only immutable parsed strings/tuples; observations remain in the
+ * original eight implementations above. SDK descriptors are never installed. */
+static int role_tick(LexPlan *p,int op) {
+    if(p->calls[op]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Role lexical counter bound");return -1;}
+    p->calls[op]++;return 0;
+}
+static PyObject *role_lexical_path(DescriptorPlan *ctx,PyObject *path,PyObject *path_type) {
+    PyObject *value;
+    if(path_type!=ctx->lex->cls||!Py_IS_TYPE(path,(PyTypeObject *)path_type))Py_RETURN_NOTIMPLEMENTED;
+    value=lex_string(ctx->lex,path);
+    if(value&&value!=Py_NotImplemented&&!PyUnicode_CheckExact(value))Py_SETREF(value,Py_NewRef(Py_NotImplemented));
+    if(value&&value!=Py_NotImplemented&&role_tick(ctx->lex,2)<0)Py_CLEAR(value);
+    return value;
+}
+static PyObject *role_parts(DescriptorPlan *ctx,PyObject *path) {
+    LexPlan *p=ctx->lex;PyObject *drv=NULL,*root=NULL,*tail=NULL,*result=NULL,*loaded;Py_ssize_t length=0;int missing;
+    if(!Py_IS_TYPE(path,(PyTypeObject *)p->cls))Py_RETURN_NOTIMPLEMENTED;
+    drv=lex_attr(p,path,1);if(PyErr_Occurred())goto done;
+    root=lex_attr(p,path,2);if(PyErr_Occurred())goto done;
+    tail=lex_attr(p,path,3);if(PyErr_Occurred())goto done;
+    missing=(!drv)+(!root)+(!tail);
+    if(missing==3) {
+        loaded=lex_load(p,path);if(!loaded)goto done;
+        if(loaded==Py_NotImplemented){result=loaded;goto done;}
+        Py_DECREF(loaded);if(role_tick(p,1)<0)goto done;
+        drv=lex_attr(p,path,1);root=lex_attr(p,path,2);tail=lex_attr(p,path,3);
+        if(!drv||!root||!tail){if(PyErr_Occurred())goto done;goto unsupported;}
+    } else if(missing)goto unsupported;
+    if(!PyUnicode_CheckExact(drv)||PyUnicode_GET_LENGTH(drv)||!PyUnicode_CheckExact(root)||
+        !lex_strings(tail,&length))goto unsupported;
+    result=PyTuple_Pack(3,drv,root,tail);goto done;
+unsupported:result=Py_NewRef(Py_NotImplemented);
+done:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);return result;
+}
+static PyObject *role_construct(DescriptorPlan *ctx,PyObject *args,int derived) {
+    LexPlan *p=ctx->lex;PyObject *raw=NULL,*value=NULL,*imported=NULL;Py_ssize_t i,length=0;int r;
+    /* Decline foreign inputs before allocation/import callbacks. The original
+     * constructor allocates its object, imports (on Ubuntu), then copies raw
+     * arguments. Never retain a pre-import copy of a mutable argument list. */
+    if(PyTuple_GET_SIZE(args)>64)Py_RETURN_NOTIMPLEMENTED;
+    for(i=0;i<PyTuple_GET_SIZE(args);i++) {
+        PyObject *arg=PyTuple_GET_ITEM(args,i);
+        if(PyUnicode_CheckExact(arg)) {
+            if(PyUnicode_GET_LENGTH(arg)>8192)Py_RETURN_NOTIMPLEMENTED;
+        } else if(Py_IS_TYPE(arg,(PyTypeObject *)p->cls)) {
+            PyObject *input=lex_attr(p,arg,0);int valid;
+            if(!input){if(PyErr_Occurred())return NULL;Py_RETURN_NOTIMPLEMENTED;}
+            valid=lex_strings(input,&length);Py_DECREF(input);if(!valid)Py_RETURN_NOTIMPLEMENTED;
+        } else Py_RETURN_NOTIMPLEMENTED;
+    }
+    value=PyType_GenericAlloc((PyTypeObject *)p->cls,0);if(!value)return NULL;
+    if(p->import_globals) {
+        r=lex_import_admit(p);if(r<=0)goto changed;
+        imported=PyImport_ImportModuleLevelObject(p->import_name,p->import_globals,p->import_globals,Py_None,0);
+        if(!imported)goto error;
+    }
+    raw=lex_raw(p,args);if(!raw)goto error;
+    if(raw==Py_NotImplemented)goto changed;
+    if(PyObject_GenericSetAttr(value,p->names[0],raw)<0)goto error;
+    Py_XDECREF(imported);Py_DECREF(raw);
+    if(value&&(role_tick(p,0)<0||(derived&&role_tick(p,3)<0)))Py_CLEAR(value);
+    return value;
+changed:if(!PyErr_Occurred())PyErr_SetString(PyExc_ValueError,"Role constructor inputs changed after allocation");
+error:Py_XDECREF(raw);Py_XDECREF(imported);Py_DECREF(value);return NULL;
+}
+static PyObject *role_from_parts(DescriptorPlan *ctx,PyObject *parts,Py_ssize_t n) {
+    LexPlan *p=ctx->lex;PyObject *tail=NULL,*joined=NULL,*text=NULL,*args=NULL,*value=NULL;
+    tail=PyList_GetSlice(PyTuple_GET_ITEM(parts,2),0,n);if(!tail)goto done;
+    joined=PyUnicode_Join(p->slash,tail);if(!joined)goto done;
+    text=PyUnicode_Concat(PyTuple_GET_ITEM(parts,1),joined);if(!text)goto done;
+    args=PyTuple_Pack(1,text);if(!args)goto done;
+    value=role_construct(ctx,args,1);if(!value||value==Py_NotImplemented)goto done;
+    if(PyObject_GenericSetAttr(value,p->names[4],PyUnicode_GET_LENGTH(text)?text:p->dot)<0||
+        PyObject_GenericSetAttr(value,p->names[1],PyTuple_GET_ITEM(parts,0))<0||
+        PyObject_GenericSetAttr(value,p->names[2],PyTuple_GET_ITEM(parts,1))<0||
+        PyObject_GenericSetAttr(value,p->names[3],tail)<0)Py_CLEAR(value);
+done:Py_XDECREF(tail);Py_XDECREF(joined);Py_XDECREF(text);Py_XDECREF(args);return value;
+}
+static PyObject *role_parent(DescriptorPlan *ctx,PyObject *path) {
+    PyObject *parts=role_parts(ctx,path),*value;Py_ssize_t n;
+    if(!parts||parts==Py_NotImplemented)return parts;
+    n=PyList_GET_SIZE(PyTuple_GET_ITEM(parts,2));
+    value=n?role_from_parts(ctx,parts,n-1):Py_NewRef(path);Py_DECREF(parts);return value;
+}
+static PyObject *role_name(DescriptorPlan *ctx,PyObject *path) {
+    PyObject *parts=role_parts(ctx,path),*tail,*value;Py_ssize_t n;
+    if(!parts||parts==Py_NotImplemented)return parts;
+    tail=PyTuple_GET_ITEM(parts,2);n=PyList_GET_SIZE(tail);
+    value=Py_NewRef(n?PyList_GET_ITEM(tail,n-1):ctx->lex->empty);Py_DECREF(parts);return value;
+}
+static PyObject *role_parents(DescriptorPlan *ctx,PyObject *path) {
+    PyObject *parts=role_parts(ctx,path),*tail,*list=NULL,*parent=NULL,*name=NULL,*result=NULL;Py_ssize_t i;
+    if(!parts||parts==Py_NotImplemented)return parts;
+    tail=PyTuple_GET_ITEM(parts,2);list=PyList_New(0);if(!list)goto done;
+    for(i=0;i<PyList_GET_SIZE(tail);i++) {
+        parent=role_from_parts(ctx,parts,PyList_GET_SIZE(tail)-i-1);if(!parent)goto done;
+        if(parent==Py_NotImplemented){result=Py_NewRef(Py_NotImplemented);goto done;}
+        name=role_lexical_path(ctx,parent,ctx->lex->cls);if(!name)goto done;
+        if(name==Py_NotImplemented){result=Py_NewRef(Py_NotImplemented);goto done;}
+        if(PyList_Append(list,name)<0)goto done;
+        Py_CLEAR(parent);Py_CLEAR(name);
+    }
+    result=PyList_AsTuple(list);
+done:Py_DECREF(parts);Py_XDECREF(list);Py_XDECREF(parent);Py_XDECREF(name);return result;
+}
+
+static PyObject *role_path_rows(DescriptorPlan *ctx,PyObject *source,PyObject *path_type,const char *spec,Py_ssize_t limit,int names) {
+    PyObject *result,*v,*name,*copy,*set,*tuple;Py_ssize_t i,j,n=(Py_ssize_t)strlen(spec);int r;
+    if(!PyTuple_CheckExact(source)||PyTuple_GET_SIZE(source)>limit)return Py_NewRef(Py_NotImplemented);
+    result=PyTuple_New(PyTuple_GET_SIZE(source));if(!result)return NULL;
+    for(i=0;i<PyTuple_GET_SIZE(source);i++) {
+        v=PyTuple_GET_ITEM(source,i);
+        if(!PyTuple_CheckExact(v)||PyTuple_GET_SIZE(v)!=n)goto unsupported;
+        name=role_lexical_path(ctx,PyTuple_GET_ITEM(v,0),path_type);
+        if(!name)goto error;
+        if(name==Py_NotImplemented){Py_DECREF(name);goto unsupported;}
+        copy=PyTuple_New(n);if(!copy){Py_DECREF(name);goto error;}
+        PyTuple_SET_ITEM(copy,0,name);
+        for(j=1;j<n;j++)PyTuple_SET_ITEM(copy,j,Py_NewRef(PyTuple_GET_ITEM(v,j)));
+        if(names) {
+            set=PyTuple_GET_ITEM(v,1);
+            if(!PyFrozenSet_CheckExact(set)||PySet_GET_SIZE(set)>1024){Py_DECREF(copy);goto unsupported;}
+            tuple=PySequence_Tuple(set);if(!tuple){Py_DECREF(copy);goto error;}
+            Py_DECREF(PyTuple_GET_ITEM(copy,1));PyTuple_SET_ITEM(copy,1,tuple);
+            for(j=0;j<PyTuple_GET_SIZE(tuple);j++)if(!PyUnicode_CheckExact(PyTuple_GET_ITEM(tuple,j))) {
+                Py_DECREF(copy);goto unsupported;
+            }
+        }
+        r=row(copy,spec);if(r<=0){Py_DECREF(copy);if(r<0)goto error;goto unsupported;}
+        PyTuple_SET_ITEM(result,i,copy);
+    }
+    return result;
+unsupported:Py_DECREF(result);return Py_NewRef(Py_NotImplemented);
+error:Py_DECREF(result);return NULL;
+}
+static PyObject *role_prepare_plan(DescriptorPlan *ctx,PyObject *subject,PyObject *owner,PyObject *path_type) {
+    const char *fields[]={"uid","entries","directories","machine","files","parents",NULL};
+    PyObject *dict=plain_fields(subject,owner,fields),*entries=NULL,*dirs=NULL,*machine=NULL,*files=NULL,*parents=NULL,*result=NULL;
+    unsigned long long uid;int r;
+    if(!dict||dict==Py_NotImplemented)return dict;
+    r=u64(PyDict_GetItemString(dict,"uid"),&uid);if(r<=0)goto unsupported;
+    entries=role_path_rows(ctx,PyDict_GetItemString(dict,"entries"),path_type,"st",16,1);
+    if(!entries)goto done;
+    if(entries==Py_NotImplemented)goto unsupported;
+    dirs=role_path_rows(ctx,PyDict_GetItemString(dict,"directories"),path_type,"ssuuu",64,0);
+    if(!dirs)goto done;
+    if(dirs==Py_NotImplemented)goto unsupported;
+    machine=role_lexical_path(ctx,PyDict_GetItemString(dict,"machine"),path_type);
+    if(!machine)goto done;
+    if(machine==Py_NotImplemented)goto unsupported;
+    files=role_path_rows(ctx,PyDict_GetItemString(dict,"files"),path_type,"ssubnuu",64,0);
+    if(!files)goto done;
+    if(files==Py_NotImplemented)goto unsupported;
+    parents=role_path_rows(ctx,PyDict_GetItemString(dict,"parents"),path_type,"ssbb",256,0);
+    if(!parents)goto done;
+    if(parents==Py_NotImplemented)goto unsupported;
+    result=PyTuple_Pack(6,PyDict_GetItemString(dict,"uid"),entries,dirs,machine,files,parents);goto done;
+unsupported:if(!PyErr_Occurred())result=Py_NewRef(Py_NotImplemented);
+done:Py_DECREF(dict);Py_XDECREF(entries);Py_XDECREF(dirs);Py_XDECREF(machine);Py_XDECREF(files);Py_XDECREF(parents);return result;
+}
+static PyObject *role_parent_descriptor(DescriptorPlan *ctx,PyObject *directories,PyObject *path) {
+    PyObject *parent=role_parent(ctx,path),*item;
+    if(!parent||parent==Py_NotImplemented)return parent;
+    item=PyDict_GetItemWithError(directories,parent);Py_DECREF(parent);
+    if(!item){if(PyErr_Occurred())return NULL;return Py_NewRef(Py_NotImplemented);}
+    if(!PyTuple_CheckExact(item)||PyTuple_GET_SIZE(item)!=2)return Py_NewRef(Py_NotImplemented);
+    return Py_NewRef(PyTuple_GET_ITEM(item,0));
+}
+static PyObject *role_prepare_custody(DescriptorPlan *ctx,PyObject *subject,PyObject *owner,PyObject *path_type) {
+    const char *fields[]={"uid","gid","root","directory","lock_path","directories","known","retained","entries","directory_metadata","lock",NULL};
+    PyObject *dict=plain_fields(subject,owner,fields),*directories,*known,*retained,*entries,*metadata;
+    PyObject *rows_o=NULL,*leaves=NULL,*lock=NULL,*path,*item,*original,*extra,*names;
+    PyObject *name=NULL,*parent=NULL,*temp=NULL,*result=NULL,*v;Py_ssize_t pos=0,i=0;unsigned long long uid,gid;int r,equal;
+    if(!dict||dict==Py_NotImplemented)return dict;
+    r=u64(PyDict_GetItemString(dict,"uid"),&uid);if(r<=0)goto unsupported;
+    r=u64(PyDict_GetItemString(dict,"gid"),&gid);if(r<=0)goto unsupported;
+    for(i=2;i<5;i++) {
+        temp=role_lexical_path(ctx,PyDict_GetItemString(dict,fields[i]),path_type);
+        if(!temp)goto done;
+        if(temp==Py_NotImplemented)goto unsupported;
+        Py_CLEAR(temp);
+    }
+    directories=PyDict_GetItemString(dict,"directories");known=PyDict_GetItemString(dict,"known");
+    retained=PyDict_GetItemString(dict,"retained");entries=PyDict_GetItemString(dict,"entries");metadata=PyDict_GetItemString(dict,"directory_metadata");
+    if(!PyDict_CheckExact(directories)||PyDict_GET_SIZE(directories)>256 || !PyDict_CheckExact(known)||PyDict_GET_SIZE(known)>1024 ||
+       !PyDict_CheckExact(retained)||!PyDict_CheckExact(metadata)||(entries!=Py_None&&!PyDict_CheckExact(entries)))goto unsupported;
+    rows_o=PyTuple_New(PyDict_GET_SIZE(directories));leaves=PyTuple_New(PyDict_GET_SIZE(known));if(!rows_o||!leaves)goto done;
+    i=0;
+    while(PyDict_Next(directories,&pos,&path,&item)) {
+        if(!Py_IS_TYPE(path,(PyTypeObject *)path_type)||!PyTuple_CheckExact(item)||PyTuple_GET_SIZE(item)!=2)goto unsupported;
+        r=descriptor(PyTuple_GET_ITEM(item,0));if(r<=0)goto unsupported;
+        original=PyTuple_GET_ITEM(item,1);r=row(original,"uuuuunn");if(r<=0)goto unsupported;
+        equal=PyObject_RichCompareBool(path,PyDict_GetItemString(dict,"directory"),Py_EQ);if(equal<0)goto done;
+        if(equal){parent=Py_NewRef(Py_None);name=role_lexical_path(ctx,path,path_type);}
+        else {
+            parent=role_parent_descriptor(ctx,directories,path);if(!parent)goto done;
+            if(parent==Py_NotImplemented)goto unsupported;
+            r=descriptor(parent);if(r<=0)goto unsupported;
+            name=role_name(ctx,path);
+        }
+        if(!name)goto done;
+        if(name==Py_NotImplemented)goto unsupported;
+        extra=entries==Py_None?Py_None:PyDict_GetItemWithError(metadata,path);
+        names=entries==Py_None?Py_None:PyDict_GetItemWithError(entries,path);
+        if(!extra||!names){if(PyErr_Occurred())goto done;goto unsupported;}
+        if(entries!=Py_None){r=row(extra,"uuuuuunnn");if(r<=0)goto unsupported;if(!strings(names,0))goto unsupported;}
+        v=PyTuple_Pack(6,name,parent,PyTuple_GET_ITEM(item,0),original,extra,names);if(!v)goto done;
+        r=row(v,"szutOL");if(r<=0){Py_DECREF(v);goto unsupported;}
+        PyTuple_SET_ITEM(rows_o,i++,v);Py_CLEAR(parent);Py_CLEAR(name);
+    }
+    pos=0;i=0;
+    while(PyDict_Next(known,&pos,&path,&original)) {
+        if(!Py_IS_TYPE(path,(PyTypeObject *)path_type))goto unsupported;
+        r=row(original,"uuuuuunnn");if(r<=0)goto unsupported;
+        parent=role_parent_descriptor(ctx,directories,path);if(!parent)goto done;
+        if(parent==Py_NotImplemented)goto unsupported;
+        r=descriptor(parent);if(r<=0)goto unsupported;
+        item=PyDict_GetItemWithError(retained,path);if(!item&&PyErr_Occurred())goto done;
+        if(item){r=descriptor(item);if(r<=0)goto unsupported;}else item=Py_None;
+        name=role_name(ctx,path);if(!name)goto done;
+        v=PyTuple_Pack(4,name,parent,original,item);if(!v)goto done;
+        r=row(v,"sutz");if(r<=0){Py_DECREF(v);goto unsupported;}
+        PyTuple_SET_ITEM(leaves,i++,v);Py_CLEAR(parent);Py_CLEAR(name);
+    }
+    item=PyDict_GetItemString(dict,"lock");
+    if(item==Py_None)lock=Py_NewRef(Py_None);
+    else {
+        r=descriptor(item);if(r<=0)goto unsupported;
+        original=PyDict_GetItemWithError(known,PyDict_GetItemString(dict,"lock_path"));
+        if(!original){if(PyErr_Occurred())goto done;goto unsupported;}
+        r=row(original,"uuuuuunnn");if(r<=0)goto unsupported;
+        lock=PyTuple_Pack(2,item,original);if(!lock)goto done;
+    }
+    result=PyTuple_Pack(5,PyDict_GetItemString(dict,"uid"),PyDict_GetItemString(dict,"gid"),rows_o,leaves,lock);goto done;
+unsupported:if(!PyErr_Occurred())result=Py_NewRef(Py_NotImplemented);
+done:Py_DECREF(dict);Py_XDECREF(rows_o);Py_XDECREF(leaves);Py_XDECREF(lock);Py_XDECREF(name);Py_XDECREF(parent);Py_XDECREF(temp);return result;
+}
+
+
+static PyObject *role_finish(DescriptorPlan *p,PyObject *result,int observed) {
+    PyObject *pending=PyErr_GetRaisedException();int r=desc_admit(p->lex,0);
+    if(r<=0||(observed&&result==Py_NotImplemented)) {
+        p->lex->broken=1;PyDict_Clear(p->lex->cache);
+    }
+    if(pending){PyErr_Clear();PyErr_SetRaisedException(pending);Py_XDECREF(result);return NULL;}
+    if(!result&&!PyErr_Occurred()) {
+        PyErr_SetString(PyExc_SystemError,"Role failed without an exception");return NULL;
+    }
+    if(r<=0||(observed&&result==Py_NotImplemented)) {
+        Py_XDECREF(result);
+        if(!PyErr_Occurred())PyErr_SetString(PyExc_ValueError,"Role changed or unsupported after observations");
+        return NULL;
+    }
+    return result;
+}
+static PyObject *role_prepare(PyObject *unused,PyObject *args) {
+    PyObject *capsule,*kind_o,*payload,*owner,*result=NULL,*path=NULL,*parts=NULL,*name=NULL,*parents=NULL;
+    PyObject *argtuple=NULL,*raw,*maximum=NULL,*uid=NULL,*executable=Py_False,*resolved=NULL,*tail;
+    DescriptorPlan *p;unsigned long long kind,n;long long limit;Py_ssize_t i;int r,observed=0;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOOO",&capsule,&kind_o,&payload,&owner))return NULL;
+    p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
+    r=u64(kind_o,&kind);if(r<=0||kind>7)goto invalid;
+    r=desc_admit(p->lex,0);if(r<0)return NULL;if(!r)Py_RETURN_NOTIMPLEMENTED;
+    if(p->role_prepares[kind]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Role preparation bound");return NULL;}
+    if(kind==2){result=role_prepare_plan(p,payload,owner,p->lex->cls);goto done;}
+    if(kind==3){result=role_prepare_custody(p,payload,owner,p->lex->cls);goto done;}
+    if(owner!=Py_None||!PyTuple_CheckExact(payload))goto unsupported;
+    if(kind<2) {
+        if(PyTuple_GET_SIZE(payload)!=(kind==0?3:1))goto unsupported;
+        raw=PyTuple_GET_ITEM(payload,0);
+        if(kind==0) {
+            maximum=PyTuple_GET_ITEM(payload,1);executable=PyTuple_GET_ITEM(payload,2);
+            r=i64(maximum,&limit);if(r<=0)goto unsupported;
+            if(limit<=0||!PyBool_Check(executable))goto unsupported;
+        } else {
+            maximum=PyLong_FromLong(268435456);if(!maximum)goto done;executable=Py_True;
+        }
+    } else if(kind<6) {
+        if(PyTuple_GET_SIZE(payload)!=4)goto unsupported;
+        raw=PyTuple_GET_ITEM(payload,0);uid=PyTuple_GET_ITEM(payload,1);
+        maximum=PyTuple_GET_ITEM(payload,2);executable=PyTuple_GET_ITEM(payload,3);
+        r=u64(uid,&n);if(r<=0)goto unsupported;
+        r=i64(maximum,&limit);if(r<=0)goto unsupported;
+        if(limit<=0||limit>16777216||!PyBool_Check(executable)||
+            (kind==4&&n!=0)||(kind==5&&executable!=Py_False))goto unsupported;
+    } else {
+        if(PyTuple_GET_SIZE(payload)!=2)goto unsupported;
+        raw=PyTuple_GET_ITEM(payload,0);maximum=PyTuple_GET_ITEM(payload,1);
+        r=i64(maximum,&limit);if(r<=0)goto unsupported;
+        if(limit<0||limit>16777216)goto unsupported;
+        if(PyUnicode_CheckExact(raw))name=Py_NewRef(raw);
+        else name=role_lexical_path(p,raw,p->lex->cls);
+        if(!name)goto done;if(name==Py_NotImplemented)goto unsupported;
+        if(PyUnicode_GET_LENGTH(name)>8192)goto unsupported;
+        parents=PyTuple_New(0);uid=PyLong_FromLong(0);if(!parents||!uid)goto done;
+        result=PyTuple_Pack(5,name,parents,uid,maximum,Py_False);goto done;
+    }
+    argtuple=PyTuple_Pack(1,raw);if(!argtuple)goto done;
+    path=role_construct(p,argtuple,0);if(!path)goto done;if(path==Py_NotImplemented)goto unsupported;
+    if(kind==1) {
+        /* resolve remains the original SDK filesystem operation. Once called,
+         * no unsupported result may trigger a second resolving walk. */
+        r=desc_admit(p->lex,0);if(r<0)goto done;if(!r)goto unsupported;
+        observed=1;resolved=PyObject_CallMethod(path,"resolve","O",Py_True);if(!resolved)goto done;
+        Py_SETREF(path,resolved);resolved=NULL;
+        if(!Py_IS_TYPE(path,(PyTypeObject *)p->lex->cls))goto unsupported;
+    }
+    parts=role_parts(p,path);if(!parts)goto done;if(parts==Py_NotImplemented)goto unsupported;
+    tail=PyTuple_GET_ITEM(parts,2);
+    if(PyList_GET_SIZE(tail)+1>64)goto unsupported;
+    if(PyUnicode_Compare(PyTuple_GET_ITEM(parts,1),p->lex->slash))goto unsupported;
+    for(i=0;i<PyList_GET_SIZE(tail);i++)if(!PyUnicode_CompareWithASCIIString(PyList_GET_ITEM(tail,i),".."))goto unsupported;
+    name=role_lexical_path(p,path,p->lex->cls);if(!name)goto done;if(name==Py_NotImplemented)goto unsupported;
+    if(!PyUnicode_CheckExact(name)||PyUnicode_GET_LENGTH(name)>8192)goto unsupported;
+    parents=role_parents(p,path);if(!parents)goto done;if(parents==Py_NotImplemented)goto unsupported;
+    if(kind<2)result=PyTuple_Pack(4,name,parents,maximum,executable);
+    else result=PyTuple_Pack(5,name,parents,uid,maximum,executable);
+    goto done;
+unsupported:if(!PyErr_Occurred())result=Py_NewRef(Py_NotImplemented);
+done:
+    if(result&&result!=Py_NotImplemented)p->role_prepares[kind]++;
+    Py_XDECREF(path);Py_XDECREF(parts);Py_XDECREF(name);Py_XDECREF(parents);Py_XDECREF(argtuple);Py_XDECREF(resolved);
+    if(kind==1)Py_XDECREF(maximum);
+    if(kind>=6)Py_XDECREF(uid);
+    return role_finish(p,result,observed);
+invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid observation role preparation");return NULL;
+}
+static PyObject *role_admit(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);int r;(void)unused;
+    if(!p)return NULL;
+    r=desc_admit(p->lex,0);if(r<0)return NULL;return PyBool_FromLong(r);
+}
+static PyObject *role_observe(PyObject *unused,PyObject *args) {
+    PyObject *capsule,*kind_o,*prepared,*callbacks,*call=NULL,*result=NULL,*number=NULL;
+    DescriptorPlan *p;unsigned long long kind,before_f,before_p,before_c,before_r;Py_ssize_t i,n;int r,observed;(void)unused;
+    if(!PyArg_ParseTuple(args,"OOOO",&capsule,&kind_o,&prepared,&callbacks))return NULL;
+    p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
+    r=u64(kind_o,&kind);if(r<=0||kind>7||!PyTuple_CheckExact(prepared)||!PyTuple_CheckExact(callbacks)||PyTuple_GET_SIZE(callbacks)!=4)goto invalid;
+    r=desc_admit(p->lex,0);if(r<0)return NULL;if(!r)Py_RETURN_NOTIMPLEMENTED;
+    if(p->role_calls[kind]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Role observation bound");return NULL;}
+    n=PyTuple_GET_SIZE(prepared);
+    if((kind<2&&n!=4)||(kind==2&&n!=6)||(kind>=3&&n!=5))goto invalid;
+    before_f=fingerprint_calls;before_p=plan_calls;before_c=custody_calls;before_r=read_calls;
+    if(kind<2)result=fingerprint(NULL,prepared);
+    else if(kind==2||kind==3) {
+        call=PyTuple_New(n+1);if(!call)goto done;
+        for(i=0;i<n;i++)PyTuple_SET_ITEM(call,i,Py_NewRef(PyTuple_GET_ITEM(prepared,i)));
+        PyTuple_SET_ITEM(call,n,Py_NewRef(PyTuple_GET_ITEM(callbacks,kind==2?0:1)));
+        result=kind==2?persistent(NULL,call):custody(NULL,call);
+    } else {
+        number=PyLong_FromUnsignedLongLong(kind-4);if(!number)goto done;
+        call=PyTuple_Pack(8,number,PyTuple_GET_ITEM(prepared,0),PyTuple_GET_ITEM(prepared,1),
+            PyTuple_GET_ITEM(prepared,2),PyTuple_GET_ITEM(prepared,3),PyTuple_GET_ITEM(prepared,4),
+            PyTuple_GET_ITEM(callbacks,2),PyTuple_GET_ITEM(callbacks,3));if(!call)goto done;
+        result=read_file(NULL,call);
+    }
+done:
+    Py_XDECREF(call);Py_XDECREF(number);
+    observed=before_f!=fingerprint_calls||before_p!=plan_calls||before_c!=custody_calls||before_r!=read_calls;
+    if(observed)p->role_calls[kind]++;
+    return role_finish(p,result,observed);
+invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid observation role");return NULL;
+}
+static PyObject *role_counts(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);PyObject *prepares,*observations,*result;Py_ssize_t i;(void)unused;
+    if(!p)return NULL;
+    if(!desc_owner(p)){PyErr_SetString(PyExc_ValueError,"Role owner changed");return NULL;}
+    prepares=PyTuple_New(8);observations=PyTuple_New(8);
+    if(!prepares||!observations){Py_XDECREF(prepares);Py_XDECREF(observations);return NULL;}
+    for(i=0;i<8;i++) {
+        PyObject *a=PyLong_FromUnsignedLongLong(p->role_prepares[i]),*b=PyLong_FromUnsignedLongLong(p->role_calls[i]);
+        if(!a||!b){Py_XDECREF(a);Py_XDECREF(b);Py_DECREF(prepares);Py_DECREF(observations);return NULL;}
+        PyTuple_SET_ITEM(prepares,i,a);PyTuple_SET_ITEM(observations,i,b);
+    }
+    result=PyTuple_Pack(2,prepares,observations);Py_DECREF(prepares);Py_DECREF(observations);return result;
+}
+
 static PyMethodDef methods[]={
+    {"role_prepare",role_prepare,METH_VARARGS,"Complete lexical argument preparation inside fresh role admission."},
+    {"role_observe",role_observe,METH_VARARGS,"Original ordered observations inside fresh role admission."},
+    {"role_admit",role_admit,METH_O,"Fresh owner/code input check for one complete role."},
+    {"role_counts",role_counts,METH_O,"Bounded preparation and observation role witnesses."},
     {"descriptor_plan",descriptor_plan,METH_VARARGS,"Prepare a main-interpreter lexical method context."},
     {"descriptor_entries",descriptor_entries,METH_O,"Create four capsule-bound SDK instance methods once."},
     {"descriptor_bind",descriptor_bind,METH_VARARGS,"Bind finite live code inputs once; no observations."},

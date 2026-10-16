@@ -939,15 +939,30 @@ lexical operations together. It must retain fresh role admission, existing
 ordered filesystem observations and original SDK classes outside those roles.
 No Root admission or observation result may be cached.
 
-`tools/ci/native_role_probe.py` currently implements only the original-descriptor
-code context for that boundary. `Adapter.binding_tables(originals=True)` pins
-the actual original SDK methods rather than temporary wrappers. The context
-uses fresh scoped admission, leaves SDK descriptors original, preserves pending
-errors and closes watchers/cache/code-input references. Six portable tests in
-`tools/ci/native-role-test.py` cover original-method preservation, nested-scope
-refusal, source-custody failure, partial binding and interrupted cleanup. They
-use a test double and establish no native role execution or benefit. Complete
-C preparation/observation dispatch and its Root cases remain unimplemented.
-Do not dispatch this partial boundary or repeat a rejected backend while it is
-being completed. Full uninstrumented staging/runtime and all remaining
-installation/recovery gates remain open.
+The complete-role candidate now prepares arguments and dispatches the eight
+original C observation implementations through one scoped code context in
+`tools/ci/native_role_probe.py`. SDK classes and descriptors remain original.
+Its finite schema includes parent iteration, path properties, raw MRO
+descriptors, function defaults and closure cells. Changed code inputs decline
+before observations; a refusal or error after dispatch never retries through
+the original body. Constructor imports precede copying mutable raw arguments,
+and invalid user-written string caches decline before Unicode access.
+
+Twenty portable cases cover dispatch, default and SDK contracts, original-method
+preservation, aliases imported during a scope, source-custody failure, partial
+binding and interrupted cleanup. They pass locally using test doubles and do
+not establish C execution. Twenty additional hosted Root cases reuse the
+existing file, custody, descriptor-loss and restored-mtime fixtures, exercise all
+eight roles and four lexical witnesses, and run the original 372-case Root
+suite under this boundary. These hosted cases are unverified until their actual
+run is reviewed. The legacy 20/43/37/39 descriptor/Path/metadata/read cases and
+their four original Root suites remain required.
+
+Full proof selects `native_role_comparison`: twenty alternating whole-guard
+pairs on the original actors, positive role/lexical witnesses, zero fallback,
+equal observations, fresh source custody and cleared contexts before effects.
+The benefit gate remains median prototype/baseline at most 0.80 and at least
+18 of 20 faster pairs. The full archive, seventeen method timers, calling-thread
+CPU and guard-ten sample, two Root passes and production deadlines are unchanged.
+Compilation, hosted semantics and benefit remain unverified. Full uninstrumented
+staging/runtime and all installation/recovery gates remain open.

@@ -62,10 +62,12 @@ exercises its replacement's C-bound methods, scoped code-input notifications,
 restoration and original fallback in [native-metadata-probe.c](../tools/ci/native-metadata-probe.c).
 The hosted workflow runs its actual Root cases and original-actor comparison;
 portable SDK tests alone do not establish native semantics or production benefit.
-The next [observation-role context](../tools/ci/native_role_probe.py) and its
-[portable scope tests](../tools/ci/native-role-test.py) prepare original SDK
-method custody without global descriptor replacement; complete C role dispatch
-and actual Root verification are still pending.
+The [complete-role candidate](../tools/ci/native_role_probe.py) prepares lexical
+arguments inside the eight C observation roles without SDK descriptor
+replacement. Its [scope and Root tests](../tools/ci/native-role-test.py) retain
+the original refusal fixtures and add a fifth original 372-case Root suite.
+Portable contracts pass; native compilation, hosted semantics and the unchanged
+whole-guard benefit gate remain unverified.
 Read [artifact controller diagnostics](implementation/native-artifact-controller.md)
 before changing the original guard, filesystem observations or staging budget.
 

@@ -166,11 +166,13 @@ class Loaded:
         for qualified in SDK_AST:
             owner,name=qualified.split('.');fn=raw_function(vars(getattr(pathlib,owner))[name])
             require(type(fn) is types.FunctionType and fn.__code__==self.codes[qualified]
-                and fn.__globals__ is vars(pathlib) and fn.__builtins__ is vars(builtins))
+                and fn.__globals__ is vars(pathlib) and fn.__builtins__ is vars(builtins)
+                and fn.__defaults__ is None and fn.__kwdefaults__ is None)
         for name in POSIX_AST:
             fn=getattr(posixpath,name)
             require(type(fn) is types.FunctionType and fn.__code__==self.codes['posixpath.'+name]
-                and fn.__globals__ is vars(posixpath) and fn.__builtins__ is vars(builtins))
+                and fn.__globals__ is vars(posixpath) and fn.__builtins__ is vars(builtins)
+                and fn.__defaults__ is None and fn.__kwdefaults__ is None)
         sdk_environment()
         self.base.validate()
         require(_read_owned(self.sdk_path,262144)==self.sdk)
@@ -212,13 +214,15 @@ class Adapter:
         for qualified in SDK_AST:
             owner,name=qualified.split('.');fn=raw_function(vars(getattr(pathlib,owner))[name])
             require(type(fn) is types.FunctionType and fn.__code__==codes[qualified]
-                and fn.__globals__ is vars(pathlib) and fn.__builtins__ is vars(builtins))
+                and fn.__globals__ is vars(pathlib) and fn.__builtins__ is vars(builtins)
+                and fn.__defaults__ is None and fn.__kwdefaults__ is None)
             for variable,cell in zip(fn.__code__.co_freevars,fn.__closure__ or ()):
                 if variable=='__class__':require(cell.cell_contents is getattr(pathlib,owner))
         for name in POSIX_AST:
             fn=getattr(posixpath,name)
             require(type(fn) is types.FunctionType and fn.__code__==codes['posixpath.'+name]
-                and fn.__globals__ is vars(posixpath) and fn.__builtins__ is vars(builtins))
+                and fn.__globals__ is vars(posixpath) and fn.__builtins__ is vars(builtins)
+                and fn.__defaults__ is None and fn.__kwdefaults__ is None)
         self.sdk_functions={qualified:raw_function(vars(getattr(pathlib,qualified.split('.')[0]))[qualified.split('.')[1]])
             for qualified in SDK_AST}
         constructor=self.sdk_functions['PurePath.__init__']
