@@ -6,6 +6,8 @@ Only global loads in selected bodies become explicit live dictionary lookups.
 import ast
 import copy
 import hashlib
+import io
+import tokenize
 
 TARGETS = {
     'PurePath': ('__init__','with_segments','_parse_path','_load_parts','__str__',
@@ -19,6 +21,30 @@ LOOKUP = '_gitgood_path_body_name'
 
 def require(value):
     if not value:raise ValueError('Path body source diagnostic invariant')
+
+
+def compiler_quoting(text):
+    """Use conservative f-string delimiters without changing the parsed tree.
+
+    CPython3.12's unparser may reuse an outer single quote inside an f-string
+    expression. The pinned compiler uses an older f-string parser. Alternating
+    triple delimiters avoid that syntax; conflicting literal delimiters refuse.
+    """
+    tokens=[];stack=[]
+    for token in tokenize.generate_tokens(io.StringIO(text).readline):
+        if token.type==tokenize.FSTRING_START:
+            require(token.string in {"f'",'f"',"f'''",'f"""'})
+            quote='"""' if len(stack)%2==0 else "'''"
+            stack.append(quote);token=token._replace(string='f'+quote)
+        elif token.type==tokenize.FSTRING_END:
+            require(stack);token=token._replace(string=stack.pop())
+        elif stack and token.type in {tokenize.FSTRING_MIDDLE,tokenize.STRING}:
+            require(not any(quote in token.string for quote in stack))
+        tokens.append(token)
+    require(not stack)
+    generated=tokenize.untokenize(tokens)
+    require(ast.dump(ast.parse(generated))==ast.dump(ast.parse(text)))
+    return generated
 
 
 class LiveGlobalLoads(ast.NodeTransformer):
@@ -133,7 +159,7 @@ def redirect_globals(tree):
             return self.generic_visit(node)
     restored=Undo().visit(copy.deepcopy(transformed))
     require(ast.dump(restored)==ast.dump(original))
-    return ast.unparse(transformed)+'\n',transformer.loads
+    return compiler_quoting(ast.unparse(transformed)+'\n'),transformer.loads
 
 
 def select_source(source):

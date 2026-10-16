@@ -4,6 +4,8 @@ import ast
 import builtins
 from pathlib import Path
 import sys
+import tokenize
+import io
 import unittest
 
 sys.dont_write_bytecode=True
@@ -122,6 +124,26 @@ class LiveGlobalSourceTest(unittest.TestCase):
                 'class Model:\n def read(self): return _gitgood_path_body_name("external")\n',
                 'class Model:\n def read(self):\n  import module as _gitgood_path_body_name\n  return external\n']:
             with self.assertRaises(ValueError):source.redirect_globals(ast.parse(text))
+
+    def test_fstring_global_expression_quoting_keeps_exact_exception_arguments(self):
+        text='class Model:\n def read(self,item): raise TypeError(f"unsupported {type(item).__name__!r}")\n'
+        generated,_=source.redirect_globals(ast.parse(text))
+        starts=[item.string for item in tokenize.generate_tokens(io.StringIO(generated).readline)
+            if item.type==tokenize.FSTRING_START]
+        self.assertEqual(starts,['f"""'])
+        namespace,_=transformed(text,{})
+        with self.assertRaises(TypeError) as caught:namespace['Model']().read(7)
+        self.assertEqual(caught.exception.args,("unsupported 'int'",))
+
+    def test_nested_fstrings_format_specs_and_escapes_keep_original_values(self):
+        text='class Model:\n def read(self,item): return f"outer {f\'inner {type(item).__name__}\'} {item!r:>8} \\n"\n'
+        baseline={};exec(text,baseline)
+        generated,_=source.redirect_globals(ast.parse(text))
+        starts=[item.string for item in tokenize.generate_tokens(io.StringIO(generated).readline)
+            if item.type==tokenize.FSTRING_START]
+        self.assertEqual(starts,['f"""',"f'''"])
+        namespace,_=transformed(text,{})
+        self.assertEqual(namespace['Model']().read(7),baseline['Model']().read(7))
 
 
 if __name__=='__main__':unittest.main(verbosity=2)

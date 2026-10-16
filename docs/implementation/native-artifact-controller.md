@@ -358,7 +358,9 @@ verification, with every production module unchanged.
 The next hosted diagnostic compiles 20 measured path helper bodies from the exact
 installed CPython 3.12 standard-library source using pinned Cython 3.1.8. An inverse
 AST check reconstructs every selected body after redirecting global loads to live
-original globals and builtins dictionaries. Original classes, instances and raw
+original globals and builtins dictionaries. Conservative f-string quoting also
+preserves the parsed tree while avoiding Python 3.12 quote-reuse syntax in the
+pinned compiler. Original classes, instances and raw
 descriptors remain authoritative. Class closure dependencies, unsupported source
 shapes and unsafe compiler options refuse. The hosted builder authenticates the
 compiler wheel, bounds extraction and temporary storage, and records source,
