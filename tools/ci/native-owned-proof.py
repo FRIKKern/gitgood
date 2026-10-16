@@ -36,14 +36,13 @@ import urllib.error
 import urllib.request
 import socket
 import ssl
-import native_fingerprint_probe as fingerprint_probe
+import native_prepared_probe as prepared_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
 COPY_LIMIT = 2 * 1024**3
 FILE_LIMIT = 64 * 1024**2  # OTP 29's first dual-mapped JIT memfd is 64 MiB.
 MODULES = Path("/opt/gitgood/native/v2")
-FINGERPRINT_PROBE = None  # Disposable hosted diagnostic, never installed production code.
 CASES = ("helper-loss", "marker-permission-loss", "original-backend-loss")
 BASE_ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
 STARTUP_CALLS = {"profile", "monitor", "admission", "inputs", "artifact", "configuration",
@@ -1698,15 +1697,14 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         # justify production timing acceptance or change the response deadline.
         measurements = RootStageMeasurements()
         from native_root_artifact_dispatch import _ObservedArtifactStage
-        service = sys.modules['native_service_scope']
-        require(Path(service.__file__).parent == MODULES and FINGERPRINT_PROBE is not None)
-        comparison = fingerprint_probe.BeforeStageComparison(service, FINGERPRINT_PROBE,
-            _ObservedArtifactStage, measurements)
+        reader_module = sys.modules['native_root_database_reader']
+        require(Path(reader_module.__file__).parent == MODULES)
+        comparison = prepared_probe.BeforeStageComparison(reader_module, _ObservedArtifactStage, measurements)
         try:
             with comparison:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if comparison.result is not None:seed['root_fingerprint_comparison'] = comparison.result
+            if comparison.result is not None:seed['root_prepared_comparison'] = comparison.result
             seed['root_stage_measurements'] = measurements.values()
             sample = measurements.sample.values()
             if sample is not None:seed['root_guard_sample'] = sample
@@ -2142,7 +2140,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
             'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
         **({'root_stage_profile':seed['root_stage_profile']} if seed.get('root_stage_profile') is not None else {}),
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
-        **({'root_fingerprint_comparison':seed['root_fingerprint_comparison']} if seed.get('root_fingerprint_comparison') is not None else {}),
+        **({'root_prepared_comparison':seed['root_prepared_comparison']} if seed.get('root_prepared_comparison') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -2180,8 +2178,6 @@ def preflight(args):
     require(command([str(args.caddy.resolve(strict=True)), "version"]).startswith(b"v2.11.7"))
     require(Path("/usr/bin/patchelf").is_file())
     extra = [workspace / 'tools/ci' / name for name in ('native-owned-manager.py', 'native-owned-worker.exs', 'native-successor-manager.py')]
-    extra += [workspace / 'tools/ci' / name for name in ('native-fingerprint-probe.c', 'native_fingerprint_probe.py')]
-    extra += [workspace / '.gitgood/native-fingerprint-probe' / fingerprint_probe.extension_name()]
     extra += [workspace / 'tools/deployment' / name for name in module_closure(workspace / 'tools/deployment')]
     extra += [workspace / '.gitgood/native-web-product', workspace / 'docs/deployment/Caddyfile.example']
     total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git"), *extra])
@@ -2209,7 +2205,6 @@ def finalize(receipt, units, output, phase):
 
 
 def main(args):
-    global FINGERPRINT_PROBE
     receipt = {"protocol": 1, "scope": "ownership-maintenance-and-native-runtime-component", "status": "failed", "candidate": args.candidate,
                "native_application_acceptance": False, "complete_journey_acceptance": False,
                "reboot_verified": False, "successor_reconciliation_verified": False,
@@ -2238,14 +2233,6 @@ def main(args):
         for name in ["native-owned-manager.py", "native-owned-worker.exs", "native-successor-manager.py"]:
             phase = "copy-fixture-" + name.removeprefix("native-owned-").split(".")[0]
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
-        phase = 'load-owned-diagnostic-fingerprint-probe'
-        probe_directory = runtime / 'fingerprint-probe';probe_directory.mkdir(mode=0o755)
-        for name in ('native-fingerprint-probe.c', 'native_fingerprint_probe.py'):
-            copy_runtime(workspace / 'tools/ci' / name, probe_directory / name)
-        name = fingerprint_probe.extension_name()
-        copy_runtime(workspace / '.gitgood/native-fingerprint-probe' / name, probe_directory / name)
-        FINGERPRINT_PROBE, probe_hashes = fingerprint_probe.load_native(probe_directory)
-        receipt['native_fingerprint_probe'] = {'diagnostic_only': True, **probe_hashes}
         phase = "relocate-private-postgresql-client"
         receipt["postgresql_client_relocation"] = relocate_postgresql_client(runtime)
         modules = module_closure(workspace / "tools/deployment")
@@ -2434,8 +2421,8 @@ def main(args):
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
             if seed.get('root_stage_measurements') is not None:
                 receipt['failure']['root_stage_measurements'] = seed['root_stage_measurements']
-            if seed.get('root_fingerprint_comparison') is not None:
-                receipt['failure']['root_fingerprint_comparison'] = seed['root_fingerprint_comparison']
+            if seed.get('root_prepared_comparison') is not None:
+                receipt['failure']['root_prepared_comparison'] = seed['root_prepared_comparison']
             if seed.get('root_guard_sample') is not None:
                 receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
             if seed.get('root_stage_refusal') is not None:

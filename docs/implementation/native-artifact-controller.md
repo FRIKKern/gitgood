@@ -173,7 +173,7 @@ These instrumented runs are diagnostic; production deadline acceptance still
 requires an uninstrumented complete stage and subsequent staged runtime. Private
 acceptance rejects either aggregate timers or the guard sample.
 
-The next hosted diagnostic compiles a small CPython extension outside the
+An earlier hosted diagnostic compiles a small CPython extension outside the
 production module closure. Actual Root-owned Linux file tests compare its
 fresh ordered ancestor/leaf metadata observations with the original fingerprint,
 including refusal, ownership, links, size, executable mode, encoding and
@@ -181,7 +181,7 @@ timestamps. Unsupported prototype inputs fall back to the original method.
 No filesystem observation is retained. Public C, adapter and compiled ELF hashes
 identify the owned diagnostic files without emitting their runtime paths.
 
-Before the first ready stage guard, the fixture runs twenty alternating pairs
+Before the first ready stage guard, that diagnostic runs twenty alternating pairs
 of the complete original guard on the same original actors and resources. Each
 pair selects either the original fingerprint or the diagnostic adapter; results
 must agree, and every check still uses both fresh Root observation passes.
@@ -196,3 +196,29 @@ measure a possible repair; they do not adopt it or prove production performance.
 All production source bytes, the complete payload, freshness/effect guards and
 the 240-second deadline remain unchanged. A complete uninstrumented stage,
 staged runtime and the original installation/recovery gates are still required.
+
+The next diagnostic tests preparation of the exact two fixed read-only SELECT
+envelopes on the original Root reader session. Only statement construction in a
+fixture copy of the original exchange AST changes; an inverse transformation
+must recover every original node. All nonce, framing, read-only metadata,
+before/after process, pipe, kernel and socket checks and the poison path remain.
+The nonce remains a fresh text parameter, and each execution reads current data.
+Only session-local statement names persist; no returned observations are cached.
+See PostgreSQL's [prepared-statement contract](https://www.postgresql.org/docs/18/sql-prepare.html).
+
+Tests use a newly owned disposable PostgreSQL database and role for actual
+statement equivalence, changed client counts, role changes and original-client
+loss. Those SQL tests explicitly substitute process/base observers and cannot
+establish actual Root custody. The subsequent twenty alternating whole-guard
+pairs must use the original retained Root reader and complete custody checks.
+The fixture restores the reader's original exchange after each guard, removes
+its own session plans and verifies a fresh original reply before starting the
+existing timers and guard-ten sample. Every interruption restores method
+pointers; failed observers remain poisoned. The extra forty checks, cleanup
+exchange and paired elapsed times are separate diagnostics with fixed numeric
+fields and source hashes, without SQL, parameters, plans or returned values.
+The compiled fingerprint is not active in this comparison or staging; its
+standalone equivalence tests remain a separate diagnostic regression.
+Production source, payload, effects, freshness checks and deadlines are unchanged.
+Preparation is not adopted without a measured whole-guard benefit, and complete
+uninstrumented staging/runtime plus installation and recovery gates still apply.

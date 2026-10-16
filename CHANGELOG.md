@@ -410,6 +410,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Prepare fixed persistent fingerprint paths once for Root live observations while checking every filesystem entry and metadata value freshly.
   Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_generation_lease_guard.py), [details 3](tools/deployment/native_root_live_binding.py), [details 4](tools/deployment/test_native_persistent_fingerprint.py), [details 5](tools/deployment/test_native_root_live_binding.py)
 
+- Measure fixed read-only statement preparation on the original Root database session before staging effects, with original validation and methods restored.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_prepared_probe.py), [details 3](tools/ci/native-prepared-test.py)
+
 - Validate private binding path spelling and every fresh real ancestor directly while preserving leaf owner, mode, descriptor, content and hash checks. Remove redundant fixed-root prefix resolution without changing executable aliases, original custody, stage guards, payload or deadline. Require exact hosted filesystem and full staging evidence.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_durable_binding.py), [details 3](tools/deployment/test_native_durable_binding.py), [details 4](.github/workflows/product.yml)
 

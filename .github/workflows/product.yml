@@ -213,6 +213,10 @@ jobs:
           set -euo pipefail
           "$GITGOOD_PYTHON" -B tools/ci/native-fingerprint-build.py
           sudo -n "$GITGOOD_PYTHON" -B tools/ci/native-fingerprint-test.py
+      - name: Compare fixed prepared Root SELECTs on hosted PostgreSQL
+        run: |
+          set -euo pipefail
+          "$GITGOOD_PYTHON" -B tools/ci/native-prepared-test.py
       - name: Verify protected native ownership on actual systemd
         # Adds complete production archive staging and content verification;
         # this hosted test budget does not alter production operation deadlines.
