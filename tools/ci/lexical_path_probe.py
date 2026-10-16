@@ -121,6 +121,44 @@ class JoinPlans:
             'retained_join_plans':len(self.cache)}
 
 
+class MetadataFactory(PathFactory):
+    """Preserve the original tests' live Path.stat mutation interface.
+
+    Normal construction never changes a metadata method. Explicit scoped test
+    mutations target the same original class and unwind in nested order.
+    """
+    def __init__(self):
+        super().__init__();self.metadata=[];self.metadata_owner=(os.getpid(),threading.get_ident())
+
+    @property
+    def stat(self):return getattr(self.original,'stat')
+
+    @stat.setter
+    def stat(self,value):
+        require(self.metadata_owner==(os.getpid(),threading.get_ident()) and len(self.metadata)<32)
+        namespace=vars(self.original)
+        self.metadata.append(('stat','stat' in namespace,namespace.get('stat')))
+        setattr(self.original,'stat',value)
+
+    def _restore(self,entry):
+        name,local,previous=entry
+        if local:setattr(self.original,name,previous)
+        elif name in vars(self.original):delattr(self.original,name)
+
+    @stat.deleter
+    def stat(self):
+        require(self.metadata_owner==(os.getpid(),threading.get_ident()) and self.metadata)
+        self._restore(self.metadata[-1]);self.metadata.pop()
+
+    def restore_metadata(self):
+        errors=[]
+        while self.metadata:
+            entry=self.metadata.pop()
+            try:self._restore(entry)
+            except BaseException as error:errors.append(error)
+        return errors
+
+
 class Adapter:
     def __init__(self,modules,*,loaded=None,owner_check=None):
         self.owner_check=root_owner if owner_check is None else owner_check;self.owner_check()
@@ -135,14 +173,16 @@ class Adapter:
         classes=(type(Path('/')),pathlib.PurePosixPath,pathlib.PureWindowsPath)
         self.roles=tuple((owner,name,inspect.getattr_static(owner,name)) for owner in
             {pathlib.PurePath,pathlib.Path,*classes} for name in ('__init__','__new__','_flavour','_parse_path','_from_parsed_parts'))
+        self.roles+=((pathlib.Path,'stat',inspect.getattr_static(pathlib.Path,'stat')),)
         if loaded is not None:
             for _owner,_name,raw in self.roles:
                 value=raw.__func__ if type(raw) in {classmethod,staticmethod} else raw
-                if type(value) is types.FunctionType:
-                    require(value.__globals__ is vars(pathlib) and value.__code__==loaded.original_codes[
+                if _name!='_flavour':
+                    require(type(value) is types.FunctionType and value.__globals__ is vars(pathlib)
+                        and value.__code__==loaded.original_codes[
                         value.__qualname__.split('.')[0],value.__name__])
         self.fspath=pathlib.os.fspath
-        self.factory=PathFactory();self.joins=JoinPlans(self.original,classes)
+        self.factory=MetadataFactory();self.joins=JoinPlans(self.original,classes)
         joins=self.joins
         def with_segments(subject,*segments,**keywords):return joins(subject,*segments,**keywords)
         self.replacement=with_segments;self.active=False;self.broken=False
@@ -169,7 +209,7 @@ class Adapter:
             require(vars(self.path_owner)['with_segments'] is self.replacement
                 and all(module.Path is self.factory for module in self.modules))
         finally:
-            pending=sys.exception();errors=[]
+            pending=sys.exception();errors=self.factory.restore_metadata()
             for owner,name,original in reversed(changed):
                 try:setattr(owner,name,original)
                 except BaseException as error:errors.append(error)

@@ -392,7 +392,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Require original SQL and kernel backend identity in new native ownership claims and monitoring; preserve older records as history and refuse their live readmission. Installed startup and controller recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-kernel-ownership.md), [details 2](apps/forge/lib/gitgood/native_ownership_claim.ex), [details 3](tools/deployment/native_ownership_records.py)
 
-- Compare bounded derived-path plans on original Root actors, retaining fresh metadata checks and restoring every symbol before staging effects.
+- Compare bounded derived-path plans on original Root actors, preserving the class metadata mutation interface, fresh checks and complete symbol restoration before staging effects.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/lexical_path_probe.py), [details 3](tools/ci/lexical-path-test.py)
 
 - Validate private migration expectations and first-owner inputs against the original captured native lifecycle stage, with detached fixed-action projections and permanent guard poisoning on refusal. Business execution, BEAM transport and complete native startup/recovery remain unfinished.

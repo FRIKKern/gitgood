@@ -165,6 +165,47 @@ class LexicalPlansTest(unittest.TestCase):
                 value=subject/'leaf';self.assertEqual(value,first);self.assertIsNot(value,first)
             self.assertEqual(list(a.joins.cache),before);self.assertEqual(a.joins.hits,hits)
 
+    def test_metadata_patch_targets_same_original_class_and_restores_nested_values(self):
+        targets=modules();a=adapter(targets);original=vars(Path)['stat']
+        with a.installed():
+            with patch.object(targets[0].Path,'stat',return_value=SimpleNamespace(st_uid=731)) as outer:
+                self.assertIs(Path.stat,outer);self.assertIs(targets[1].Path.stat,outer)
+                self.assertEqual(targets[0].Path('/synthetic').stat().st_uid,731)
+                with patch.object(targets[1].Path,'stat',return_value=SimpleNamespace(st_uid=732)) as inner:
+                    self.assertIs(Path.stat,inner);self.assertEqual(Path('/synthetic').stat().st_uid,732)
+                self.assertIs(Path.stat,outer)
+            self.assertIs(vars(Path)['stat'],original);self.assertEqual(a.factory.metadata,[])
+        self.assertTrue(a.restored());self.assertIs(vars(Path)['stat'],original)
+
+    def test_interrupted_unbalanced_metadata_mutation_restores_original_descriptor(self):
+        a=adapter();original=vars(Path)['stat'];failure=KeyboardInterrupt('synthetic metadata interruption')
+        with self.assertRaises(KeyboardInterrupt) as caught:
+            with a.installed():
+                a.factory.stat=Mock(return_value=SimpleNamespace(st_uid=731));raise failure
+        self.assertIs(caught.exception,failure);self.assertIs(vars(Path)['stat'],original)
+        self.assertTrue(a.restored());self.assertEqual(a.factory.metadata,[])
+
+    def test_sdk_admission_refuses_nonfunction_metadata_before_installation(self):
+        codes,_digest=probe.sdk_code(Path(pathlib.__file__).read_bytes(),pathlib.__file__)
+        loaded=SimpleNamespace(original_code=codes['PurePath','with_segments'],original_codes=codes)
+        original=vars(pathlib.PurePath)['with_segments'];targets=modules()
+        with patch.object(Path,'stat',Mock()),self.assertRaises(ValueError):
+            probe.Adapter(targets,loaded=loaded,owner_check=lambda:None)
+        self.assertIs(vars(pathlib.PurePath)['with_segments'],original)
+        self.assertTrue(all(module.Path is Path for module in targets))
+
+    def test_metadata_restore_failure_preserves_pending_error_and_other_symbol_cleanup(self):
+        a=adapter();original=vars(Path)['stat'];failure=KeyboardInterrupt('synthetic metadata interruption')
+        def assign(owner,name,value):
+            if owner is Path and name=='stat' and value is original:raise RuntimeError('synthetic metadata restore')
+            setattr(owner,name,value)
+        try:
+            with patch.object(probe,'setattr',assign,create=True),self.assertRaises(KeyboardInterrupt) as caught:
+                with a.installed():
+                    a.factory.stat=Mock();raise failure
+            self.assertIs(caught.exception,failure);self.assertTrue(a.broken);self.assertTrue(a.restored())
+        finally:setattr(Path,'stat',original)
+
     def test_partial_installation_restores_all_original_symbols(self):
         targets=modules();a=adapter(targets);failure=RuntimeError('synthetic install');changed=[]
         def assign(owner,name,value):

@@ -2,7 +2,7 @@
   "id": "native-lexical-path-join-probe",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Compare bounded derived-path plans on original Root actors, retaining fresh metadata checks and restoring every symbol before staging effects.",
+  "summary": "Compare bounded derived-path plans on original Root actors, preserving the class metadata mutation interface, fresh checks and complete symbol restoration before staging effects.",
   "journeys": [
     "J14",
     "J15"

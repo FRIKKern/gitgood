@@ -425,12 +425,22 @@ methods remain live; no filesystem, ancestor, process, SQL, socket, validation
 or guard observation is retained. Plan objects reuse lexical object identity;
 this diagnostic does not claim general standard-library API equivalence.
 
-Twenty component cases include portable lexical values, side effects,
+Twenty-four component cases include portable lexical values, side effects,
 exception identity, input bounds, namespace/owner refusal, interruption and
 partial-installation cleanup, fresh file/replacement observations and SDK source
 shape checks. Three actual Linux cases verify source custody, fresh symlink
 changes and all 372 original Root mutation/refusal cases with the combined
 adapter active. These cases require current hosted evidence.
+
+The first combined trial passed SDK custody and symlink freshness but failed the
+original process-status fixtures because the constructor callable did not expose
+the original Path.stat class attribute used for metadata mutation injection.
+The diagnostic factory now forwards that narrow interface to the same original
+class. Reads stay live, nested test-directed mutations unwind in order, and all
+pending mutations restore during adapter cleanup even after interruption. Normal
+adapter installation does not change any metadata method. The original tests
+and their read-order/refusal assertions remain unchanged; no metadata result is
+cached by this interface.
 
 Twenty whole-guard baseline/prototype pairs alternate on the same original stage
 and actors before the original timers and guard-ten profiler. The original
