@@ -476,6 +476,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Test a checksum-pinned PyPy Root helper in disposable hosted CI with unchanged production sources, guards, payload and deadline.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/root_runtime_probe.py), [details 3](tools/ci/root-runtime-test.py)
 
+- Locate remaining native staging cost from individual public helper timings within the existing bounded guard sample; reject the slower compiled path trial.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Use the fixed exclusion SELECT's complete database identity for both readers within each Root read-only staging pass. Query again in the separate final pass and outside a pass; preserve original reader, writer, socket, kernel, framing and effect guards. Full production staging and runtime remain subject to hosted and uninstrumented verification.
   Sources: [details 1](docs/implementation/native-root-database-reader.md), [details 2](tools/deployment/native_root_database_reader.py), [details 3](tools/deployment/test_native_root_database_reader.py)
 

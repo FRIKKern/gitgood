@@ -37,7 +37,6 @@ import urllib.request
 import socket
 import ssl
 import root_runtime_probe
-import path_body_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -1490,6 +1489,60 @@ def root_guard_path_callers(stats, allowed, path_codes):
     return sorted(rows,key=lambda row:(-row['cumulative_us'],-row['calls'],row['function'],row['line']))[:8]
 
 
+ROOT_GUARD_SELF_FUNCTIONS = {
+    'native_service_scope.py': {
+        '__init__','_fingerprint','_observe_allocated_service','_observe_root_controller','_observe_service',
+        '_process_security_fields','_process_status_fields','_root_file_parent_plan','_root_file_parents',
+        '_root_file_path','bounded_command','close','field','freeze','group_identity','installed_version',
+        'members','observe_service','parse_properties','process_identity','process_security','read',
+        'read_bytes','require','root_file','systemd_properties',},
+    'native_systemd_properties.py': {
+        '__init__','_get','_get_all','_get_many','_get_many_serial','_read_property','_read_selected',
+        '_read_value','_string','close','completed','manager_version','require','unit_properties',},
+    'native_kernel_backend.py': {
+        '_capture_process','_check_scope','_kernel_absence','_positive','_read','_stat','_status',
+        '_validate_record','_validate_scope','capture_backend_kernel_identity',
+        'observe_held_backend_kernel_identity','observe_prior_backend_identity_absence','require',},
+    'native_durable_binding.py': {
+        '__init__','_canonical_private_path','_fingerprint','_persistent_identity',
+        '_root_persistent_identity','close','configuration','directory','executable','freeze',
+        'observe_durable_binding','persistent_identity','private_file','read','require','unique',},
+    'native_root_database_reader.py': {
+        '__init__','_base','_binary','_client','_configuration','_exchange','_file','_reader',
+        '_stage_observation','_statement','close','exclusion','identity','require',},
+    'native_root_lifecycle.py': {
+        '__enter__','__exit__','__init__','_current','_directory','_directory_metadata','_file','_identity',
+        '_layout','_lifecycle_view','_names','_open','_pin_snapshot','_root','_snapshot','_write','admit',
+        'borrow_custody','check','close','parse_generation_seal','publish','require','retain','root_owner',},
+    'resource_generations.py': {
+        'canonical','closed','digest','directory','generation_sha256','identifier','integer',
+        'make_generation','parse_generation','require','unique','validate_generation','validate_scope',
+        'validate_successor',},
+}
+
+
+def root_guard_installed_self(stats):
+    """Eight public function self costs from the same existing guard profile.
+
+    This closed source inventory names functions in measured hot modules. Only
+    their public source label/line and bounded numeric costs leave the profile.
+    No source, caller mapping, argument, local or observation is read here.
+    """
+    rows = []
+    for (filename,line,function),(_primitive,calls,total,_cumulative,_callers) in stats.items():
+        if type(filename) is not str or type(function) is not str:continue
+        path = Path(filename)
+        if (path.parent != MODULES or path.name not in ROOT_GUARD_SELF_FUNCTIONS or
+                function not in ROOT_GUARD_SELF_FUNCTIONS[path.name]):continue
+        require(type(line) is int and 0 < line < 10000)
+        require(type(calls) is int and 0 <= calls <= 10000000)
+        require(type(total) in {int,float} and 0 <= total <= 1200)
+        rows.append({'file':'installed-self.py','function':path.stem+'.'+function,'line':line,'calls':calls,
+            'self_ms':int(total*1000),'cumulative_ms':int(total*1000),
+            'self_us':int(total*1000000),'cumulative_us':int(total*1000000)})
+    return sorted(rows,key=lambda row:(-row['self_us'],-row['calls'],row['function'],row['line']))[:8]
+
+
 def root_stage_profile(profile):
     """Closed public code counters only; no stacks, argument values or paths."""
     allowed = {
@@ -1563,14 +1616,20 @@ def root_stage_profile(profile):
             type(line) is int and 0 < line < 10000 and function == 'check'
             for filename,line,function in stats):
         rows.extend(root_guard_self_costs(stats))
-        rows.extend(root_guard_hot_self(stats,path_codes))
+        hot = root_guard_hot_self(stats,path_codes)
+        detail = root_guard_installed_self(stats)
+        # Refine the eight coarse installed-module slots. Their category
+        # aggregate remains above; keep the original primitive/path quotas and
+        # direct caller attribution within the same total64-row bound.
+        if detail:hot = [row for row in hot if row['function'] != 'module_self'] + detail
+        rows.extend(hot)
         callers = root_guard_path_callers(stats,allowed,path_codes | set(root_guard_path_helper_codes(path_codes)))
         rows.extend(callers)
         reserved.update((row['file'],row['function']) for row in callers)
     # Reserve the fixed diagnostic questions before filling remaining slots by
     # cost. Low-cost required helpers must not disappear at the 64-row cap.
     rows = sorted(rows,key=lambda value:(0 if (value['file'],value['function']) in reserved else
-        1 if value['file'] in {'builtin-self.py','pathlib-self.py'} or value['function']=='module_self' else 2,
+        1 if value['file'] in {'builtin-self.py','pathlib-self.py','installed-self.py'} or value['function']=='module_self' else 2,
         -value['cumulative_us'],-value['self_us'],
         value['file'],value['function'],value['line']))[:64]
     return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))
@@ -1735,7 +1794,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
             database=business_database, role=seed['account'], password=password)
     staged_artifact_observation = None
     if seed.get('artifact_stage_fixture'):
-        from native_root_artifact_dispatch import serve_artifact_stage, _ObservedArtifactStage
+        from native_root_artifact_dispatch import serve_artifact_stage
         root_directory(Path('/run/gitgood/root-artifacts'))
         listener = root_views.enter_context(socket.socket(socket.AF_UNIX,socket.SOCK_STREAM))
         path = Path('/run/gitgood/root-artifacts')/(seed['installation']+'.sock')
@@ -1753,14 +1812,10 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         # profile spans the full stage or an effect. These diagnostics cannot
         # justify production timing acceptance or change the response deadline.
         measurements = RootStageMeasurements()
-        loaded_paths = path_body_probe.Loaded(Path(seed['release']).parent/'path-body-probe')
-        comparison = path_body_probe.AtFirstGuard(loaded_paths,_ObservedArtifactStage,measurements)
         try:
-            with comparison:
+            with measurements:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if comparison.result is not None:
-                seed['path_body_comparison'] = comparison.result
             seed['root_stage_measurements'] = measurements.values()
             seed['root_guard_cpu'] = measurements.cpu.values()
             sample = measurements.sample.values()
@@ -2199,7 +2254,6 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
         **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
-        **({'path_body_comparison':seed['path_body_comparison']} if seed.get('path_body_comparison') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2239,9 +2293,6 @@ def preflight(args):
     extra = [workspace / 'tools/ci' / name for name in ('native-owned-manager.py', 'native-owned-worker.exs', 'native-successor-manager.py')]
     extra += [workspace / 'tools/deployment' / name for name in module_closure(workspace / 'tools/deployment')]
     extra += [workspace / '.gitgood/native-web-product', workspace / 'docs/deployment/Caddyfile.example']
-    extra += [workspace/'tools/ci'/name for name in ('path_body_probe.py','path_body_source.py','path-body-build.py')]
-    extra += [workspace/'.gitgood/path-body-probe'/name for name in
-        ('pathlib-original.py','path-body-donor.pyx','manifest.json',path_body_probe.extension_name())]
     total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git"), *extra])
     require(total <= COPY_LIMIT and shutil.disk_usage("/opt").free >= total + 1024**3, "bounded disk preflight")
     return workspace, total
@@ -2298,13 +2349,6 @@ def main(args):
         for name in ["native-owned-manager.py", "native-owned-worker.exs", "native-successor-manager.py"]:
             phase = "copy-fixture-" + name.removeprefix("native-owned-").split(".")[0]
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
-        phase = 'copy-path-body-diagnostic'
-        probe_directory = runtime/'path-body-probe';probe_directory.mkdir(mode=0o755)
-        sources = [workspace/'tools/ci'/name for name in ('path_body_probe.py','path_body_source.py','path-body-build.py')]
-        sources += [workspace/'.gitgood/path-body-probe'/name for name in
-            ('pathlib-original.py','path-body-donor.pyx','manifest.json',path_body_probe.extension_name())]
-        for source in sources:
-            copy_runtime(source,probe_directory/source.name)
         phase = "relocate-private-postgresql-client"
         receipt["postgresql_client_relocation"] = relocate_postgresql_client(runtime)
         modules = module_closure(workspace / "tools/deployment")
@@ -2489,8 +2533,6 @@ def main(args):
                 if observed is not None:receipt['failure']['artifact_failure'] = observed
             if seed.get('root_reader_refusal_observation') is not None:
                 receipt['failure']['root_reader_refusal_observation'] = seed['root_reader_refusal_observation']
-            if seed.get('path_body_comparison') is not None:
-                receipt['failure']['path_body_comparison'] = seed['path_body_comparison']
             if seed.get('root_stage_profile') is not None:
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
             if seed.get('root_stage_measurements') is not None:

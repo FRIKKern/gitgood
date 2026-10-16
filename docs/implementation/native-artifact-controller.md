@@ -355,7 +355,7 @@ criteria. Production adoption is rejected; it is no longer the active stage
 comparison. Complete staging still failed at about 240 seconds before output
 verification, with every production module unchanged.
 
-The next hosted diagnostic compiles 20 measured path helper bodies from the exact
+The retained hosted diagnostic compiles 20 measured path helper bodies from the exact
 installed CPython 3.12 standard-library source using pinned Cython 3.1.8. An inverse
 AST check reconstructs every selected body after redirecting global loads to live
 original globals and builtins dictionaries. Conservative f-string quoting also
@@ -384,3 +384,24 @@ The adoption threshold is median ratio at most 0.80 with at least 18 of 20 pairs
 faster. All filesystem/kernel/SQL observations, complete archive, effect guards
 and production deadlines remain unchanged. Production adoption and complete
 staging/runtime, installation and recovery acceptance remain unproven.
+
+That compiled path trial passed 13 source checks, 11 adapter/runtime cases and
+all 372 original Root cases under the adapter. Its 20 whole-guard pairs had
+median ratio 1.047818 with zero pairs faster, failing the unchanged 0.80 and
+18-of-20 criteria. Production adoption is rejected. The original full stage
+still reached approximately 240 seconds before output verification. The active
+full proof no longer loads or copies that experimental runtime; all compiler,
+semantic, descriptor-restoration and original Root regression tests remain.
+
+The existing guard-ten diagnostic now ranks at most eight individual installed
+function self costs from a closed public function inventory in the measured hot
+service, systemd, kernel, binding, reader, lifecycle and generation modules. These
+refine the former eight coarse module-total slots. The installed-code category
+aggregate, primitive/path quotas and caller attribution remain within the same
+combined 64-row limit. Self costs overlap those category totals; they must not
+be added as separate work. Labels and source lines identify public functions;
+arguments, locals, caller mappings, private paths and observation values are
+absent. Unknown source/function keys are excluded and invalid numeric data
+refuses. This postprocesses the same existing guard-ten profile and invokes no
+additional guard, profile or observation. It selects the next repair and cannot
+establish uninstrumented performance, staging, runtime or recovery acceptance.

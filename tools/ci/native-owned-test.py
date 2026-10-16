@@ -25,6 +25,81 @@ spec.loader.exec_module(proof)
 
 
 class BoundedProofTests(unittest.TestCase):
+    def test_installed_self_inventory_matches_public_functions_of_fixed_hot_modules(self):
+        self.assertEqual(set(proof.ROOT_GUARD_SELF_FUNCTIONS),{
+            'native_service_scope.py','native_systemd_properties.py','native_kernel_backend.py',
+            'native_durable_binding.py','native_root_database_reader.py','native_root_lifecycle.py',
+            'resource_generations.py'})
+        for filename,names in proof.ROOT_GUARD_SELF_FUNCTIONS.items():
+            tree=ast.parse((HERE.parent/'deployment'/filename).read_bytes())
+            self.assertEqual(names,{node.name for node in ast.walk(tree) if isinstance(node,ast.FunctionDef)})
+
+    def test_installed_self_excludes_private_source_symbols_and_all_unused_values(self):
+        opaque=Mock();opaque.__str__=Mock(side_effect=AssertionError('private data inspected'))
+        filename=str(proof.MODULES/'native_service_scope.py')
+        stats={(filename,36,'read_bytes'):(opaque,2,.001,.1,opaque),
+            ('/private/native_service_scope.py',36,'read_bytes'):(opaque,9,900,.1,opaque),
+            (filename,40,'private_password'):(opaque,9,900,.1,opaque),
+            (str(proof.MODULES/'private_password.py'),36,'read_bytes'):(opaque,9,900,.1,opaque)}
+        self.assertEqual(proof.root_guard_installed_self(stats),[{
+            'file':'installed-self.py','function':'native_service_scope.read_bytes','line':36,'calls':2,
+            'self_ms':1,'cumulative_ms':1,'self_us':1000,'cumulative_us':1000}])
+        self.assertNotIn('private',json.dumps(proof.root_guard_installed_self(stats)))
+        opaque.__str__.assert_not_called()
+
+    def test_installed_self_refuses_invalid_counter_time_and_line_values(self):
+        key=(str(proof.MODULES/'native_service_scope.py'),36,'read_bytes')
+        for calls,total in ((True,.1),(-1,.1),(10000001,.1),(1,True),(1,-1),
+                (1,float('nan')),(1,float('inf')),(1,1201)):
+            with self.subTest(calls=calls,total=total),self.assertRaises(ValueError):
+                proof.root_guard_installed_self({key:(1,calls,total,.1,{})})
+        for line in (True,0,-1,10000,1.5):
+            with self.subTest(line=line),self.assertRaises(ValueError):
+                proof.root_guard_installed_self({(key[0],line,key[2]):(1,1,.1,.1,{})})
+
+    def test_installed_self_has_deterministic_self_cost_top_eight_and_keeps_zero_cost(self):
+        filename=str(proof.MODULES/'native_service_scope.py')
+        stats={(filename,line,'read_bytes'):(1,2,.001,999,{}) for line in range(1,25)}
+        result=proof.root_guard_installed_self(stats)
+        self.assertEqual([row['line'] for row in result],list(range(1,9)))
+        self.assertEqual(result,proof.root_guard_installed_self(dict(reversed(list(stats.items())))))
+        self.assertTrue(all(row['cumulative_us']==row['self_us']==1000 for row in result))
+        zero=proof.root_guard_installed_self({(filename,36,'read_bytes'):(1,0,0,999,{})})
+        self.assertEqual(zero[0]['calls'],0);self.assertEqual(zero[0]['self_us'],0)
+
+    def test_installed_self_refines_coarse_module_slots_within_original_profile_cap(self):
+        stats={(str(proof.MODULES/'native_kernel_backend.py'),line,'_read'):(1,1,.01,line/100,{})
+            for line in range(1,81)}
+        guard=(str(proof.MODULES/'native_root_artifact_dispatch.py'),90,'check')
+        caller=(str(proof.MODULES/'native_service_scope.py'),36,'read_bytes')
+        code=proof.Path.stat.__code__;path=(code.co_filename,code.co_firstlineno,code.co_name)
+        stats[guard]=(1,1,.01,.9,{})
+        stats[path]=(1,1,.01,.1,{caller:(1,1,.01,.1)})
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(object())
+        detail=[row for row in rows if row['file']=='installed-self.py']
+        self.assertEqual(detail,proof.root_guard_installed_self(stats))
+        self.assertEqual(len(detail),8);self.assertLessEqual(len(rows),64)
+        self.assertEqual(len([row for row in rows if row['file']=='path-callers.py']),1)
+        self.assertFalse(any(row['function']=='module_self' for row in rows))
+        self.assertTrue(any(row['file']=='guard-self-costs.py' for row in rows))
+
+    def test_installed_self_uses_actual_existing_guard_ten_profile_without_extra_calls(self):
+        calls=[];payload='synthetic private payload'
+        scope={'calls':calls}
+        exec(compile('def read_bytes(value):\n    calls.append(value)\n    return len(value)\n',
+            str(proof.MODULES/'native_service_scope.py'),'exec'),scope)
+        exec(compile('def check(value):\n    return read_bytes(value)\n',
+            str(proof.MODULES/'native_root_artifact_dispatch.py'),'exec'),scope)
+        sample=proof.RootGuardSample();sample.calls=9
+        self.assertEqual(sample.wrap(scope['check'])(payload),len(payload))
+        self.assertEqual(calls,[payload]);self.assertEqual(sample.calls,10)
+        value=sample.values();self.assertEqual(value['profiled_checks'],1)
+        detail=[row for row in value['rows'] if row['file']=='installed-self.py']
+        self.assertEqual(len(detail),1);self.assertEqual(detail[0]['calls'],1)
+        self.assertEqual(detail[0]['function'],'native_service_scope.read_bytes')
+        self.assertNotIn(payload,json.dumps(value));self.assertNotIn(str(proof.MODULES),json.dumps(value))
+
     def test_path_callers_attribute_only_direct_loaded_path_edges_to_fixed_source(self):
         path_key=('loaded/pathlib.py',10,'stat');caller=(str(proof.MODULES/'native_root_lifecycle.py'),350,'_current')
         allowed={'native_root_lifecycle.py':{'_current'}}
@@ -597,7 +672,7 @@ class BoundedProofTests(unittest.TestCase):
         self.assertEqual(len(rows),64);self.assertEqual(len(expected),31)
         self.assertTrue(expected <= {(row['file'],row['function']) for row in rows})
         self.assertEqual(len([row for row in rows if row['file']=='guard-self-costs.py']),8)
-        self.assertEqual(len([row for row in rows if row['function']=='module_self']),8)
+        self.assertEqual(len([row for row in rows if row['file']=='installed-self.py']),8)
         self.assertEqual([row['line'] for row in rows if row['file']=='native_kernel_backend.py' and row['function']=='_read'],list(range(64,81)))
 
     def test_guard_self_cost_categories_refuse_invalid_numeric_data_and_spoofed_rows(self):
@@ -744,7 +819,7 @@ class BoundedProofTests(unittest.TestCase):
         self.assertEqual(len(rows),64);self.assertEqual(len(required),31)
         self.assertTrue(required <= {(row['file'],row['function']) for row in rows})
         self.assertEqual(len([row for row in rows if row['file']=='guard-self-costs.py']),8)
-        self.assertEqual(len([row for row in rows if row['function']=='module_self']),8)
+        self.assertEqual(len([row for row in rows if row['file']=='installed-self.py']),8)
         self.assertEqual(len([row for row in rows if row['file']=='builtin-self.py']),8)
         self.assertEqual(len([row for row in rows if row['file']=='pathlib-self.py']),9)
         self.assertFalse(any(row['file']=='native_kernel_backend.py' and row['function']=='_read' for row in rows))
