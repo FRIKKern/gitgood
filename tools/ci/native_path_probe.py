@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from functools import wraps
 import hashlib
 import inspect
+import ntpath
 import os
 from pathlib import Path
 import pathlib
@@ -45,7 +46,10 @@ SDK_AST={
 # CPython 3.12's older constructor converts a mixed Windows-flavour argument
 # differently. Native construction supports only exact strings and the same
 # concrete POSIX class; mixed flavours always execute the original SDK body.
-SDK_ALTERNATIVES={'PurePath.__init__':{'2bb656a796d68eca4898b404a36b63ba98b6475f6a42503647c0c569a262dd4e'}}
+SDK_ALTERNATIVES={'PurePath.__init__':{
+    '2bb656a796d68eca4898b404a36b63ba98b6475f6a42503647c0c569a262dd4e',
+    # Ubuntu/Debian ntpath-import.diff adds a local import to that exact body.
+    '568123baa6cd1f9dc899024528b0fa30429b5b7c0a1bf3923af0df4b251ad6c2'}}
 POSIX_AST={
     'join':'aa1ab3c9e073abc8ccb51208d6b7faf1aa03d673cd6ff83e2f83c8467b476cde',
     'splitdrive':'a1b5c7575676bc9a0b6d58a11e1bdae52781ed124be83d8ad65c31ca54956776',
@@ -88,9 +92,12 @@ def posix_code(raw):
 def sdk_environment():
     require(pathlib.os is os and pathlib.sys is sys and pathlib.posixpath is posixpath
         and pathlib.Path is TARGETS[0][0] and pathlib.PurePath is TARGETS[1][0]
-        and pathlib.PurePosixPath._flavour is posixpath and posixpath.sep=='/' and posixpath.altsep is None)
+        and pathlib.PurePosixPath._flavour is posixpath and pathlib.PureWindowsPath._flavour is ntpath
+        and type(sys.modules) is dict and sys.modules.get('ntpath') is ntpath
+        and posixpath.sep=='/' and posixpath.altsep is None)
+    if 'ntpath' in vars(pathlib):require(pathlib.ntpath is ntpath)
     for owner,name,module in ((os,'fspath','posix' if os.name=='posix' else 'nt'),(sys,'intern','sys'),
-            (builtins,'len','builtins'),(builtins,'isinstance','builtins')):
+            (builtins,'len','builtins'),(builtins,'isinstance','builtins'),(builtins,'__import__','builtins')):
         fn=vars(owner)[name]
         require(type(fn) is types.BuiltinFunctionType and fn.__module__==module and fn.__name__==name)
     require(builtins.str is ''.__class__ and builtins.type is ''.__class__.__class__
@@ -196,6 +203,8 @@ class Adapter:
                 and fn.__globals__ is vars(posixpath) and fn.__builtins__ is vars(builtins))
         self.sdk_functions={qualified:raw_function(vars(getattr(pathlib,qualified.split('.')[0]))[qualified.split('.')[1]])
             for qualified in SDK_AST}
+        constructor=self.sdk_functions['PurePath.__init__']
+        self.import_globals=constructor.__globals__ if 'ntpath' in constructor.__code__.co_varnames else None
 
         def replacement(op,original):
             @wraps(original)
@@ -216,9 +225,11 @@ class Adapter:
         def capture(owner,names):
             namespace=vars(owner)
             for name in names:require(name in namespace);shared.append((namespace,name,namespace[name]))
-        capture(pathlib,('Path','PurePath','PosixPath','PurePosixPath','os','sys','posixpath','ntpath'))
-        capture(builtins,('type','str','isinstance','len','object','super','AttributeError'))
+        capture(pathlib,('Path','PurePath','PosixPath','PurePosixPath','PureWindowsPath','os','sys','posixpath'))
+        if 'ntpath' in vars(pathlib):capture(pathlib,('ntpath',))
+        capture(builtins,('type','str','isinstance','len','object','super','AttributeError','__import__'))
         capture(os,('fspath',));capture(sys,('intern',))
+        capture(sys,('modules',));shared.append((sys.modules,'ntpath',ntpath))
         capture(posixpath,('join','splitroot','splitdrive','sep','altsep'))
         shared.extend((vars(native),name,getattr(native,name)) for name in APIS)
         # Raw class descriptors and function code are separate live bindings.
@@ -255,7 +266,7 @@ class Adapter:
         tables=tuple(tuple(shared) for _ in ROLES)
         require(all(len(table)<=128 for table in tables))
         self.tables=tables
-        self.plan=native.path_plan(tables,self.concrete,*self.owner,256)
+        self.plan=native.path_plan(tables,self.concrete,*self.owner,256,self.import_globals)
 
     def check(self):
         self.owner_check();require(not self.broken and not self.closed and self.owner==(os.getpid(),threading.get_ident()))

@@ -737,7 +737,7 @@ static PyObject *counts(PyObject *unused,PyObject *args) {
 #define LEX_CAPSULE "_native_metadata_probe.path_plan.v1"
 #define LEX_LIMIT 10000000ULL
 typedef struct {
-    PyObject *tables,*cls,*mro,*cache,*names[5],*empty,*slash,*double_slash,*dot;
+    PyObject *tables,*cls,*mro,*cache,*names[5],*empty,*slash,*double_slash,*dot,*import_globals,*import_name;
     unsigned long long pid,thread,calls[4],hits,misses;
     Py_ssize_t capacity;
     int broken;
@@ -749,6 +749,7 @@ static void lex_free(LexPlan *p) {
     Py_XDECREF(p->tables);Py_XDECREF(p->cls);Py_XDECREF(p->mro);Py_XDECREF(p->cache);
     for(i=0;i<5;i++)Py_XDECREF(p->names[i]);
     Py_XDECREF(p->empty);Py_XDECREF(p->slash);Py_XDECREF(p->double_slash);Py_XDECREF(p->dot);
+    Py_XDECREF(p->import_globals);Py_XDECREF(p->import_name);
     PyMem_Free(p);
 }
 static void lex_destroy(PyObject *capsule) {
@@ -797,13 +798,14 @@ static int lex_admit(LexPlan *p,int op) {
     return 1;
 }
 static PyObject *lex_plan_new(PyObject *unused,PyObject *args) {
-    PyObject *tables,*cls,*pid_o,*thread_o,*cap_o,*capsule;LexPlan *p=NULL;
+    PyObject *tables,*cls,*pid_o,*thread_o,*cap_o,*import_globals,*capsule;LexPlan *p=NULL;
     unsigned long long pid,thread,cap;Py_ssize_t op,i;int r;(void)unused;
     const char *names[]={"_raw_paths","_drv","_root","_tail_cached","_str"};
-    if(!PyArg_ParseTuple(args,"OOOOO",&tables,&cls,&pid_o,&thread_o,&cap_o))return NULL;
+    if(!PyArg_ParseTuple(args,"OOOOOO",&tables,&cls,&pid_o,&thread_o,&cap_o,&import_globals))return NULL;
     r=u64(pid_o,&pid);if(r<=0)goto invalid;r=u64(thread_o,&thread);if(r<=0)goto invalid;
     r=u64(cap_o,&cap);if(r<=0)goto invalid;
-    if(cap!=256||!PyTuple_CheckExact(tables)||PyTuple_GET_SIZE(tables)!=4||
+    if((import_globals!=Py_None&&!PyDict_CheckExact(import_globals))||
+        cap!=256||!PyTuple_CheckExact(tables)||PyTuple_GET_SIZE(tables)!=4||
         !PyType_Check(cls)||Py_TYPE(cls)!=&PyType_Type||strcmp(((PyTypeObject *)cls)->tp_name,"PosixPath")||
         !((PyTypeObject *)cls)->tp_mro||((PyTypeObject *)cls)->tp_dictoffset!=0||
         ((PyTypeObject *)cls)->tp_getattro!=PyObject_GenericGetAttr||
@@ -828,6 +830,10 @@ static PyObject *lex_plan_new(PyObject *unused,PyObject *args) {
     p->mro=Py_NewRef(((PyTypeObject *)cls)->tp_mro);p->pid=pid;p->thread=thread;p->capacity=(Py_ssize_t)cap;
     p->cache=PyDict_New();p->empty=PyUnicode_FromString("");p->slash=PyUnicode_FromString("/");
     p->double_slash=PyUnicode_FromString("//");p->dot=PyUnicode_FromString(".");
+    if(import_globals!=Py_None) {
+        p->import_globals=Py_NewRef(import_globals);p->import_name=PyUnicode_InternFromString("ntpath");
+        if(!p->import_name)goto error;
+    }
     if(!p->cache||!p->empty||!p->slash||!p->double_slash||!p->dot)goto error;
     for(i=0;i<5;i++){p->names[i]=PyUnicode_InternFromString(names[i]);if(!p->names[i])goto error;}
     if(!lex_owner(p))goto invalid;
@@ -990,7 +996,7 @@ unsupported:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);Py_RETURN_NOTIMPLE
 error:Py_XDECREF(drv);Py_XDECREF(root);Py_XDECREF(tail);Py_XDECREF(joined);Py_XDECREF(result);return NULL;
 }
 static PyObject *lex_path_call(PyObject *unused,PyObject *args) {
-    PyObject *op_o,*capsule,*subject,*arguments,*value=NULL,*pending;LexPlan *p;unsigned long long op;int r;(void)unused;
+    PyObject *op_o,*capsule,*subject,*arguments,*value=NULL,*pending,*imported=NULL;LexPlan *p;unsigned long long op;int r;(void)unused;
     if(!PyArg_ParseTuple(args,"OOOO",&op_o,&capsule,&subject,&arguments))return NULL;
     r=u64(op_o,&op);if(r<=0||op>5||!PyTuple_CheckExact(arguments))goto invalid;
     p=PyCapsule_GetPointer(capsule,LEX_CAPSULE);if(!p)return NULL;
@@ -1015,6 +1021,16 @@ static PyObject *lex_path_call(PyObject *unused,PyObject *args) {
             r=lex_old_slots(p,subject,0,0);
             if(r<0){Py_DECREF(raw);return NULL;}
             if(!r){Py_DECREF(raw);Py_RETURN_NOTIMPLEMENTED;}
+        }
+        /* Match Ubuntu's actual constructor-local IMPORT_NAME, including its
+         * current module lookup. The captured globals are code context only;
+         * no import result is retained. Changed import hooks fall back at the
+         * fresh admission above, before any import or SDK-slot mutation. */
+        if(p->import_globals) {
+            imported=PyImport_ImportModuleLevelObject(p->import_name,p->import_globals,p->import_globals,Py_None,0);
+            if(!imported){Py_DECREF(raw);goto complete;}
+        }
+        if(op==0) {
             r=PyObject_GenericSetAttr(subject,p->names[0],raw);
             if(r==0)value=Py_NewRef(Py_None);
         } else {
@@ -1024,7 +1040,8 @@ static PyObject *lex_path_call(PyObject *unused,PyObject *args) {
         Py_DECREF(raw);
     } else if(op==1)value=lex_load(p,subject);
     else value=lex_string(p,subject);
-    pending=PyErr_GetRaisedException();r=lex_admit(p,(int)op);
+complete:
+    pending=PyErr_GetRaisedException();r=lex_admit(p,(int)op);Py_XDECREF(imported);
     if(r<=0){p->broken=1;PyDict_Clear(p->cache);}
     if(pending) {
         PyErr_Clear();PyErr_SetRaisedException(pending);Py_XDECREF(value);return NULL;

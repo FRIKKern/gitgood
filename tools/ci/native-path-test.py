@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SDK/admission/restoration contract; actual native Root execution is separate."""
 import ast
+import builtins
 import faulthandler
 import importlib.util
 import itertools
@@ -26,8 +27,9 @@ class FakeNative(types.ModuleType):
         super().__init__('_native_path_contract_fake')
         self.originals=tuple(vars(owner)[name] for owner,name in probe.TARGETS)
         self.path_plan=self.path_plan;self.path_call=self.path_call
-    def path_plan(self,tables,concrete,pid,thread,capacity):
+    def path_plan(self,tables,concrete,pid,thread,capacity,import_globals):
         return types.SimpleNamespace(tables=tables,concrete=concrete,owner=(pid,thread),capacity=capacity,
+            import_globals=import_globals,
             counts={**dict.fromkeys(probe.ROLES,0),'cache_entries':0,'cache_hits':0,'cache_misses':0})
     @staticmethod
     def admitted(table):
@@ -131,6 +133,42 @@ class ComparisonContractTest(unittest.TestCase):
 
 
 class SDKContractTest(unittest.TestCase):
+    @staticmethod
+    def ubuntu_tree():
+        tree=ast.parse(Path(pathlib.__file__).read_bytes())
+        owner=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='PurePath')
+        ctor=next(n for n in owner.body if isinstance(n,ast.FunctionDef) and n.name=='__init__')
+        loop=next(n for n in ctor.body if isinstance(n,ast.For));branch=loop.body[0].body[0]
+        branch.test=ast.parse('arg._flavour is ntpath and self._flavour is posixpath',mode='eval').body
+        branch.body=ast.parse(r"paths.extend(path.replace('\\', '/') for path in arg._raw_paths)").body
+        if not any(isinstance(n,ast.Import) and any(a.name=='ntpath' for a in n.names) for n in ctor.body):
+            ctor.body.insert(0,ast.Import(names=[ast.alias(name='ntpath')]))
+        ast.fix_missing_locations(tree);return tree,ctor
+    def test_ubuntu_namespace_without_global_ntpath_and_late_import_hook_keep_original_behavior(self):
+        codes=probe.sdk_code(Path(pathlib.__file__).read_bytes(),pathlib.__file__)
+        codes.update(probe.posix_code(Path(posixpath.__file__).read_bytes()))
+        tree,_ctor=self.ubuntu_tree()
+        code=probe.sdk_code(ast.unparse(tree).encode(),'synthetic-public-ubuntu-sdk.py')['PurePath.__init__']
+        fn=pathlib.PurePath.__init__;saved=fn.__code__;space=vars(pathlib);absent=object();old=space.pop('ntpath',absent)
+        adapter=None
+        try:
+            fn.__code__=code;codes['PurePath.__init__']=code
+            native=FakeNative();adapter=probe.Adapter(native,owner_check=lambda:None,sdk_codes=codes)
+            self.assertIs(adapter.import_globals,space)
+            with adapter.installed():self.assertTrue(str(Path('/synthetic')/'leaf').endswith('leaf'))
+            before=adapter.values();failure=KeyboardInterrupt('original local import');calls=[];original=builtins.__import__
+            def changed(name,*args,**kwargs):
+                if name=='ntpath':calls.append(name);raise failure
+                return original(name,*args,**kwargs)
+            with adapter.installed(),patch.object(builtins,'__import__',changed):
+                with self.assertRaises(KeyboardInterrupt) as caught:Path('/synthetic')
+                self.assertIs(caught.exception,failure)
+            self.assertEqual(calls,['ntpath']);self.assertEqual(adapter.values(),before)
+            self.assertTrue(adapter.restored())
+        finally:
+            if adapter is not None:adapter.close()
+            fn.__code__=saved
+            if old is not absent:space['ntpath']=old
     def test_preexisting_slot_descriptor_hook_refuses_without_invocation(self):
         class Changed:
             def __get__(self,*args):raise AssertionError('foreign descriptor executed')
@@ -155,6 +193,12 @@ class SDKContractTest(unittest.TestCase):
             with patch.object(owner,name,value),patch.object(native,'path_plan') as plan,self.assertRaises(ValueError):
                 probe.Adapter(native,owner_check=lambda:None)
             plan.assert_not_called()
+    def test_exact_ubuntu_lazy_import_constructor_is_authenticated_without_execution(self):
+        tree,ctor=self.ubuntu_tree()
+        codes=probe.sdk_code(ast.unparse(tree).encode(),'public-ubuntu-sdk.py')
+        self.assertIn('ntpath',codes['PurePath.__init__'].co_varnames)
+        ctor.body.insert(1,ast.parse('paths = None').body[0])
+        with self.assertRaises(ValueError):probe.sdk_code(ast.unparse(tree).encode(),'public-ubuntu-sdk.py')
     def test_actual_sdk_bodies_and_code_objects_match_closed_contract(self):
         raw=Path(pathlib.__file__).read_bytes();codes=probe.sdk_code(raw,pathlib.__file__)
         for name in probe.SDK_AST:
@@ -437,6 +481,23 @@ class HostedPathTest(unittest.TestCase):
             thread=threading.Thread(target=worker);thread.start();thread.join(5)
             self.assertFalse(thread.is_alive());self.assertFalse(errors);self.assertEqual(values,['/synthetic/thread'])
         self.assertEqual(a.values()['cache_entries'],0);self.assertGreater(a.fallbacks['constructor'],0)
+    def test_actual_constructor_import_hook_and_module_loss_use_original_sdk(self):
+        a=self.adapter()
+        if a.import_globals is None:
+            self.assertNotIn('ntpath',a.sdk_functions['PurePath.__init__'].__code__.co_varnames);return
+        failure=KeyboardInterrupt('original constructor import');calls=[];original=__import__
+        def changed(name,*args,**kwargs):
+            if name=='ntpath':calls.append(name);raise failure
+            return original(name,*args,**kwargs)
+        with a.installed(),patch.object(__import__('builtins'),'__import__',changed):
+            with self.assertRaises(KeyboardInterrupt) as caught:Path('/synthetic')
+            self.assertIs(caught.exception,failure)
+        self.assertEqual(calls,['ntpath']);self.assertEqual(a.values()['constructor'],0)
+        with a.installed():
+            module=sys.modules.pop('ntpath')
+            try:self.assertIs(self.loaded.native.path_call(0,a.plan,object.__new__(pathlib.PosixPath),('/synthetic',)),NotImplemented)
+            finally:sys.modules['ntpath']=module
+        self.assertTrue(a.restored());self.loaded.validate()
     def test_actual_interruption_restores_sdk_and_preserves_error(self):
         failure=KeyboardInterrupt('original interruption');a=self.adapter()
         with self.assertRaises(KeyboardInterrupt) as caught:
@@ -445,8 +506,9 @@ class HostedPathTest(unittest.TestCase):
         self.assertIs(caught.exception,failure);self.assertTrue(a.restored());a.clear();self.loaded.validate()
     def test_actual_native_preflight_rejects_malformed_context_without_observation(self):
         n=self.loaded.native;a=self.adapter();before=(n.counts(),n.read_counts(),a.values())
-        for args in (((),pathlib.PosixPath,os.getpid(),threading.get_ident(),256),
-                (((),)*4,pathlib.PosixPath,os.getpid(),threading.get_ident(),257)):
+        for args in (((),pathlib.PosixPath,os.getpid(),threading.get_ident(),256,None),
+                (((),)*4,pathlib.PosixPath,os.getpid(),threading.get_ident(),257,None),
+                (((),)*4,pathlib.PosixPath,os.getpid(),threading.get_ident(),256,True)):
             with self.assertRaises(TypeError):n.path_plan(*args)
         for args in ((True,a.plan,None,()),(6,a.plan,None,()),(4,a.plan,object(),())):
             with self.assertRaises(TypeError):n.path_call(*args)

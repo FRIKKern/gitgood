@@ -437,7 +437,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Parse each freshly observed process status once while preserving duplicate-field, UID/GID, group, capability and namespace checks. Keep all process and effect observations fresh.
   Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_process_status.py), [details 4](.github/workflows/product.yml)
 
-- Add an isolated four-role native lexical SDK candidate with fresh admission, bounded immutable plans, original Root regressions and twenty alternating whole-guard comparisons; hosted semantics and benefit remain unverified.
+- Add an isolated four-role native lexical SDK candidate with original Ubuntu constructor imports, fresh admission, bounded immutable plans, Root regressions and twenty alternating whole-guard comparisons; hosted semantics and benefit remain unverified.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_path_probe.py), [details 3](tools/ci/native-path-test.py), [details 4](tools/ci/native-metadata-probe.c)
 
 - Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.

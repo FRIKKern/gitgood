@@ -781,13 +781,13 @@ The 256-entry cache contains only immutable parsed lexical strings/tuples;
 new paths and mutable lists are fresh, and closing clears the cache and drops
 the native capsule, including after interruption.
 
-Thirty portable checks cover this boundary, including SDK/POSIX source
+Thirty-two portable checks cover this boundary, including SDK/POSIX source
 authentication, lazy slots, mutable isolation, metadata hooks, live code and
 class cells, partial installation, restoration and pending-error precedence.
 The comparison cases also verify twenty alternating pairs, equal observations,
 positive counts for every role, zero fallback, and source custody before effects.
 They use a test double and deterministic fixture clocks, so establish no C
-execution or speedup. Ten actual Linux Root cases add SDK value/error/cache and
+execution or speedup. Eleven actual Linux Root cases add SDK value/error/cache and
 mutation checks plus a third complete original 372-case Root suite.
 
 The existing hosted workflow builds the candidate, runs all retained metadata
@@ -798,4 +798,14 @@ lexical plans cleared before effects; all seventeen timers, CPU windows,
 existing guard-ten sample, actors, complete archive and deadlines are retained.
 The unchanged benefit gate requires median ratio at most 0.80 and at least
 18 of 20 faster prototype samples. Hosted semantics and benefit remain
-unverified; the rejected filesystem profile is still the last verified result.
+unverified; the previous whole-guard filesystem profile remains rejected.
+
+Ubuntu's `ntpath-import.diff` changes the original constructor: it imports
+`ntpath` locally and omits that global from `pathlib`. The closed SDK contract
+admits that exact additional body. For this variant only, native construction
+and derived paths perform the same absolute import with the original SDK
+globals; the module result is not cached. The import hook and current
+`sys.modules` binding are admitted afresh. Changed hooks or a missing module
+execute the original SDK before any import or slot mutation in the C lane.
+Portable checks cover the absent global, exact source body and late hook error;
+the additional Root case requires actual native refusal and exception behavior.
