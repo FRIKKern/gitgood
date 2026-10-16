@@ -243,6 +243,9 @@ jobs:
           "$GITGOOD_PYTHON" -B tools/ci/path-body-source-test.py
           "$GITGOOD_PYTHON" -B tools/ci/path-body-build.py
           sudo -n "$GITGOOD_PYTHON" -B tools/ci/path-body-test.py
+      - name: Verify lexical path plans and original Root refusals
+        timeout-minutes: 5
+        run: sudo -n "$GITGOOD_PYTHON" -B tools/ci/lexical-path-test.py
       - name: Verify protected native ownership on actual systemd
         # Adds complete production archive staging and content verification;
         # this hosted test budget does not alter production operation deadlines.

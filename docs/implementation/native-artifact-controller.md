@@ -405,3 +405,40 @@ absent. Unknown source/function keys are excluded and invalid numeric data
 refuses. This postprocesses the same existing guard-ten profile and invokes no
 additional guard, profile or observation. It selects the next repair and cannot
 establish uninstrumented performance, staging, runtime or recovery acceptance.
+
+The broader lexical-path experiment adds derived-path construction to the retained
+three-module constructor prototype. It changes only the original PurePath
+`with_segments` descriptor during private read-only comparisons. Exact standard
+path classes and exact strings can reuse at most 256 join plans, alongside the
+existing 64 constructor plans. Keys retain raw lexical strings and classes, with
+at most 64 raw components and 1,024 characters in total; resulting paths remain
+bounded to 64 parts and 1,024 characters. Oversized or unsupported inputs,
+PathLike objects, subclasses, keyword arguments and failures use the original
+constructor behavior without caching errors. A conservative 16 MiB memory
+estimate covers these small bounded plans.
+
+The actual Root-controlled CPython 3.12 source authenticates the original pure
+constructor body and the construction-role code objects. Diagnostic source
+identities, namespace/builtin bindings, original classes, construction methods,
+Root PID/thread and all-Root UID/GID state are checked. All original metadata
+methods remain live; no filesystem, ancestor, process, SQL, socket, validation
+or guard observation is retained. Plan objects reuse lexical object identity;
+this diagnostic does not claim general standard-library API equivalence.
+
+Twenty component cases include portable lexical values, side effects,
+exception identity, input bounds, namespace/owner refusal, interruption and
+partial-installation cleanup, fresh file/replacement observations and SDK source
+shape checks. Three actual Linux cases verify source custody, fresh symlink
+changes and all 372 original Root mutation/refusal cases with the combined
+adapter active. These cases require current hosted evidence.
+
+Twenty whole-guard baseline/prototype pairs alternate on the same original stage
+and actors before the original timers and guard-ten profiler. The original
+method descriptor and all three module symbols restore after every prototype
+invocation and before any staging effect, including failures and interruptions.
+All plans clear after comparison. Only numeric counts/times and fixed public
+code hashes appear in the receipt. The proposal threshold remains median ratio
+at most 0.80 and at least 18 of 20 pairs faster. Production adoption, complete
+uninstrumented staging and staged runtime, installation and recovery remain
+separate unproven requirements. Neither earlier rejected path experiment is
+rerun unchanged or treated as accepted behavior.
