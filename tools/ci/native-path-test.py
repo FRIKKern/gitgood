@@ -485,20 +485,21 @@ class HostedPathTest(unittest.TestCase):
         a=self.adapter()
         if a.import_globals is None:
             self.assertNotIn('ntpath',a.sdk_functions['PurePath.__init__'].__code__.co_varnames);return
-        observations=[]
+        with a.installed():native_path=Path('/synthetic')
+        self.assertEqual(a.values()['constructor'],1);self.assertFalse(any(a.fallbacks.values()))
+        before=a.values();observations=[]
         class Spec:
             def __getattribute__(self,name):
                 if name=='_initializing':observations.append(name);return False
                 raise AssertionError('unexpected import observation')
-        # Observe the real import's initialized-module check without changing
-        # __import__. Omitting the import would preserve path values but lose
-        # this original SDK observation, so value-only cases are insufficient.
+        # Changed metadata can execute a callback before argument copying.
+        # It must use the original SDK before the C lane imports or mutates.
         with patch.object(probe.ntpath,'__spec__',Spec()):
             original_path=Path('/synthetic');expected=observations[:];observations.clear()
-            with a.installed():native_path=Path('/synthetic')
+            with a.installed():fallback_path=Path('/synthetic')
             self.assertTrue(expected);self.assertEqual(observations,expected)
-        self.assertEqual(str(native_path),str(original_path));self.assertEqual(a.values()['constructor'],1)
-        self.assertFalse(any(a.fallbacks.values()));before=a.values()
+        self.assertEqual(str(native_path),str(original_path));self.assertEqual(str(fallback_path),str(original_path))
+        self.assertEqual(a.values(),before);self.assertEqual(a.fallbacks['constructor'],1)
         failure=KeyboardInterrupt('original constructor import');calls=[];original=__import__
         def changed(name,*args,**kwargs):
             if name=='ntpath':calls.append(name);raise failure
@@ -511,6 +512,16 @@ class HostedPathTest(unittest.TestCase):
             module=sys.modules.pop('ntpath')
             try:self.assertIs(self.loaded.native.path_call(0,a.plan,object.__new__(pathlib.PosixPath),('/synthetic',)),NotImplemented)
             finally:sys.modules['ntpath']=module
+        # A metadata callback that changes a Path argument must run before
+        # the original constructor copies that argument's current raw paths.
+        argument=Path('/before');mutations=[]
+        class ChangedSpec:
+            def __getattribute__(self,name):
+                if name=='_initializing':argument._raw_paths[:]=['/after'];mutations.append(name);return False
+                raise AssertionError('unexpected import observation')
+        with patch.object(probe.ntpath,'__spec__',ChangedSpec()):
+            with a.installed():changed_path=Path(argument)
+        self.assertTrue(mutations);self.assertEqual(str(changed_path),'/after');self.assertEqual(a.values(),before)
         self.assertTrue(a.restored());self.loaded.validate()
     def test_actual_interruption_restores_sdk_and_preserves_error(self):
         failure=KeyboardInterrupt('original interruption');a=self.adapter()

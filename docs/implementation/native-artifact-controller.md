@@ -808,5 +808,9 @@ globals; the module result is not cached. The import hook and current
 `sys.modules` binding are admitted afresh. Changed hooks or a missing module
 execute the original SDK before any import or slot mutation in the C lane.
 Portable checks cover the absent global, exact source body and late hook error;
-the additional Root case requires the same initialized-module import observation
-on a supported native call, plus actual native refusal and exception behavior.
+the additional Root case requires a supported native call and original import
+observations, exceptions and argument mutation when import metadata changes.
+The native lane admits the original module/spec identity, generic metadata
+lookup and a plain false initialization flag afresh. Changed metadata executes
+the whole original SDK before any C import or slot mutation; this preserves
+callbacks that change path arguments before the SDK copies them.

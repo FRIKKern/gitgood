@@ -738,6 +738,7 @@ static PyObject *counts(PyObject *unused,PyObject *args) {
 #define LEX_LIMIT 10000000ULL
 typedef struct {
     PyObject *tables,*cls,*mro,*cache,*names[5],*empty,*slash,*double_slash,*dot,*import_globals,*import_name;
+    PyObject *import_module,*import_spec,*import_spec_type,*initializing;
     unsigned long long pid,thread,calls[4],hits,misses;
     Py_ssize_t capacity;
     int broken;
@@ -750,6 +751,7 @@ static void lex_free(LexPlan *p) {
     for(i=0;i<5;i++)Py_XDECREF(p->names[i]);
     Py_XDECREF(p->empty);Py_XDECREF(p->slash);Py_XDECREF(p->double_slash);Py_XDECREF(p->dot);
     Py_XDECREF(p->import_globals);Py_XDECREF(p->import_name);
+    Py_XDECREF(p->import_module);Py_XDECREF(p->import_spec);Py_XDECREF(p->import_spec_type);Py_XDECREF(p->initializing);
     PyMem_Free(p);
 }
 static void lex_destroy(PyObject *capsule) {
@@ -778,11 +780,29 @@ static PyObject *lex_type_binding(PyObject *owner,PyObject *key) {
     }
     Py_DECREF(mro);return result;
 }
+static int lex_import_admit(LexPlan *p) {
+    PyObject *space,*current,*descriptor;int match;
+    if(!p->import_globals)return 1;
+    if(!PyModule_CheckExact(p->import_module)||Py_TYPE(p->import_spec)!=(PyTypeObject *)p->import_spec_type||
+        Py_TYPE(p->import_spec)->tp_getattro!=PyObject_GenericGetAttr)return 0;
+    space=PyModule_GetDict(p->import_module);
+    current=PyDict_GetItemString(space,"__spec__");if(current!=p->import_spec)return 0;
+    /* A descriptor or custom getter could run code during the import before
+     * the original SDK copies its arguments. Such metadata is unsupported
+     * before the native lane imports anything or mutates any SDK slot. */
+    descriptor=lex_type_binding(p->import_spec_type,p->initializing);
+    if(descriptor){Py_DECREF(descriptor);return 0;}
+    if(PyErr_Occurred())return -1;
+    space=PyObject_GenericGetDict(p->import_spec,NULL);if(!space)return -1;
+    current=PyDict_GetItemWithError(space,p->initializing);match=current==Py_False;
+    Py_DECREF(space);return PyErr_Occurred()?-1:match;
+}
 static int lex_admit(LexPlan *p,int op) {
     PyObject *table=PyTuple_GET_ITEM(p->tables,op);Py_ssize_t i;
     PyTypeObject *cls=(PyTypeObject *)p->cls;
     if(!lex_owner(p)||cls->tp_mro!=p->mro||cls->tp_getattro!=PyObject_GenericGetAttr||
         cls->tp_setattro!=PyObject_GenericSetAttr)return 0;
+    {int imported=lex_import_admit(p);if(imported<=0)return imported;}
     for(i=0;i<PyTuple_GET_SIZE(table);i++) {
         PyObject *row=PyTuple_GET_ITEM(table,i),*owner=PyTuple_GET_ITEM(row,0);
         PyObject *key=PyTuple_GET_ITEM(row,1),*expected=PyTuple_GET_ITEM(row,2),*current=NULL;
@@ -828,11 +848,18 @@ static PyObject *lex_plan_new(PyObject *unused,PyObject *args) {
     p=PyMem_Calloc(1,sizeof(*p));if(!p)return PyErr_NoMemory();
     p->tables=Py_NewRef(tables);p->cls=Py_NewRef(cls);
     p->mro=Py_NewRef(((PyTypeObject *)cls)->tp_mro);p->pid=pid;p->thread=thread;p->capacity=(Py_ssize_t)cap;
+    if(!lex_owner(p))goto invalid;
     p->cache=PyDict_New();p->empty=PyUnicode_FromString("");p->slash=PyUnicode_FromString("/");
     p->double_slash=PyUnicode_FromString("//");p->dot=PyUnicode_FromString(".");
     if(import_globals!=Py_None) {
+        PyObject *module=PyDict_GetItemString(PyImport_GetModuleDict(),"ntpath"),*spec;
+        if(!module||!PyModule_CheckExact(module))goto invalid;
+        spec=PyDict_GetItemString(PyModule_GetDict(module),"__spec__");if(!spec)goto invalid;
         p->import_globals=Py_NewRef(import_globals);p->import_name=PyUnicode_InternFromString("ntpath");
-        if(!p->import_name)goto error;
+        p->import_module=Py_NewRef(module);p->import_spec=Py_NewRef(spec);
+        p->import_spec_type=Py_NewRef((PyObject *)Py_TYPE(spec));p->initializing=PyUnicode_InternFromString("_initializing");
+        if(!p->import_name||!p->initializing)goto error;
+        r=lex_import_admit(p);if(r<0)goto error;if(!r)goto invalid;
     }
     if(!p->cache||!p->empty||!p->slash||!p->double_slash||!p->dot)goto error;
     for(i=0;i<5;i++){p->names[i]=PyUnicode_InternFromString(names[i]);if(!p->names[i])goto error;}
@@ -1027,6 +1054,8 @@ static PyObject *lex_path_call(PyObject *unused,PyObject *args) {
          * no import result is retained. Changed import hooks fall back at the
          * fresh admission above, before any import or SDK-slot mutation. */
         if(p->import_globals) {
+            r=lex_import_admit(p);
+            if(r<=0){Py_DECREF(raw);if(r<0)return NULL;Py_RETURN_NOTIMPLEMENTED;}
             imported=PyImport_ImportModuleLevelObject(p->import_name,p->import_globals,p->import_globals,Py_None,0);
             if(!imported){Py_DECREF(raw);goto complete;}
         }
