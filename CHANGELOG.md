@@ -389,6 +389,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record actual current-CLI recovery after selected owner loss in all seven initial installation stages, lost terminal baseline handoff, and packaged installation with an ordinary database-owner role. Preserve failed harness attempts and private recovery materials; identify systemd delegation and explicit reboot resource generations as the next host dependencies. These same-boot fixtures do not establish managed Cloud or complete journey/release acceptance.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/native-host-prerequisites.md)
 
+- Compare compiled installed guard bodies on original Root actors, retaining live observations and full restoration before staging effects; reject insufficient lexical reuse gains.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/guard_body_source.py), [details 3](tools/ci/guard_body_probe.py), [details 4](tools/ci/guard-body-test.py)
+
 - Require original SQL and kernel backend identity in new native ownership claims and monitoring; preserve older records as history and refuse their live readmission. Installed startup and controller recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-kernel-ownership.md), [details 2](apps/forge/lib/gitgood/native_ownership_claim.ex), [details 3](tools/deployment/native_ownership_records.py)
 

@@ -452,3 +452,44 @@ at most 0.80 and at least 18 of 20 pairs faster. Production adoption, complete
 uninstrumented staging and staged runtime, installation and recovery remain
 separate unproven requirements. Neither earlier rejected path experiment is
 rerun unchanged or treated as accepted behavior.
+
+The combined lexical trial subsequently passed all 24 cases and all 372 original
+Root cases under the adapter. All 20 whole-guard pairs were faster, but their
+median ratio was 0.945437, failing the unchanged 0.80 gate. Adoption is rejected.
+The original full stage still failed at approximately 240 seconds before output
+verification. That runtime is no longer copied or loaded by the full proof; its
+component regression gate remains.
+
+The next hosted diagnostic selects 116 bodies across the seven installed hot
+modules identified by the existing self-cost profile. The original production
+files and classes remain authoritative. Only function bodies and direct module
+aliases in the admitted deployment directory are replaced during read-only
+comparison. Arbitrary decorators, the selected-bus callback closure, Root pass
+wrappers and unsupported class-closure dependencies stay on the interpreter.
+Global loads use each original function's live module and builtins dictionaries;
+an inverse AST check reconstructs every selected body. Bounded literal default
+arithmetic is checked without executing supplied source and stays unchanged.
+
+The builder uses the existing authenticated Cython 3.1.8 wheel and conservative
+options on the disposable hosted runner, with a 512 MiB temporary allocation
+estimate and the 20 GiB volume reserve. It copies only the bounded source,
+manifest and extension closure to Root-owned storage. The loader checks exact
+installed source/code identities, ELF identity and file custody again after the
+comparison. Original classes, exception types and all metadata/kernel/SQL reads
+remain live. This is a compiler experiment, with compiler-specific frame and
+function metadata limits, not general Python equivalence or product adoption;
+see the [compiler's documented limitations](https://cython.readthedocs.io/en/3.1.x/src/userguide/limitations.html).
+
+Fourteen cases cover source admission, lexical scope/global mutation, direct
+aliases, static/class methods, original exceptions, owner refusal, partial
+installation and complete restoration after interruption. Three require actual
+Linux Root: exact code custody, fresh file mutation and all 372 unchanged
+original Root cases with the compiled bodies active. Hosted results remain
+pending. Twenty alternating whole-guard pairs on the original actors must have
+median ratio at most 0.80 and at least 18 pairs faster before proposing adoption.
+Every body and alias restores before each baseline and before the unchanged
+timers, guard-ten profile and staging effects. No observation result is retained;
+receipts contain fixed public code hashes/labels and bounded counters/times.
+Complete uninstrumented staging/output, staged normal runtime, production
+listener/provisioning, interruption reconciliation, installation and actual
+replacement-host restore remain required before original VM retirement.

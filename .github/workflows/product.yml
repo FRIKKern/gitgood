@@ -246,6 +246,12 @@ jobs:
       - name: Verify lexical path plans and original Root refusals
         timeout-minutes: 5
         run: sudo -n "$GITGOOD_PYTHON" -B tools/ci/lexical-path-test.py
+      - name: Verify compiled installed bodies and original Root refusals
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          "$GITGOOD_PYTHON" -B tools/ci/guard-body-build.py
+          sudo -n "$GITGOOD_PYTHON" -B tools/ci/guard-body-test.py
       - name: Verify protected native ownership on actual systemd
         # Adds complete production archive staging and content verification;
         # this hosted test budget does not alter production operation deadlines.
