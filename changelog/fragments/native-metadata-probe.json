@@ -2,7 +2,7 @@
   "id": "native-metadata-probe",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Measure a hosted native metadata diagnostic across four original guard paths, retaining fresh filesystem reads, held descriptors, refusal behavior and full staging requirements.",
+  "summary": "Reject the native metadata trial's insufficient benefit and attribute its overhead within the existing guard-ten sample, retaining fresh-read, descriptor, live-code admission and refusal regressions.",
   "journeys": ["J14", "J15"],
   "references": [
     "docs/implementation/native-artifact-controller.md",

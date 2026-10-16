@@ -1,15 +1,18 @@
 """Hosted-only fresh native metadata lane; no production import or adoption."""
 import ast
 import builtins
+import cProfile
 from contextlib import contextmanager
 from functools import wraps
 import hashlib
 import importlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import pathlib
+import pstats
 import stat
 import sys
 import sysconfig
@@ -89,6 +92,10 @@ class Loaded:
             for value in vars(owner).values():
                 fn=raw_function(value)
                 if type(fn) is types.FunctionType:candidates.append(fn)
+        identity=self.modules[3].directory_identity
+        if type(identity) is types.FunctionType:
+            helper=identity.__globals__.get('require')
+            if type(helper) is types.FunctionType:candidates.append(helper)
         for fn in candidates:
             path=Path(fn.__code__.co_filename)
             if path not in self.runtime_files:
@@ -96,6 +103,7 @@ class Loaded:
                 self.code_sources[path]=functions(compile(raw,str(path),'exec'))
             require(fn.__code__==self.code_sources[path].get(fn.__code__.co_qualname))
         self.original_codes={id(fn):fn.__code__ for fn in candidates}
+        self.original_functions=tuple(candidates)
         require('_native_metadata_probe' not in sys.modules)
         spec=importlib.util.spec_from_file_location('_native_metadata_probe',self.directory/extension_name())
         self.native=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.native)
@@ -105,6 +113,7 @@ class Loaded:
 
     def validate(self):
         root_owner()
+        for fn in self.original_functions:require(fn.__code__==self.original_codes[id(fn)])
         for name,expected in self.files.items():require(_read_owned(self.directory/name,
             16777216 if name==extension_name() else 262144)==expected)
         for path,expected in self.runtime_files.items():require(_read_owned(path,262144)==expected)
@@ -162,6 +171,14 @@ class Adapter:
         capture(os,('stat','lstat','fstat','listdir','scandir','fspath','getuid','geteuid','getgid','getegid','getpid'))
         capture(stat,('S_ISDIR','S_ISREG','S_IMODE'))
         capture(builtins,('type','str','tuple','list','dict','set','frozenset','len','getattr','all','any'))
+        # A function can keep its identity while its code changes. Admit both
+        # the live namespace binding and the original Python code object.
+        functions_by_id={}
+        for value in (*originals,*(expected for _owner,_name,expected in self.bindings)):
+            fn=raw_function(value)
+            for candidate in (fn,getattr(fn,'__wrapped__',None)):
+                if type(candidate) is types.FunctionType:functions_by_id[id(candidate)]=candidate
+        self.bindings.extend((fn,'__code__',fn.__code__) for fn in functions_by_id.values())
         require(len(self.bindings)<=256)
         self.bindings=tuple(self.bindings)
         original_root=originals[0].__func__;original_exec=originals[1].__func__
@@ -298,6 +315,7 @@ class Adapter:
         for path,original in known.items():
             self.path(path);parent=directories.get(path.parent)
             if type(parent) is not tuple or len(parent)!=2:raise Unsupported()
+            if path in retained and retained[path] is None:raise Unsupported()
             leaves.append((path.name,parent[0],original,retained.get(path)))
         lock=None if subject.lock is None else (subject.lock,known.get(subject.lock_path))
         # Validate the full finite schema before the first private_directory
@@ -402,3 +420,140 @@ class AtFirstGuard:
         try:
             if self.entered:self.measurements.__exit__(None,None,None)
         finally:self.stage_owner.check=self.original
+
+
+PROFILE_PYTHON=(
+    ('Adapter.eligible','eligible'),('Adapter.after','after'),('Adapter.count','count'),
+    ('Adapter.path','path'),('Adapter.exact','exact'),('Adapter.plan_arguments','plan_arguments'),
+    ('Adapter.custody_arguments','custody_arguments'),
+    *((f'Adapter.__init__.<locals>.{name}',name) for name in FAMILIES),
+    ('Adapter.__init__.<locals>.fallback','fallback'),
+    *((f'Adapter.plan_arguments.<locals>.{name}','plan_'+name) for name in ('entry','directory','file','parent')),
+    *((f'Adapter.custody_arguments.<locals>.{name}','custody_'+name) for name in ('integer','stats','fd')))
+NATIVE_APIS=('fingerprint','persistent','custody','same_bindings','counts')
+
+
+def native_profile_codes(native):
+    """Identify actual profiler labels using argument preflight, never metadata."""
+    require(sys.getprofile() is None)
+    monitoring=getattr(sys,'monitoring',None)
+    require(monitoring is None or monitoring.get_tool(monitoring.PROFILER_ID) is None)
+    before=native.counts();empty=cProfile.Profile();empty.runcall(lambda:None)
+    excluded={entry.code for entry in empty.getstats() if type(entry.code) is str}
+    result={}
+    for name in NATIVE_APIS:
+        fn=getattr(native,name)
+        require(type(fn) is types.BuiltinFunctionType and fn.__module__=='_native_metadata_probe' and fn.__name__==name)
+        profile=cProfile.Profile()
+        try:profile.runcall(fn)
+        except TypeError:require(name!='counts')
+        codes={entry.code for entry in profile.getstats() if type(entry.code) is str}-excluded
+        require(len(codes)==1 and native.counts()==before)
+        code=codes.pop();require(0<len(code)<=1024 and code not in result);result[code]=name
+    return result
+
+
+def profile_costs(stats,source,native_codes):
+    """Closed public labels only. Ignore private/unknown rows without their values."""
+    require(type(stats) is dict and type(native_codes) is dict and len(native_codes)==5
+        and set(native_codes.values())==set(NATIVE_APIS)
+        and all(type(k) is str and 0<len(k)<=1024 for k in native_codes))
+    code=functions(compile(source,__file__,'exec'))
+    python={(code[name].co_filename,code[name].co_firstlineno,code[name].co_name):label for name,label in PROFILE_PYTHON}
+    rows=[]
+    for key,value in stats.items():
+        if type(key) is not tuple or len(key)!=3:continue
+        filename,line,name=key
+        if type(filename) is not str or type(line) is not int or type(name) is not str:continue
+        if key in python:label='native-metadata-self.py';function=python[key]
+        elif filename=='~' and line==0 and name in native_codes:label='native-metadata-api.py';function=native_codes[name]
+        else:continue
+        require(type(value) is tuple and len(value)==5)
+        calls,total,cumulative=value[1:4]
+        require(type(calls) is int and 0<=calls<=10000000)
+        require(all(type(v) in {int,float} and math.isfinite(v) and 0<=v<=1200 for v in (total,cumulative))
+            and total<=cumulative)
+        require(0<=line<10000)
+        rows.append({'file':label,'function':function,'line':line,'calls':calls,'self_us':int(total*1000000),
+            'cumulative_us':int(cumulative*1000000)})
+    native_rows=[r for r in rows if r['file']=='native-metadata-api.py']
+    python_rows=sorted((r for r in rows if r['file']=='native-metadata-self.py'),
+        key=lambda r:(-r['self_us'],-r['cumulative_us'],r['function'],r['line']))[:11]
+    return sorted(native_rows+python_rows,key=lambda r:(r['file'],r['function'],r['line']))
+
+
+class GuardTenSample:
+    """Enable metadata only within the existing read-only guard-ten profile."""
+    def __init__(self,loaded,sample):
+        self.loaded=loaded;self.sample=sample;self.result=None;self.attempted=False;self.active=False
+        self.adapter=Adapter(loaded.modules,loaded.native,original_codes=loaded.original_codes)
+        self.native_codes=native_profile_codes(loaded.native)
+
+    def __enter__(self):
+        require(not self.active and not self.attempted and self.sample.calls==0
+            and self.sample.profile is None and not self.sample.completed);self.active=True
+        self.had_wrap='wrap' in vars(self.sample);self.raw_wrap=vars(self.sample).get('wrap')
+        original_wrap=self.sample.wrap
+        def wrap(original):
+            checked=original_wrap(original)
+            def call(*args,**kwargs):
+                if self.sample.calls!=9:return checked(*args,**kwargs)
+                require(not self.attempted and sys.getprofile() is None);self.attempted=True
+                monitoring=getattr(sys,'monitoring',None)
+                require(monitoring is None or monitoring.get_tool(monitoring.PROFILER_ID) is None)
+                initial=self.loaded.native.counts()
+                with self.adapter.installed():value=checked(*args,**kwargs)
+                require(self.adapter.restored() and self.sample.completed)
+                self.loaded.validate()
+                counts={name:self.loaded.native.counts()[name]-initial[name] for name in initial}
+                require(set(counts)=={'fingerprint','persistent','custody'} and all(type(v) is int and 0<v<=10000000 for v in counts.values()))
+                require(all(v>0 for v in self.adapter.calls.values()) and not any(self.adapter.fallbacks.values()))
+                rows=profile_costs(pstats.Stats(self.sample.profile).stats,self.loaded.files['native_metadata_probe.py'][0],self.native_codes)
+                require({r['function'] for r in rows if r['file']=='native-metadata-api.py' and r['calls']>0}>=set(NATIVE_APIS)-{'counts'})
+                self.result={'diagnostic_only':True,'production_adopted':False,'guard_number':10,'profiled_checks':1,
+                    'extra_guard_calls':0,'original_descriptors_restored':True,'original_classes_retained':True,
+                    'same_original_actors':True,'observation_results_retained':False,'native_calls':counts,
+                    'families':self.adapter.calls.copy(),'fallbacks':self.adapter.fallbacks.copy(),'rows':rows,**self.loaded.evidence()}
+                return value
+            return call
+        self.sample.wrap=wrap;return self
+
+    def __exit__(self,*_):
+        try:
+            if self.had_wrap:self.sample.wrap=self.raw_wrap
+            else:del self.sample.wrap
+        finally:self.active=False
+
+
+class AtFirstGuardProfile:
+    """Start original measurements at guard one; no rejected pair rerun."""
+    def __init__(self,loaded,stage_owner,measurements):
+        self.stage_owner=stage_owner;self.measurements=measurements
+        self.original=vars(stage_owner)['check'];self.entered=False;self.attempted=False
+        self.sample=GuardTenSample(loaded,measurements.sample)
+
+    @property
+    def result(self):return self.sample.result
+
+    def __enter__(self):
+        self.sample.__enter__()
+        def first(stage,*args,**kwargs):
+            try:
+                require(not self.attempted and not args and not kwargs);self.attempted=True
+                self.stage_owner.check=self.original
+                self.measurements.__enter__();self.entered=True
+                return self.stage_owner.check(stage)
+            except BaseException:
+                stage.usable=False;stage.allocation.usable=False
+                for close in (stage.close,stage.allocation.close):
+                    try:close()
+                    except BaseException:pass
+                raise
+        self.stage_owner.check=first;return self
+
+    def __exit__(self,*_):
+        try:
+            if self.entered:self.measurements.__exit__(None,None,None)
+        finally:
+            try:self.stage_owner.check=self.original
+            finally:self.sample.__exit__(None,None,None)

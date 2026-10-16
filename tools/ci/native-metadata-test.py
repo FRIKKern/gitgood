@@ -2,10 +2,12 @@
 """Fresh metadata semantics, hook fallback, restoration and actual Root gates."""
 import ast
 import builtins
+import cProfile
 import hashlib
 import importlib.util
 import io
 import os
+import pstats
 from pathlib import Path
 import shutil
 import sys
@@ -23,7 +25,8 @@ class FakeNative:
     def __init__(self):self.values={'fingerprint':0,'persistent':0,'custody':0}
     def counts(self):return dict(self.values)
     def same_bindings(self,bindings,*_):
-        return all(namespace.get(key) is value for namespace,key,value in bindings)
+        return all((namespace.__code__ if type(namespace) is types.FunctionType and key=='__code__'
+            else namespace.get(key)) is value for namespace,key,value in bindings)
     def fingerprint(self,*_):
         self.values['fingerprint']+=1
         return (1,2,3,4,5,0,0o100600,1),(('parent',1,2,0,0o40700),)
@@ -101,6 +104,29 @@ class AdapterTest(unittest.TestCase):
         cls=self.modules[2]._PersistentFingerprintPlan;subject=cls()
         with self.adapter.installed():self.assertEqual(subject.read(),{'original':True})
         self.assertEqual(self.native.counts()['persistent'],0);self.assertEqual(self.adapter.fallbacks['persistent'],1)
+    def test_in_place_metadata_code_change_falls_back_before_native(self):
+        fn=Path.stat;original=fn.__code__
+        def altered(self,*,follow_symlinks=True):raise KeyboardInterrupt('metadata hook')
+        try:
+            with self.adapter.installed():
+                fn.__code__=altered.__code__
+                self.assertFalse(self.adapter.eligible())
+                self.assertEqual(self.modules[0]._CapturedRootFiles._fingerprint('/synthetic',6,False)[1:],(6,False))
+        finally:fn.__code__=original
+        self.assertEqual(self.native.counts()['fingerprint'],0);self.assertEqual(self.adapter.fallbacks['root_files'],1)
+    def test_present_retained_none_is_unsupported_before_any_observation(self):
+        cls=self.modules[3]._RootReadOnlyCustody;subject=cls();root=Path('/synthetic');directory=root/'history';leaf=directory/'record'
+        subject.uid=65503;subject.gid=1000;subject.root=root;subject.directory=directory;subject.lock_path=directory/'lock'
+        subject.directories={directory:(3,(1,2,65503,1000,0o40700,4,5))}
+        subject.known={leaf:(1,3,65503,1000,0o100600,1,6,7,8)}
+        subject.retained={leaf:None};subject.entries=None;subject.directory_metadata={};subject.lock=None
+        subject.usable=True;subject.owner=self.adapter.owner
+        with self.assertRaises(probe.Unsupported):self.adapter.custody_arguments(subject)
+        callback=Mock(side_effect=AssertionError('early observation'));self.modules[3].private_directory=callback
+        adapter=probe.Adapter(self.modules,self.native,owner_check=lambda:None)
+        with adapter.installed():self.assertEqual(subject.check(),'original')
+        callback.assert_not_called()
+        self.assertEqual(self.native.counts()['custody'],0);self.assertEqual(adapter.fallbacks['custody'],1)
     def test_live_binding_change_after_native_call_refuses_without_retry(self):
         original=self.modules[0].require
         def change(*_):
@@ -190,6 +216,115 @@ class AdapterTest(unittest.TestCase):
         with patch.object(probe,'Adapter',return_value=a),patch.object(probe,'root_owner',lambda:None):
             with self.assertRaises(KeyboardInterrupt) as caught:probe.compare_guard(loaded,interrupted,stage)
         self.assertIs(caught.exception,failure);self.assertTrue(a.restored())
+
+
+def original_sample():
+    spec=importlib.util.spec_from_file_location('_metadata_original_proof',Path(__file__).with_name('native-owned-proof.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module.RootGuardSample()
+
+
+class ProfileTest(unittest.TestCase):
+    setUp=AdapterTest.setUp
+    def profile_fixture(self):
+        return {name+'_synthetic':name for name in probe.NATIVE_APIS}
+    def source(self):return Path(probe.__file__).read_bytes()
+    def costs(self):
+        return [{'file':'native-metadata-api.py','function':name,'line':0,'calls':1,'self_us':1,'cumulative_us':1}
+            for name in probe.NATIVE_APIS]
+    def loaded(self):
+        return types.SimpleNamespace(modules=self.modules,native=self.native,original_codes=None,
+            files={'native_metadata_probe.py':(self.source(),None)},validate=Mock(),evidence=lambda:{'synthetic':True})
+    def test_actual_python_profile_uses_public_labels_without_source_paths(self):
+        profile=cProfile.Profile();profile.runcall(self.adapter.eligible)
+        rows=probe.profile_costs(pstats.Stats(profile).stats,self.source(),self.profile_fixture())
+        row=next(r for r in rows if r['function']=='eligible')
+        self.assertEqual(row['file'],'native-metadata-self.py');self.assertEqual(row['calls'],1)
+        self.assertNotIn(str(Path.cwd()),str(rows))
+    def test_profile_ignores_private_rows_without_inspecting_values(self):
+        opaque=Mock();opaque.__str__=Mock(side_effect=AssertionError('private value read'))
+        rows=probe.profile_costs({('/private/secret.py',12,'password'):opaque,
+            ('~',0,'private_secret'):opaque},self.source(),self.profile_fixture())
+        self.assertEqual(rows,[]);opaque.__str__.assert_not_called()
+    def test_profile_rejects_invalid_numeric_fields_and_counter_bounds(self):
+        key=('~',0,'same_bindings_synthetic')
+        for calls,total,cumulative in [(True,0,0),(-1,0,0),(10000001,0,0),(1,True,1),
+                (1,float('nan'),1),(1,float('inf'),1),(1,-1,1),(1,1,0),(1,0,1201)]:
+            with self.subTest(calls=calls,total=total),self.assertRaises(ValueError):
+                probe.profile_costs({key:(1,calls,total,cumulative,None)},self.source(),self.profile_fixture())
+    def test_profile_reserves_native_rows_and_has_deterministic_sixteen_row_cap(self):
+        code=probe.functions(compile(self.source(),probe.__file__,'exec'));stats={}
+        for index,(name,_label) in enumerate(probe.PROFILE_PYTHON):
+            fn=code[name];stats[fn.co_filename,fn.co_firstlineno,fn.co_name]=(1,index+1,.001,.002,None)
+        for name in probe.NATIVE_APIS:stats['~',0,name+'_synthetic']=(1,2,0,0,None)
+        rows=probe.profile_costs(stats,self.source(),self.profile_fixture())
+        self.assertEqual(len(rows),16)
+        self.assertEqual({r['function'] for r in rows if r['file']=='native-metadata-api.py'},set(probe.NATIVE_APIS))
+        self.assertEqual(rows,probe.profile_costs(dict(reversed(list(stats.items()))),self.source(),self.profile_fixture()))
+    def test_python_standins_cannot_authenticate_as_native_profiler_labels(self):
+        with self.assertRaises(ValueError):probe.native_profile_codes(self.native)
+        self.assertEqual(self.native.counts(),dict.fromkeys(('fingerprint','persistent','custody'),0))
+    def test_label_discovery_refuses_and_preserves_an_existing_profiler(self):
+        original=sys.getprofile()
+        def foreign(*_):pass
+        try:
+            sys.setprofile(foreign)
+            with self.assertRaises(ValueError):probe.native_profile_codes(self.native)
+            self.assertIs(sys.getprofile(),foreign)
+        finally:sys.setprofile(original)
+        self.assertEqual(self.native.counts(),dict.fromkeys(('fingerprint','persistent','custody'),0))
+    def test_first_guard_starts_original_measurements_and_only_tenth_enables_native(self):
+        sample=original_sample();a=self.adapter;test=self;events=[];loaded=self.loaded()
+        class Stage:
+            usable=True;allocation=types.SimpleNamespace(usable=True,close=Mock());close=Mock()
+            def check(subject):
+                events.append(a.active)
+                if a.active:
+                    for family in probe.FAMILIES:a.count(family)
+                    for name in test.native.values:test.native.values[name]+=1
+                else:test.assertTrue(a.restored())
+                return 'original'
+        original=Stage.check
+        class Measurements:
+            def __init__(subject):subject.sample=sample
+            def __enter__(subject):test.assertIs(Stage.check,original);Stage.check=sample.wrap(original)
+            def __exit__(subject,*_):Stage.check=original
+        with patch.object(probe,'Adapter',return_value=a),patch.object(probe,'native_profile_codes',return_value=self.profile_fixture()),patch.object(probe,'profile_costs',return_value=self.costs()):
+            with probe.AtFirstGuardProfile(loaded,Stage,Measurements()) as diagnostic:
+                for number in range(12):
+                    self.assertEqual(Stage().check(),'original');self.assertTrue(a.restored())
+                    self.assertEqual(sum(self.native.values.values()),0 if number<9 else 3)
+            result=diagnostic.result
+        self.assertEqual(events,[False]*9+[True]+[False]*2);self.assertEqual(sample.calls,12)
+        self.assertIs(Stage.check,original);self.assertNotIn('wrap',vars(sample))
+        self.assertEqual(result['guard_number'],10);self.assertEqual(result['extra_guard_calls'],0)
+        self.assertEqual(result['native_calls'],dict.fromkeys(self.native.values,1));loaded.validate.assert_called_once()
+    def test_sample_interruption_preserves_error_and_restores_every_descriptor(self):
+        sample=original_sample();a=self.adapter;loaded=self.loaded();failure=KeyboardInterrupt('original')
+        def guard():
+            if a.active:raise failure
+        with patch.object(probe,'Adapter',return_value=a),patch.object(probe,'native_profile_codes',return_value=self.profile_fixture()):
+            with probe.GuardTenSample(loaded,sample) as diagnostic:
+                wrapped=sample.wrap(guard)
+                for _ in range(9):wrapped()
+                with self.assertRaises(KeyboardInterrupt) as caught:wrapped()
+        self.assertIs(caught.exception,failure);self.assertTrue(a.restored());self.assertIsNone(diagnostic.result)
+        self.assertNotIn('wrap',vars(sample));self.assertIsNone(sys.getprofile());self.assertEqual(sample.calls,10)
+    def test_first_guard_setup_failure_restores_wrapper_and_attempts_both_closes(self):
+        sample=original_sample();failure=KeyboardInterrupt('original');loaded=self.loaded()
+        class Stage:
+            usable=True;allocation=types.SimpleNamespace(usable=True,close=Mock());close=Mock(side_effect=RuntimeError('cleanup'))
+            def check(self):raise AssertionError('guard ran')
+        original=Stage.check;stage=Stage()
+        class Measurements:
+            def __init__(self):self.sample=sample
+            def __enter__(self):raise failure
+        with patch.object(probe,'Adapter',return_value=self.adapter),patch.object(probe,'native_profile_codes',return_value=self.profile_fixture()):
+            with self.assertRaises(KeyboardInterrupt) as caught:
+                with probe.AtFirstGuardProfile(loaded,Stage,Measurements()):stage.check()
+        self.assertIs(caught.exception,failure);self.assertIs(Stage.check,original);self.assertNotIn('wrap',vars(sample))
+        self.assertFalse(stage.usable);self.assertFalse(stage.allocation.usable)
+        stage.close.assert_called_once();stage.allocation.close.assert_called_once()
 
 
 @unittest.skipUnless(sys.platform=='linux' and sys.version_info[:2]==(3,12)
@@ -300,6 +435,36 @@ class HostedMetadataTest(unittest.TestCase):
             finally:os.close(fd)
             with self.assertRaises(lifecycle.RootLifecycleRefused):value.check()
         self.assertGreater(a.calls['custody'],0);self.assertEqual(a.fallbacks['custody'],0)
+    def test_present_retained_none_preserves_original_type_error_before_native(self):
+        value,leaf,_=self.custody();a=self.adapter();fd=value.retained[leaf]
+        before=self.loaded.native.counts()
+        try:
+            value.retained[leaf]=None
+            with a.installed(),self.assertRaises(TypeError):value.check()
+        finally:value.retained[leaf]=fd
+        self.assertEqual(self.loaded.native.counts(),before);self.assertEqual(a.fallbacks['custody'],1)
+    def test_native_admission_detects_in_place_code_change_and_code_custody_refuses(self):
+        service=self.loaded.modules[0];a=self.adapter();fn=Path.stat;original=fn.__code__
+        def altered(self,*,follow_symlinks=True):raise KeyboardInterrupt('metadata hook')
+        before=self.loaded.native.counts()
+        try:
+            with a.installed():
+                fn.__code__=altered.__code__
+                self.assertFalse(a.eligible())
+                with self.assertRaises(ValueError):self.loaded.validate()
+                with self.assertRaises(KeyboardInterrupt) as caught:service._CapturedRootFiles._fingerprint('/synthetic',4096,False)
+                self.assertEqual(caught.exception.args,('metadata hook',))
+        finally:fn.__code__=original
+        self.assertEqual(self.loaded.native.counts(),before);self.assertEqual(a.fallbacks['root_files'],1)
+        self.loaded.validate()
+        helper=self.loaded.modules[3].directory_identity.__globals__['require'];original=helper.__code__
+        try:
+            with a.installed():
+                helper.__code__=altered.__code__
+                self.assertFalse(a.eligible())
+                with self.assertRaises(ValueError):self.loaded.validate()
+        finally:helper.__code__=original
+        self.assertEqual(self.loaded.native.counts(),before);self.loaded.validate()
     def test_native_custody_metadata_and_entry_change_refuse(self):
         lifecycle=self.loaded.modules[3];value,leaf,_=self.custody();a=self.adapter()
         with a.installed():
@@ -343,6 +508,39 @@ class HostedMetadataTest(unittest.TestCase):
         self.assertIs(native.persistent(0,(),(('bad',),),'/synthetic',(),(),os.listdir),NotImplemented)
         self.assertIs(native.custody(0,0,(('bad',),),(),None,lambda fd:[]),NotImplemented)
         self.assertEqual(native.counts(),before)
+    def test_actual_native_guard_ten_profile_uses_original_metadata_and_restores_before_next_guard(self):
+        service,binding,generation,_=self.loaded.modules;custody,_,_=self.custody()
+        before=self.loaded.native.counts();codes=probe.native_profile_codes(self.loaded.native)
+        self.assertEqual(set(codes.values()),set(probe.NATIVE_APIS));self.assertEqual(self.loaded.native.counts(),before)
+        with tempfile.TemporaryDirectory(dir=self.root) as directory:
+            root=Path(directory);machine=root/'machine';machine.write_bytes(b'machine');machine.chmod(0o600)
+            leaf=root/'executable';leaf.write_bytes(b'one');leaf.chmod(0o700)
+            plan=generation._PersistentFingerprintPlan.__new__(generation._PersistentFingerprintPlan)
+            info=root.lstat();file=leaf.lstat();plan.uid=0
+            plan.entries=((root,frozenset({'machine','executable'})),)
+            plan.directories=((root,str(root),info.st_dev,info.st_ino,0),);plan.machine=machine
+            plan.files=((leaf,str(leaf),0,True,file.st_size,file.st_dev,file.st_ino),)
+            plan.parents=tuple((p,str(p),False,False) for p in root.parents)
+            class Stage:
+                calls=0
+                def check(subject):
+                    subject.calls+=1
+                    service._CapturedRootFiles._fingerprint(leaf,4096,True)
+                    binding._CapturedExecutableDigests._fingerprint(str(leaf))
+                    plan.read();custody.check()
+            stage=Stage();sample=original_sample()
+            with probe.GuardTenSample(self.loaded,sample) as diagnostic:
+                checked=sample.wrap(Stage.check)
+                for number in range(12):
+                    checked(stage);self.assertTrue(diagnostic.adapter.restored())
+                    if number<9:self.assertEqual(self.loaded.native.counts(),before)
+                result=diagnostic.result
+            self.assertEqual(stage.calls,12);self.assertEqual(sample.calls,12);self.assertEqual(result['extra_guard_calls'],0)
+            self.assertEqual(result['guard_number'],10);self.assertEqual(result['profiled_checks'],1)
+            self.assertTrue(all(v>0 for v in result['native_calls'].values()))
+            self.assertTrue(all(v>0 for v in result['families'].values()));self.assertFalse(any(result['fallbacks'].values()))
+            self.assertEqual({r['function'] for r in result['rows'] if r['file']=='native-metadata-api.py' and r['calls']>0},set(probe.NATIVE_APIS))
+            self.assertTrue(0<len(result['rows'])<=16);self.assertNotIn('wrap',vars(sample));self.loaded.validate()
     def test_original_errors_and_namespace_mutation_fall_back_before_native(self):
         service=self.loaded.modules[0];a=self.adapter();failure=KeyboardInterrupt('original')
         with a.installed(),patch.object(Path,'lstat',side_effect=failure):

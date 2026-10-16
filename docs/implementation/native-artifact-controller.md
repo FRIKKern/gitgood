@@ -544,8 +544,8 @@ A native error or failed predicate refuses without a Python retry. The adapter
 retains all four original classes and restores all four method descriptors after
 each prototype pair, interruption or partial installation.
 
-Twenty-one cases include portable admission, refusal, interruption, alternation
-and restoration checks. Eleven require actual Linux Root, including all 372
+Thirty-five cases include portable admission, refusal, interruption, alternation,
+profile redaction and restoration checks. Fourteen require actual Linux Root, including all 372
 unchanged original Root cases and dedicated ordinary-owned history resources
 with real held descriptors, rebinding/loss, metadata/entry mutation, restored
 mtime and separate observation passes. These hosted cases remain pending.
@@ -558,3 +558,42 @@ and staging reserve at least 20 GiB after estimated allocations on each volume.
 Complete uninstrumented staging, staged normal runtime, production listener,
 interrupted-effect reconciliation, installation and replacement-host restoration
 remain required before VM retirement.
+
+Admission also checks each original Python metadata hook's code object: replacing
+`__code__` in place cannot retain native admission merely by keeping the same
+function object. Final code custody is checked before invoking metadata hooks.
+A present retained-history entry with a `None` descriptor is unsupported and
+uses the original body before native observation; it cannot be treated as an
+absent retained entry. Regressions cover both portable admission and actual Linux
+Root error/custody behavior. Hosted verification of this repair remains pending.
+
+The first metadata candidate passed all 21 cases and all 372 original Root cases
+with the adapter active. Exact review verified all 59 installed production hashes,
+82 ownership fixtures and retained regression scopes. All four families executed
+with zero fallback, but twenty whole-guard pairs had median ratio 0.999987 and
+only ten pairs faster. The unchanged 0.80/18 benefit gate failed; adoption is
+rejected. Full original staging again timed out at 240162 ms with output checks
+still zero. The complete archive and production deadlines remain unchanged.
+The admission repair above has only local evidence. The next investigation must
+attribute native-path overhead within the existing read-only guard-ten sample,
+without adding guard calls, profiling effects or repeating an unchanged rejected
+timing comparison. A fresh benefit comparison and complete uninstrumented
+staging/runtime remain required for any later adoption proposal.
+
+The next diagnostic enables the metadata adapter only within the existing
+read-only guard-ten profile. It starts the original measurements at the first
+guard, makes no extra guard call and restores the four original descriptors
+before the next effect or guard. It does not repeat the rejected paired timing
+comparison. Native profiler labels come from the actual authenticated extension
+functions using no-argument preflight; metadata counters must remain unchanged
+during that label discovery. The sample then requires all four families, positive
+native metadata activity and zero fallback, followed by fresh code custody.
+
+An additional receipt retains at most sixteen rows with fixed public helper/API
+labels and bounded numeric costs. It excludes unknown rows without inspecting
+their values. The original guard-ten profile, seventeen method timers, CPU
+scope, production reads, archive and deadlines remain intact. Nine portable
+regressions and one actual Linux Root sample case cover exact guard count,
+interruption/error identity, complete restoration, profiler-label admission,
+private-data exclusion and deterministic bounds. Hosted sample evidence remains
+pending; diagnostic timing cannot establish full-stage deadline acceptance.

@@ -1815,12 +1815,12 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         measurements = RootStageMeasurements()
         from native_root_artifact_dispatch import _ObservedArtifactStage
         metadata = native_metadata_probe.Loaded(Path(seed['release']).parent/'native-metadata-probe')
-        comparison = native_metadata_probe.AtFirstGuard(metadata,_ObservedArtifactStage,measurements)
+        comparison = native_metadata_probe.AtFirstGuardProfile(metadata,_ObservedArtifactStage,measurements)
         try:
             with comparison:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if comparison.result is not None:seed['native_metadata_comparison'] = comparison.result
+            if comparison.result is not None:seed['native_metadata_profile'] = comparison.result
             seed['root_stage_measurements'] = measurements.values()
             seed['root_guard_cpu'] = measurements.cpu.values()
             sample = measurements.sample.values()
@@ -2259,7 +2259,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
         **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
-        **({'native_metadata_comparison':seed['native_metadata_comparison']} if seed.get('native_metadata_comparison') is not None else {}),
+        **({'native_metadata_profile':seed['native_metadata_profile']} if seed.get('native_metadata_profile') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -2560,8 +2560,8 @@ def main(args):
                 receipt['failure']['root_guard_cpu'] = seed['root_guard_cpu']
             if seed.get('root_guard_sample') is not None:
                 receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
-            if seed.get('native_metadata_comparison') is not None:
-                receipt['failure']['native_metadata_comparison'] = seed['native_metadata_comparison']
+            if seed.get('native_metadata_profile') is not None:
+                receipt['failure']['native_metadata_profile'] = seed['native_metadata_profile']
             if seed.get('root_stage_refusal') is not None:
                 receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
             if seed.get('archive_member_metrics') is not None:

@@ -392,7 +392,13 @@ static PyObject *same_bindings(PyObject *unused,PyObject *args) {
     if(pid!=(unsigned long long)getpid()||tid!=(unsigned long long)PyThread_get_thread_ident()||
         getuid()!=0||geteuid()!=0||getgid()!=0||getegid()!=0)Py_RETURN_FALSE;
     for(i=0;i<PyTuple_GET_SIZE(bindings);i++) {
-        PyObject *v=PyTuple_GET_ITEM(bindings,i),*current=PyObject_GetItem(PyTuple_GET_ITEM(v,0),PyTuple_GET_ITEM(v,1));
+        PyObject *v=PyTuple_GET_ITEM(bindings,i),*owner=PyTuple_GET_ITEM(v,0),*current;
+        if(PyFunction_Check(owner)) {
+            if(PyUnicode_CompareWithASCIIString(PyTuple_GET_ITEM(v,1),"__code__")!=0) {
+                PyErr_SetString(PyExc_TypeError,"Unsupported metadata function binding");return NULL;
+            }
+            current=Py_NewRef(PyFunction_GetCode(owner));
+        } else current=PyObject_GetItem(owner,PyTuple_GET_ITEM(v,1));
         if(!current){if(PyErr_ExceptionMatches(PyExc_KeyError)){PyErr_Clear();Py_RETURN_FALSE;}return NULL;}
         r=current==PyTuple_GET_ITEM(v,2);Py_DECREF(current);if(!r)Py_RETURN_FALSE;
     }
