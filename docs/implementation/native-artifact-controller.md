@@ -135,13 +135,26 @@ positive bounded source line. Private filenames, builtin representations and
 callers are never emitted. Basename matching cannot admit these labels. The
 four artifact ancestor helpers, six Path methods, thirteen primitives and seven
 fixed validation/copy helpers have priority when present, followed by the
-hottest remaining rows within the same
-64-row cap. This prevents a low-cost required helper from disappearing and
+hottest remaining rows within the same 64-row cap. This prevents a low-cost required helper from disappearing and
 separates filesystem/socket time from its overlapping Python wrappers.
 Portable regressions cover exact builtin keys, spoofed labels, numeric bounds,
 required low-cost rows under cap pressure and actual owned socket calls. A
 hosted Linux regression profiles reads of its own tiny fixture file; none of
 these component probes proves full staging or production performance.
+When the sample contains the installed staging guard, eight additional fixed
+`guard-self-costs.py` tags partition every profiler entry's self time into
+installed Python, pathlib, copy, JSON, regular expressions, UUID, builtin and
+unnamed other Python categories. Only counts and summed self time are emitted;
+unknown filenames, function names and callers remain unnamed. The categories
+use line zero and equal self/cumulative fields because they sum disjoint self
+costs, rather than adding overlapping stack costs. They share the same 64-row
+cap and priority with required function rows and the guard itself. Category
+totals form one partition; function rows are a separate overlapping view and
+must not be added to that partition. Invalid counts or self times refuse
+postprocessing rather than silently discard cost. Portable regressions check
+complete partitioning, privacy, numeric refusal, cap pressure and an actual
+cProfile run of an explicitly synthetic guard. No further guard invocation is
+profiled, and the production guard and aggregate timer wrappers are unchanged.
 These instrumented runs are diagnostic; production deadline acceptance still
 requires an uninstrumented complete stage and subsequent staged runtime. Private
 acceptance rejects either aggregate timers or the guard sample.

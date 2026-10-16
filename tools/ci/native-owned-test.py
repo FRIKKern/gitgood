@@ -446,6 +446,91 @@ class BoundedProofTests(unittest.TestCase):
         self.assertTrue(all(row['line']==0 and row['calls']>0 for row in rows))
         self.assertNotIn(str(self.directory),json.dumps(rows));self.assertNotIn('private-fixture',json.dumps(rows))
 
+    def test_guard_self_cost_categories_partition_all_entries_without_private_names(self):
+        code=Path.__str__.__code__
+        entries=[
+            ('installed_python',str(proof.MODULES/'native_root_artifact_dispatch.py'),20,'check'),
+            ('pathlib_python',code.co_filename,code.co_firstlineno,code.co_name),
+            ('copy_python',str(Path(proof.copy.__file__)),20,'private_copy_function'),
+            ('json_python',str(Path(proof.json.__file__).parent/'encoder.py'),20,'private_json_function'),
+            ('regex_python',str(Path(proof.re.__file__).parent/'_parser.py'),20,'private_regex_function'),
+            ('uuid_python',str(Path(proof.uuid.__file__)),20,'private_uuid_function'),
+            ('builtin','~',0,'<private builtin representation>'),
+            ('other_python','/private/credentials.py',65000,'private_SQL_and_password')]
+        stats={(file,line,name):(1,index,index/1000,.1,{'private-caller':'secret'})
+            for index,(_,file,line,name) in enumerate(entries,1)}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(Mock())
+        costs=[row for row in rows if row['file']=='guard-self-costs.py']
+        self.assertEqual(len(costs),8)
+        for index,(category,_,_,_) in enumerate(entries,1):
+            row=next(row for row in costs if row['function']==category)
+            self.assertEqual((row['line'],row['calls'],row['self_us'],row['cumulative_us']),(0,index,index*1000,index*1000))
+            self.assertEqual(row['self_ms'],row['cumulative_ms'])
+        self.assertEqual(sum(row['self_us'] for row in costs),36000)
+        self.assertNotIn('private',json.dumps(rows));self.assertNotIn('secret',json.dumps(rows))
+        self.assertNotIn('credentials',json.dumps(rows));self.assertNotIn('65000',json.dumps(rows))
+
+    def test_guard_self_cost_categories_and_required_functions_share_original_cap(self):
+        expected={('native_root_artifact_policy.py','_directory'),('native_root_artifact_policy.py','_root_directory_metadata'),
+            ('native_protected_artifact.py','directory'),('native_protected_artifact.py','_artifact_path'),
+            ('copy.py','deepcopy'),('resource_generations.py','canonical'),('native_root_controller.py','observed'),
+            ('native_service_scope.py','_process_status_fields'),('native_service_scope.py','_process_security_fields'),
+            ('native_service_scope.py','_root_file_parents'),('native_generation_lease_guard.py','read'),
+            ('native_root_artifact_dispatch.py','check')}
+        stats={(str(Path(proof.copy.__file__) if file=='copy.py' else proof.MODULES/file),20,name):
+            (1,1,.000001,.000001,{}) for file,name in expected}
+        for method in (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat):
+            code=method.__code__;stats[(code.co_filename,code.co_firstlineno,code.co_name)]=(1,1,.000001,.000001,{})
+            expected.add(('pathlib.py',code.co_name))
+        for name in ('stat','lstat','fstat','open','read','readlink','scandir','listdir','close'):
+            stats[('~',0,'<built-in method posix.'+name+'>')]=(1,1,.000001,.000001,{})
+            expected.add(('posix.py',name))
+        for name in ('sendto','recvmsg','send','recv'):
+            stats[('~',0,"<method '"+name+"' of '_socket.socket' objects>")]=(1,1,.000001,.000001,{})
+            expected.add(('socket.py',name))
+        stats.update({(str(proof.MODULES/'native_kernel_backend.py'),line,'_read'):(1,1,.01,line/100,{}) for line in range(1,81)})
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(Mock())
+        self.assertEqual(len(rows),64);self.assertEqual(len(expected),31)
+        self.assertTrue(expected <= {(row['file'],row['function']) for row in rows})
+        self.assertEqual(len([row for row in rows if row['file']=='guard-self-costs.py']),8)
+        self.assertEqual([row['line'] for row in rows if row['file']=='native_kernel_backend.py'],list(range(56,81)))
+
+    def test_guard_self_cost_categories_refuse_invalid_numeric_data_and_spoofed_rows(self):
+        for calls,total in ((True,.1),(-1,.1),(10000001,.1),(1,True),(1,-1),(1,float('nan')),(1,float('inf'))):
+            with self.subTest(calls=calls,total=total),self.assertRaises(ValueError):
+                proof.root_guard_self_costs({('/private/unknown.py',1,'private'):(1,calls,total,.1,{})})
+        for first,second in ((10000000,1),):
+            with self.assertRaises(ValueError):
+                proof.root_guard_self_costs({('/private/one.py',1,'private'):(1,first,.1,.1,{}),
+                    ('/private/two.py',1,'private'):(1,second,.1,.1,{})})
+        with self.assertRaises(ValueError):
+            proof.root_guard_self_costs({('/private/one.py',1,'private'):(1,1,1000,1000,{}),
+                ('/private/two.py',1,'private'):(1,1,1000,1000,{})})
+        stats={(str(proof.MODULES/'guard-self-costs.py'),20,'installed_python'):(1,1,.1,.1,{})}
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            self.assertEqual(proof.root_stage_profile(Mock()),[])
+
+    def test_guard_self_cost_categories_cover_actual_profile_of_synthetic_guard(self):
+        payload={'private-fixture-value':[1,2,3]}
+        def transform():
+            proof.re.fullmatch('private-.+','private-fixture')
+            proof.uuid.UUID('12345678-1234-4234-8234-123456789abc')
+            str(Path('/private-fixture')/'opaque')
+            return proof.json.loads(proof.json.dumps(proof.copy.deepcopy(payload)))
+        scope={'transform':transform}
+        # Synthetic source location exercises postprocessing; no Root authority
+        # or installed production check is created or claimed by this fixture.
+        exec(compile('def check():\n    return transform()\n',str(proof.MODULES/'native_root_artifact_dispatch.py'),'exec'),scope)
+        profile=proof.cProfile.Profile();self.assertEqual(profile.runcall(scope['check']),payload)
+        rows=proof.root_stage_profile(profile);costs=[row for row in rows if row['file']=='guard-self-costs.py']
+        self.assertEqual(len(costs),8)
+        total=proof.pstats.Stats(profile).total_tt
+        self.assertLessEqual(abs(sum(row['self_us'] for row in costs)-int(total*1000000)),8)
+        self.assertTrue(all(row['line']==0 and row['self_us']==row['cumulative_us'] for row in costs))
+        self.assertNotIn('private-fixture',json.dumps(rows));self.assertNotIn('opaque',json.dumps(rows))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',

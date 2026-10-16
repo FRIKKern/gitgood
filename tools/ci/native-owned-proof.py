@@ -1328,6 +1328,34 @@ def root_reader_loss_checks(seed, database, server_scope):
         'complete_journey_acceptance':False}
 
 
+def root_guard_self_costs(stats):
+    """Disjoint self-time totals only; unknown names remain unnamed."""
+    totals = {name:[0,0.0] for name in ('installed_python','pathlib_python','copy_python',
+        'json_python','regex_python','uuid_python','builtin','other_python')}
+    path_files = {method.__code__.co_filename for method in
+        (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
+    path_packages = {Path(name).parent for name in path_files if Path(name).parent.name == 'pathlib'}
+    for (filename,line,_function),(_primitive,calls,total,_cumulative,_callers) in stats.items():
+        require(type(filename) is str and type(line) is int)
+        require(type(calls) is int and 0 <= calls <= 10000000)
+        require(type(total) in {int,float} and 0 <= total <= 1200)
+        path = Path(filename)
+        if filename == '~' and line == 0:category = 'builtin'
+        elif path.parent == MODULES and path.suffix == '.py':category = 'installed_python'
+        elif filename in path_files or any(path.is_relative_to(parent) for parent in path_packages):category = 'pathlib_python'
+        elif path == Path(copy.__file__):category = 'copy_python'
+        elif path.parent == Path(json.__file__).parent:category = 'json_python'
+        elif path.parent == Path(re.__file__).parent:category = 'regex_python'
+        elif path == Path(uuid.__file__):category = 'uuid_python'
+        else:category = 'other_python'
+        totals[category][0] += calls;totals[category][1] += total
+    require(all(calls <= 10000000 and total <= 1200 for calls,total in totals.values()))
+    return [{'file':'guard-self-costs.py','function':category,'line':0,'calls':calls,
+        'self_ms':int(total*1000),'cumulative_ms':int(total*1000),
+        'self_us':int(total*1000000),'cumulative_us':int(total*1000000)}
+        for category,(calls,total) in sorted(totals.items())]
+
+
 def root_stage_profile(profile):
     """Closed installed/stdlib counters only; no stacks, callers or values."""
     allowed = {
@@ -1356,6 +1384,8 @@ def root_stage_profile(profile):
         'pathlib.py':{'__init__','__str__','__truediv__','resolve','stat','lstat'},
         'posix.py':{'stat','lstat','fstat','open','read','readlink','scandir','listdir','close'},
         'socket.py':{'sendto','recvmsg','send','recv'},
+        'guard-self-costs.py':{'installed_python','pathlib_python','copy_python','json_python',
+            'regex_python','uuid_python','builtin','other_python'},
     }
     # Match only these six loaded code objects, including their original line.
     # This also handles stdlib layouts split across implementation modules.
@@ -1372,14 +1402,16 @@ def root_stage_profile(profile):
         ('native_protected_artifact.py','directory'),('native_protected_artifact.py','_artifact_path'),
         ('copy.py','deepcopy'),('resource_generations.py','canonical'),('native_root_controller.py','observed'),
         ('native_service_scope.py','_process_status_fields'),('native_service_scope.py','_process_security_fields'),
-        ('native_service_scope.py','_root_file_parents'),('native_generation_lease_guard.py','read')}
-    reserved.update((label,name) for label in ('pathlib.py','posix.py','socket.py') for name in allowed[label])
+        ('native_service_scope.py','_root_file_parents'),('native_generation_lease_guard.py','read'),
+        ('native_root_artifact_dispatch.py','check')}
+    reserved.update((label,name) for label in ('pathlib.py','posix.py','socket.py','guard-self-costs.py') for name in allowed[label])
     rows = []
-    for (filename,line,function),(primitive,calls,total,cumulative,_callers) in pstats.Stats(profile).stats.items():
+    stats = pstats.Stats(profile).stats
+    for (filename,line,function),(primitive,calls,total,cumulative,_callers) in stats.items():
         path = Path(filename)
         builtin = (filename,line,function) in builtin_codes
         if builtin:label,function = builtin_codes[(filename,line,function)]
-        elif path.parent == MODULES and path.name not in {'copy.py','pathlib.py','posix.py','socket.py'}:label = path.name
+        elif path.parent == MODULES and path.name not in {'copy.py','pathlib.py','posix.py','socket.py','guard-self-costs.py'}:label = path.name
         elif path == Path(copy.__file__):label = 'copy.py'
         elif (filename,line,function) in path_codes:label = 'pathlib.py'
         else:continue
@@ -1391,6 +1423,12 @@ def root_stage_profile(profile):
         rows.append({'file':label,'function':function,'line':line,'calls':calls,
             'self_ms':int(total*1000),'cumulative_ms':int(cumulative*1000),
             'self_us':int(total*1000000),'cumulative_us':int(cumulative*1000000)})
+    # Category totals apply only to the installed staging guard sample. They
+    # are postprocessing of that same profile, not another measured invocation.
+    if any(filename == str(MODULES/'native_root_artifact_dispatch.py') and
+            type(line) is int and 0 < line < 10000 and function == 'check'
+            for filename,line,function in stats):
+        rows.extend(root_guard_self_costs(stats))
     # Reserve the fixed diagnostic questions before filling remaining slots by
     # cost. Low-cost required helpers must not disappear at the 64-row cap.
     rows = sorted(rows,key=lambda value:((value['file'],value['function']) not in reserved,
