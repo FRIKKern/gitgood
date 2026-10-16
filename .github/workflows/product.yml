@@ -213,7 +213,7 @@ jobs:
           set -euo pipefail
           "$GITGOOD_PYTHON" -B tools/ci/native-fingerprint-build.py
           sudo -n "$GITGOOD_PYTHON" -B tools/ci/native-fingerprint-test.py
-      - name: Compare fixed prepared Root SELECTs on hosted PostgreSQL
+      - name: Verify fixed Root SELECT preparation on hosted PostgreSQL
         run: |
           set -euo pipefail
           "$GITGOOD_PYTHON" -B tools/ci/native-prepared-test.py

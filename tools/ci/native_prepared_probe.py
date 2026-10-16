@@ -1,4 +1,8 @@
-"""Disposable fixed SELECT preparation experiment; never production authority."""
+"""Historical fixed SELECT experiment for the pre-preparation exchange AST.
+
+Not active in the Root proof or production. Retained to explain the controlled
+comparison; current preparation is tested through production reader methods.
+"""
 import ast
 import copy
 import hashlib

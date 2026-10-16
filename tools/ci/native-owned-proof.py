@@ -36,7 +36,6 @@ import urllib.error
 import urllib.request
 import socket
 import ssl
-import native_prepared_probe as prepared_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -1696,15 +1695,10 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         # profile spans the full stage or an effect. These diagnostics cannot
         # justify production timing acceptance or change the response deadline.
         measurements = RootStageMeasurements()
-        from native_root_artifact_dispatch import _ObservedArtifactStage
-        reader_module = sys.modules['native_root_database_reader']
-        require(Path(reader_module.__file__).parent == MODULES)
-        comparison = prepared_probe.BeforeStageComparison(reader_module, _ObservedArtifactStage, measurements)
         try:
-            with comparison:
+            with measurements:
                 served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
         finally:
-            if comparison.result is not None:seed['root_prepared_comparison'] = comparison.result
             seed['root_stage_measurements'] = measurements.values()
             sample = measurements.sample.values()
             if sample is not None:seed['root_guard_sample'] = sample
@@ -2140,7 +2134,6 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
             'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
         **({'root_stage_profile':seed['root_stage_profile']} if seed.get('root_stage_profile') is not None else {}),
         **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
-        **({'root_prepared_comparison':seed['root_prepared_comparison']} if seed.get('root_prepared_comparison') is not None else {}),
         **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
@@ -2421,8 +2414,6 @@ def main(args):
                 receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
             if seed.get('root_stage_measurements') is not None:
                 receipt['failure']['root_stage_measurements'] = seed['root_stage_measurements']
-            if seed.get('root_prepared_comparison') is not None:
-                receipt['failure']['root_prepared_comparison'] = seed['root_prepared_comparison']
             if seed.get('root_guard_sample') is not None:
                 receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
             if seed.get('root_stage_refusal') is not None:

@@ -57,6 +57,7 @@ class ReaderExchangeTest(unittest.TestCase):
         value.child.stdout.fileno.return_value=19
         value.expected=copy.deepcopy(GOOD);value.environment=database_environment(URL)
         value.reader=copy.deepcopy(READER);value.client={'pid':777,'birth':'1024'}
+        value.prepared_statements=set()
         value.kernel='2048';value.socket={'original':'socket'}
         value._base=Mock(return_value=copy.deepcopy(value.client));value.lifecycle=Mock()
         return value
@@ -64,22 +65,57 @@ class ReaderExchangeTest(unittest.TestCase):
     def exchange(self,value,reply,kind='identity'):
         selector=Mock();selector.select.return_value=[('ready',1)]
         manager=Mock();manager.__enter__=Mock(return_value=selector);manager.__exit__=Mock(return_value=False)
-        with patch.object(root.uuid,'uuid4',return_value='fixed-nonce'), \
+        with patch.object(root.uuid,'uuid4',return_value='12345678-1234-4234-8234-123456789abc'), \
                 patch.object(root.selectors,'DefaultSelector',return_value=manager), \
                 patch.object(root.os,'read',side_effect=reply if type(reply) is list else [reply]):
             return value._exchange(kind)
 
     def reply(self,**changes):
-        return canonical({'nonce':'fixed-nonce','reader':copy.deepcopy(READER),'value':copy.deepcopy(GOOD),**changes})+b'\n'
+        return canonical({'nonce':'12345678-1234-4234-8234-123456789abc','reader':copy.deepcopy(READER),'value':copy.deepcopy(GOOD),**changes})+b'\n'
 
     def test_fresh_fixed_identity_statement_reuses_original_child_and_brackets_it(self):
         value=self.view();child=value.child
         self.assertEqual(self.exchange(value,self.reply()),GOOD)
         self.assertEqual(self.exchange(value,self.reply()),GOOD)
         self.assertIs(value.child,child);self.assertEqual(value._base.call_count,4)
-        for call in child.stdin.write.call_args_list:
-            self.assertIn(root.SQL.encode(),call.args[0]);self.assertNotIn(b'pg_try_advisory_lock',call.args[0])
+        commands=[call.args[0] for call in child.stdin.write.call_args_list]
+        self.assertIn(root.SQL.encode(),commands[0]);self.assertIn(root.READER_SQL.encode(),commands[0])
+        self.assertIn(b'PREPARE gitgood_root_identity_v2(text)',commands[0])
+        self.assertEqual(commands[1],b"EXECUTE gitgood_root_identity_v2('12345678-1234-4234-8234-123456789abc');\n")
+        self.assertTrue(all(b'pg_try_advisory_lock' not in command for command in commands))
         child.terminate.assert_not_called()
+
+    def test_only_fixed_statement_plans_persist_and_every_execution_has_fresh_nonce(self):
+        value=self.view()
+        first=value._statement('identity','12345678-1234-4234-8234-123456789abc',root.SQL)
+        second=value._statement('identity','12345678-1234-4234-8234-123456789abd',root.SQL)
+        exclusion=value._statement('exclusion','12345678-1234-4234-8234-123456789abe',root.ROOT_EXCLUSION_SQL)
+        self.assertIn(root.SQL.encode(),first);self.assertIn(root.READER_SQL.encode(),first)
+        self.assertNotIn(b'PREPARE',second);self.assertIn(b'123456789abd',second)
+        self.assertNotIn(b'123456789abc',second)
+        self.assertIn(root.ROOT_EXCLUSION_SQL.encode(),exclusion)
+        self.assertEqual(value.prepared_statements,{'identity','exclusion'})
+        value.child.stdin.write.assert_not_called()
+
+    def test_supplied_sql_nonce_kind_and_corrupt_plan_state_refuse_before_io(self):
+        value=self.view();nonce='12345678-1234-4234-8234-123456789abc'
+        for kind,actual_nonce,statement in [('foreign',nonce,root.SQL),('identity',"x');SELECT 1;--",root.SQL),
+                ('identity',nonce,'SELECT 1')]:
+            with self.assertRaises((ValueError,root.RootDatabaseReaderRefused)):
+                value._statement(kind,actual_nonce,statement)
+        for state in [None,{},set(['foreign'])]:
+            value.prepared_statements=state
+            with self.assertRaises(root.RootDatabaseReaderRefused):value._statement('identity',nonce,root.SQL)
+        value.child.stdin.write.assert_not_called()
+
+    def test_failed_preparation_permanently_poisoned_without_reconnect(self):
+        value=self.view();child=value.child;child.stdin.write.return_value=0
+        child.stdin.write.side_effect=None
+        with patch.object(root.subprocess,'Popen') as create:
+            with self.assertRaises(root.RootDatabaseReaderRefused):self.exchange(value,self.reply())
+            self.assertFalse(value.usable);self.assertIsNone(value.child)
+            with self.assertRaises(root.RootDatabaseReaderRefused):self.exchange(value,self.reply())
+            create.assert_not_called()
 
     def test_exclusion_statement_retains_exact_two_client_scope_without_acquiring_lease(self):
         value=self.view();observed={'database':GOOD,'holders':[],'clients':2}
@@ -141,10 +177,11 @@ class ReaderStageObservationTest(unittest.TestCase):
         selector=Mock();selector.select.return_value=[('ready',1)]
         manager=Mock();manager.__enter__=Mock(return_value=selector);manager.__exit__=Mock(return_value=False)
         stack=ExitStack();self.addCleanup(stack.close);self.root_context(stack)
-        stack.enter_context(patch.object(root.uuid,'uuid4',side_effect=['nonce-'+str(i) for i in range(len(replies))]))
+        nonces=['12345678-1234-4234-8234-'+format(i,'012x') for i in range(len(replies))]
+        stack.enter_context(patch.object(root.uuid,'uuid4',side_effect=nonces))
         stack.enter_context(patch.object(root.selectors,'DefaultSelector',return_value=manager))
         stack.enter_context(patch.object(root.os,'read',side_effect=[canonical({
-            'nonce':'nonce-'+str(i),'reader':copy.deepcopy(READER),'value':reply})+b'\n'
+            'nonce':nonces[i],'reader':copy.deepcopy(READER),'value':reply})+b'\n'
             for i,reply in enumerate(replies)]))
 
     def observed(self):
@@ -160,9 +197,9 @@ class ReaderStageObservationTest(unittest.TestCase):
         self.assertEqual(child.stdin.write.call_count,2);self.assertEqual(value._base.call_count,4)
         commands=[call.args[0] for call in child.stdin.write.call_args_list]
         self.assertNotEqual(commands[0],commands[1])
-        for command in commands:
-            self.assertIn(root.ROOT_EXCLUSION_SQL.encode(),command)
-            self.assertNotIn(b'pg_try_advisory_lock',command)
+        self.assertIn(root.ROOT_EXCLUSION_SQL.encode(),commands[0])
+        self.assertEqual(commands[1],b"EXECUTE gitgood_root_exclusion_v2('12345678-1234-4234-8234-000000000001');\n")
+        self.assertTrue(all(b'pg_try_advisory_lock' not in command for command in commands))
         self.assertIs(value.child,child);child.terminate.assert_not_called()
 
     def test_standalone_consumers_still_issue_separate_fresh_queries(self):

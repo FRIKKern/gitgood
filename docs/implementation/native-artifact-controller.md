@@ -197,28 +197,32 @@ All production source bytes, the complete payload, freshness/effect guards and
 the 240-second deadline remain unchanged. A complete uninstrumented stage,
 staged runtime and the original installation/recovery gates are still required.
 
-The next diagnostic tests preparation of the exact two fixed read-only SELECT
-envelopes on the original Root reader session. Only statement construction in a
-fixture copy of the original exchange AST changes; an inverse transformation
-must recover every original node. All nonce, framing, read-only metadata,
-before/after process, pipe, kernel and socket checks and the poison path remain.
-The nonce remains a fresh text parameter, and each execution reads current data.
-Only session-local statement names persist; no returned observations are cached.
-See PostgreSQL's [prepared-statement contract](https://www.postgresql.org/docs/18/sql-prepare.html).
+The Root reader prepares the two fixed read-only SELECT envelopes within its
+original session. The nonce is a fresh text parameter for each execution, and
+all original framing, read-only/session identity, before/after process, pipe,
+kernel and socket checks and the poison path remain. Only a bounded set of two
+statement kinds is retained; no returned observation or validation is cached.
+Each execution reads current data. Closing the original owned client ends its
+session and its plans; a failed reader never reconnects. See PostgreSQL's
+[prepared-statement contract](https://www.postgresql.org/docs/18/sql-prepare.html).
 
-Tests use a newly owned disposable PostgreSQL database and role for actual
-statement equivalence, changed client counts, role changes and original-client
-loss. Those SQL tests explicitly substitute process/base observers and cannot
-establish actual Root custody. The subsequent twenty alternating whole-guard
-pairs must use the original retained Root reader and complete custody checks.
-The fixture restores the reader's original exchange after each guard, removes
-its own session plans and verifies a fresh original reply before starting the
-existing timers and guard-ten sample. Every interruption restores method
-pointers; failed observers remain poisoned. The extra forty checks, cleanup
-exchange and paired elapsed times are separate diagnostics with fixed numeric
-fields and source hashes, without SQL, parameters, plans or returned values.
-The compiled fingerprint is not active in this comparison or staging; its
-standalone equivalence tests remain a separate diagnostic regression.
-Production source, payload, effects, freshness checks and deadlines are unchanged.
-Preparation is not adopted without a measured whole-guard benefit, and complete
-uninstrumented staging/runtime plus installation and recovery gates still apply.
+A prior disposable comparison changed only statement construction in a fixture
+copy of the original exchange AST, requiring an inverse transformation to recover
+every original node. Twenty alternating whole-guard pairs used the same retained
+Root reader and custody checks before any effects. Original methods and session
+state were restored before staging. That measured experiment justified selecting
+preparation for a production candidate; it did not prove full staging, recovery
+or release readiness. The historical helper is retained but is no longer active
+in the Root proof. The compiled fingerprint is also inactive there; its separate
+standalone equivalence tests remain a diagnostic regression.
+
+Production framing and refusal tests cover fixed statement kinds, nonce
+injection, exact query bodies, corrupt plan state and failed preparation without
+reconnection. Hosted PostgreSQL tests call production reader methods against a
+newly owned database and role, checking repeated replies, changed client counts,
+role changes and original client/backend loss. Those SQL tests explicitly
+substitute process/base observers; the complete installed Root proof must verify
+actual custody. The complete payload, freshness/effect guards, two separate Root
+passes and 240-second deadline remain unchanged. Existing aggregate timers and
+the single guard-ten sample remain diagnostic only. Complete uninstrumented
+staging/runtime plus the original installation and recovery gates still apply.

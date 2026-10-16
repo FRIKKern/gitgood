@@ -1,0 +1,9 @@
+{
+  "id": "native-root-prepared-selects",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Prepare the two fixed read-only Root observation statements in their original session while retaining fresh results, nonce validation and custody checks.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/deployment/native_root_database_reader.py", "tools/deployment/test_native_root_database_reader.py", "tools/ci/native-prepared-test.py"],
+  "withdrawn": false
+}

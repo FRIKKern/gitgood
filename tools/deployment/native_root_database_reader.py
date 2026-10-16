@@ -57,6 +57,7 @@ class NativeRootDatabaseReader:
     def __init__(self, lifecycle):
         self.usable = False;self.child = None;self.owner = None
         self.reader = self.client = self.kernel = self.socket = None
+        self.prepared_statements = set()
         try:
             require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
             require(type(lifecycle) is NativeRootLifecycleObservation)
@@ -150,12 +151,26 @@ class NativeRootDatabaseReader:
                 self.reader['client_port'],self.expected['port']) == self.socket)
         return current
 
+    def _statement(self, kind, nonce, statement):
+        """Only fixed SELECT plans persist in this original session, never data."""
+        names = {'identity': 'gitgood_root_identity_v2', 'exclusion': 'gitgood_root_exclusion_v2'}
+        require(type(kind) is str and kind in names)
+        require(type(nonce) is str and str(uuid.UUID(nonce)) == nonce)
+        require(statement == (SQL if kind == 'identity' else ROOT_EXCLUSION_SQL))
+        require(type(self.prepared_statements) is set and self.prepared_statements <= names.keys())
+        prefix = '';name = names[kind]
+        if kind not in self.prepared_statements:
+            prefix = ("PREPARE " + name + "(text) AS SELECT json_build_object('nonce',$1,'reader',(" +
+                READER_SQL + "),'value',(" + statement + "));\n")
+            self.prepared_statements.add(kind)
+        return (prefix + "EXECUTE " + name + "('" + nonce + "');\n").encode()
+
     def _exchange(self, kind):
         try:
             require(type(kind) is str and kind in {'identity','exclusion'})
             client = self._base();nonce = str(uuid.uuid4())
             statement = SQL if kind == 'identity' else ROOT_EXCLUSION_SQL
-            raw = ("SELECT json_build_object('nonce','"+nonce+"','reader',("+READER_SQL+"),'value',("+statement+"));\n").encode()
+            raw = self._statement(kind, nonce, statement)
             require(len(raw) <= 8192 and self.child.stdin.write(raw) == len(raw));self.child.stdin.flush()
             output = bytearray();deadline = time.monotonic()+4
             with selectors.DefaultSelector() as selector:
