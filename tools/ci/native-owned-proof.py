@@ -1329,7 +1329,7 @@ def root_reader_loss_checks(seed, database, server_scope):
 
 
 def root_stage_profile(profile):
-    """Closed installed/copy counters only; no stacks, callers or values."""
+    """Closed installed/stdlib counters only; no stacks, callers or values."""
     allowed = {
         'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_archive_input','_check_output'},
         'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
@@ -1353,12 +1353,18 @@ def root_stage_profile(profile):
         'native_controller_scope.py':{'private_directory'},
         'resource_generations.py':{'canonical'},
         'copy.py':{'deepcopy','_deepcopy_dict','_deepcopy_list','_deepcopy_tuple'},
+        'pathlib.py':{'__init__','__str__','__truediv__','resolve','stat','lstat'},
     }
+    # Match only these six loaded code objects, including their original line.
+    # This also handles stdlib layouts split across implementation modules.
+    path_codes = {(method.__code__.co_filename,method.__code__.co_firstlineno,method.__code__.co_name)
+        for method in (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
     rows = []
     for (filename,line,function),(primitive,calls,total,cumulative,_callers) in pstats.Stats(profile).stats.items():
         path = Path(filename)
-        if path.parent == MODULES and path.name != 'copy.py':label = path.name
+        if path.parent == MODULES and path.name not in {'copy.py','pathlib.py'}:label = path.name
         elif path == Path(copy.__file__):label = 'copy.py'
+        elif (filename,line,function) in path_codes:label = 'pathlib.py'
         else:continue
         if label not in allowed or function not in allowed[label]:continue
         if (type(line) is not int or not 0 < line < 10000 or type(calls) is not int

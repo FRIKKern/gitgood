@@ -123,6 +123,11 @@ precision to avoid millisecond rounding ties. Fixed canonical serialization and
 observation-wrapper counters are included. Four fixed `copy` functions are
 accepted only from the exact loaded standard-library module, with its path
 replaced by the constant `copy.py` label; matching basenames elsewhere refuse.
+Six fixed standard-library Path methods additionally require the exact loaded
+code filename, first line and function name, and emit only the constant
+`pathlib.py` label. This separates path construction and metadata-call cost
+without recording filesystem names. Installed-module basename matching cannot
+admit either standard-library label. The same single guard and 64-row bound apply.
 These instrumented runs are diagnostic; production deadline acceptance still
 requires an uninstrumented complete stage and subsequent staged runtime. Private
 acceptance rejects either aggregate timers or the guard sample.

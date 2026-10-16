@@ -386,6 +386,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
   Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)
 
+- Measure six exact standard-library Path methods in the existing single-guard staging diagnostic while excluding private paths, arguments and results.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
 - Inspect the union of persistent-resource ancestors once per fresh metadata fingerprint, preserving every returned key and original identity, owner, mode, time and link check. Reject path aliases directly without repeated resolution walks. Keep executable capture and all process, service, SQL, socket, history and stage gates; require actual filesystem and complete-stage evidence.
   Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_generation_lease_guard.py), [details 3](tools/deployment/test_native_persistent_fingerprint.py), [details 4](.github/workflows/product.yml)
 

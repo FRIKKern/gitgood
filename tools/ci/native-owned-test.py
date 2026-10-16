@@ -326,6 +326,37 @@ class BoundedProofTests(unittest.TestCase):
         self.assertNotIn('private-fixture',json.dumps(rows))
         self.assertNotIn(str(proof.copy.__file__),json.dumps(rows))
 
+    def test_guard_profile_path_counters_require_exact_loaded_code_and_hide_module_paths(self):
+        methods=(Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)
+        codes=[method.__code__ for method in methods];stats={}
+        for code in codes:
+            key=(code.co_filename,code.co_firstlineno,code.co_name)
+            stats[key]=(1,3,.000125,.000875,{'synthetic-private-caller':'not emitted'})
+            stats[(code.co_filename,code.co_firstlineno+1,code.co_name)]=(1,3,.5,.8,{})
+            stats[('/synthetic-private/pathlib.py',code.co_firstlineno,code.co_name)]=(1,3,.5,.8,{})
+            stats[(str(proof.MODULES/'pathlib.py'),code.co_firstlineno,code.co_name)]=(1,3,.5,.8,{})
+        with patch.object(proof.pstats,'Stats',return_value=SimpleNamespace(stats=stats)):
+            rows=proof.root_stage_profile(Mock())
+        self.assertEqual(len(rows),6)
+        self.assertEqual({(row['function'],row['line']) for row in rows},
+            {(code.co_name,code.co_firstlineno) for code in codes})
+        self.assertTrue(all(row['file']=='pathlib.py' and row['calls']==3 and
+            row['self_us']==125 and row['cumulative_us']==875 for row in rows))
+        self.assertNotIn('synthetic-private',json.dumps(rows))
+        for code in codes:self.assertNotIn(code.co_filename,json.dumps(rows))
+
+    def test_guard_profile_observes_actual_lexical_path_calls_without_arguments_or_results(self):
+        def construct():
+            value=Path('/synthetic-private/opaque')/'leaf'
+            value.__str__();value.__truediv__('other')
+            return value
+        profile=proof.cProfile.Profile();value=profile.runcall(construct)
+        self.assertEqual(value.name,'leaf')
+        rows=proof.root_stage_profile(profile)
+        self.assertTrue({'__str__','__truediv__'} <= {row['function'] for row in rows})
+        self.assertTrue(all(row['file']=='pathlib.py' and row['calls']>0 for row in rows))
+        self.assertNotIn('synthetic-private',json.dumps(rows));self.assertNotIn('opaque',json.dumps(rows))
+
     def test_backend_discovery_waits_for_two_stable_sql_samples_and_keeps_kernel_births(self):
         seed = {'installation': 'fixture', 'account': 'gg_fixture'}
         database = Mock(query=Mock(side_effect=['12:100', '12:100\n13:101', '12:100\n13:101',
