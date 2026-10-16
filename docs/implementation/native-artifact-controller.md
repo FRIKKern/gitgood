@@ -733,6 +733,9 @@ Native labels are discovered from genuine extension builtins using no-argument
 preflight with all observation and preparation counters unchanged. Unknown
 profiler names and values are ignored; exported labels are fixed public names.
 The count APIs retain zero-filled slots when absent from the sampled guard.
+Existing metadata wrappers also call `counts()` within the guard: once for the
+persistent plan and twice for custody. The focused eight-role sample therefore
+expects three such calls; it must not exclude their cost from the native rows.
 Portable tests cover privacy, numeric limits, deterministic selection, original
 measurement start, interruption, alias restoration and source-custody failure
 before effects. A new actual Linux Root case must verify the genuine labels,

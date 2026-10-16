@@ -459,7 +459,8 @@ class HostedReadTest(unittest.TestCase):
         self.assertTrue(all(v>0 for v in result['families'].values()));self.assertFalse(any(result['fallbacks'].values()))
         native_rows=[r for r in result['rows'] if r['file']=='native-read-api.py']
         self.assertEqual({r['function'] for r in native_rows},set(probe.NATIVE_APIS))
-        self.assertEqual({r['function'] for r in native_rows if r['calls']>0},set(probe.NATIVE_APIS)-{'counts','read_counts'})
+        self.assertEqual({r['function'] for r in native_rows if r['calls']>0},set(probe.NATIVE_APIS)-{'read_counts'})
+        self.assertEqual(next(r['calls'] for r in native_rows if r['function']=='counts'),3)
         self.assertLessEqual(len(result['rows']),16);self.assertNotIn(str(self.root),str(result['rows']))
         self.assertTrue(result['direct_aliases_restored']);self.loaded.validate()
 
