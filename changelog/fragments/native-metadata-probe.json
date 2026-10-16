@@ -1,0 +1,14 @@
+{
+  "id": "native-metadata-probe",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Measure a hosted native metadata diagnostic across four original guard paths, retaining fresh filesystem reads, held descriptors, refusal behavior and full staging requirements.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-artifact-controller.md",
+    "tools/ci/native-metadata-probe.c",
+    "tools/ci/native_metadata_probe.py",
+    "tools/ci/native-metadata-test.py"
+  ],
+  "withdrawn": false
+}

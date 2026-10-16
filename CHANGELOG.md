@@ -389,7 +389,7 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Record actual current-CLI recovery after selected owner loss in all seven initial installation stages, lost terminal baseline handoff, and packaged installation with an ordinary database-owner role. Preserve failed harness attempts and private recovery materials; identify systemd delegation and explicit reboot resource generations as the next host dependencies. These same-boot fixtures do not establish managed Cloud or complete journey/release acceptance.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/native-host-prerequisites.md)
 
-- Compare compiled installed guard bodies on original Root actors with complete function emission, faithful fault injection and full restoration before staging effects.
+- Reject the slower compiled guard-body experiment, retain its semantic and restoration regressions, and remove its runtime from full staging verification.
   Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/guard_body_source.py), [details 3](tools/ci/guard_body_probe.py), [details 4](tools/ci/guard-body-test.py)
 
 - Require original SQL and kernel backend identity in new native ownership claims and monitoring; preserve older records as history and refuse their live readmission. Installed startup and controller recovery remain unfinished.
@@ -403,6 +403,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Carry the original Root-validated lifecycle stage into native admission replies and match a fixed runtime, migration or bootstrap action before explicit lifecycle startup opens a lease or starts workers. Add an installed startup-boundary exercise with actual Root/input custody and explicitly synthetic stage receipts. Native product callback integration, business effects and interruption recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-worker-admission.md), [details 2](apps/forge/lib/gitgood/installation_generation_admission.ex), [details 3](apps/forge/lib/gitgood/native_lifecycle_action.ex), [details 4](tools/deployment/native_generation_lease_guard.py)
+
+- Measure a hosted native metadata diagnostic across four original guard paths, retaining fresh filesystem reads, held descriptors, refusal behavior and full staging requirements.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-metadata-probe.c), [details 3](tools/ci/native_metadata_probe.py), [details 4](tools/ci/native-metadata-test.py)
 
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
   Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)

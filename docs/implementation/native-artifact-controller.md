@@ -515,3 +515,46 @@ exception identity. The actual compiled mutation/error case retains every
 assertion. No compiler, runtime adapter, production code or operation guard is
 changed by this fixture repair; paired performance and full staging still need
 hosted evidence.
+
+The installed-body experiment subsequently passed all 17 cases and all 372
+original Root cases with the adapter active. Exact hosted review also verified
+all 59 installed production hashes and 82 ownership fixtures. Its 20 whole-guard
+pairs had median ratio 1.049163, with only one pair faster: approximately 4.9%
+slower overall, failing the unchanged benefit gate. Adoption is rejected. The
+original full stage again reached about 240 seconds before output verification.
+The full proof no longer loads or copies this experimental runtime; its source,
+compiler, restoration and original Root regression gates remain. The replacement
+investigation targets direct fresh metadata observation and must preserve every
+original guard, observation-pass boundary, actor, complete archive and deadline.
+
+The replacement diagnostic uses a finite C extension for four related metadata
+paths: Root files, executables, persistent paths and held history custody. It
+performs each original fresh observation in the original order, returning the
+same tuple/dictionary fields or the original typed refusal. Executable resolution
+and history directory enumeration retain their original Python implementations.
+Held and named descriptors remain distinct observations, including the second
+directory `fstat`. The original custody observation-pass decorator remains in
+place; no new filesystem result cache or comparison baseline is introduced.
+
+The loader authenticates Root-owned C/ELF/helper files, compiler flags and the
+actual original Python source/code objects before use, then re-reads their
+custody after comparison. Unsupported argument shapes and deliberately replaced
+metadata hooks use the original implementation before native observation.
+A native error or failed predicate refuses without a Python retry. The adapter
+retains all four original classes and restores all four method descriptors after
+each prototype pair, interruption or partial installation.
+
+Twenty-one cases include portable admission, refusal, interruption, alternation
+and restoration checks. Eleven require actual Linux Root, including all 372
+unchanged original Root cases and dedicated ordinary-owned history resources
+with real held descriptors, rebinding/loss, metadata/entry mutation, restored
+mtime and separate observation passes. These hosted cases remain pending.
+The full proof compares twenty alternating whole-guard pairs on its original
+actors at the first guard, restores the original methods before entering the
+unchanged stage measurements, and then attempts the complete archive. Median
+ratio at most 0.80 and at least 18 faster pairs remain required for a benefit;
+the diagnostic is not production adoption or journey acceptance. Hosted copies
+and staging reserve at least 20 GiB after estimated allocations on each volume.
+Complete uninstrumented staging, staged normal runtime, production listener,
+interrupted-effect reconciliation, installation and replacement-host restoration
+remain required before VM retirement.
