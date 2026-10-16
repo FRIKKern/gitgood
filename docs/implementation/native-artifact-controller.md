@@ -808,4 +808,5 @@ globals; the module result is not cached. The import hook and current
 `sys.modules` binding are admitted afresh. Changed hooks or a missing module
 execute the original SDK before any import or slot mutation in the C lane.
 Portable checks cover the absent global, exact source body and late hook error;
-the additional Root case requires actual native refusal and exception behavior.
+the additional Root case requires the same initialized-module import observation
+on a supported native call, plus actual native refusal and exception behavior.

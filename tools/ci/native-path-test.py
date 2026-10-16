@@ -485,6 +485,20 @@ class HostedPathTest(unittest.TestCase):
         a=self.adapter()
         if a.import_globals is None:
             self.assertNotIn('ntpath',a.sdk_functions['PurePath.__init__'].__code__.co_varnames);return
+        observations=[]
+        class Spec:
+            def __getattribute__(self,name):
+                if name=='_initializing':observations.append(name);return False
+                raise AssertionError('unexpected import observation')
+        # Observe the real import's initialized-module check without changing
+        # __import__. Omitting the import would preserve path values but lose
+        # this original SDK observation, so value-only cases are insufficient.
+        with patch.object(probe.ntpath,'__spec__',Spec()):
+            original_path=Path('/synthetic');expected=observations[:];observations.clear()
+            with a.installed():native_path=Path('/synthetic')
+            self.assertTrue(expected);self.assertEqual(observations,expected)
+        self.assertEqual(str(native_path),str(original_path));self.assertEqual(a.values()['constructor'],1)
+        self.assertFalse(any(a.fallbacks.values()));before=a.values()
         failure=KeyboardInterrupt('original constructor import');calls=[];original=__import__
         def changed(name,*args,**kwargs):
             if name=='ntpath':calls.append(name);raise failure
@@ -492,7 +506,7 @@ class HostedPathTest(unittest.TestCase):
         with a.installed(),patch.object(__import__('builtins'),'__import__',changed):
             with self.assertRaises(KeyboardInterrupt) as caught:Path('/synthetic')
             self.assertIs(caught.exception,failure)
-        self.assertEqual(calls,['ntpath']);self.assertEqual(a.values()['constructor'],0)
+        self.assertEqual(calls,['ntpath']);self.assertEqual(a.values(),before)
         with a.installed():
             module=sys.modules.pop('ntpath')
             try:self.assertIs(self.loaded.native.path_call(0,a.plan,object.__new__(pathlib.PosixPath),('/synthetic',)),NotImplemented)
