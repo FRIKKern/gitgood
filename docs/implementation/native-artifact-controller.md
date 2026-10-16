@@ -480,7 +480,7 @@ remain live. This is a compiler experiment, with compiler-specific frame and
 function metadata limits, not general Python equivalence or product adoption;
 see the [compiler's documented limitations](https://cython.readthedocs.io/en/3.1.x/src/userguide/limitations.html).
 
-Sixteen cases cover source admission, lexical scope/global mutation, direct
+Seventeen cases cover source admission, lexical scope/global mutation, direct
 aliases, static/class methods, original exceptions, owner refusal, partial
 installation and complete restoration after interruption. Three require actual
 Linux Root: exact code custody, fresh file mutation and all 372 unchanged
@@ -505,3 +505,13 @@ duplicate methods and missing bodies. The same 116 body AST identities, seven
 global-load counts, compiler/header/options, runtime adapter, original tests and
 full proof remain unchanged. New hosted semantic and performance evidence is
 still required.
+
+The repaired selector then passed all 372 original Root cases under the compiled
+adapter and actual code/ELF custody. A separate fault-injection stand-in omitted
+the original file-open flags, so argument evaluation failed before its intended
+open exception. That fixture now retains those flags; a portable execution of
+the exact original read helper verifies both flag arguments and original
+exception identity. The actual compiled mutation/error case retains every
+assertion. No compiler, runtime adapter, production code or operation guard is
+changed by this fixture repair; paired performance and full staging still need
+hosted evidence.

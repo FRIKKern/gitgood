@@ -62,6 +62,11 @@ def model():
     return modules,native,rows,alias
 
 
+def interrupted_os(original,error):
+    return types.SimpleNamespace(open=Mock(side_effect=error),**{
+        name:getattr(original,name) for name in ('O_RDONLY','O_NOFOLLOW','O_CLOEXEC')})
+
+
 class SourceTest(unittest.TestCase):
     def sources(self):
         root=Path(__file__).resolve().parents[1]/'deployment'
@@ -111,6 +116,18 @@ class SourceTest(unittest.TestCase):
         self.assertEqual(constant_default(ast.parse('2**64-1',mode='eval').body),2**64-1)
         for value in ('2**65','2**10000000','call()','name','[1]','2/1'):
             with self.subTest(value=value),self.assertRaises(ValueError):constant_default(ast.parse(value,mode='eval').body)
+
+    def test_open_fault_fixture_preserves_original_flags_and_exception_identity(self):
+        original=types.SimpleNamespace(O_RDONLY=1,O_NOFOLLOW=2,O_CLOEXEC=4)
+        failure=KeyboardInterrupt('original');injected=interrupted_os(original,failure)
+        tree=ast.parse(self.sources()['native_service_scope'])
+        body=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='read_bytes')
+        namespace={'os':injected,'require':Mock(side_effect=AssertionError('Past intended open fault'))}
+        exec(compile(ast.Module(body=[body],type_ignores=[]),'<original-read-bytes-fixture>','exec'),namespace)
+        with self.assertRaises(KeyboardInterrupt) as caught:namespace['read_bytes']('/synthetic/leaf')
+        self.assertIs(caught.exception,failure)
+        injected.open.assert_called_once_with('/synthetic/leaf',7)
+        namespace['require'].assert_not_called()
 
     def test_comprehension_first_iterators_and_nested_lexical_scopes_stay_live(self):
         tree=ast.parse('class Donor:\n def read(self):\n  def nested(value=2): return value+external\n  return [nested(x) for x in x]\n')
@@ -268,7 +285,7 @@ class HostedInstalledBodiesTest(unittest.TestCase):
                 path.chmod(0o666)
                 with self.assertRaises(service.ServiceRefused):service.root_file(path)
                 failure=KeyboardInterrupt('original')
-                with patch.object(service,'os',types.SimpleNamespace(open=Mock(side_effect=failure))):
+                with patch.object(service,'os',interrupted_os(os,failure)):
                     with self.assertRaises(KeyboardInterrupt) as caught:service.read_bytes('/synthetic')
                     self.assertIs(caught.exception,failure)
         self.assertTrue(adapter.restored());self.loaded.validate()

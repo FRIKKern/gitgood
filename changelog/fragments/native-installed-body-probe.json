@@ -2,7 +2,7 @@
   "id": "native-installed-body-probe",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Compare compiled installed guard bodies on original Root actors, requiring complete function emission and full restoration before staging effects; reject insufficient lexical reuse gains.",
+  "summary": "Compare compiled installed guard bodies on original Root actors with complete function emission, faithful fault injection and full restoration before staging effects.",
   "journeys": ["J14", "J15"],
   "references": [
     "docs/implementation/native-artifact-controller.md",
