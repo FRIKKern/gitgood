@@ -1006,7 +1006,7 @@ medians were 29,681.5/32,307 microseconds. Original full staging still refused a
 database-client refusal is not independent proof of the initiating cause. This
 revision is rejected for production adoption.
 
-The next candidate changes function-input invalidation. It installs the
+The function-input candidate changes invalidation. It installs the
 [CPython 3.12 function notification API](https://docs.python.org/3.12/c-api/function.html)
 alongside dictionary notifications, then performs complete function/default
 validation at activation. Notifications detect code/default replacement and
@@ -1016,19 +1016,46 @@ closure, vectorcall and closure-cell identity. Callbacks allocate nothing, call
 no Python code and preserve pending errors. Partial, interrupted and normal
 cleanup remove both notification kinds. Repeated scans are a source-level
 optimization hypothesis; their measured share of the rejected overhead is not
-established, and no faster result is claimed for the new candidate.
+established. Exact review of run 38990372381 on `cea3450` verified all 49 role
+cases, the fifth original 372-case Root suite, retained legacy scopes, 82
+ownership cases and 59 installed-source hashes. The comparison recorded 20
+function-watch activations, 20 full initial checks, 48,120 fresh checks, zero
+bound-function mutations and removal of both notification kinds. Its benefit
+gate failed: median prototype/baseline was 1.082685, with none of 20 pairs
+faster. Baseline/prototype medians were 16,051.5/17,420.5 microseconds. These
+absolute times come from a different hosted run and do not attribute an
+improvement to notifications. Original staging still refused at 240,161 ms,
+with ordinary timeout at 240,264 ms and no output checks. This revision is
+rejected for production adoption.
+
+The next candidate reuses the original Root file lexical parent-plan owner.
+The C preparation had reconstructed every parent, while `root_file` and
+`_CapturedRootFiles._fingerprint` use `native_service_scope._root_file_parents`
+and its existing bounded lexical LRU. Configuration binds only that fixed
+source-authenticated function and its actual module/global identity; native
+binding requires its function, namespace and module in the live schema. Both
+Root file roles call it with fresh admission around Python callouts, accept
+bounded exact tuple/generator rows and read the actual canonical parent string.
+If a cached parent names a different path than its stored fingerprint name,
+preparation declines before filesystem observations and the original role
+preserves that distinction. Private file and custody preparation retain their
+existing path construction. No second persistent parent owner, filesystem
+result or admission cache is added. The removed reconstruction is a source
+finding, not a measured attribution of the rejected overhead.
 
 25 portable cases cover dispatch, default and SDK contracts, original-method
 preservation, aliases imported during a scope, source-custody failure, partial
 binding and interrupted cleanup. They pass locally using test doubles and do
-not establish C execution. 24 additional hosted Root cases reuse the
+not establish C execution. 26 additional hosted Root cases reuse the
 existing file, custody, descriptor-loss and restored-mtime fixtures, exercise all
 eight roles and four lexical witnesses, reject changed constructors/finalizers
 and preserve the original absolute-test imports, detect restored function
 code/default changes, exclude unrelated functions from invalidation, verify
-notification removal after close, and run the original 372-case Root
-suite under this boundary. These hosted cases are unverified until their actual
-run is reviewed. The legacy 20/43/37/39 descriptor/Path/metadata/read cases and
+notification removal after close, verify original cached-parent reuse and
+mutated-alias fallback, exercise the original long-path generator and fresh
+reads, and run the original 372-case Root suite under this boundary. The two
+parent-plan regressions are unverified until their actual hosted run is
+reviewed. The legacy 20/43/37/39 descriptor/Path/metadata/read cases and
 their four original Root suites remain required.
 
 Full proof selects `native_role_comparison`: twenty alternating whole-guard
@@ -1037,9 +1064,11 @@ equal observations, fresh source custody and cleared contexts before effects.
 Function-notification activation, full initial validation and fresh checks must
 have positive bounded witnesses, zero bound-function mutations and verified
 notification removal after the comparison.
+The original parent helper also requires a positive bounded native execution
+witness and retention of its existing plan owner.
 The benefit gate remains median prototype/baseline at most 0.80 and at least
 18 of 20 faster pairs. The full archive, seventeen method timers, calling-thread
 CPU and guard-ten sample, two Root passes and production deadlines are unchanged.
 Compilation, hosted semantics and benefit remain unverified for the
-function-notification revision. Full uninstrumented staging/runtime and all
+parent-plan revision. Full uninstrumented staging/runtime and all
 installation/recovery gates remain open.

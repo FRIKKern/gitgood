@@ -47,11 +47,19 @@ class FakeRoleNative(descriptor.FakeDescriptorNative):
         plan=super().descriptor_plan(*args);plan.prepares=[0]*8;plan.observations=[0]*8
         plan.import_globals=args[-1];plan.role_configured=False;plan.absolute_import=False;plan.absolute_imports=0
         plan.code_activations=0;plan.code_full_checks=0;plan.code_fresh_checks=0
+        plan.parent_helper=None;plan.parent_helper_calls=0
         return plan
-    def role_configure(self,plan,absolute):
+    def role_configure(self,plan,absolute,service=None):
         if plan.closed or plan.bound or plan.role_configured or not plan.issued or type(absolute) is not bool or absolute and plan.import_globals is None:
             raise ValueError('configuration')
-        plan.role_configured=True;plan.absolute_import=absolute
+        if type(service) is not types.ModuleType or service.__name__!='native_service_scope':raise ValueError('parent module')
+        helper=vars(service).get('_root_file_parents')
+        if type(helper) is not types.FunctionType or helper.__globals__ is not vars(service):raise ValueError('parent helper')
+        plan.role_configured=True;plan.absolute_import=absolute;plan.parent_helper=helper
+    def role_parent_calls(self,plan):return plan.parent_helper_calls
+    def descriptor_close(self,plan):
+        try:return super().descriptor_close(plan)
+        finally:plan.parent_helper=None
     def role_imports(self,plan):return plan.absolute_import,plan.absolute_imports
     def role_code_watch(self,plan):
         return plan.active,plan.code_activations,plan.code_full_checks,plan.code_fresh_checks,0
@@ -71,6 +79,7 @@ class FakeRoleNative(descriptor.FakeDescriptorNative):
         if not self.role_admit(plan):return NotImplemented
         self.events.append(('prepare',kind))
         if plan.absolute_import and kind in (0,4,5):plan.absolute_imports+=1
+        if kind in (0,4):plan.parent_helper_calls+=1
         if kind in (2,3):
             if type(payload) is not owner or not vars(payload).get('supported'):return NotImplemented
             value=('prepared',)* (6 if kind==2 else 5)
@@ -175,6 +184,7 @@ class RoleAdapterContractTest(unittest.TestCase):
         for name in ('O_NOFOLLOW','O_CLOEXEC','O_NONBLOCK'):
             if not hasattr(os,name):self.enterContext(patch.object(os,name,0,create=True))
         self.modules,self.kernel=read_cases.models();self.native=FakeRoleNative()
+        exec('def _root_file_parents(path): return ()\n',vars(self.modules[0]))
         self.loaded=types.SimpleNamespace(native=self.native,modules=self.modules,kernel=self.kernel,
             original_codes=None,codes=None,validate=Mock())
         self.adapter=probe.Adapter(self.loaded,owner_check=lambda:None);self.addCleanup(self.adapter.close)
@@ -288,12 +298,16 @@ class RoleAdapterContractTest(unittest.TestCase):
         self.assertIs(caught.exception,failure);self.assertIs(late.read,a.read_originals[3]);self.assertTrue(a.restored())
     def test_role_import_configuration_precedes_binding_and_partial_failure_closes(self):
         a=self.adapter;self.assertTrue(a.context.plan.role_configured)
+        self.assertIs(a.context.plan.parent_helper,self.modules[0]._root_file_parents)
+        self.assertTrue(any(owner is self.modules[0]._root_file_parents and key=='__code__'
+            for owner,key,_ in a.context.tables[0]))
         self.assertIs(a.imports()[0],'ntpath' in pathlib.PurePath.is_absolute.__code__.co_varnames)
         with self.assertRaises(ValueError):self.native.role_configure(a.context.plan,False)
         failure=KeyboardInterrupt('configure')
         with patch.object(self.native,'role_configure',side_effect=failure),self.assertRaises(KeyboardInterrupt) as caught:
             probe.Adapter(self.loaded,owner_check=lambda:None)
         self.assertIs(caught.exception,failure);self.assertTrue(self.native.plans[-1].closed)
+        self.assertIsNone(self.native.plans[-1].parent_helper)
         self.assertTrue(a.context.sdk_original());self.assertIsNone(self.native.live)
 
 
@@ -434,6 +448,54 @@ class HostedRoleTest(unittest.TestCase):
             with self.assertRaises(TypeError):self.loaded.kernel._read(path)
         self.assertEqual(probe.read_backend.counts(self.loaded.native),before)
         self.assertFalse(any(a.values()[1]));self.loaded.validate()
+
+    def test_original_cached_parent_plan_is_reused_and_mutated_alias_falls_back_before_io(self):
+        service=self.loaded.modules[0];leaf=self.leaf();a=self.adapter()
+        original=a.originals[0].__func__;original_read=a.read_originals[0]
+        service._root_file_parent_plan.cache_clear();parent=None;saved=None
+        try:
+            expected=original(leaf,4096,False);expected_read=original_read(leaf,4096)
+            plan=service._root_file_parents(leaf);parent,stored=plan[0];saved=parent._str
+            hits=service._root_file_parent_plan.cache_info().hits
+            with a.installed():
+                self.assertEqual(service._CapturedRootFiles._fingerprint(leaf,4096,False),expected)
+                self.assertEqual(service.root_file(leaf,4096),expected_read)
+            self.assertGreaterEqual(service._root_file_parent_plan.cache_info().hits,hits+2)
+            self.assertEqual(a.parent_calls(),2);self.assertFalse(any(a.fallbacks.values()))
+            with tempfile.TemporaryDirectory(dir=self.root) as directory:
+                alias=Path(directory);alias.chmod(0o700);parent._str=str(alias)
+                changed=original(leaf,4096,False)
+                self.assertEqual(changed[1][0][0],stored)
+                self.assertEqual(changed[1][0][2],alias.lstat().st_ino)
+                self.assertNotEqual(changed,expected);before=a.values()
+                with a.installed():
+                    self.assertEqual(service._CapturedRootFiles._fingerprint(leaf,4096,False),changed)
+                    self.assertEqual(service.root_file(leaf,4096),expected_read)
+                self.assertEqual(a.values(),before)
+                self.assertEqual(a.fallbacks['root_files'],1);self.assertEqual(a.fallbacks['root_file'],1)
+                self.assertEqual(a.parent_calls(),4)
+        finally:
+            if parent is not None:parent._str=saved
+            service._root_file_parent_plan.cache_clear()
+        a.close();self.loaded.validate()
+
+    def test_original_long_path_generator_keeps_admission_and_observations_uncached(self):
+        service=self.loaded.modules[0];a=self.adapter()
+        with tempfile.TemporaryDirectory(dir=self.root) as directory:
+            parent=Path(directory);parent.chmod(0o700)
+            for number in range(20):
+                parent=parent/('segment'+str(number)+'x'*48);parent.mkdir(mode=0o700)
+            leaf=parent/'leaf';leaf.write_bytes(b'one');leaf.chmod(0o600)
+            self.assertGreater(len(str(leaf)),1024);self.assertLess(len(leaf.parts),64)
+            plan=service._root_file_parents(leaf);self.assertIs(type(plan),types.GeneratorType);plan.close()
+            expected=a.originals[0].__func__(leaf,4096,False);expected_read=a.read_originals[0](leaf,4096)
+            with a.installed():
+                self.assertEqual(service._CapturedRootFiles._fingerprint(leaf,4096,False),expected)
+                self.assertEqual(service.root_file(leaf,4096),expected_read)
+                leaf.write_bytes(b'two')
+                self.assertEqual(service.root_file(leaf,4096)[1],b'two')
+            self.assertEqual(a.parent_calls(),3);self.assertFalse(any(a.fallbacks.values()))
+        a.close();self.loaded.validate()
 
     def test_actual_code_default_and_parent_shadow_changes_refuse_before_observation(self):
         leaf=self.leaf();kernel=self.loaded.kernel

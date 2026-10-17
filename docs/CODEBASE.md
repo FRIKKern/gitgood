@@ -69,10 +69,11 @@ the original refusal fixtures and add a fifth original 372-case Root suite.
 Its closed SDK contract includes Ubuntu's local absolute-test import, with
 fresh import admission and a bounded execution witness. Portable contracts
 pass. Its capture path retains explicit class owners for the native MRO checker.
-The previous 48-case role revision passed exact semantic review but failed the
-whole-guard benefit gate. The function-notification revision retains fresh
-owner/type/closure checks and requires 49 cases, bounded notification witnesses
-and the same benefit gate; its hosted results remain unverified.
+The 49-case function-notification revision passed exact semantic review but
+failed the whole-guard benefit gate. The next revision reuses the original Root
+file lexical parent-plan owner, preserves mutated cached-parent semantics and
+retains fresh owner/type/closure checks. Its 51 cases, bounded helper and
+notification witnesses and unchanged benefit gate require hosted verification.
 Read [artifact controller diagnostics](implementation/native-artifact-controller.md)
 before changing the original guard, filesystem observations or staging budget.
 

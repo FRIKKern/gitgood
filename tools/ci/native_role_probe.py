@@ -1,6 +1,6 @@
 """Complete native observation-role diagnostic with original SDK descriptors.
 
-Only immutable lexical parse inputs survive a role. Source, defaults, owner and
+The original lexical parent-plan owner is reused. Source, defaults, owner and
 code admission stay fresh; the original ordered I/O implementations are reused.
 This is a candidate boundary, not evidence of native execution or acceptance.
 """
@@ -23,7 +23,7 @@ import native_read_probe as read_backend
 from native_metadata_probe import require,raw_function
 from path_body_probe import _read_owned
 
-APIS=('role_prepare','role_observe','role_admit','role_counts','role_configure','role_imports','role_code_watch')
+APIS=('role_prepare','role_observe','role_admit','role_counts','role_configure','role_imports','role_code_watch','role_parent_calls')
 FAMILIES=read_backend.FAMILIES
 HELPERS=(*sdk.HELPERS,'native_role_probe.py')
 ROLE_AST={
@@ -292,7 +292,7 @@ class RoleContext:
                 absolute=raw_function(vars(pathlib.PurePath)['is_absolute'])
                 self.absolute_import='ntpath' in absolute.__code__.co_varnames
                 require(not self.absolute_import or prepared.import_globals is vars(pathlib))
-                self.native.role_configure(self.plan,self.absolute_import)
+                self.native.role_configure(self.plan,self.absolute_import,loaded.modules[0])
             bound_modules=tuple({id(module):module for module in
                 (pathlib,sdk.builtins,os,sys,sdk.posixpath,sdk.ntpath,self.native,*modules)}.values())
             require(len(bound_modules)<=16)
@@ -352,6 +352,7 @@ class Adapter(read_backend.Adapter):
         super().__init__(loaded.modules,loaded.native,loaded.kernel,owner_check=owner_check,
             original_codes=loaded.original_codes,_class_owners=True)
         self.loaded=loaded;self.closed=False;self.final_roles=None;self.final_imports=None;self.final_code_watch=None
+        self.final_parent_calls=None
         self.role_apis={name:getattr(self.native,name) for name in APIS}
         self.callbacks=(os.listdir,self.names_callback,io.open,io.BufferedReader)
         original_root=self.originals[0].__func__;original_exec=self.originals[1].__func__
@@ -466,6 +467,8 @@ class Adapter(read_backend.Adapter):
             code_inputs.append((fn,'__code__',fn.__code__))
             code_inputs.extend((cell,'cell_contents',cell.cell_contents) for cell in fn.__closure__ or ())
         extra=(*rows,*code_inputs,
+            (vars(self.service),'_root_file_parents',self.service._root_file_parents),
+            (self.service._root_file_parents,'__code__',self.service._root_file_parents.__code__),
             (Adapter,'eligible',vars(Adapter)['eligible']),
             (read_backend.metadata.Adapter,'count',vars(read_backend.metadata.Adapter)['count']),
             (read_backend.metadata.Adapter,'after',vars(read_backend.metadata.Adapter)['after']),
@@ -507,10 +510,18 @@ class Adapter(read_backend.Adapter):
             and all(type(v) is int and 0<=v<=10000000 for v in value[1:]))
         return value
 
+    def parent_calls(self):
+        if self.closed:return self.final_parent_calls
+        value=self.role_apis['role_parent_calls'](self.context.plan)
+        require(type(value) is int and 0<=value<=10000000)
+        return value
+
     def close(self):
         if self.closed:return
         pending=sys.exception()
-        try:self.final_roles=self.values();self.final_imports=self.imports();self.final_code_watch=self.code_watch()
+        try:
+            self.final_roles=self.values();self.final_imports=self.imports();self.final_code_watch=self.code_watch()
+            self.final_parent_calls=self.parent_calls()
         except BaseException:
             if pending is None:raise
         finally:
@@ -553,11 +564,13 @@ def compare_guard(loaded,original_guard,stage):
         details=adapter.context.apis['descriptor_counts'](adapter.context.plan)
         absolute,import_calls=adapter.imports()
         watching,activations,full_checks,fresh_checks,changes=adapter.code_watch()
+        parent_calls=adapter.parent_calls()
         require(observations==adapter.calls and all(value>0 for value in prepares.values())
             and not any(adapter.fallbacks.values()) and all(value>0 for value in details['calls'].values())
             and not details['watching'] and not details['code_changed'])
         require(import_calls>0 if absolute else import_calls==0)
         require(not watching and activations>=20 and full_checks>=activations and fresh_checks>0 and changes==0)
+        require(0<parent_calls<=10000000)
         result={'diagnostic_only':True,'production_adopted':False,'implementation':'C-complete-observation-roles',
             'original_classes_retained':True,'original_descriptors_retained':True,'same_original_actors':True,
             'observations_equal':True,'observation_results_retained':False,'admission_results_retained':False,
@@ -566,6 +579,7 @@ def compare_guard(loaded,original_guard,stage):
             'absolute_import_required':absolute,'absolute_import_calls':import_calls,
             'function_watch_activations':activations,'full_function_checks':full_checks,
             'fresh_function_checks':fresh_checks,'function_mutations':changes,
+            'original_parent_helper_calls':parent_calls,'original_parent_plan_owner_retained':True,
             'cache_capacity':256,'lexical_cache_entries':details['cache_entries'],
             'lexical_cache_hits':details['cache_hits'],'lexical_cache_misses':details['cache_misses']}
     finally:adapter.close()

@@ -1124,14 +1124,14 @@ typedef struct {
 } DescType;
 typedef struct {PyObject *cell,*value;} DescCell;
 typedef struct {
-    PyObject *lexical,*originals,*modules,*empty_args,*spec_dict;
+    PyObject *lexical,*originals,*modules,*empty_args,*spec_dict,*role_parent_helper;
     LexPlan *lex;PyInterpreterState *interpreter;
     DescWatch watched[DESC_BOUND];DescFunction functions[DESC_BOUND];
     DescType types[DESC_BOUND];DescCell cells[DESC_BOUND];
     Py_ssize_t nwatch,nfunction,ntype,ncell,nstarted;
     unsigned long long entries[4],fallbacks[4];
     unsigned long long role_prepares[8],role_calls[8];
-    unsigned long long absolute_imports;
+    unsigned long long absolute_imports,parent_helper_calls;
     unsigned long long code_activations,code_full_checks,code_fresh_checks,code_changes;
     int issued,bound,active,closed,dirty,watcher,function_watcher;
     int role_configured,absolute_import;
@@ -1210,7 +1210,7 @@ static void desc_release_schema(DescriptorPlan *p) {
     for(i=0;i<p->ntype;i++){Py_CLEAR(p->types[i].cls);Py_CLEAR(p->types[i].mro);Py_CLEAR(p->types[i].meta);}
     for(i=0;i<p->ncell;i++){Py_CLEAR(p->cells[i].cell);Py_CLEAR(p->cells[i].value);}
     p->nwatch=p->nfunction=p->ntype=p->ncell=0;
-    Py_CLEAR(p->modules);Py_CLEAR(p->spec_dict);
+    Py_CLEAR(p->modules);Py_CLEAR(p->spec_dict);Py_CLEAR(p->role_parent_helper);
     if(p->lex)Py_CLEAR(p->lex->tables);
 }
 static void desc_destroy(PyObject *capsule) {
@@ -1471,6 +1471,19 @@ static PyObject *descriptor_bind(PyObject *unused,PyObject *args) {
             Py_DECREF(space);
         }
     }
+    if(p->role_configured) {
+        int function_found=0,binding_found=0,module_found=0;
+        PyObject *space=PyFunction_GetGlobals(p->role_parent_helper);
+        for(i=0;i<p->nfunction;i++)if(p->functions[i].fn==p->role_parent_helper)function_found=1;
+        for(i=0;i<PyTuple_GET_SIZE(modules);i++)
+            if(PyModule_GetDict(PyTuple_GET_ITEM(modules,i))==space)module_found=1;
+        for(i=0;i<PyTuple_GET_SIZE(table);i++) {
+            PyObject *row=PyTuple_GET_ITEM(table,i);
+            if(PyTuple_GET_ITEM(row,0)==space&&PyTuple_GET_ITEM(row,2)==p->role_parent_helper&&
+                !PyUnicode_CompareWithASCIIString(PyTuple_GET_ITEM(row,1),"_root_file_parents"))binding_found=1;
+        }
+        if(!function_found||!binding_found||!module_found)goto invalid;
+    }
     if(p->nwatch+p->nfunction+p->ntype+p->ncell>DESC_BOUND)goto invalid;
     p->bound=1;Py_RETURN_NONE;
 invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid bound lexical schema");return NULL;
@@ -1536,14 +1549,21 @@ static PyObject *descriptor_close(PyObject *unused,PyObject *capsule) {
  * retain only immutable parsed strings/tuples; observations remain in the
  * original eight implementations above. SDK descriptors are never installed. */
 static PyObject *role_configure(PyObject *unused,PyObject *args) {
-    PyObject *capsule,*absolute;DescriptorPlan *p;(void)unused;
-    if(!PyArg_ParseTuple(args,"OO",&capsule,&absolute))return NULL;
+    PyObject *capsule,*absolute,*service=Py_None,*space,*name,*helper;DescriptorPlan *p;(void)unused;
+    if(!PyArg_ParseTuple(args,"OO|O",&capsule,&absolute,&service))return NULL;
     p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
     if(!desc_owner(p)||!p->issued||p->closed||p->bound||p->role_configured||
         !PyBool_Check(absolute)||(absolute==Py_True&&!p->lex->import_globals)) {
         PyErr_SetString(PyExc_ValueError,"Invalid complete role configuration");return NULL;
     }
+    if(!PyModule_CheckExact(service))goto invalid;
+    space=PyModule_GetDict(service);name=PyDict_GetItemString(space,"__name__");
+    helper=PyDict_GetItemString(space,"_root_file_parents");
+    if(!name||!PyUnicode_CheckExact(name)||PyUnicode_CompareWithASCIIString(name,"native_service_scope")||
+        !helper||!PyFunction_Check(helper)||PyFunction_GetGlobals(helper)!=space)goto invalid;
+    p->role_parent_helper=Py_NewRef(helper);
     p->absolute_import=absolute==Py_True;p->role_configured=1;Py_RETURN_NONE;
+invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_ValueError,"Invalid original Root parent helper");return NULL;
 }
 static int role_absolute_import(DescriptorPlan *p) {
     PyObject *module;int r;
@@ -1661,6 +1681,65 @@ static PyObject *role_parents(DescriptorPlan *ctx,PyObject *path) {
     }
     result=PyList_AsTuple(list);
 done:Py_DECREF(parts);Py_XDECREF(list);Py_XDECREF(parent);Py_XDECREF(name);return result;
+}
+
+static int role_parent_admit(DescriptorPlan *ctx) {
+    int r=desc_admit(ctx->lex,0);
+    if(!r&&!PyErr_Occurred())PyErr_SetString(PyExc_ValueError,"Root parent code inputs changed");
+    return r;
+}
+static PyObject *role_parent_name(DescriptorPlan *ctx,PyObject *row) {
+    PyObject *parent,*stored,*name;
+    if(!PyTuple_CheckExact(row)||PyTuple_GET_SIZE(row)!=2)Py_RETURN_NOTIMPLEMENTED;
+    parent=PyTuple_GET_ITEM(row,0);stored=PyTuple_GET_ITEM(row,1);
+    if(!Py_IS_TYPE(parent,(PyTypeObject *)ctx->lex->cls)||!PyUnicode_CheckExact(stored))Py_RETURN_NOTIMPLEMENTED;
+    /* The original helper has already called str(parent). A changed cached
+     * Path can name another inode while the fingerprint retains stored_name.
+     * Decline that split before native I/O rather than reconstructing a path. */
+    name=lex_attr(ctx->lex,parent,4);
+    if(!name){if(PyErr_Occurred())return NULL;Py_RETURN_NOTIMPLEMENTED;}
+    if(!PyUnicode_CheckExact(name)||PyUnicode_GET_LENGTH(name)>8192||!desc_name_equal(name,stored)) {
+        Py_DECREF(name);Py_RETURN_NOTIMPLEMENTED;
+    }
+    return name;
+}
+static PyObject *role_original_parents(DescriptorPlan *ctx,PyObject *path) {
+    PyObject *plan=NULL,*result=NULL,*rows=NULL,*row=NULL,*name=NULL;Py_ssize_t i,n;
+    if(ctx->parent_helper_calls>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Root parent helper bound");return NULL;}
+    if(role_parent_admit(ctx)<=0)return NULL;
+    plan=PyObject_CallOneArg(ctx->role_parent_helper,path);if(!plan)goto done;
+    ctx->parent_helper_calls++;
+    if(role_parent_admit(ctx)<=0)goto done;
+    if(PyTuple_CheckExact(plan)) {
+        n=PyTuple_GET_SIZE(plan);if(n>64)goto unsupported;
+        result=PyTuple_New(n);if(!result)goto done;
+        if(role_parent_admit(ctx)<=0){Py_CLEAR(result);goto done;}
+        /* Exact tuples, canonical slot reads and Unicode comparisons below
+         * cannot call Python. Output allocation precedes fresh admission. */
+        for(i=0;i<n;i++) {
+            name=role_parent_name(ctx,PyTuple_GET_ITEM(plan,i));if(!name){Py_CLEAR(result);goto done;}
+            if(name==Py_NotImplemented)goto unsupported;
+            PyTuple_SET_ITEM(result,i,name);name=NULL;
+        }
+    } else if(PyGen_CheckExact(plan)) {
+        rows=PyList_New(0);if(!rows)goto done;
+        for(i=0;i<=64;i++) {
+            if(role_parent_admit(ctx)<=0)goto done;
+            row=PyIter_Next(plan);if(!row&&PyErr_Occurred())goto done;
+            if(role_parent_admit(ctx)<=0)goto done;
+            if(!row)break;
+            if(i==64)goto unsupported;
+            name=role_parent_name(ctx,row);if(!name)goto done;
+            if(name==Py_NotImplemented)goto unsupported;
+            if(PyList_Append(rows,name)<0)goto done;
+            Py_CLEAR(row);Py_CLEAR(name);
+        }
+        result=PyList_AsTuple(rows);if(!result)goto done;
+        if(role_parent_admit(ctx)<=0)Py_CLEAR(result);
+    } else goto unsupported;
+    goto done;
+unsupported:Py_XSETREF(result,Py_NewRef(Py_NotImplemented));
+done:Py_XDECREF(plan);Py_XDECREF(rows);Py_XDECREF(row);Py_XDECREF(name);return result;
 }
 
 static PyObject *role_path_rows(DescriptorPlan *ctx,PyObject *source,PyObject *path_type,const char *spec,Py_ssize_t limit,int names) {
@@ -1877,7 +1956,9 @@ static PyObject *role_prepare(PyObject *unused,PyObject *args) {
     for(i=0;i<PyList_GET_SIZE(tail);i++)if(!PyUnicode_CompareWithASCIIString(PyList_GET_ITEM(tail,i),".."))goto unsupported;
     name=role_lexical_path(p,path,p->lex->cls);if(!name)goto done;if(name==Py_NotImplemented)goto unsupported;
     if(!PyUnicode_CheckExact(name)||PyUnicode_GET_LENGTH(name)>8192)goto unsupported;
-    parents=role_parents(p,path);if(!parents)goto done;if(parents==Py_NotImplemented)goto unsupported;
+    parents=(kind==0||kind==4)?role_original_parents(p,path):role_parents(p,path);
+    if(!parents)goto done;
+    if(parents==Py_NotImplemented)goto unsupported;
     if(kind<2)result=PyTuple_Pack(4,name,parents,maximum,executable);
     else result=PyTuple_Pack(5,name,parents,uid,maximum,executable);
     goto done;
@@ -1954,10 +2035,17 @@ static PyObject *role_code_watch(PyObject *unused,PyObject *capsule) {
     return Py_BuildValue("(OKKKK)",p->function_watcher>=0?Py_True:Py_False,p->code_activations,
         p->code_full_checks,p->code_fresh_checks,p->code_changes);
 }
+static PyObject *role_parent_calls(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);(void)unused;
+    if(!p)return NULL;
+    if(!desc_owner(p)||!p->role_configured){PyErr_SetString(PyExc_ValueError,"Role owner or configuration changed");return NULL;}
+    return PyLong_FromUnsignedLongLong(p->parent_helper_calls);
+}
 
 static PyMethodDef methods[]={
+    {"role_parent_calls",role_parent_calls,METH_O,"Bounded original Root lexical parent-helper executions."},
     {"role_code_watch",role_code_watch,METH_O,"Bounded function notification and fresh code-input check witnesses."},
-    {"role_configure",role_configure,METH_VARARGS,"Bind the authenticated complete-role import mode once."},
+    {"role_configure",role_configure,METH_VARARGS,"Bind the authenticated import mode and original Root parent helper once."},
     {"role_imports",role_imports,METH_O,"Bounded original absolute-test import witnesses."},
     {"role_prepare",role_prepare,METH_VARARGS,"Complete lexical argument preparation inside fresh role admission."},
     {"role_observe",role_observe,METH_VARARGS,"Original ordered observations inside fresh role admission."},
