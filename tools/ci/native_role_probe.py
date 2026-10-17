@@ -131,7 +131,7 @@ def merge_bindings(*groups):
 
 def role_bindings(concrete):
     rows=[]
-    for module,names in ((pathlib,('_PathParents','Sequence')),
+    for module,names in ((pathlib,('_PathParents','Sequence')),(os,('name',)),
             (sdk.builtins,('bool','int','tuple','list','slice','range','IndexError'))):
         rows.extend((vars(module),name,vars(module)[name]) for name in names)
     parents=pathlib._PathParents;sequence=_collections_abc.Sequence

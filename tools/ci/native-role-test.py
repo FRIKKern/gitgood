@@ -228,6 +228,14 @@ class RoleAdapterContractTest(unittest.TestCase):
             self.assertFalse(a.eligible());self.assertEqual(self.kernel._read('/synthetic'),'original-kernel')
         self.assertFalse(any(a.values()[0]));self.assertFalse(any(a.values()[1]))
 
+    def test_changed_constructor_platform_selector_declines_before_preparation(self):
+        a=self.adapter;other='posix' if os.name=='nt' else 'nt'
+        with a.installed(),patch.object(os,'name',other):
+            self.assertIsNot(type(pathlib.Path('/synthetic')),a.path_type)
+            self.assertFalse(a.eligible())
+            self.assertEqual(self.kernel._read('/synthetic'),'original-kernel')
+        self.assertFalse(any(a.values()[0]));self.assertFalse(any(a.values()[1]))
+
     def test_alias_imported_during_scope_is_restored_after_interruption(self):
         a=self.adapter;directory=Path.cwd();a.installed_directory=directory
         late=types.ModuleType('_role_late_alias');late.__file__=str(directory/'role_late_alias.py')
@@ -419,6 +427,18 @@ class HostedRoleTest(unittest.TestCase):
             with a.installed():
                 self.assertTrue(a.eligible());self.assertEqual(self.loaded.kernel._read(leaf),'one')
             self.assertEqual(a.values()[1][-1],before[1][-1]+1);a.close();self.loaded.validate()
+
+    def test_constructor_platform_selector_changes_invalidate_before_native_preparation(self):
+        leaf=self.leaf();a=self.adapter();before=a.values()
+        with a.installed():
+            with patch.object(os,'name','nt'):
+                self.assertFalse(a.eligible())
+                self.assertEqual(self.loaded.kernel._read(leaf),'one');self.assertEqual(a.values(),before)
+            self.assertFalse(a.eligible());self.assertEqual(self.loaded.kernel._read(leaf),'one')
+        self.assertEqual(a.values(),before);self.assertEqual(a.fallbacks['kernel_read'],2)
+        with a.installed():
+            self.assertTrue(a.eligible());self.assertEqual(self.loaded.kernel._read(leaf),'one')
+        self.assertEqual(a.values()[1][-1],before[1][-1]+1);self.loaded.validate()
 
     def test_same_pid_and_thread_real_effective_uid_gid_are_checked_for_each_role(self):
         leaf=self.leaf();read_fd,write_fd=os.pipe();pid=os.fork()

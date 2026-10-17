@@ -959,12 +959,20 @@ iterator object. Initial SDK finalizers now refuse; live type admission also
 checks deallocation/finalization slots and retains negative `__del__`
 invalidation after a callback is removed.
 
-21 portable cases cover dispatch, default and SDK contracts, original-method
+The following source audit found that `Path.__new__` also depends on `os.name`.
+Changing that selector changed the original constructor's class while native
+admission stayed enabled. The `78ba124` run was cancelled before native tests or
+comparison after a portable regression reproduced the missing binding. Complete
+role tables now pin that live namespace input, including negative invalidation
+after its value is restored.
+
+22 portable cases cover dispatch, default and SDK contracts, original-method
 preservation, aliases imported during a scope, source-custody failure, partial
 binding and interrupted cleanup. They pass locally using test doubles and do
-not establish C execution. 21 additional hosted Root cases reuse the
+not establish C execution. 22 additional hosted Root cases reuse the
 existing file, custody, descriptor-loss and restored-mtime fixtures, exercise all
-eight roles and four lexical witnesses, reject added finalizers and run the original 372-case Root
+eight roles and four lexical witnesses, reject changed constructors/finalizers
+and run the original 372-case Root
 suite under this boundary. These hosted cases are unverified until their actual
 run is reviewed. The legacy 20/43/37/39 descriptor/Path/metadata/read cases and
 their four original Root suites remain required.
