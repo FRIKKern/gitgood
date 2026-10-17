@@ -995,13 +995,38 @@ existing class checker and rejects unsupported owners before creating a native
 context. The generic capture mode and C admission contract are unchanged.
 There was no complete-role observation or timing result in the failed run.
 
+Exact review of run 38987857806 on `8758765` then verified all 48 role cases,
+the fifth original 372-case Root suite, the retained legacy scopes, 82 ownership
+cases and 59 installed-source hashes. All eight role and four lexical witnesses
+were positive, with 1,880 original absolute-test imports, zero fallback, equal
+observations and complete cleanup. The benefit gate failed: paired median
+prototype/baseline was 1.094134, with none of 20 pairs faster. Baseline/prototype
+medians were 29,681.5/32,307 microseconds. Original full staging still refused at
+240,121 ms, with ordinary timeout at 240,312 ms and no output checks. The final
+database-client refusal is not independent proof of the initiating cause. This
+revision is rejected for production adoption.
+
+The next candidate changes function-input invalidation. It installs the
+[CPython 3.12 function notification API](https://docs.python.org/3.12/c-api/function.html)
+alongside dictionary notifications, then performs complete function/default
+validation at activation. Notifications detect code/default replacement and
+in-place keyword-default changes without repeated item scans. Every admission
+still checks actual owner credentials, module/type/MRO/slots, globals, builtins,
+closure, vectorcall and closure-cell identity. Callbacks allocate nothing, call
+no Python code and preserve pending errors. Partial, interrupted and normal
+cleanup remove both notification kinds. Repeated scans are a source-level
+optimization hypothesis; their measured share of the rejected overhead is not
+established, and no faster result is claimed for the new candidate.
+
 25 portable cases cover dispatch, default and SDK contracts, original-method
 preservation, aliases imported during a scope, source-custody failure, partial
 binding and interrupted cleanup. They pass locally using test doubles and do
-not establish C execution. 23 additional hosted Root cases reuse the
+not establish C execution. 24 additional hosted Root cases reuse the
 existing file, custody, descriptor-loss and restored-mtime fixtures, exercise all
 eight roles and four lexical witnesses, reject changed constructors/finalizers
-and preserve the original absolute-test imports, and run the original 372-case Root
+and preserve the original absolute-test imports, detect restored function
+code/default changes, exclude unrelated functions from invalidation, verify
+notification removal after close, and run the original 372-case Root
 suite under this boundary. These hosted cases are unverified until their actual
 run is reviewed. The legacy 20/43/37/39 descriptor/Path/metadata/read cases and
 their four original Root suites remain required.
@@ -1009,9 +1034,12 @@ their four original Root suites remain required.
 Full proof selects `native_role_comparison`: twenty alternating whole-guard
 pairs on the original actors, positive role/lexical witnesses, zero fallback,
 equal observations, fresh source custody and cleared contexts before effects.
+Function-notification activation, full initial validation and fresh checks must
+have positive bounded witnesses, zero bound-function mutations and verified
+notification removal after the comparison.
 The benefit gate remains median prototype/baseline at most 0.80 and at least
 18 of 20 faster pairs. The full archive, seventeen method timers, calling-thread
 CPU and guard-ten sample, two Root passes and production deadlines are unchanged.
-Hosted role semantics and benefit remain unverified for the class-owner repair.
-Full uninstrumented
-staging/runtime and all installation/recovery gates remain open.
+Compilation, hosted semantics and benefit remain unverified for the
+function-notification revision. Full uninstrumented staging/runtime and all
+installation/recovery gates remain open.

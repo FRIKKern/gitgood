@@ -46,17 +46,24 @@ class FakeRoleNative(descriptor.FakeDescriptorNative):
     def descriptor_plan(self,*args):
         plan=super().descriptor_plan(*args);plan.prepares=[0]*8;plan.observations=[0]*8
         plan.import_globals=args[-1];plan.role_configured=False;plan.absolute_import=False;plan.absolute_imports=0
+        plan.code_activations=0;plan.code_full_checks=0;plan.code_fresh_checks=0
         return plan
     def role_configure(self,plan,absolute):
         if plan.closed or plan.bound or plan.role_configured or not plan.issued or type(absolute) is not bool or absolute and plan.import_globals is None:
             raise ValueError('configuration')
         plan.role_configured=True;plan.absolute_import=absolute
     def role_imports(self,plan):return plan.absolute_import,plan.absolute_imports
+    def role_code_watch(self,plan):
+        return plan.active,plan.code_activations,plan.code_full_checks,plan.code_fresh_checks,0
+    def descriptor_phase(self,plan,phase):
+        super().descriptor_phase(plan,phase)
+        if phase==0:plan.code_activations+=1;plan.code_full_checks+=1
     def descriptor_bind(self,plan,*args):
         super().descriptor_bind(plan,*args)
         plan.defaults={id(fn):(fn,fn.__defaults__,fn.__kwdefaults__,dict(fn.__kwdefaults__ or {}))
             for fn,name,_value in plan.tables[0] if type(fn) is types.FunctionType}
     def role_admit(self,plan):
+        if plan.active:plan.code_fresh_checks+=1
         return (plan.role_configured and plan.active and self.admitted(plan.tables[0]) and all(fn.__defaults__ is defaults
             and fn.__kwdefaults__ is keyword and dict(keyword or {})==items
             for fn,defaults,keyword,items in plan.defaults.values()))
@@ -512,7 +519,29 @@ class HostedRoleTest(unittest.TestCase):
                 with patch.object(builtins,'__import__',changed),self.assertRaises(KeyboardInterrupt) as caught:
                     service.root_file(leaf)
                 self.assertIs(caught.exception,failure);self.assertEqual(calls,['ntpath'])
-        self.assertTrue(a.restored());a.close();self.loaded.validate()
+        self.assertTrue(a.restored());a.close();self.assertIs(a.code_watch()[0],False);self.loaded.validate()
+
+    def test_function_changes_poison_scope_after_restoration_and_notifications_end_on_close(self):
+        fn=pathlib.PurePath.is_absolute
+        def replacement(self):return True
+        def unrelated(value=None):return value
+        for name,changed in (('__code__',replacement.__code__),('__defaults__',(True,)),('__kwdefaults__',{'extra':True})):
+            with self.subTest(field=name):
+                saved=getattr(fn,name);a=self.adapter();capsule=a.context.plan
+                api=self.loaded.native.role_code_watch
+                with a.installed():
+                    self.assertIs(a.code_watch()[0],True)
+                    unrelated.__defaults__=(False,);unrelated.__defaults__=(None,)
+                    self.assertTrue(a.eligible());self.assertEqual(a.code_watch()[-1],0)
+                    before=a.values()
+                    try:setattr(fn,name,changed)
+                    finally:setattr(fn,name,saved)
+                    self.assertFalse(a.eligible());self.assertEqual(a.values(),before)
+                    self.assertGreaterEqual(a.code_watch()[-1],1)
+                a.close();closed=api(capsule);self.assertIs(closed[0],False)
+                try:setattr(fn,name,changed)
+                finally:setattr(fn,name,saved)
+                self.assertEqual(api(capsule),closed);self.assertTrue(a.restored());self.loaded.validate()
 
     def test_same_pid_and_thread_real_effective_uid_gid_are_checked_for_each_role(self):
         leaf=self.leaf();read_fd,write_fd=os.pipe();pid=os.fork()

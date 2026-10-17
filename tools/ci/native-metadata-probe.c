@@ -1132,13 +1132,28 @@ typedef struct {
     unsigned long long entries[4],fallbacks[4];
     unsigned long long role_prepares[8],role_calls[8];
     unsigned long long absolute_imports;
-    int issued,bound,active,closed,dirty,watcher;
+    unsigned long long code_activations,code_full_checks,code_fresh_checks,code_changes;
+    int issued,bound,active,closed,dirty,watcher,function_watcher;
     int role_configured,absolute_import;
 } DescriptorPlan;
 /* One scope on the main interpreter. A failed/nested activation never replaces
  * this pointer. It is cleared only after all notifications are unregistered. */
 static DescriptorPlan *descriptor_active=NULL;
 
+static int desc_function_notification(PyFunction_WatchEvent event,PyFunctionObject *function,PyObject *value) {
+    DescriptorPlan *p;Py_ssize_t i;(void)value;
+    if(event!=PyFunction_EVENT_MODIFY_CODE&&event!=PyFunction_EVENT_MODIFY_DEFAULTS&&
+        event!=PyFunction_EVENT_MODIFY_KWDEFAULTS)return 0;
+    p=descriptor_active;
+    /* Preserve any pending exception: no allocation, Python or error API.
+     * Only a captured function can poison this interpreter's active scope. */
+    if(!p||p->dirty||p->function_watcher<0||PyInterpreterState_Get()!=p->interpreter)return 0;
+    for(i=0;i<p->nfunction;i++)if(p->functions[i].fn==(PyObject *)function) {
+        if(p->code_changes<LEX_LIMIT)p->code_changes++;
+        p->dirty=1;return 0;
+    }
+    return 0;
+}
 static int desc_name_equal(PyObject *a,PyObject *b) {
     Py_ssize_t i,n=PyUnicode_GET_LENGTH(a);
     if(n!=PyUnicode_GET_LENGTH(b))return 0;
@@ -1167,12 +1182,17 @@ static int desc_notification(PyDict_WatchEvent event,PyObject *space,PyObject *k
 static int desc_stop(DescriptorPlan *p) {
     PyObject *failure=NULL;Py_ssize_t i;
     p->active=0;
-    if(p->watcher<0)return 0;
-    for(i=0;i<p->nstarted;i++)if(PyDict_Unwatch(p->watcher,p->watched[i].space)<0) {
-        PyObject *e=PyErr_GetRaisedException();if(!failure)failure=e;else Py_XDECREF(e);
+    if(p->function_watcher>=0) {
+        if(PyFunction_ClearWatcher(p->function_watcher)<0)failure=PyErr_GetRaisedException();
+        p->function_watcher=-1;
     }
-    if(PyDict_ClearWatcher(p->watcher)<0) {
-        PyObject *e=PyErr_GetRaisedException();if(!failure)failure=e;else Py_XDECREF(e);
+    if(p->watcher>=0) {
+        for(i=0;i<p->nstarted;i++)if(PyDict_Unwatch(p->watcher,p->watched[i].space)<0) {
+            PyObject *e=PyErr_GetRaisedException();if(!failure)failure=e;else Py_XDECREF(e);
+        }
+        if(PyDict_ClearWatcher(p->watcher)<0) {
+            PyObject *e=PyErr_GetRaisedException();if(!failure)failure=e;else Py_XDECREF(e);
+        }
     }
     p->watcher=-1;p->nstarted=0;
     if(descriptor_active==p)descriptor_active=NULL;
@@ -1267,8 +1287,12 @@ static int desc_add_function(DescriptorPlan *p,PyObject *fn) {
 invalid:PyErr_SetString(PyExc_TypeError,"Mutable or unsupported code defaults");return -1;
 }
 static int desc_direct(DescriptorPlan *p) {
-    Py_ssize_t i;
+    Py_ssize_t i;int full=!p->active;
     if(!desc_owner(p)||p->dirty||p->closed||p->lex->broken)return 0;
+    if((full?p->code_full_checks:p->code_fresh_checks)>=LEX_LIMIT) {
+        PyErr_SetString(PyExc_ValueError,"Code input check bound");return -1;
+    }
+    if(full)p->code_full_checks++;else p->code_fresh_checks++;
     for(i=0;i<PyTuple_GET_SIZE(p->modules);i++)if(!PyModule_CheckExact(PyTuple_GET_ITEM(p->modules,i)))goto changed;
     for(i=0;i<p->ntype;i++) {
         DescType *t=&p->types[i];PyTypeObject *c=(PyTypeObject *)t->cls;
@@ -1278,9 +1302,15 @@ static int desc_direct(DescriptorPlan *p) {
     }
     for(i=0;i<p->nfunction;i++) {
         DescFunction *f=&p->functions[i];PyFunctionObject *v=(PyFunctionObject *)f->fn;
-        if(v->func_code!=f->code||v->func_globals!=f->globals||v->func_builtins!=f->builtins||
-            v->func_defaults!=f->defaults||v->func_kwdefaults!=f->kwdefaults||v->func_closure!=f->closure||v->vectorcall!=f->vectorcall)goto changed;
-        if(f->kwdefaults) {
+        /* Function notifications cover code/default pointer changes; dictionary
+         * notifications cover every in-place keyword-default change. Validate
+         * their complete initial state after both watchers are installed.
+         * Fields without notifications are still checked on every admission. */
+        if(v->func_globals!=f->globals||v->func_builtins!=f->builtins||
+            v->func_closure!=f->closure||v->vectorcall!=f->vectorcall)goto changed;
+        if(full&&(v->func_code!=f->code||v->func_defaults!=f->defaults||
+            v->func_kwdefaults!=f->kwdefaults))goto changed;
+        if(full&&f->kwdefaults) {
             Py_ssize_t j;
             if(PyDict_Size(f->kwdefaults)!=PyList_GET_SIZE(f->kwitems))goto changed;
             for(j=0;j<PyList_GET_SIZE(f->kwitems);j++) {
@@ -1303,7 +1333,7 @@ changed:p->dirty=1;return 0;
 }
 static int desc_admit(LexPlan *lex,int op) {
     DescriptorPlan *p=lex->code_context;(void)op;
-    if(!p||!p->active||p->watcher<0)return 0;
+    if(!p||!p->active||p->watcher<0||p->function_watcher<0)return 0;
     return desc_direct(p);
 }
 static PyObject *descriptor_plan(PyObject *unused,PyObject *args) {
@@ -1312,7 +1342,7 @@ static PyObject *descriptor_plan(PyObject *unused,PyObject *args) {
     if(!PyArg_ParseTuple(args,"OOOOOO",&cls,&originals,&pid,&thread,&capacity,&import_globals))return NULL;
     if(PyInterpreterState_Get()!=PyInterpreterState_Main()||!PyTuple_CheckExact(originals)||PyTuple_GET_SIZE(originals)!=4)goto invalid;
     for(i=0;i<4;i++)if(!PyFunction_Check(PyTuple_GET_ITEM(originals,i)))goto invalid;
-    p=PyMem_Calloc(1,sizeof(*p));if(!p)return PyErr_NoMemory();p->watcher=-1;
+    p=PyMem_Calloc(1,sizeof(*p));if(!p)return PyErr_NoMemory();p->watcher=p->function_watcher=-1;
     p->interpreter=PyInterpreterState_Get();p->originals=Py_NewRef(originals);p->empty_args=PyTuple_New(0);
     if(!p->empty_args)goto error;
     tables=PyTuple_Pack(4,p->empty_args,p->empty_args,p->empty_args,p->empty_args);if(!tables)goto error;
@@ -1460,6 +1490,9 @@ static PyObject *descriptor_phase(PyObject *unused,PyObject *args) {
         if(PyDict_Watch(p->watcher,p->watched[i].space)<0)goto failure;
         p->nstarted++;
     }
+    if(p->code_activations>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Function watcher activation bound");goto failure;}
+    p->function_watcher=PyFunction_AddWatcher(desc_function_notification);if(p->function_watcher<0)goto failure;
+    p->code_activations++;
     /* Full original namespace/MRO admission at each activation, after the
      * notifications are installed and before native handling can begin. */
     p->lex->guard=NULL;r=lex_admit(p->lex,0);p->lex->guard=desc_admit;
@@ -1485,7 +1518,7 @@ static PyObject *descriptor_counts(PyObject *unused,PyObject *capsule) {
         "entries","constructor",p->entries[0],"load_parts",p->entries[1],"string",p->entries[2],"with_segments",p->entries[3],
         "fallbacks","constructor",p->fallbacks[0],"load_parts",p->fallbacks[1],"string",p->fallbacks[2],"with_segments",p->fallbacks[3],
         "cache_entries",PyDict_Size(p->lex->cache),"cache_hits",p->lex->hits,"cache_misses",p->lex->misses,
-        "phase",phase,"watching",p->watcher>=0?Py_True:Py_False,"code_changed",p->dirty?Py_True:Py_False,
+        "phase",phase,"watching",p->watcher>=0||p->function_watcher>=0?Py_True:Py_False,"code_changed",p->dirty?Py_True:Py_False,
         "code_inputs",p->nwatch+p->nfunction+p->ntype+p->ncell);
 }
 static PyObject *descriptor_close(PyObject *unused,PyObject *capsule) {
@@ -1914,8 +1947,16 @@ static PyObject *role_imports(PyObject *unused,PyObject *capsule) {
     if(!desc_owner(p)||!p->role_configured){PyErr_SetString(PyExc_ValueError,"Role owner or configuration changed");return NULL;}
     return Py_BuildValue("(OK)",p->absolute_import?Py_True:Py_False,p->absolute_imports);
 }
+static PyObject *role_code_watch(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);(void)unused;
+    if(!p)return NULL;
+    if(!desc_owner(p)||!p->role_configured){PyErr_SetString(PyExc_ValueError,"Role owner or configuration changed");return NULL;}
+    return Py_BuildValue("(OKKKK)",p->function_watcher>=0?Py_True:Py_False,p->code_activations,
+        p->code_full_checks,p->code_fresh_checks,p->code_changes);
+}
 
 static PyMethodDef methods[]={
+    {"role_code_watch",role_code_watch,METH_O,"Bounded function notification and fresh code-input check witnesses."},
     {"role_configure",role_configure,METH_VARARGS,"Bind the authenticated complete-role import mode once."},
     {"role_imports",role_imports,METH_O,"Bounded original absolute-test import witnesses."},
     {"role_prepare",role_prepare,METH_VARARGS,"Complete lexical argument preparation inside fresh role admission."},

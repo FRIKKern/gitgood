@@ -23,7 +23,7 @@ import native_read_probe as read_backend
 from native_metadata_probe import require,raw_function
 from path_body_probe import _read_owned
 
-APIS=('role_prepare','role_observe','role_admit','role_counts','role_configure','role_imports')
+APIS=('role_prepare','role_observe','role_admit','role_counts','role_configure','role_imports','role_code_watch')
 FAMILIES=read_backend.FAMILIES
 HELPERS=(*sdk.HELPERS,'native_role_probe.py')
 ROLE_AST={
@@ -351,7 +351,7 @@ class Adapter(read_backend.Adapter):
         loaded.validate();role_environment()
         super().__init__(loaded.modules,loaded.native,loaded.kernel,owner_check=owner_check,
             original_codes=loaded.original_codes,_class_owners=True)
-        self.loaded=loaded;self.closed=False;self.final_roles=None;self.final_imports=None
+        self.loaded=loaded;self.closed=False;self.final_roles=None;self.final_imports=None;self.final_code_watch=None
         self.role_apis={name:getattr(self.native,name) for name in APIS}
         self.callbacks=(os.listdir,self.names_callback,io.open,io.BufferedReader)
         original_root=self.originals[0].__func__;original_exec=self.originals[1].__func__
@@ -500,10 +500,17 @@ class Adapter(read_backend.Adapter):
             and value[0] is self.context.absolute_import and (value[0] or value[1]==0))
         return value
 
+    def code_watch(self):
+        if self.closed:return self.final_code_watch
+        value=self.role_apis['role_code_watch'](self.context.plan)
+        require(type(value) is tuple and len(value)==5 and type(value[0]) is bool
+            and all(type(v) is int and 0<=v<=10000000 for v in value[1:]))
+        return value
+
     def close(self):
         if self.closed:return
         pending=sys.exception()
-        try:self.final_roles=self.values();self.final_imports=self.imports()
+        try:self.final_roles=self.values();self.final_imports=self.imports();self.final_code_watch=self.code_watch()
         except BaseException:
             if pending is None:raise
         finally:
@@ -545,22 +552,27 @@ def compare_guard(loaded,original_guard,stage):
         observations=dict(zip(FAMILIES,(a-b for a,b in zip(final[1],initial[1]))))
         details=adapter.context.apis['descriptor_counts'](adapter.context.plan)
         absolute,import_calls=adapter.imports()
+        watching,activations,full_checks,fresh_checks,changes=adapter.code_watch()
         require(observations==adapter.calls and all(value>0 for value in prepares.values())
             and not any(adapter.fallbacks.values()) and all(value>0 for value in details['calls'].values())
             and not details['watching'] and not details['code_changed'])
         require(import_calls>0 if absolute else import_calls==0)
+        require(not watching and activations>=20 and full_checks>=activations and fresh_checks>0 and changes==0)
         result={'diagnostic_only':True,'production_adopted':False,'implementation':'C-complete-observation-roles',
             'original_classes_retained':True,'original_descriptors_retained':True,'same_original_actors':True,
             'observations_equal':True,'observation_results_retained':False,'admission_results_retained':False,
             'pairs':rows,'paired_checks':40,'role_prepares':prepares,'native_calls':observations,
             'lexical_calls':details['calls'],'fallbacks':adapter.fallbacks.copy(),
             'absolute_import_required':absolute,'absolute_import_calls':import_calls,
+            'function_watch_activations':activations,'full_function_checks':full_checks,
+            'fresh_function_checks':fresh_checks,'function_mutations':changes,
             'cache_capacity':256,'lexical_cache_entries':details['cache_entries'],
             'lexical_cache_hits':details['cache_hits'],'lexical_cache_misses':details['cache_misses']}
     finally:adapter.close()
     require(adapter.restored() and adapter.context.sdk_original() and adapter.context.final_details['cache_entries']==0
-        and adapter.context.final_details['code_inputs']==0 and not adapter.context.final_details['watching'])
+        and adapter.context.final_details['code_inputs']==0 and not adapter.context.final_details['watching']
+        and adapter.final_code_watch[0] is False)
     loaded.validate()
-    result.update(lexical_cache_cleared=True,dictionary_notifications_removed=True,code_inputs_released=True,
+    result.update(lexical_cache_cleared=True,dictionary_notifications_removed=True,function_notifications_removed=True,code_inputs_released=True,
         elapsed_ms=min(1200000,max(0,(time.monotonic_ns()-started)//1000000)),**loaded.evidence())
     return result
