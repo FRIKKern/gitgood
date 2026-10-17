@@ -964,7 +964,9 @@ Changing that selector changed the original constructor's class while native
 admission stayed enabled. The `78ba124` run was cancelled before native tests or
 comparison after a portable regression reproduced the missing binding. Complete
 role tables now pin that live namespace input, including negative invalidation
-after its value is restored.
+after its value is restored. A bytecode audit of all 26 emulated SDK/POSIX
+functions and their nested code found no unbound global names after adding
+the remaining error-branch dependencies to the same finite tables.
 
 22 portable cases cover dispatch, default and SDK contracts, original-method
 preservation, aliases imported during a scope, source-custody failure, partial

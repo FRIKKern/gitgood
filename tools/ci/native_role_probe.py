@@ -99,7 +99,7 @@ def role_environment():
         require(inspect.getattr_static(owner,'__getattribute__') is vars(object if owner is not type(parents) else type)['__getattribute__'])
         require(not any('__getattr__' in vars(base) for base in owner.__mro__))
     require(inspect.getattr_static(parents,'__setattr__') is vars(object)['__setattr__'])
-    for name in ('bool','int','tuple','list','slice','range','IndexError'):
+    for name in ('bool','int','tuple','list','slice','range','IndexError','TypeError','BytesWarning'):
         cls=vars(sdk.builtins)[name]
         require(type(cls) is type and cls.__name__==name and cls.__module__=='builtins' and not cls.__flags__&512)
     for name in ('anchor','parts','parent','parents','name'):
@@ -131,8 +131,9 @@ def merge_bindings(*groups):
 
 def role_bindings(concrete):
     rows=[]
-    for module,names in ((pathlib,('_PathParents','Sequence')),(os,('name',)),
-            (sdk.builtins,('bool','int','tuple','list','slice','range','IndexError'))):
+    for module,names in ((pathlib,('_PathParents','Sequence','warnings')),(os,('name',)),
+            (sdk.posixpath,('genericpath',)),
+            (sdk.builtins,('bool','int','tuple','list','slice','range','IndexError','TypeError','BytesWarning'))):
         rows.extend((vars(module),name,vars(module)[name]) for name in names)
     parents=pathlib._PathParents;sequence=_collections_abc.Sequence
     for owner,names in ((parents,('__init__','__len__','__getitem__','__iter__','__new__','__getattribute__','__setattr__',
