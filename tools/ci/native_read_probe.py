@@ -74,8 +74,9 @@ class Loaded:
 
 
 class Adapter(metadata.Adapter):
-    def __init__(self,modules,native,kernel,*,owner_check=None,original_codes=None):
-        super().__init__(modules,native,owner_check=owner_check,original_codes=original_codes)
+    def __init__(self,modules,native,kernel,*,owner_check=None,original_codes=None,_class_owners=False):
+        super().__init__(modules,native,owner_check=owner_check,original_codes=original_codes,
+            _class_owners=_class_owners)
         self.admission=native.same_bindings
         require(kernel.__name__=='native_kernel_backend');self.kernel=kernel
         self.calls.update({name:0 for name in READ_FAMILIES});self.fallbacks.update({name:0 for name in READ_FAMILIES})
@@ -163,8 +164,9 @@ class Adapter(metadata.Adapter):
             found=[];functions={}
             for owner,names in specifications:
                 namespace=vars(owner)
+                target=owner if _class_owners and isinstance(owner,type) else namespace
                 for name in names:
-                    require(name in namespace);value=namespace[name];found.append((namespace,name,value))
+                    require(name in namespace);value=namespace[name];found.append((target,name,value))
                     fn=raw_function(value)
                     if type(fn) is types.FunctionType:functions[id(fn)]=fn
             found.extend((fn,'__code__',fn.__code__) for fn in functions.values())

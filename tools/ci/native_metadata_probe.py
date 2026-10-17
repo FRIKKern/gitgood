@@ -129,7 +129,7 @@ class Unsupported(Exception):pass
 
 
 class Adapter:
-    def __init__(self,modules,native,*,owner_check=None,original_codes=None):
+    def __init__(self,modules,native,*,owner_check=None,original_codes=None,_class_owners=False):
         self.modules=tuple(modules);require(tuple(module.__name__ for module in self.modules)==MODULE_NAMES)
         self.service,self.binding,self.generation,self.lifecycle=self.modules
         self.native=native;self.owner_check=root_owner if owner_check is None else owner_check
@@ -152,8 +152,9 @@ class Adapter:
         self.bindings=[]
         def capture(owner,names):
             namespace=vars(owner)
+            target=owner if _class_owners and isinstance(owner,type) else namespace
             for name in names:
-                require(name in namespace);self.bindings.append((namespace,name,namespace[name]))
+                require(name in namespace);self.bindings.append((target,name,namespace[name]))
         for module,names in (
                 (self.service,('Path','os','stat','require','_root_file_path','_root_file_parents','_root_file_parent_plan','_CapturedRootFiles')),
                 (self.binding,('Path','os','stat','require','_CapturedExecutableDigests')),

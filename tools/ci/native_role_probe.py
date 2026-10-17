@@ -124,6 +124,7 @@ def merge_bindings(*groups):
     rows={}
     for group in groups:
         for owner,name,value in group:
+            require(type(owner) in {dict,types.FunctionType,types.CellType} or isinstance(owner,type))
             if isinstance(owner,type):
                 raw=inspect.getattr_static(owner,name)
                 if type(value) is types.MethodType:
@@ -349,7 +350,7 @@ class Adapter(read_backend.Adapter):
     def __init__(self,loaded,*,owner_check=None):
         loaded.validate();role_environment()
         super().__init__(loaded.modules,loaded.native,loaded.kernel,owner_check=owner_check,
-            original_codes=loaded.original_codes)
+            original_codes=loaded.original_codes,_class_owners=True)
         self.loaded=loaded;self.closed=False;self.final_roles=None;self.final_imports=None
         self.role_apis={name:getattr(self.native,name) for name in APIS}
         self.callbacks=(os.listdir,self.names_callback,io.open,io.BufferedReader)
@@ -470,7 +471,7 @@ class Adapter(read_backend.Adapter):
             (read_backend.metadata.Adapter,'after',vars(read_backend.metadata.Adapter)['after']),
             (globals(),'require',require),(globals(),'FAMILIES',FAMILIES),
             *((self.role_apis,name,value) for name,value in self.role_apis.items()),
-            *((vars(owner),name,value) for owner,name,_old,value in self.entries))
+            *((owner if isinstance(owner,type) else vars(owner),name,value) for owner,name,_old,value in self.entries))
         modules=(*self.modules,self.kernel,io,sys.modules['_io'],read_backend.metadata.stat,hashlib)
         self.context=RoleContext(loaded,owner_check=owner_check,bindings=extra,modules=modules)
 

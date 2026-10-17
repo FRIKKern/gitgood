@@ -984,7 +984,18 @@ bounded execution witness. Executable resolution still uses its original SDK
 operation. Changed import hooks decline before dispatch, preserving original
 callback order and exceptions; no import or admission result is cached.
 
-24 portable cases cover dispatch, default and SDK contracts, original-method
+Run 38986942661 compiled the import repair `9203b27` and accepted the SDK
+contract, but all 23 hosted role cases failed before native activation because
+`descriptor_bind` rejected the combined schema. The generic metadata/read
+capture path supplied class namespace proxies, whereas this C context requires
+explicit class owners for raw MRO and namespace checks. A portable regression
+reproduced 28 unsupported proxy rows. The role path now retains the actual class
+at capture and for replacement entries, normalizes raw descriptors through the
+existing class checker and rejects unsupported owners before creating a native
+context. The generic capture mode and C admission contract are unchanged.
+There was no complete-role observation or timing result in the failed run.
+
+25 portable cases cover dispatch, default and SDK contracts, original-method
 preservation, aliases imported during a scope, source-custody failure, partial
 binding and interrupted cleanup. They pass locally using test doubles and do
 not establish C execution. 23 additional hosted Root cases reuse the
@@ -1001,5 +1012,6 @@ equal observations, fresh source custody and cleared contexts before effects.
 The benefit gate remains median prototype/baseline at most 0.80 and at least
 18 of 20 faster pairs. The full archive, seventeen method timers, calling-thread
 CPU and guard-ten sample, two Root passes and production deadlines are unchanged.
-Compilation of the import repair, hosted role semantics and benefit remain unverified. Full uninstrumented
+Hosted role semantics and benefit remain unverified for the class-owner repair.
+Full uninstrumented
 staging/runtime and all installation/recovery gates remain open.

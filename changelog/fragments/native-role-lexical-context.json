@@ -2,7 +2,7 @@
   "id": "native-role-lexical-context",
   "category": "Changed",
   "impact": "operator",
-  "summary": "Prepare lexical arguments inside all eight C observation roles with original SDK methods, live constructor platform selection, closed default/parent/finalizer contracts and Ubuntu's original absolute-test import. Retain fresh import admission, the whole-guard benefit gate and strict compiler flags. Hosted role semantics and benefit remain unverified.",
+  "summary": "Prepare lexical arguments inside all eight C observation roles with original SDK methods, explicit class-owner admission, live constructor platform selection, closed default/parent/finalizer contracts and Ubuntu's original absolute-test import. Retain fresh import admission, the whole-guard benefit gate and strict compiler flags. Hosted role semantics and benefit remain unverified.",
   "journeys": ["J14", "J15"],
   "references": [
     "docs/implementation/native-artifact-controller.md",

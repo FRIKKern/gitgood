@@ -172,6 +172,17 @@ class RoleAdapterContractTest(unittest.TestCase):
             original_codes=None,codes=None,validate=Mock())
         self.adapter=probe.Adapter(self.loaded,owner_check=lambda:None);self.addCleanup(self.adapter.close)
 
+    def test_complete_role_schema_retains_explicit_class_owners_for_native_binding(self):
+        table=self.adapter.context.tables[0]
+        unsupported=[(type(owner).__name__,name) for owner,name,_value in table
+            if type(owner) not in {dict,types.FunctionType,types.CellType} and not isinstance(owner,type)]
+        self.assertEqual(unsupported,[])
+        class_entries=tuple((owner,key) for owner,key,_old,_new in self.adapter.entries if isinstance(owner,type))
+        for owner,name in (*class_entries,(self.adapter.owners[3],'_file'),
+                (pathlib.Path,'resolve'),(pathlib.PurePath,'is_absolute')):
+            self.assertTrue(any(target is owner and key==name for target,key,_value in table))
+        with self.assertRaises(ValueError):probe.merge_bindings(((vars(pathlib.PurePath),'is_absolute',object()),))
+
     def test_all_eight_roles_dispatch_and_restore_with_sdk_descriptors_unchanged(self):
         a=self.adapter;service,binding,generation,lifecycle=self.modules
         plan=generation._PersistentFingerprintPlan();plan.supported=True
