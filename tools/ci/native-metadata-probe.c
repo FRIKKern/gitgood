@@ -1131,7 +1131,9 @@ typedef struct {
     Py_ssize_t nwatch,nfunction,ntype,ncell,nstarted;
     unsigned long long entries[4],fallbacks[4];
     unsigned long long role_prepares[8],role_calls[8];
+    unsigned long long absolute_imports;
     int issued,bound,active,closed,dirty,watcher;
+    int role_configured,absolute_import;
 } DescriptorPlan;
 /* One scope on the main interpreter. A failed/nested activation never replaces
  * this pointer. It is cleared only after all notifications are unregistered. */
@@ -1500,6 +1502,30 @@ static PyObject *descriptor_close(PyObject *unused,PyObject *capsule) {
 /* Lexical preparation inside a single admitted observation role. These helpers
  * retain only immutable parsed strings/tuples; observations remain in the
  * original eight implementations above. SDK descriptors are never installed. */
+static PyObject *role_configure(PyObject *unused,PyObject *args) {
+    PyObject *capsule,*absolute;DescriptorPlan *p;(void)unused;
+    if(!PyArg_ParseTuple(args,"OO",&capsule,&absolute))return NULL;
+    p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
+    if(!desc_owner(p)||!p->issued||p->closed||p->bound||p->role_configured||
+        !PyBool_Check(absolute)||(absolute==Py_True&&!p->lex->import_globals)) {
+        PyErr_SetString(PyExc_ValueError,"Invalid complete role configuration");return NULL;
+    }
+    p->absolute_import=absolute==Py_True;p->role_configured=1;Py_RETURN_NONE;
+}
+static int role_absolute_import(DescriptorPlan *p) {
+    PyObject *module;int r;
+    if(!p->absolute_import)return 0;
+    if(p->absolute_imports>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Absolute import bound");return -1;}
+    r=lex_import_admit(p->lex);
+    if(r<=0) {
+        if(!PyErr_Occurred())PyErr_SetString(PyExc_ValueError,"Absolute import code inputs changed");
+        return -1;
+    }
+    module=PyImport_ImportModuleLevelObject(p->lex->import_name,p->lex->import_globals,
+        p->lex->import_globals,Py_None,0);
+    if(!module)return -1;
+    Py_DECREF(module);p->absolute_imports++;return 0;
+}
 static int role_tick(LexPlan *p,int op) {
     if(p->calls[op]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Role lexical counter bound");return -1;}
     p->calls[op]++;return 0;
@@ -1760,6 +1786,7 @@ static PyObject *role_prepare(PyObject *unused,PyObject *args) {
     if(!PyArg_ParseTuple(args,"OOOO",&capsule,&kind_o,&payload,&owner))return NULL;
     p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
     r=u64(kind_o,&kind);if(r<=0||kind>7)goto invalid;
+    if(!p->role_configured)Py_RETURN_NOTIMPLEMENTED;
     r=desc_admit(p->lex,0);if(r<0)return NULL;if(!r)Py_RETURN_NOTIMPLEMENTED;
     if(p->role_prepares[kind]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Role preparation bound");return NULL;}
     if(kind==2){result=role_prepare_plan(p,payload,owner,p->lex->cls);goto done;}
@@ -1806,6 +1833,10 @@ static PyObject *role_prepare(PyObject *unused,PyObject *args) {
         Py_SETREF(path,resolved);resolved=NULL;
         if(!Py_IS_TYPE(path,(PyTypeObject *)p->lex->cls))goto unsupported;
     }
+    /* Ubuntu's is_absolute has its own original local import, after the
+     * constructor and before anchor/parts. resolve above executes its own
+     * original SDK path; it does not add this emulated absolute test. */
+    if(kind!=1&&role_absolute_import(p)<0)goto done;
     parts=role_parts(p,path);if(!parts)goto done;if(parts==Py_NotImplemented)goto unsupported;
     tail=PyTuple_GET_ITEM(parts,2);
     if(PyList_GET_SIZE(tail)+1>64)goto unsupported;
@@ -1829,6 +1860,7 @@ invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid observatio
 static PyObject *role_admit(PyObject *unused,PyObject *capsule) {
     DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);int r;(void)unused;
     if(!p)return NULL;
+    if(!p->role_configured)Py_RETURN_FALSE;
     r=desc_admit(p->lex,0);if(r<0)return NULL;return PyBool_FromLong(r);
 }
 static PyObject *role_observe(PyObject *unused,PyObject *args) {
@@ -1837,6 +1869,7 @@ static PyObject *role_observe(PyObject *unused,PyObject *args) {
     if(!PyArg_ParseTuple(args,"OOOO",&capsule,&kind_o,&prepared,&callbacks))return NULL;
     p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);if(!p)return NULL;
     r=u64(kind_o,&kind);if(r<=0||kind>7||!PyTuple_CheckExact(prepared)||!PyTuple_CheckExact(callbacks)||PyTuple_GET_SIZE(callbacks)!=4)goto invalid;
+    if(!p->role_configured)Py_RETURN_NOTIMPLEMENTED;
     r=desc_admit(p->lex,0);if(r<0)return NULL;if(!r)Py_RETURN_NOTIMPLEMENTED;
     if(p->role_calls[kind]>=LEX_LIMIT){PyErr_SetString(PyExc_ValueError,"Role observation bound");return NULL;}
     n=PyTuple_GET_SIZE(prepared);
@@ -1865,7 +1898,7 @@ invalid:if(!PyErr_Occurred())PyErr_SetString(PyExc_TypeError,"Invalid observatio
 static PyObject *role_counts(PyObject *unused,PyObject *capsule) {
     DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);PyObject *prepares,*observations,*result;Py_ssize_t i;(void)unused;
     if(!p)return NULL;
-    if(!desc_owner(p)){PyErr_SetString(PyExc_ValueError,"Role owner changed");return NULL;}
+    if(!desc_owner(p)||!p->role_configured){PyErr_SetString(PyExc_ValueError,"Role owner or configuration changed");return NULL;}
     prepares=PyTuple_New(8);observations=PyTuple_New(8);
     if(!prepares||!observations){Py_XDECREF(prepares);Py_XDECREF(observations);return NULL;}
     for(i=0;i<8;i++) {
@@ -1875,8 +1908,16 @@ static PyObject *role_counts(PyObject *unused,PyObject *capsule) {
     }
     result=PyTuple_Pack(2,prepares,observations);Py_DECREF(prepares);Py_DECREF(observations);return result;
 }
+static PyObject *role_imports(PyObject *unused,PyObject *capsule) {
+    DescriptorPlan *p=PyCapsule_GetPointer(capsule,DESC_CAPSULE);(void)unused;
+    if(!p)return NULL;
+    if(!desc_owner(p)||!p->role_configured){PyErr_SetString(PyExc_ValueError,"Role owner or configuration changed");return NULL;}
+    return Py_BuildValue("(OK)",p->absolute_import?Py_True:Py_False,p->absolute_imports);
+}
 
 static PyMethodDef methods[]={
+    {"role_configure",role_configure,METH_VARARGS,"Bind the authenticated complete-role import mode once."},
+    {"role_imports",role_imports,METH_O,"Bounded original absolute-test import witnesses."},
     {"role_prepare",role_prepare,METH_VARARGS,"Complete lexical argument preparation inside fresh role admission."},
     {"role_observe",role_observe,METH_VARARGS,"Original ordered observations inside fresh role admission."},
     {"role_admit",role_admit,METH_O,"Fresh owner/code input check for one complete role."},

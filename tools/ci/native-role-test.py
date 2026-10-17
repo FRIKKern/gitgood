@@ -44,18 +44,26 @@ class FakeRoleNative(descriptor.FakeDescriptorNative):
             if current is not value:return False
         return True
     def descriptor_plan(self,*args):
-        plan=super().descriptor_plan(*args);plan.prepares=[0]*8;plan.observations=[0]*8;return plan
+        plan=super().descriptor_plan(*args);plan.prepares=[0]*8;plan.observations=[0]*8
+        plan.import_globals=args[-1];plan.role_configured=False;plan.absolute_import=False;plan.absolute_imports=0
+        return plan
+    def role_configure(self,plan,absolute):
+        if plan.closed or plan.bound or plan.role_configured or not plan.issued or type(absolute) is not bool or absolute and plan.import_globals is None:
+            raise ValueError('configuration')
+        plan.role_configured=True;plan.absolute_import=absolute
+    def role_imports(self,plan):return plan.absolute_import,plan.absolute_imports
     def descriptor_bind(self,plan,*args):
         super().descriptor_bind(plan,*args)
         plan.defaults={id(fn):(fn,fn.__defaults__,fn.__kwdefaults__,dict(fn.__kwdefaults__ or {}))
             for fn,name,_value in plan.tables[0] if type(fn) is types.FunctionType}
     def role_admit(self,plan):
-        return (plan.active and self.admitted(plan.tables[0]) and all(fn.__defaults__ is defaults
+        return (plan.role_configured and plan.active and self.admitted(plan.tables[0]) and all(fn.__defaults__ is defaults
             and fn.__kwdefaults__ is keyword and dict(keyword or {})==items
             for fn,defaults,keyword,items in plan.defaults.values()))
     def role_prepare(self,plan,kind,payload,owner):
         if not self.role_admit(plan):return NotImplemented
         self.events.append(('prepare',kind))
+        if plan.absolute_import and kind in (0,4,5):plan.absolute_imports+=1
         if kind in (2,3):
             if type(payload) is not owner or not vars(payload).get('supported'):return NotImplemented
             value=('prepared',)* (6 if kind==2 else 5)
@@ -82,7 +90,8 @@ class RoleSourceContractTest(unittest.TestCase):
         for module,contract,filename in ((pathlib,probe.ROLE_AST,pathlib.__file__),
                 (_collections_abc,probe.SEQUENCE_AST,_collections_abc.Sequence.__iter__.__code__.co_filename)):
             raw=Path(module.__file__).read_bytes()
-            codes=probe.contract_code(raw,filename,contract)
+            alternatives=probe.ROLE_ALTERNATIVES if module is pathlib else None
+            codes=probe.contract_code(raw,filename,contract,alternatives)
             self.assertTrue(set(contract)<=set(codes))
             tree=ast.parse(raw)
             for owner in tree.body:
@@ -91,7 +100,7 @@ class RoleSourceContractTest(unittest.TestCase):
                     if owner.name+'.'+getattr(node,'name','') in contract:
                         node.body.append(ast.Return(value=ast.Constant(value=None)))
                         changed=ast.unparse(ast.fix_missing_locations(tree)).encode()
-                        with self.assertRaises(ValueError):probe.contract_code(changed,filename,contract)
+                        with self.assertRaises(ValueError):probe.contract_code(changed,filename,contract,alternatives)
                         break
                 else:continue
                 break
@@ -135,6 +144,21 @@ class RoleSourceContractTest(unittest.TestCase):
                 parents=Path('/synthetic/leaf').parents;del parents
                 self.assertEqual(events,['parent finalized'])
                 with self.assertRaises(ValueError):probe.role_environment()
+    def test_exact_ubuntu_absolute_import_variant_is_closed_to_other_body_changes(self):
+        tree=ast.parse(Path(pathlib.__file__).read_bytes())
+        node=next(n for owner in tree.body if isinstance(owner,ast.ClassDef) and owner.name=='PurePath'
+            for n in owner.body if isinstance(n,ast.FunctionDef) and n.name=='is_absolute')
+        if not any(isinstance(n,ast.Import) and any(a.name=='ntpath' for a in n.names) for n in node.body):
+            index=int(isinstance(node.body[0],ast.Expr) and isinstance(node.body[0].value,ast.Constant)
+                and type(node.body[0].value.value) is str)
+            node.body.insert(index,ast.Import(names=[ast.alias(name='ntpath')]))
+        raw=ast.unparse(ast.fix_missing_locations(tree)).encode()
+        with self.assertRaises(ValueError):probe.contract_code(raw,'ubuntu-pathlib.py',probe.ROLE_AST)
+        codes=probe.contract_code(raw,'ubuntu-pathlib.py',probe.ROLE_AST,probe.ROLE_ALTERNATIVES)
+        self.assertIn('ntpath',codes['PurePath.is_absolute'].co_varnames)
+        node.body.append(ast.Return(value=ast.Constant(value=True)))
+        raw=ast.unparse(ast.fix_missing_locations(tree)).encode()
+        with self.assertRaises(ValueError):probe.contract_code(raw,'ubuntu-pathlib.py',probe.ROLE_AST,probe.ROLE_ALTERNATIVES)
 
 
 class RoleAdapterContractTest(unittest.TestCase):
@@ -244,6 +268,15 @@ class RoleAdapterContractTest(unittest.TestCase):
             with a.installed():
                 late.read=self.kernel._read;self.assertIs(late.read,a.read_replacements[3]);raise failure
         self.assertIs(caught.exception,failure);self.assertIs(late.read,a.read_originals[3]);self.assertTrue(a.restored())
+    def test_role_import_configuration_precedes_binding_and_partial_failure_closes(self):
+        a=self.adapter;self.assertTrue(a.context.plan.role_configured)
+        self.assertIs(a.imports()[0],'ntpath' in pathlib.PurePath.is_absolute.__code__.co_varnames)
+        with self.assertRaises(ValueError):self.native.role_configure(a.context.plan,False)
+        failure=KeyboardInterrupt('configure')
+        with patch.object(self.native,'role_configure',side_effect=failure),self.assertRaises(KeyboardInterrupt) as caught:
+            probe.Adapter(self.loaded,owner_check=lambda:None)
+        self.assertIs(caught.exception,failure);self.assertTrue(self.native.plans[-1].closed)
+        self.assertTrue(a.context.sdk_original());self.assertIsNone(self.native.live)
 
 
 class RoleContextTest(unittest.TestCase):
@@ -439,6 +472,36 @@ class HostedRoleTest(unittest.TestCase):
         with a.installed():
             self.assertTrue(a.eligible());self.assertEqual(self.loaded.kernel._read(leaf),'one')
         self.assertEqual(a.values()[1][-1],before[1][-1]+1);self.loaded.validate()
+
+    def test_absolute_import_mode_executes_original_order_and_preserves_original_hook_errors(self):
+        a=self.adapter();leaf=self.leaf();service,binding,*_=self.loaded.modules
+        required,count=a.imports();self.assertEqual(count,0)
+        self.assertIs(required,'ntpath' in pathlib.PurePath.is_absolute.__code__.co_varnames)
+        original=a.read_originals[0];observations=[]
+        class Spec:
+            def __getattribute__(self,name):
+                if name=='_initializing':observations.append(name);return False
+                raise AssertionError('unexpected import observation')
+        with a.installed():
+            service.root_file(leaf);service._CapturedRootFiles._fingerprint(leaf,4096,False)
+            binding.private_file(leaf,0);self.loaded.kernel._read(leaf)
+            self.assertEqual(a.imports(),(required,3 if required else 0))
+            with self.assertRaises(ValueError):self.loaded.native.role_configure(a.context.plan,required)
+            if required:
+                with patch.object(sdk.ntpath,'__spec__',Spec()):
+                    service._root_file_parent_plan.cache_clear();expected=original(leaf)
+                    expected_observations=observations[:];observations.clear()
+                    service._root_file_parent_plan.cache_clear();actual=service.root_file(leaf)
+                self.assertTrue(expected_observations);self.assertEqual(observations,expected_observations)
+                self.assertEqual(actual,expected);self.assertEqual(a.imports(),(True,3))
+                failure=KeyboardInterrupt('original absolute import');calls=[];imported=__import__
+                def changed(name,*args,**kwargs):
+                    if name=='ntpath':calls.append(name);raise failure
+                    return imported(name,*args,**kwargs)
+                with patch.object(builtins,'__import__',changed),self.assertRaises(KeyboardInterrupt) as caught:
+                    service.root_file(leaf)
+                self.assertIs(caught.exception,failure);self.assertEqual(calls,['ntpath'])
+        self.assertTrue(a.restored());a.close();self.loaded.validate()
 
     def test_same_pid_and_thread_real_effective_uid_gid_are_checked_for_each_role(self):
         leaf=self.leaf();read_fd,write_fd=os.pipe();pid=os.fork()

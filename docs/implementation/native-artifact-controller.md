@@ -968,13 +968,29 @@ after its value is restored. A bytecode audit of all 26 emulated SDK/POSIX
 functions and their nested code found no unbound global names after adding
 the remaining error-branch dependencies to the same finite tables.
 
-22 portable cases cover dispatch, default and SDK contracts, original-method
+Hosted run 38985003333 compiled `507cb94` and passed the retained
+37/39/43/20 metadata/read/Path/descriptor suites. The new role suite stopped
+during SDK contract validation before any hosted role case or full ownership
+proof ran. Ubuntu's existing `ntpath-import.diff` also adds a local import to
+`PurePath.is_absolute`; the original role contract allowed only the upstream
+body. This is a compatibility failure, with no new performance result.
+
+The repair pins that exact alternate body alongside the upstream body and
+continues to compile and authenticate the actual installed source. It binds the
+absolute-test import mode once before context activation. Root fingerprint,
+Root file and private file preparation execute the original import after the
+constructor and before anchor/parts parsing, with fresh import admission and a
+bounded execution witness. Executable resolution still uses its original SDK
+operation. Changed import hooks decline before dispatch, preserving original
+callback order and exceptions; no import or admission result is cached.
+
+24 portable cases cover dispatch, default and SDK contracts, original-method
 preservation, aliases imported during a scope, source-custody failure, partial
 binding and interrupted cleanup. They pass locally using test doubles and do
-not establish C execution. 22 additional hosted Root cases reuse the
+not establish C execution. 23 additional hosted Root cases reuse the
 existing file, custody, descriptor-loss and restored-mtime fixtures, exercise all
 eight roles and four lexical witnesses, reject changed constructors/finalizers
-and run the original 372-case Root
+and preserve the original absolute-test imports, and run the original 372-case Root
 suite under this boundary. These hosted cases are unverified until their actual
 run is reviewed. The legacy 20/43/37/39 descriptor/Path/metadata/read cases and
 their four original Root suites remain required.
@@ -985,5 +1001,5 @@ equal observations, fresh source custody and cleared contexts before effects.
 The benefit gate remains median prototype/baseline at most 0.80 and at least
 18 of 20 faster pairs. The full archive, seventeen method timers, calling-thread
 CPU and guard-ten sample, two Root passes and production deadlines are unchanged.
-Compilation, hosted semantics and benefit remain unverified. Full uninstrumented
+Compilation of the import repair, hosted role semantics and benefit remain unverified. Full uninstrumented
 staging/runtime and all installation/recovery gates remain open.

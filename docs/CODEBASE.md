@@ -66,7 +66,9 @@ The [complete-role candidate](../tools/ci/native_role_probe.py) prepares lexical
 arguments inside the eight C observation roles without SDK descriptor
 replacement. Its [scope and Root tests](../tools/ci/native-role-test.py) retain
 the original refusal fixtures and add a fifth original 372-case Root suite.
-Portable contracts pass; native compilation, hosted semantics and the unchanged
+Its closed SDK contract includes Ubuntu's local absolute-test import, with
+fresh import admission and a bounded execution witness. Portable contracts
+pass; compilation of that repair, hosted role semantics and the unchanged
 whole-guard benefit gate remain unverified.
 Read [artifact controller diagnostics](implementation/native-artifact-controller.md)
 before changing the original guard, filesystem observations or staging budget.

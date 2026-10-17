@@ -23,7 +23,7 @@ import native_read_probe as read_backend
 from native_metadata_probe import require,raw_function
 from path_body_probe import _read_owned
 
-APIS=('role_prepare','role_observe','role_admit','role_counts')
+APIS=('role_prepare','role_observe','role_admit','role_counts','role_configure','role_imports')
 FAMILIES=read_backend.FAMILIES
 HELPERS=(*sdk.HELPERS,'native_role_probe.py')
 ROLE_AST={
@@ -39,9 +39,12 @@ ROLE_AST={
     'PurePath.name':'18e7ff1d0eb7efe1d9063b38335c3bd115662cbd2127d5e474126f620e31dbbd',
 }
 SEQUENCE_AST={'Sequence.__iter__':'4a086e76281364abf81c7e6855d85958329fc54d93f334152ab3c5823548d0e8'}
+ROLE_ALTERNATIVES={'PurePath.is_absolute':{
+    # Ubuntu moves ntpath out of python-minimal and imports it in each body.
+    '5aa5f7addb8b30e625ab935bc6e784abf6d6f51919d25369eb1427669792012b'}}
 
 
-def contract_code(raw,filename,expected):
+def contract_code(raw,filename,expected,alternatives=None):
     require(type(raw) is bytes and 0<len(raw)<=262144)
     tree=ast.parse(raw);require(sum(1 for _ in ast.walk(tree))<=30000);found={}
     for owner in tree.body:
@@ -53,7 +56,11 @@ def contract_code(raw,filename,expected):
             if (node.body and isinstance(node.body[0],ast.Expr) and isinstance(node.body[0].value,ast.Constant)
                     and type(node.body[0].value.value) is str):node.body=node.body[1:]
             found[name]=hashlib.sha256(ast.dump(node,include_attributes=False).encode()).hexdigest()
-    require(found==expected)
+    alternatives={} if alternatives is None else alternatives
+    different=[name for name,value in expected.items() if found.get(name)!=value
+        and found.get(name) not in alternatives.get(name,())]
+    require(set(found)==set(expected))
+    if different:raise ValueError('SDK role body differs: '+','.join(sorted(different)))
     return sdk.metadata.functions(compile(raw,filename,'exec'))
 
 
@@ -163,7 +170,7 @@ class Loaded:
         self.file=_read_owned(self.directory/'native_role_probe.py',262144)
         require(self.file[0]==pathlib.Path(__file__).read_bytes())
         self.sequence_path=pathlib.Path(_collections_abc.__file__);self.sequence=_read_owned(self.sequence_path,262144)
-        self.codes.update(contract_code(self.base.sdk[0],str(self.base.sdk_path),ROLE_AST))
+        self.codes.update(contract_code(self.base.sdk[0],str(self.base.sdk_path),ROLE_AST,ROLE_ALTERNATIVES))
         iteration=_collections_abc.Sequence.__iter__
         self.sequence_codes=contract_code(self.sequence[0],iteration.__code__.co_filename,SEQUENCE_AST)
         self.sdk_defaults=declared_defaults(self.base.sdk[0])
@@ -253,7 +260,9 @@ class Loaded:
     def evidence(self):
         value=self.base.evidence()
         value['source_hashes']={**value['source_hashes'],'native_role_probe.py':hashlib.sha256(self.file[0]).hexdigest()}
-        value['role_ast_sha256']=hashlib.sha256(repr((sorted(ROLE_AST.items()),sorted(SEQUENCE_AST.items()))).encode()).hexdigest()
+        contract=(sorted(ROLE_AST.items()),sorted((name,sorted(values)) for name,values in ROLE_ALTERNATIVES.items()),
+            sorted(SEQUENCE_AST.items()))
+        value['role_ast_sha256']=hashlib.sha256(repr(contract).encode()).hexdigest()
         value['original_source_hashes']={**value['original_source_hashes'],
             '_collections_abc.py':hashlib.sha256(self.sequence[0]).hexdigest()}
         return value
@@ -272,11 +281,17 @@ class RoleContext:
             self.tables=tuple(merged for _ in sdk.ROLES)
         self.apis={name:getattr(self.native,name) for name in sdk.DESCRIPTOR_APIS}
         self.active=False;self.closed=False;self.broken=False;self.final_details=None
+        self.absolute_import=False
         self.plan=self.apis['descriptor_plan'](prepared.concrete,self.originals,*self.owner,256,prepared.import_globals)
         try:
             # The current context API requires issuing its descriptors once.
             # They are discarded here: no SDK class receives a replacement.
             self.apis['descriptor_entries'](self.plan)
+            if bindings:
+                absolute=raw_function(vars(pathlib.PurePath)['is_absolute'])
+                self.absolute_import='ntpath' in absolute.__code__.co_varnames
+                require(not self.absolute_import or prepared.import_globals is vars(pathlib))
+                self.native.role_configure(self.plan,self.absolute_import)
             bound_modules=tuple({id(module):module for module in
                 (pathlib,sdk.builtins,os,sys,sdk.posixpath,sdk.ntpath,self.native,*modules)}.values())
             require(len(bound_modules)<=16)
@@ -335,7 +350,7 @@ class Adapter(read_backend.Adapter):
         loaded.validate();role_environment()
         super().__init__(loaded.modules,loaded.native,loaded.kernel,owner_check=owner_check,
             original_codes=loaded.original_codes)
-        self.loaded=loaded;self.closed=False;self.final_roles=None
+        self.loaded=loaded;self.closed=False;self.final_roles=None;self.final_imports=None
         self.role_apis={name:getattr(self.native,name) for name in APIS}
         self.callbacks=(os.listdir,self.names_callback,io.open,io.BufferedReader)
         original_root=self.originals[0].__func__;original_exec=self.originals[1].__func__
@@ -476,10 +491,18 @@ class Adapter(read_backend.Adapter):
             and all(type(v) is int and 0<=v<=10000000 for v in row) for row in value))
         return value
 
+    def imports(self):
+        if self.closed:return self.final_imports
+        value=self.role_apis['role_imports'](self.context.plan)
+        require(type(value) is tuple and len(value)==2 and type(value[0]) is bool
+            and type(value[1]) is int and 0<=value[1]<=10000000
+            and value[0] is self.context.absolute_import and (value[0] or value[1]==0))
+        return value
+
     def close(self):
         if self.closed:return
         pending=sys.exception()
-        try:self.final_roles=self.values()
+        try:self.final_roles=self.values();self.final_imports=self.imports()
         except BaseException:
             if pending is None:raise
         finally:
@@ -520,14 +543,17 @@ def compare_guard(loaded,original_guard,stage):
         prepares=dict(zip(FAMILIES,(a-b for a,b in zip(final[0],initial[0]))))
         observations=dict(zip(FAMILIES,(a-b for a,b in zip(final[1],initial[1]))))
         details=adapter.context.apis['descriptor_counts'](adapter.context.plan)
+        absolute,import_calls=adapter.imports()
         require(observations==adapter.calls and all(value>0 for value in prepares.values())
             and not any(adapter.fallbacks.values()) and all(value>0 for value in details['calls'].values())
             and not details['watching'] and not details['code_changed'])
+        require(import_calls>0 if absolute else import_calls==0)
         result={'diagnostic_only':True,'production_adopted':False,'implementation':'C-complete-observation-roles',
             'original_classes_retained':True,'original_descriptors_retained':True,'same_original_actors':True,
             'observations_equal':True,'observation_results_retained':False,'admission_results_retained':False,
             'pairs':rows,'paired_checks':40,'role_prepares':prepares,'native_calls':observations,
             'lexical_calls':details['calls'],'fallbacks':adapter.fallbacks.copy(),
+            'absolute_import_required':absolute,'absolute_import_calls':import_calls,
             'cache_capacity':256,'lexical_cache_entries':details['cache_entries'],
             'lexical_cache_hits':details['cache_hits'],'lexical_cache_misses':details['cache_misses']}
     finally:adapter.close()
