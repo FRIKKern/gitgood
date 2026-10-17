@@ -78,6 +78,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Gate application startup, direct lease initialization and offline maintenance before storage or database actions. Reject unsupported profiles and implicit native downgrade. Add immutable private ownership-record custody with synchronized publication, unchanged retries and retained partial responsibility. Add root supervision without child restarts and a single-session native database lease keeper; actual standalone processes exit on held backend or connection loss. Application integration, live markers and complete native startup remain unfinished.
   Sources: [details 1](docs/implementation/native-application-ownership.md), [details 2](apps/forge/lib/gitgood/installation_profile.ex), [details 3](tools/deployment/native_ownership_records.py), [details 4](apps/forge/lib/gitgood/native_ownership_supervisor.ex), [details 5](apps/forge/lib/gitgood/native_database_lease.ex)
 
+- Connect ordinary controller inspection to serialized Root artifact extraction and independent output validation before durable stage completion. Extend the hosted default-release case to run the full production archive from staged code; live integration, production provisioning, activation and recovery remain unverified.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](docs/implementation/native-root-artifact-dispatch.md), [details 3](tools/deployment/native_artifact_controller.py), [details 4](tools/deployment/native_root_artifact_dispatch.py), [details 5](tools/deployment/test_native_artifact_controller.py), [details 6](tools/deployment/test_native_root_artifact_dispatch.py)
+
 - Inspect digest-pinned Linux native artifacts without extraction or execution, checking bounded paths, matching build identities, migrations and runtime platform before installation staging.
   Sources: [details 1](tools/deployment/inspect_native_artifact.py), [details 2](docs/implementation/installation-upgrade.md)
 
@@ -359,14 +362,47 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Require a local disk-space reserve before large development allocations and prefer hosted verification while preserving source, recovery material and retained evidence during cache cleanup.
   Sources: [details 1](AGENTS.md), [details 2](docs/DEVELOPMENT.md)
 
+- Bracket read-only archive preflight with full original custody checks and verify the held and named archive at every member. Refuse controller or archive loss before extraction. Preserve every write/publication guard, archive bound and deadline; full production staging remains subject to hosted verification.
+  Sources: [details 1](docs/implementation/native-protected-artifact.md), [details 2](tools/deployment/native_protected_artifact.py), [details 3](tools/deployment/test_native_protected_artifact.py)
+
+- Avoid repeated resolving walks at Root artifact directory and private-file boundaries while retaining fresh ancestor, ownership, mode and original descriptor checks.
+  Sources: [details 1](docs/implementation/native-root-artifact-policy.md), [details 2](docs/implementation/native-protected-artifact.md), [details 3](tools/deployment/native_root_artifact_policy.py), [details 4](tools/deployment/native_protected_artifact.py), [details 5](tools/deployment/test_native_artifact_canonical_paths.py), [details 6](.github/workflows/product.yml)
+
+- Reject the bound lexical candidate's 1.500036 guard ratio; prepare fresh combined UID/GID queries without duplicate pre-computation admission, canonical startup builtin checks and actual credential-change coverage, retaining the complete staging and benefit gates.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-metadata-probe.c), [details 3](tools/ci/native_path_probe.py), [details 4](tools/ci/native-descriptor-test.py)
+
+- Prepare four C-bound lexical SDK methods with scoped mutation notifications, complete finite POSIX dependency custody, live owner/function/type checks, restoration and saved-method fallback, additional Root coverage and the unchanged whole-guard benefit gate; hosted verification remains pending.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_path_probe.py), [details 3](tools/ci/native-descriptor-test.py), [details 4](tools/ci/native-metadata-probe.c)
+
 - Hash the five Root-controlled executables once per generation-guard capture, with repeated original file custody checks and both configuration/database observations retained; actual service timing remains unverified.
   Sources: [details 1](docs/implementation/native-generation-lease-guard.md), [details 2](docs/implementation/native-durable-bindings.md), [details 3](tools/deployment/native_durable_binding.py)
+
+- Retain each executable's initial canonical resolution and every fresh original ancestor/leaf metadata check while removing duplicate prefix resolutions. Preserve hashes, alias and replacement refusal, frozen contracts and all stage guards. Keep selected service-property reads after the Root interface experiment showed no staging gain. Full staging remains subject to hosted and later uninstrumented verification.
+  Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](docs/implementation/native-selected-systemd-properties.md), [details 3](tools/deployment/native_durable_binding.py), [details 4](tools/deployment/test_native_executable_capture.py), [details 5](.github/workflows/product.yml)
+
+- Compare fresh native file fingerprints against the original whole Root guard in disposable hosted CI before staging effects; retain original production behavior.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_fingerprint_probe.py), [details 3](tools/ci/native-fingerprint-test.py)
+
+- Identify concrete module, builtin and pathlib self costs in the existing bounded Root guard sample without recording private names or values.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Keep required Root staging diagnostic rows within the existing sample limit and separate fixed filesystem and socket primitive costs without recording paths or values.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Account for the existing Root guard sample's complete self time with fixed categories inside the original row limit, without exposing private data.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
 - Record actual current-CLI recovery after selected owner loss in all seven initial installation stages, lost terminal baseline handoff, and packaged installation with an ordinary database-owner role. Preserve failed harness attempts and private recovery materials; identify systemd delegation and explicit reboot resource generations as the next host dependencies. These same-boot fixtures do not establish managed Cloud or complete journey/release acceptance.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/native-host-prerequisites.md)
 
+- Reject the slower compiled guard-body experiment, retain its semantic and restoration regressions, and remove its runtime from full staging verification.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/guard_body_source.py), [details 3](tools/ci/guard_body_probe.py), [details 4](tools/ci/guard-body-test.py)
+
 - Require original SQL and kernel backend identity in new native ownership claims and monitoring; preserve older records as history and refuse their live readmission. Installed startup and controller recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-kernel-ownership.md), [details 2](apps/forge/lib/gitgood/native_ownership_claim.ex), [details 3](tools/deployment/native_ownership_records.py)
+
+- Compare bounded derived-path plans on original Root actors, preserving the class metadata mutation interface, fresh checks and complete symbol restoration before staging effects.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/lexical_path_probe.py), [details 3](tools/ci/lexical-path-test.py)
 
 - Validate private migration expectations and first-owner inputs against the original captured native lifecycle stage, with detached fixed-action projections and permanent guard poisoning on refusal. Business execution, BEAM transport and complete native startup/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-business-inputs.md), [details 2](tools/deployment/native_lifecycle_business_inputs.py), [details 3](tools/deployment/native_generation_lease_guard.py)
@@ -374,17 +410,128 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Carry the original Root-validated lifecycle stage into native admission replies and match a fixed runtime, migration or bootstrap action before explicit lifecycle startup opens a lease or starts workers. Add an installed startup-boundary exercise with actual Root/input custody and explicitly synthetic stage receipts. Native product callback integration, business effects and interruption recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-worker-admission.md), [details 2](apps/forge/lib/gitgood/installation_generation_admission.ex), [details 3](apps/forge/lib/gitgood/native_lifecycle_action.ex), [details 4](tools/deployment/native_generation_lease_guard.py)
 
+- Verify native guard attribution and counter consistency while retaining the backend's failed benefit gate and incomplete full staging, installation and recovery requirements.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-metadata-probe.c), [details 3](tools/ci/native_metadata_probe.py), [details 4](tools/ci/native-metadata-test.py), [details 5](tools/ci/native_read_probe.py), [details 6](tools/ci/native-read-test.py)
+
 - Record the retained native ownership attachment failure after fresh generation admission and a publication receipt; preserve the failed VM materials and native startup refusal while investigating under unchanged limits.
   Sources: [details 1](docs/implementation/native-ownership-monitor-attachment.md), [details 2](docs/implementation/native-selected-systemd-properties.md)
+
+- Compare hosted compiled path helper bodies on original classes and Root actors, with live globals, refusal tests, code custody and complete descriptor restoration before staging.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/path_body_probe.py), [details 3](tools/ci/path-body-test.py)
+
+- Measure six exact standard-library Path methods in the existing single-guard staging diagnostic while excluding private paths, arguments and results.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Inspect the union of persistent-resource ancestors once per fresh metadata fingerprint, preserving every returned key and original identity, owner, mode, time and link check. Reject path aliases directly without repeated resolution walks. Keep executable capture and all process, service, SQL, socket, history and stage gates; require actual filesystem and complete-stage evidence.
+  Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_generation_lease_guard.py), [details 3](tools/deployment/test_native_persistent_fingerprint.py), [details 4](.github/workflows/product.yml)
+
+- Prepare fixed persistent fingerprint paths once for Root live observations while checking every filesystem entry and metadata value freshly.
+  Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_generation_lease_guard.py), [details 3](tools/deployment/native_root_live_binding.py), [details 4](tools/deployment/test_native_persistent_fingerprint.py), [details 5](tools/deployment/test_native_root_live_binding.py)
+
+- Measure fixed read-only statement preparation on the original Root database session before staging effects, with original validation and methods restored.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_prepared_probe.py), [details 3](tools/ci/native-prepared-test.py)
+
+- Validate private binding path spelling and every fresh real ancestor directly while preserving leaf owner, mode, descriptor, content and hash checks. Remove redundant fixed-root prefix resolution without changing executable aliases, original custody, stage guards, payload or deadline. Require exact hosted filesystem and full staging evidence.
+  Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_durable_binding.py), [details 3](tools/deployment/test_native_durable_binding.py), [details 4](.github/workflows/product.yml)
 
 - Deliver original private lifecycle inputs once through the attached generation monitor, with fixed action, ownership/stage binding, bounded deadlines, independent BEAM validation and credential-redacted OTP status. Add an installed private-input exercise with synthetic payloads; actual business effects and complete native startup/recovery remain unfinished.
   Sources: [details 1](docs/implementation/native-lifecycle-business-inputs.md), [details 2](docs/implementation/native-hosted-ownership.md), [details 3](tools/deployment/native_monitor_business_inputs.py), [details 4](apps/forge/lib/gitgood/native_lifecycle_business_inputs.ex)
 
+- Avoid a repeated private controller-directory resolution walk while retaining fresh ancestor checks and the complete original custody metadata. Require actual Root alias and replacement cases plus the existing complete staging and recovery gates.
+  Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_controller_scope.py), [details 3](tools/deployment/test_native_private_directory.py), [details 4](.github/workflows/product.yml)
+
+- Parse each freshly observed process status once while preserving duplicate-field, UID/GID, group, capability and namespace checks. Keep all process and effect observations fresh.
+  Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_process_status.py), [details 4](.github/workflows/product.yml)
+
+- Verify the four-role lexical SDK candidate's semantic scopes but reject its 1.766213 median guard ratio and zero of twenty faster pairs; complete original staging still times out, so production adoption remains refused.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_path_probe.py), [details 3](tools/ci/native-path-test.py), [details 4](tools/ci/native-metadata-probe.c)
+
+- Queue the same selected typed systemd property requests on the original read-only connection. Bound slots, processing and whole-batch time; cancel every slot on failure, preserve original library custody and return no partial or cached observation. Keep all service, actor and staging gates and require actual native ABI and complete-stage evidence.
+  Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py), [details 3](tools/deployment/test_native_systemd_properties.py)
+
+- Prepare lexical arguments inside all eight C observation roles with original SDK methods, explicit class-owner admission and fresh function/dictionary checks. Reuse the original Root file lexical parent-plan owner, preserving cached-parent mutation and long-path semantics without caching observations or admission. The function-notification revision passed semantics but failed the whole-guard benefit gate; the parent-plan revision remains unverified.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native_role_probe.py), [details 3](tools/ci/native-role-test.py), [details 4](tools/ci/native_path_probe.py)
+
+- Share the original Root reader's validated private configuration only within each existing read-only observation pass. Keep fresh next-pass and standalone observations, full metadata fingerprints, original SQL/client/socket/history checks and every staging effect boundary. Require actual filesystem and full staged-runtime evidence.
+  Sources: [details 1](docs/implementation/native-root-database-reader.md), [details 2](tools/deployment/native_root_database_reader.py), [details 3](tools/deployment/native_durable_binding.py), [details 4](tools/deployment/native_root_database_exclusion.py), [details 5](tools/deployment/test_native_root_configuration.py), [details 6](.github/workflows/product.yml)
+
+- Reuse bounded lexical parent paths during Root file checks while retaining every fresh file and ancestor observation and replacement-refusal boundary.
+  Sources: [details 1](docs/implementation/native-root-live-binding.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_root_file_parent_plan.py), [details 4](.github/workflows/product.yml)
+
+- Validate canonical Root file spelling without a duplicate resolving walk, while retaining fresh checks of every original ancestor and regular single-link leaf. Preserve original metadata, bounded no-follow content reads, permanent loss, all effect guards and deadlines; actual filesystem behavior and full staging require hosted verification.
+  Sources: [details 1](docs/implementation/native-root-file-paths.md), [details 2](tools/deployment/native_service_scope.py), [details 3](tools/deployment/test_native_service_file_custody.py), [details 4](.github/workflows/product.yml)
+
+- Separate Root process and calling-thread CPU time from wall time around existing hosted guard calls without adding calls or profiles.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Measure the fixed single-guard diagnostic in microseconds and include closed copy and canonical serialization counters without emitting paths, callers or values. Keep production modules, full staging, guards and deadlines unchanged.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Diagnose remaining full-staging guard cost with a sample of only fixed read-only guard ten. Preserve original results, exceptions and existing profiler state, and emit only bounded installed code-location and timing rows. Production code, complete payload, effect guards and deadlines remain unchanged; an uninstrumented full proof is still required.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Compare bounded immutable path construction on original Root actors while preserving fresh observations and restoring original code before staging effects.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/immutable_path_probe.py), [details 3](tools/ci/immutable-path-test.py)
+
+- Share duplicate private lifecycle-current and retained-history metadata observations only within each existing original Root read-only pass. Keep the separate final pass fresh, discard failed or closed views, and preserve every effect, writer, socket, SQL, payload and deadline gate. Require actual Root metadata/loss and full staging evidence.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](docs/implementation/native-root-lifecycle.md), [details 3](tools/deployment/native_root_lifecycle.py), [details 4](tools/deployment/test_native_root_lifecycle.py), [details 5](tools/deployment/test_native_root_observation_pass.py)
+
+- Preserve bounded source classifications for the local Root caller when an artifact refusal is successfully delivered. Keep the ordinary response minimal and omit private messages, paths and payloads. Hosted failure evidence adds aggregate archive sizes without changing staging guards, limits, deadlines or the full production payload.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/deployment/native_root_artifact_dispatch.py), [details 3](tools/deployment/test_native_root_artifact_dispatch.py), [details 4](tools/ci/native-owned-proof.py), [details 5](tools/ci/native-owned-test.py)
+
+- Compose Root staging guards from two private read-only observation passes, reusing duplicated upstream observations only within each pass. Start the final pass fresh before every write, poison observed loss and discard all results at boundaries. Preserve original SQL/descriptor/exclusion checks, archive bounds and deadlines; full staging remains subject to exact hosted verification.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/deployment/native_root_controller.py), [details 3](tools/deployment/native_root_artifact_dispatch.py), [details 4](tools/deployment/test_native_root_observation_pass.py), [details 5](tools/deployment/test_native_root_artifact_dispatch.py), [details 6](.github/workflows/product.yml)
+
+- Return hosted Root proof to CPython after the PyPy deadline failure and attribute pathlib costs to bounded public source callers within the original profile cap.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Prepare the two fixed read-only Root observation statements in their original session while retaining fresh results, nonce validation and custody checks.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/deployment/native_root_database_reader.py), [details 3](tools/deployment/test_native_root_database_reader.py), [details 4](tools/ci/native-prepared-test.py)
+
+- Retain validated original generation and lifecycle descriptors for Root staging checks instead of repeatedly replaying unchanged history. Recheck every original file identity, complete directory entry set and change time; preserve effect guards and refuse replacements, edits or lost descriptors. Full production staging and recovery remain subject to hosted verification.
+  Sources: [details 1](docs/implementation/native-root-lifecycle.md), [details 2](tools/deployment/native_root_lifecycle.py), [details 3](tools/deployment/test_native_root_lifecycle.py)
+
+- Record bounded source locations and exception types after a hosted Root runtime compatibility failure, preserving the failed gate and excluding exception values.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/root_runtime_failure.py), [details 3](tools/ci/root-runtime-failure-test.py)
+
+- Test a checksum-pinned PyPy Root helper in disposable hosted CI with unchanged production sources, guards, payload and deadline.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/root_runtime_probe.py), [details 3](tools/ci/root-runtime-test.py)
+
+- Locate remaining native staging cost from individual public helper timings within the existing bounded guard sample; reject the slower compiled path trial.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Use the fixed exclusion SELECT's complete database identity for both readers within each Root read-only staging pass. Query again in the separate final pass and outside a pass; preserve original reader, writer, socket, kernel, framing and effect guards. Full production staging and runtime remain subject to hosted and uninstrumented verification.
+  Sources: [details 1](docs/implementation/native-root-database-reader.md), [details 2](tools/deployment/native_root_database_reader.py), [details 3](tools/deployment/test_native_root_database_reader.py)
+
+- Diagnose full hosted staging with fixed method counts and overlapping elapsed times, without profiler hooks or private inputs. Preserve original calls, results, errors, production modules, guards, payload and deadlines; restore all methods on interruption. Timed runs do not establish production deadline acceptance.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Compare a hosted native selected-systemd query loop on original Root actors after protocol refusal and same-connection checks; preserve original staging behavior and deadlines.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/selected_bus_probe.py), [details 3](tools/ci/selected-bus-test.py)
+
 - Read the fifteen required systemd properties in a bounded live batch with original library custody before and after the batch; preserve typed replies, permanent refusal and existing freshness limits. Installed timing and full native acceptance remain unverified.
   Sources: [details 1](docs/implementation/native-selected-systemd-properties.md), [details 2](tools/deployment/native_systemd_properties.py)
 
+- Use the dispatcher's original retained Root controller observer during protected extraction. Keep standalone capture, fixed-source selection, exact owner/type/installation checks, both fresh read-only passes and every existing effect boundary. Require complete installed staging and runtime evidence.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/deployment/native_protected_artifact.py), [details 3](tools/deployment/native_root_artifact_dispatch.py), [details 4](tools/deployment/test_native_stage_controller_observer.py), [details 5](.github/workflows/product.yml)
+
+- Measure fixed native staging guard costs without publishing private arguments, caller data or arbitrary paths. The full archive and operation deadlines remain unchanged.
+  Sources: [details 1](tools/ci/native-owned-proof.py), [details 2](tools/ci/native-owned-test.py), [details 3](docs/implementation/native-root-database-reader.md)
+
+- Retain bounded fixed-function timing counters for the file, configuration, kernel and socket primitives beneath hosted Root staging observations. Keep private paths, callers, arguments and values excluded; production guards, full archive payload and deadlines remain unchanged.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Add fixed traversal counters to hosted staging diagnostics so incomplete extraction can be distinguished from directory finalization without recording private paths or values.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
+
+- Measure full hosted staging through the installed production call without whole-call tracing overhead. Preserve the complete archive, every original Root guard, fault case and response deadline. Retain prior bounded cost profiles as diagnostic evidence; full staging still requires exact current verification.
+  Sources: [details 1](docs/implementation/native-root-artifact-dispatch.md), [details 2](tools/ci/native-owned-proof.py)
+
 - Record actual ordinary-user systemd delegation, whole-unit descendant cleanup and bounded manager-loss restart. Select a distinct resource-generation profile with immutable original lifecycle history and explicit continuity. The product supervisor, generation protocol, actual reboot, allocation and Cloud acceptance remain unfinished.
   Sources: [details 1](docs/decisions/0018-native-supervision-generations.md), [details 2](docs/implementation/native-supervision-profile.md)
+
+- Observe each original database TCP socket through a fresh bounded individual kernel query instead of a complete TCP table scan. Preserve independent caller admission, exact process namespace, expected UID/loopback tuple, sole original descriptor and existing SQL/lease loss checks; actual Linux behavior and full staging still require hosted verification.
+  Sources: [details 1](docs/implementation/native-tcp-socket-observation.md), [details 2](tools/deployment/native_ownership_database.py), [details 3](tools/deployment/test_native_tcp_socket_observation.py), [details 4](.github/workflows/product.yml)
 
 - Added permission-filtered native search and activity, opaque collaboration links, shared browser access invalidation and audited owner controls for team membership; corrected merge crash proof to bind the clean source candidate and requirement.
   Sources: [details 1](docs/implementation/activity.md), [details 2](docs/decisions/0008-private-discovery.md)
@@ -445,6 +592,9 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 - Accept and preserve the exact first-install UUID in encrypted export and recovery configuration, reject mismatched identity before publication, and rebind it only for an independently allocated retirement verification target. Fresh packaged enrollment and direct five-stage retirement passed without any prior upgrade; terminal/refusal checks and 77-log credential checks passed. Actual partial migration recovery resumed after three of sixteen commits; current integration CI and broader lifecycle/Cloud acceptance remain separate.
   Sources: [details 1](docs/implementation/native-initial-lifecycle.md), [details 2](docs/implementation/installation-retirement.md)
 
+- Preserve the original native artifact staging refusal when its reply connection also fails. Verification can locate the failing boundary without publishing private exception messages or changing stage admission.
+  Sources: [details 1](tools/deployment/native_root_artifact_dispatch.py), [details 2](tools/deployment/test_native_root_artifact_dispatch.py), [details 3](tools/ci/native-owned-proof.py), [details 4](tools/ci/native-owned-test.py), [details 5](docs/implementation/native-root-artifact-dispatch.md)
+
 - Bound installed application-backend discovery to five seconds and require two stable SQL observations plus matching kernel identity checks before committing captures. Preserve post-effect original connection retention, strict selected loss and cleanup requirements without changing production deadlines.
   Sources: [details 1](docs/implementation/native-hosted-ownership.md), [details 2](tools/ci/native-owned-proof.py), [details 3](tools/ci/native-owned-test.py)
 
@@ -468,6 +618,15 @@ Generated from reviewed fragments and [the release manifest](changelog/releases.
 
 - Bound disposable retirement input-fixture cleanup with the existing production database-removal limits while preserving identity checks, no-force behavior and product deadlines.
   Sources: [details 1](docs/implementation/native-retirement-fixture-cleanup.md), [details 2](tools/deployment/test_native_retirement.py)
+
+- Reuse one original read-only database observer during archive staging while keeping fresh checks before every effect. Actual staging performance and original-reader loss verification remain pending.
+  Sources: [details 1](tools/deployment/native_root_database_reader.py), [details 2](tools/deployment/test_native_root_database_reader.py), [details 3](docs/implementation/native-root-database-reader.md)
+
+- Preserve exact Linux controller-lock access checks on runtimes without O_ACCMODE and verify the full descriptor scope under both hosted interpreters.
+  Sources: [details 1](docs/implementation/native-root-controller-request.md), [details 2](tools/deployment/native_root_controller_request.py), [details 3](tools/deployment/test_native_root_controller_request.py)
+
+- Preserve descriptor-bound helper-loss injection in the hosted runtime trial when Python pidfd functions are unavailable, with owned-child tests under both interpreters.
+  Sources: [details 1](docs/implementation/native-artifact-controller.md), [details 2](tools/ci/root_runtime_probe.py), [details 3](tools/ci/root-runtime-pidfd-test.py)
 
 - Require native ownership startup to match its clean compiled build candidate to the Root seal before database lease acquisition and publication.
   Sources: [details 1](docs/implementation/native-ownership-startup.md), [details 2](apps/forge/lib/gitgood/native_ownership_startup.ex)

@@ -1,0 +1,9 @@
+{
+  "id": "native-process-status-parsing",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Parse each freshly observed process status once while preserving duplicate-field, UID/GID, group, capability and namespace checks. Keep all process and effect observations fresh.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-live-binding.md", "tools/deployment/native_service_scope.py", "tools/deployment/test_native_process_status.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

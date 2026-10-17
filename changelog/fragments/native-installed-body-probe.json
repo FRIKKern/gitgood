@@ -1,0 +1,14 @@
+{
+  "id": "native-installed-body-probe",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Reject the slower compiled guard-body experiment, retain its semantic and restoration regressions, and remove its runtime from full staging verification.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-artifact-controller.md",
+    "tools/ci/guard_body_source.py",
+    "tools/ci/guard_body_probe.py",
+    "tools/ci/guard-body-test.py"
+  ],
+  "withdrawn": false
+}

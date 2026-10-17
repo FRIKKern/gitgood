@@ -1,0 +1,9 @@
+{
+  "id": "native-root-observation-passes",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Compose Root staging guards from two private read-only observation passes, reusing duplicated upstream observations only within each pass. Start the final pass fresh before every write, poison observed loss and discard all results at boundaries. Preserve original SQL/descriptor/exclusion checks, archive bounds and deadlines; full staging remains subject to exact hosted verification.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-dispatch.md", "tools/deployment/native_root_controller.py", "tools/deployment/native_root_artifact_dispatch.py", "tools/deployment/test_native_root_observation_pass.py", "tools/deployment/test_native_root_artifact_dispatch.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

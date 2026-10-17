@@ -22,10 +22,9 @@ class LockFdinfoTest(unittest.TestCase):
     raw = b'pos:\t0\nflags:\t02000002\nmnt_id:\t19\nino:\t11691\nlock:\t1: FLOCK ADVISORY WRITE 359 01:02:11691 0 EOF\n'
 
     def parse(self, raw):
-        # Explicit Linux device/mask stand-ins for portable parser checks.
+        # Explicit Linux device stand-ins for portable parser checks.
         with patch.object(root.os,'major',return_value=1,create=True), \
-                patch.object(root.os,'minor',return_value=2,create=True), \
-                patch.object(root.os,'O_ACCMODE',3,create=True):
+                patch.object(root.os,'minor',return_value=2,create=True):
             return root._held_lock(raw,359,self.identity)
 
     def test_exact_exclusive_original_descriptor_metadata_is_retained(self):
@@ -34,6 +33,18 @@ class LockFdinfoTest(unittest.TestCase):
 
     def test_read_only_descriptor_cannot_substitute_for_controller_writer(self):
         with self.assertRaises(root.RootControllerRequestRefused):self.parse(self.raw.replace(b'02000002',b'02000000'))
+
+    def test_only_read_write_access_is_admitted_without_optional_accmode_constant(self):
+        flags = SimpleNamespace(O_WRONLY=1,O_RDWR=2,major=lambda _:1,minor=lambda _:2)
+        self.assertFalse(hasattr(flags,'O_ACCMODE'))
+        with patch.object(root,'os',flags):
+            for extra in (0,0o2004000):
+                for access in range(4):
+                    raw=self.raw.replace(b'02000002',format(extra|access,'o').encode('ascii'))
+                    with self.subTest(extra=extra,access=access):
+                        if access == 2:self.assertEqual(dict(root._held_lock(raw,359,self.identity))['flags'],(format(extra|access,'o'),))
+                        else:
+                            with self.assertRaises(root.RootControllerRequestRefused):root._held_lock(raw,359,self.identity)
 
     def test_shared_foreign_process_or_non_whole_file_lock_refuses(self):
         for before,after in ((b'WRITE',b'READ'),(b'359',b'360'),(b'0 EOF',b'1 EOF'),(b'FLOCK',b'OFDLCK')):

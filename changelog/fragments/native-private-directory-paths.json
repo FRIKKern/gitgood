@@ -1,0 +1,9 @@
+{
+  "id": "native-private-directory-paths",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Avoid a repeated private controller-directory resolution walk while retaining fresh ancestor checks and the complete original custody metadata. Require actual Root alias and replacement cases plus the existing complete staging and recovery gates.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-file-paths.md", "tools/deployment/native_controller_scope.py", "tools/deployment/test_native_private_directory.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

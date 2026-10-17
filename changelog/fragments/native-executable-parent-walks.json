@@ -1,0 +1,9 @@
+{
+  "id": "native-executable-parent-walks",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Retain each executable's initial canonical resolution and every fresh original ancestor/leaf metadata check while removing duplicate prefix resolutions. Preserve hashes, alias and replacement refusal, frozen contracts and all stage guards. Keep selected service-property reads after the Root interface experiment showed no staging gain. Full staging remains subject to hosted and later uninstrumented verification.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-file-paths.md", "docs/implementation/native-selected-systemd-properties.md", "tools/deployment/native_durable_binding.py", "tools/deployment/test_native_executable_capture.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

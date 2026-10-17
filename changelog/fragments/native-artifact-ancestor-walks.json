@@ -1,0 +1,9 @@
+{
+  "id": "native-artifact-ancestor-walks",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Avoid repeated resolving walks at Root artifact directory and private-file boundaries while retaining fresh ancestor, ownership, mode and original descriptor checks.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-policy.md", "docs/implementation/native-protected-artifact.md", "tools/deployment/native_root_artifact_policy.py", "tools/deployment/native_protected_artifact.py", "tools/deployment/test_native_artifact_canonical_paths.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

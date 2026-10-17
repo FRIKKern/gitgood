@@ -55,6 +55,28 @@ Put permission, merge and recovery rules in the forge. Keep browser draft state 
 
 For backend behavior, start with the corresponding file in [forge tests](../apps/forge/test/gitgood/). HTTP boundaries have [web-layer backend tests](../apps/forge/test/gitgood_web/); real browser workflows live in [web e2e tests](../apps/web/e2e/). Native operator tests live alongside their components in [tools/deployment](../tools/deployment/), with recovery checks under [operation tests](../apps/forge/test/operations/). Choose the checks that exercise the changed behavior; see [development](DEVELOPMENT.md#4-check-your-change) for the entry points.
 
+[native_path_probe.py](../tools/ci/native_path_probe.py) and
+[native-path-test.py](../tools/ci/native-path-test.py) retain the rejected pure
+lexical SDK diagnostic. [native-descriptor-test.py](../tools/ci/native-descriptor-test.py)
+exercises its replacement's C-bound methods, scoped code-input notifications,
+restoration and original fallback in [native-metadata-probe.c](../tools/ci/native-metadata-probe.c).
+The hosted workflow runs its actual Root cases and original-actor comparison;
+portable SDK tests alone do not establish native semantics or production benefit.
+The [complete-role candidate](../tools/ci/native_role_probe.py) prepares lexical
+arguments inside the eight C observation roles without SDK descriptor
+replacement. Its [scope and Root tests](../tools/ci/native-role-test.py) retain
+the original refusal fixtures and add a fifth original 372-case Root suite.
+Its closed SDK contract includes Ubuntu's local absolute-test import, with
+fresh import admission and a bounded execution witness. Portable contracts
+pass. Its capture path retains explicit class owners for the native MRO checker.
+The 49-case function-notification revision passed exact semantic review but
+failed the whole-guard benefit gate. The next revision reuses the original Root
+file lexical parent-plan owner, preserves mutated cached-parent semantics and
+retains fresh owner/type/closure checks. Its 51 cases, bounded helper and
+notification witnesses and unchanged benefit gate require hosted verification.
+Read [artifact controller diagnostics](implementation/native-artifact-controller.md)
+before changing the original guard, filesystem observations or staging budget.
+
 ## Generated and local files
 
 Native ownership startup is coordinated by [native_ownership_startup.ex](../apps/forge/lib/gitgood/native_ownership_startup.ex)
@@ -126,11 +148,42 @@ client, socket and database lease/kernel identity. Read [original database
 exclusion](implementation/native-root-database-exclusion.md) for its sampled
 cooperative scope and the artifact authority/dispatch/recovery still needed.
 
+[native_root_database_reader.py](../tools/deployment/native_root_database_reader.py)
+owns one original read-only SQL client only during archive staging. Live identity
+and exclusion views share it without removing effect checks or changing ordinary
+handoff connection rules. Read [retained staging observations](implementation/native-root-database-reader.md)
+for its fixed statements, loss fences and pending actual verification.
+
+[native_ownership_database.py](../tools/deployment/native_ownership_database.py)
+owns the shared, fresh fixed-connection kernel socket query behind independent
+ordinary and Root admission. Read [targeted TCP observation](implementation/native-tcp-socket-observation.md)
+for kernel framing, original process/descriptor checks and pending Linux evidence.
+
+[native_service_scope.py](../tools/deployment/native_service_scope.py) owns the
+Root-controlled file reader and retained metadata validation shared by native
+observers. Read [Root file path validation](implementation/native-root-file-paths.md)
+for canonical spelling, fresh ancestor/leaf checks and actual filesystem cases.
+
+[native_systemd_properties.py](../tools/deployment/native_systemd_properties.py)
+owns typed live manager reads. [Selected and Root interface observations](implementation/native-selected-systemd-properties.md)
+explain selected live reads and the retained interface-decoder experiment.
+
 [native_root_artifact_policy.py](../tools/deployment/native_root_artifact_policy.py)
 owns fixed stage-policy preparation and exclusive Root publication under the
 original exclusion and independently provisioned allocation lock. Read
 [Root artifact policy allocation](implementation/native-root-artifact-policy.md)
-for its unfinished live stage dispatch, provisioning and recovery integration.
+for its original exclusion, allocation flock and retained publication custody.
+
+[native_artifact_controller.py](../tools/deployment/native_artifact_controller.py)
+owns ordinary MainPID inspection, fixed Root socket dispatch, independent staged
+output validation and controlled journal completion while retaining original
+history/writer custody. Its separate reader does not admit application workers.
+[native_root_artifact_dispatch.py](../tools/deployment/native_root_artifact_dispatch.py)
+owns authenticated request/exclusion observation and retains the Root allocation
+flock through protected extraction, closing Root SQL observers before the reply.
+Read [the artifact controller](implementation/native-artifact-controller.md) and
+[Root dispatch](implementation/native-root-artifact-dispatch.md) for the unverified
+live integration, provisioning/listener and recovery requirements.
 
 `JOURNEYS.md`, `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/images/`, `CHANGELOG.md` and the marked README news section have generated views. Change the canonical inputs and run `npm run generate`; see [contribution rules](../CONTRIBUTING.md) for their ownership and validation.
 

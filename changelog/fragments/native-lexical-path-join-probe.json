@@ -1,0 +1,16 @@
+{
+  "id": "native-lexical-path-join-probe",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Compare bounded derived-path plans on original Root actors, preserving the class metadata mutation interface, fresh checks and complete symbol restoration before staging effects.",
+  "journeys": [
+    "J14",
+    "J15"
+  ],
+  "references": [
+    "docs/implementation/native-artifact-controller.md",
+    "tools/ci/lexical_path_probe.py",
+    "tools/ci/lexical-path-test.py"
+  ],
+  "withdrawn": false
+}

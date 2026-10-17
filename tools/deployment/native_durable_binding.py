@@ -31,17 +31,24 @@ def unique(pairs):
     return result
 
 
-def directory(path, uid):
+def _canonical_private_path(path):
     path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts)
+    for parent in path.parents:
+        require(stat.S_ISDIR(parent.lstat().st_mode))
+    return path
+
+
+def directory(path, uid):
+    path = _canonical_private_path(path)
     info = path.lstat()
     require(stat.S_ISDIR(info.st_mode) and info.st_uid == uid and stat.S_IMODE(info.st_mode) == 0o700)
     return {"path": str(path), "device": info.st_dev, "inode": info.st_ino, "uid": uid}
 
 
 def private_file(path, uid, maximum=131072):
-    path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    path = _canonical_private_path(path)
+    require(stat.S_ISREG(path.lstat().st_mode))
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as source:
         before = os.fstat(source.fileno())
@@ -126,7 +133,9 @@ class _CapturedExecutableDigests:
         parents = []
         for parent in path.parents:
             info = parent.lstat()
-            require(parent.resolve(strict=True) == parent and stat.S_ISDIR(info.st_mode))
+            # The complete path was just resolved. Fresh lstat checks of every
+            # real ancestor still reject links without resolving each prefix.
+            require(stat.S_ISDIR(info.st_mode))
             require(info.st_uid == 0 and not info.st_mode & 0o022)
             parents.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_mode))
         info = path.lstat()
@@ -173,23 +182,29 @@ def persistent_identity(root, scope, executables, *, _executable_files=None):
     return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
 
 
-def _root_persistent_identity(root, scope, executables, *, _executable_files=None):
+def _root_persistent_identity(root, scope, executables, *, _executable_files=None, _database_reader=None):
     """Internal Root observation; fixed policy/original scope are caller duties."""
     validate_scope(scope)
     require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
     require(os.readlink('/proc/self/ns/mnt') == scope['manager']['mount_namespace'])
     require(os.readlink('/proc/self/ns/cgroup') == scope['manager']['cgroup_namespace'])
-    return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
+    if _database_reader is None:
+        return _persistent_identity(root, scope, executables, _executable_files=_executable_files)
+    from native_root_database_reader import NativeRootDatabaseReader
+    require(type(_database_reader) is NativeRootDatabaseReader
+        and _database_reader.installation == scope['installation'] and _database_reader.scope == scope)
+    return _persistent_identity(root, scope, executables, _executable_files=_executable_files,
+        _database_reader=_database_reader)
 
 
-def _persistent_identity(root, scope, executables, *, _executable_files=None):
+def _persistent_identity(root, scope, executables, *, _executable_files=None, _database_reader=None):
     """Shared fixed-resource/hash/database validation; supplies no admission."""
     uid = scope['uid']
     root = Path(root)
     require(root == Path("/var/lib/gitgood/installations") / scope["installation"])
     for parent in root.parents:
         info = parent.lstat()
-        require(parent.resolve(strict=True) == parent and stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022)
+        require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022)
     resources = {"root": directory(root, uid)}
     for name in ["configuration", "storage", "ssh-host", "history", "staging"]:
         resources[name] = directory(root / name, uid)
@@ -198,7 +213,15 @@ def _persistent_identity(root, scope, executables, *, _executable_files=None):
     _, machine = root_file("/etc/machine-id", 64)
     require(re.fullmatch(b"[0-9a-f]{32}\n?", machine) and machine.strip() != b"0" * 32)
     release, _ = root_file(Path("/etc/os-release").resolve(strict=True), 4096)
-    files, database_url = configuration(root, scope["installation"], uid)
+    if _database_reader is None:
+        files, database_url = configuration(root, scope["installation"], uid)
+    else:
+        from native_root_database_reader import NativeRootDatabaseReader
+        require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+        require(type(_database_reader) is NativeRootDatabaseReader
+            and _database_reader.installation == scope['installation']
+            and _database_reader.scope == scope and _database_reader.root == root)
+        files, database_url = _database_reader._configuration()
     keys = {name: private_file(root / "ssh-host" / name, uid)[0] for name in ["ssh_host_ed25519_key", "ssh_host_ed25519_key.pub"]}
     require({item.name for item in (root / "ssh-host").iterdir()} == set(keys))
     require(type(executables) is dict and set(executables) == {"python", "node", "git", "psql", "caddy"})
@@ -208,7 +231,16 @@ def _persistent_identity(root, scope, executables, *, _executable_files=None):
     for name, path in executables.items():
         binaries[name] = executable(path) if _executable_files is None else _executable_files.read(path)
     require(len({(item["device"], item["inode"]) for item in binaries.values()}) == 5)
-    database = observe_durable_database(binaries["psql"]["path"], database_url)
+    if _database_reader is None:
+        database = observe_durable_database(binaries["psql"]["path"], database_url)
+    else:
+        from native_root_database_reader import NativeRootDatabaseReader
+        require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
+        require(type(_database_reader) is NativeRootDatabaseReader
+            and _database_reader.installation == scope['installation']
+            and _database_reader.scope == scope and _database_reader.psql == binaries['psql']['path']
+            and _database_reader.files == files and _database_reader.url == database_url)
+        database = _database_reader.identity()
     return {"protocol": 2, "kind": "durable_installation_binding", "installation": scope["installation"],
             "host": {"machine_id": machine.decode("ascii").strip(), "profile": "ubuntu-24.04-linux-x86_64", "os_release": release},
             "account": {"name": "gg_" + base64.b32encode(uuid.UUID(scope["installation"]).bytes).decode("ascii").lower().rstrip("="), "uid": uid, "gid": scope["gid"]}, "resources": resources,

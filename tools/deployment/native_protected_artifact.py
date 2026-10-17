@@ -16,7 +16,7 @@ import threading
 from inspect_native_artifact import inspect_native_artifact
 from native_lifecycle_responsibility import validate_request
 from native_root_controller import NativeRootControllerObservation
-from native_service_scope import _CapturedRootFiles, root_file
+from native_service_scope import _CapturedRootFiles, _root_file_parents, root_file
 from resource_generations import canonical, digest, identifier
 
 RESERVE = 20 * 1024**3
@@ -60,9 +60,16 @@ def fingerprint(info):
         ('st_dev', 'st_ino', 'st_uid', 'st_gid', 'st_mode', 'st_nlink', 'st_size', 'st_mtime_ns', 'st_ctime_ns'))
 
 
+def _artifact_path(path):
+    """Canonical spelling and fresh link refusal; no path observations cached."""
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts)
+    for parent, _ in _root_file_parents(path):require(stat.S_ISDIR(parent.lstat().st_mode))
+    require(not stat.S_ISLNK(path.lstat().st_mode))
+    return path
+
+
 def directory(path, uid, *, private=False):
-    path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    path = _artifact_path(Path(path))
     info = path.lstat()
     require(stat.S_ISDIR(info.st_mode) and info.st_uid == uid and not info.st_mode & 0o022)
     require(not private or stat.S_IMODE(info.st_mode) == 0o700)
@@ -113,7 +120,7 @@ class NativeProtectedArtifactStage:
             require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
             self.owner = (os.getpid(), threading.get_ident())
             self.installation = installation;self.operation = operation
-            self.controller = NativeRootControllerObservation(installation)
+            self.controller = self._controller_observation()
             self.scope = self.controller.check()
             self.policy_path = Path('/etc/gitgood/installations') / installation / 'artifacts' / (operation + '.json')
             self.policy_fingerprint = _CapturedRootFiles._fingerprint(self.policy_path, 32768, False)
@@ -145,8 +152,11 @@ class NativeProtectedArtifactStage:
             self.close()
             raise ProtectedArtifactRefused('Protected native artifact unavailable or changed; retain partial effects') from None
 
+    def _controller_observation(self):
+        return NativeRootControllerObservation(self.installation)
+
     def _private(self, path, maximum):
-        require(path.resolve(strict=True) == path)
+        _artifact_path(path)
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
         try:
             before = os.fstat(fd)
@@ -279,16 +289,23 @@ class NativeProtectedArtifactStage:
     def _preflight_archive(self):
         # The shared inspector remains responsible for the complete inventory
         # and build identity. First bound its gzip/PAX inputs under this seal.
+        # Parsing has no staging effects. Bracket it with full live custody,
+        # as policy inspection does, and pin the archive at every member.
+        self.check()
         os.lseek(self.archive_fd,0,os.SEEK_SET)
         count = 0;total = 0
         with os.fdopen(os.dup(self.archive_fd),'rb') as source, gzip.GzipFile(fileobj=source,mode='rb') as expanded:
             with tarfile.open(fileobj=_BoundedTarHeaders(expanded),mode='r:') as archive:
                 for member in archive:
-                    self.check();count += 1;total += member.size
+                    self._check_archive_input();count += 1;total += member.size
                     require(count <= MAX_MEMBERS and 0 <= total <= MAX_CONTENT)
                     require(len(member.name) <= 1024 and 0 <= member.size <= 128*1024**2)
                     require(not member.issym() or member.name.startswith('forge/'))
         self.check()
+
+    def _check_archive_input(self):
+        require(fingerprint(os.fstat(self.archive_fd)) == self.archive_original
+            == fingerprint(self.source.lstat()))
 
     def stage(self):
         try:
@@ -311,13 +328,13 @@ class NativeProtectedArtifactStage:
             require(self._directory_identity(os.fstat(self.work_fd)) == self.work_identity)
             snapshot = work / 'archive.tar.gz'
             output = os.open('archive.tar.gz', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
-                0o400, dir_fd=self.work_fd)
+                0o444, dir_fd=self.work_fd)
             os.lseek(self.archive_fd, 0, os.SEEK_SET);copied = 0;hashed = hashlib.sha256()
             with os.fdopen(output, 'wb') as destination:
                 while data := os.read(self.archive_fd, 1048576):
                     self.check();copied += len(data);require(copied <= inspected['artifact_bytes'])
                     hashed.update(data);destination.write(data)
-                destination.flush();os.fsync(destination.fileno())
+                destination.flush();os.fchmod(destination.fileno(),0o444);os.fsync(destination.fileno())
             require(copied == inspected['artifact_bytes'] and hashed.hexdigest() == self.policy['archive']['sha256'])
             self.snapshot_fd = os.open('archive.tar.gz', os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=self.work_fd)
             self.archive_snapshot_original = fingerprint(os.fstat(self.snapshot_fd))
@@ -350,7 +367,9 @@ class NativeProtectedArtifactStage:
                         while data := source.read(1048576):
                             self.check();written += len(data);require(written <= member.size)
                             content.update(data);destination.write(data)
-                        require(written == member.size);destination.flush();os.fsync(destination.fileno())
+                        require(written == member.size);destination.flush()
+                        os.fchmod(destination.fileno(),0o555 if member.mode & 0o111 else 0o444)
+                        os.fsync(destination.fileno())
                         original = fingerprint(os.fstat(destination.fileno()))
                         self.output_files['code/'+member.name] = original
                     inventory.append({'path':member.name, 'bytes':written, 'sha256':content.hexdigest(),
@@ -378,7 +397,7 @@ class NativeProtectedArtifactStage:
                 fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
                     0o444, dir_fd=self.work_fd)
                 with os.fdopen(fd, 'wb') as output:
-                    output.write(canonical(value));output.flush();os.fsync(output.fileno())
+                    output.write(canonical(value));output.flush();os.fchmod(output.fileno(),0o444);os.fsync(output.fileno())
                     self.output_files[name] = fingerprint(os.fstat(output.fileno()))
             for name in sorted(self.code_directories, key=lambda name:len(PurePosixPath(name).parts), reverse=True):
                 self.check();fd = self._code_directory(name)

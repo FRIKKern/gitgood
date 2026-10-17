@@ -1,0 +1,9 @@
+{
+  "id": "native-root-guard-cpu",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Separate Root process and calling-thread CPU time from wall time around existing hosted guard calls without adding calls or profiles.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}

@@ -1,0 +1,9 @@
+{
+  "id": "native-stage-traversal-diagnostics",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Add fixed traversal counters to hosted staging diagnostics so incomplete extraction can be distinguished from directory finalization without recording private paths or values.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}

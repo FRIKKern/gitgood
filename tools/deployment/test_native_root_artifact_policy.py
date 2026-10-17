@@ -123,7 +123,7 @@ class RootPolicyFilesystemTest(unittest.TestCase):
             for prefix in ('/etc','/var','/opt'):
                 if value==original_path(prefix) or value.is_relative_to(prefix):return self.base/value.relative_to('/')
             return value
-        original_directory=root._root_directory
+        original_directory=root._root_directory_metadata
         def directory(path):
             # Explicit scratch-ancestor exemption; actual Root-owned files,
             # directory descriptors, flock and rename syscalls remain real.
@@ -132,7 +132,7 @@ class RootPolicyFilesystemTest(unittest.TestCase):
                 info=value.stat();return (info.st_dev,info.st_ino,info.st_uid,info.st_gid,info.st_mode)
             return original_directory(path)
         self.stack.enter_context(patch.object(root,'Path',side_effect=mapped))
-        self.stack.enter_context(patch.object(root,'_root_directory',side_effect=directory))
+        self.stack.enter_context(patch.object(root,'_root_directory_metadata',side_effect=directory))
         self.stack.enter_context(patch.object(root,'NativeRootDatabaseExclusionObservation',Guard))
         self.stack.enter_context(patch.object(root.os,'fstatvfs',return_value=SimpleNamespace(f_bavail=64*1024**3,f_frsize=1)))
 

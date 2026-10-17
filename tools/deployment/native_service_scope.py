@@ -4,6 +4,7 @@ An observation is transient evidence, never permission to signal a later process
 or reuse a cgroup path. No installation, journal or database is changed here.
 """
 import base64
+from functools import lru_cache
 import hashlib
 import os
 from pathlib import Path
@@ -40,10 +41,30 @@ def read_bytes(path, maximum=16384):
     return value
 
 
-def root_file(path, maximum=16777216, *, executable=False):
+def _root_file_path(path):
+    """Canonical POSIX spelling; ancestor/leaf lstat checks reject links."""
     path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
-    for parent in path.parents:
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts)
+    return path
+
+
+@lru_cache(maxsize=64)
+def _root_file_parent_plan(path):
+    """Only immutable lexical paths/names; no observations or validation."""
+    return tuple((parent, str(parent)) for parent in path.parents)
+
+
+def _root_file_parents(path):
+    # Bound retained lexical structure. Longer paths keep the original lazy
+    # walk, with no new admission limit and no filesystem result retained.
+    if len(str(path)) <= 1024 and len(path.parts) <= 64:
+        return _root_file_parent_plan(path)
+    return ((parent, str(parent)) for parent in path.parents)
+
+
+def root_file(path, maximum=16777216, *, executable=False):
+    path = _root_file_path(path)
+    for parent, _ in _root_file_parents(path):
         value = parent.lstat()
         require(stat.S_ISDIR(value.st_mode) and value.st_uid == 0 and not value.st_mode & 0o022)
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
@@ -94,13 +115,14 @@ class _CapturedRootFiles:
 
     @staticmethod
     def _fingerprint(path, maximum, executable):
-        path = Path(path)
-        require(path.is_absolute() and path.resolve(strict=True) == path)
+        # No identity or ancestor result is cached. Every named parent is
+        # lstat-checked below, so a separate resolving walk repeats that work.
+        path = _root_file_path(path)
         parents = []
-        for parent in path.parents:
+        for parent, name in _root_file_parents(path):
             info = parent.lstat()
             require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022)
-            parents.append((str(parent), info.st_dev, info.st_ino, info.st_uid, info.st_mode))
+            parents.append((name, info.st_dev, info.st_ino, info.st_uid, info.st_mode))
         info = path.lstat()
         require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1)
         require(not info.st_mode & 0o022 and 0 < info.st_size <= maximum)
@@ -187,10 +209,21 @@ def parse_properties(raw):
     return result
 
 
-def process_security(status, gid):
+def _process_status_fields(status):
+    """Parse one fresh status read; retain duplicates for the original checks."""
+    names = {'Uid', 'Gid', 'Groups', 'CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb', 'NoNewPrivs'}
+    fields = {}
+    for line in status.splitlines():
+        name, separator, value = line.partition(':')
+        if separator and name in names:
+            fields.setdefault(name, []).append(value.split())
+    return fields
+
+
+def _process_security_fields(fields, gid):
     require(type(gid) is int and 0 < gid < 2**32)
     def field(name):
-        values = [line.partition(":")[2].split() for line in status.splitlines() if line.startswith(name + ":")]
+        values = fields.get(name, [])
         require(len(values) == 1)
         return values[0]
     require(field("Gid") == [str(gid)] * 4)
@@ -204,6 +237,11 @@ def process_security(status, gid):
             "capabilities": {name: 0 for name in capabilities}, "no_new_privileges": True}
 
 
+def process_security(status, gid):
+    require(type(gid) is int and 0 < gid < 2**32)
+    return _process_security_fields(_process_status_fields(status), gid)
+
+
 def process_identity(pid, uid, gid, group):
     require(type(pid) is int and 0 < pid < 2147483648)
     path = Path("/proc") / str(pid)
@@ -211,13 +249,14 @@ def process_identity(pid, uid, gid, group):
     parts = raw[raw.rfind(")") + 2:].split()
     require(len(parts) >= 20 and parts[0] not in {"Z", "X"} and path.stat().st_uid == uid)
     status = read_bytes(path / "status").decode("ascii")
+    fields = _process_status_fields(status)
     for field in ("Uid", "Gid"):
-        values = [line.partition(":")[2].split() for line in status.splitlines() if line.startswith(field + ":")]
+        values = fields.get(field, [])
         require(len(values) == 1 and len(values[0]) == 4 and len(set(values[0])) == 1)
         if field == "Uid":
             require(values[0][0] == str(uid))
     require(read_bytes(path / "cgroup").decode("ascii").splitlines() == ["0::" + group])
-    return {"pid": pid, "birth": parts[19], "uid": uid, "security": process_security(status, gid),
+    return {"pid": pid, "birth": parts[19], "uid": uid, "security": _process_security_fields(fields, gid),
             "mount_namespace": os.readlink(path / "ns/mnt"),
             "cgroup_namespace": os.readlink(path / "ns/cgroup")}
 

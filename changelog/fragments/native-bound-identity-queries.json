@@ -1,0 +1,14 @@
+{
+  "id": "native-bound-identity-queries",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Reject the bound lexical candidate's 1.500036 guard ratio; prepare fresh combined UID/GID queries without duplicate pre-computation admission, canonical startup builtin checks and actual credential-change coverage, retaining the complete staging and benefit gates.",
+  "journeys": ["J14", "J15"],
+  "references": [
+    "docs/implementation/native-artifact-controller.md",
+    "tools/ci/native-metadata-probe.c",
+    "tools/ci/native_path_probe.py",
+    "tools/ci/native-descriptor-test.py"
+  ],
+  "withdrawn": false
+}

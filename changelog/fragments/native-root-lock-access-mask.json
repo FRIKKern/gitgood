@@ -1,0 +1,9 @@
+{
+  "id": "native-root-lock-access-mask",
+  "category": "Fixed",
+  "impact": "operator",
+  "summary": "Preserve exact Linux controller-lock access checks on runtimes without O_ACCMODE and verify the full descriptor scope under both hosted interpreters.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-controller-request.md", "tools/deployment/native_root_controller_request.py", "tools/deployment/test_native_root_controller_request.py"],
+  "withdrawn": false
+}

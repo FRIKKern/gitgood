@@ -22,7 +22,9 @@ def require(value):
 
 def private_directory(path, uid, gid):
     path = Path(path)
-    require(path.is_absolute() and path.resolve(strict=True) == path)
+    # The fresh lstat walk below rejects every ancestor alias. Keep canonical
+    # POSIX spelling without resolving the same chain a second time.
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts and '\0' not in str(path))
     parents = []
     for parent in path.parents:
         info = parent.lstat()

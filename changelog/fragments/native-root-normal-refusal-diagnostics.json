@@ -1,0 +1,9 @@
+{
+  "id": "native-root-normal-refusal-diagnostics",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Preserve bounded source classifications for the local Root caller when an artifact refusal is successfully delivered. Keep the ordinary response minimal and omit private messages, paths and payloads. Hosted failure evidence adds aggregate archive sizes without changing staging guards, limits, deadlines or the full production payload.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-dispatch.md", "tools/deployment/native_root_artifact_dispatch.py", "tools/deployment/test_native_root_artifact_dispatch.py", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}

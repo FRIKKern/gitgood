@@ -1,0 +1,9 @@
+{
+  "id": "native-root-configuration-pass",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Share the original Root reader's validated private configuration only within each existing read-only observation pass. Keep fresh next-pass and standalone observations, full metadata fingerprints, original SQL/client/socket/history checks and every staging effect boundary. Require actual filesystem and full staged-runtime evidence.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-database-reader.md", "tools/deployment/native_root_database_reader.py", "tools/deployment/native_durable_binding.py", "tools/deployment/native_root_database_exclusion.py", "tools/deployment/test_native_root_configuration.py", ".github/workflows/product.yml"],
+  "withdrawn": false
+}

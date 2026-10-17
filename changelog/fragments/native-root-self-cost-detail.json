@@ -1,0 +1,16 @@
+{
+  "id": "native-root-self-cost-detail",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Locate remaining native staging cost from individual public helper timings within the existing bounded guard sample; reject the slower compiled path trial.",
+  "journeys": [
+    "J14",
+    "J15"
+  ],
+  "references": [
+    "docs/implementation/native-artifact-controller.md",
+    "tools/ci/native-owned-proof.py",
+    "tools/ci/native-owned-test.py"
+  ],
+  "withdrawn": false
+}

@@ -1,0 +1,9 @@
+{
+  "id": "native-stage-primitive-costs",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Retain bounded fixed-function timing counters for the file, configuration, kernel and socket primitives beneath hosted Root staging observations. Keep private paths, callers, arguments and values excluded; production guards, full archive payload and deadlines remain unchanged.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-artifact-dispatch.md", "tools/ci/native-owned-proof.py", "tools/ci/native-owned-test.py"],
+  "withdrawn": false
+}

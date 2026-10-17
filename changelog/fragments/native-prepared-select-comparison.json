@@ -1,0 +1,9 @@
+{
+  "id": "native-prepared-select-comparison",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Measure fixed read-only statement preparation on the original Root database session before staging effects, with original validation and methods restored.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "tools/ci/native_prepared_probe.py", "tools/ci/native-prepared-test.py"],
+  "withdrawn": false
+}

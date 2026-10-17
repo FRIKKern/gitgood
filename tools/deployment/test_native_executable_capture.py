@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -89,6 +90,26 @@ class ExecutableCaptureRootTest(unittest.TestCase):
             self.lost()
         finally:
             path.unlink(); self.root.rmdir(); previous.rename(self.root)
+
+    def test_parent_alias_substitution_refuses_with_original_executable_inode(self):
+        parent=self.root/'parent';parent.mkdir(mode=0o700)
+        path=parent/'python';Path(self.paths['python']).rename(path)
+        paths={**self.paths,'python':str(path)}
+        subject=binding._CapturedExecutableDigests(paths);self.addCleanup(subject.close)
+        subject.read(str(path));inode=path.stat().st_ino
+        previous=self.root/'original-parent';parent.rename(previous);parent.symlink_to(previous,target_is_directory=True)
+        self.assertEqual(path.stat().st_ino,inode)
+        with self.assertRaises(binding.BindingRefused):subject.read(str(path))
+        self.assertFalse(subject.usable)
+        self.assertEqual((previous/'python').stat().st_ino,inode)
+
+    def test_repeated_actual_metadata_checks_preserve_five_original_digests(self):
+        original={name:self.subject.read(path) for name,path in self.paths.items()}
+        self.subject.freeze();started=time.monotonic()
+        with patch.object(binding,'executable',side_effect=AssertionError('Unexpected rehash')):
+            for _ in range(20):
+                self.assertEqual({name:self.subject.read(path) for name,path in self.paths.items()},original)
+        print('actual_executable_metadata_reads=100 elapsed_ms='+str(int((time.monotonic()-started)*1000)))
 
     def test_alias_retargeting_refuses(self):
         real = Path(self.paths['python'])

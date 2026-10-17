@@ -38,6 +38,13 @@ descriptor target is checked around the kernel read, and the complete original
 live view and peer/socket identity bracket the observation. The parser uses the
 [Linux kernel's documented fdinfo lock format](https://docs.kernel.org/filesystems/proc.html).
 
+The Linux access mask is expressed through `O_WRONLY | O_RDWR`, retaining the
+exact read/write check on runtimes that do not export `O_ACCMODE`. Read-only,
+write-only and the invalid combined access value still refuse, including when
+unrelated open flags are present. The complete parser scope, including the three
+actual Linux lock cases, runs under CPython and the hosted experimental PyPy
+helper before policy allocation and staging.
+
 Later checks retain the captured descriptor and metadata; an observed change
 permanently poisons the request and closes only its socket and owned Root views.
 The controller's original descriptor, lock, files and history remain. This proves
@@ -54,12 +61,12 @@ It exercises a different process under the same account, a wrong operation from
 the original controller, and repeated successful peer/history-lock observations.
 Those installed results remain unverified until the exact candidate passes.
 
-The fixture's listener allocation and scheduling are not a production Root
-listener or dispatcher. No artifact-stage command is admitted, and the fixture
-still uses metadata for inspection/staging. Database session/kernel/socket
-exclusion, serialization of consequential requests, Root policy allocation,
-actual ordinary inspection/protected staging, interruption reconciliation and
-normal runtime from staged code remain required. Activation/enrollment and full
+The request observer alone grants no artifact effect. The integrated ownership
+proof separately exercises database session/kernel/socket exclusion, serialized
+Root policy allocation, ordinary inspection and protected full archive staging.
+Its fixture listener allocation and scheduling are not a production Root
+listener or dispatcher. Complete installed staging, interruption reconciliation
+and normal runtime from staged code remain required. Activation/enrollment and full
 reboot/replacement recovery remain necessary before J14/J15 acceptance or
 original VM retirement. Status exposes bounded references and observation flags,
 with every effect/exclusion/whole-journey grant false.

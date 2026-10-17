@@ -19,54 +19,85 @@ class GenerationLeaseGuardRefused(Exception):
     pass
 
 
+def _fingerprint_path(raw):
+    path = Path(raw)
+    require(path.is_absolute() and path.anchor == '/' and '..' not in path.parts and '\0' not in str(path))
+    return path
+
+
 def persistent_fingerprint(binding):
     """Metadata of previously content-validated files; never observes a database."""
-    uid = binding['account']['uid']
-    resources = binding['resources']
-    require(set(resources) == {'root', 'configuration', 'storage', 'ssh-host', 'history', 'staging'})
-    root = Path(resources['root']['path'])
-    require({p.name for p in root.iterdir()} == set(resources) - {'root'})
-    require({p.name for p in (root/'configuration').iterdir()} == set(binding['configuration']))
-    require({p.name for p in (root/'ssh-host').iterdir()} == set(binding['ssh_host_keys']))
-    result = {}
-    for item in resources.values():
-        path = Path(item['path']); info = path.lstat()
-        require(path.resolve(strict=True) == path and stat.S_ISDIR(info.st_mode))
-        require(info.st_uid == uid and stat.S_IMODE(info.st_mode) == 0o700)
-        require((info.st_dev, info.st_ino, info.st_uid) == (item['device'], item['inode'], item['uid']))
-        result[str(path)] = (info.st_dev, info.st_ino, info.st_uid, info.st_mode)
-    files = [(item, uid, False) for name in ['configuration', 'ssh_host_keys'] for item in binding[name].values()]
-    files += [(item, 0, True) for item in binding['executables'].values()]
-    files.append((binding['host']['os_release'], 0, False))
-    # machine-id's content was checked in the full persistent observation.
-    machine = Path('/etc/machine-id'); info = machine.lstat()
-    require(machine.resolve(strict=True) == machine and stat.S_ISREG(info.st_mode))
-    require(info.st_uid == 0 and info.st_nlink == 1 and not info.st_mode & 0o022)
-    result[str(machine)] = tuple(getattr(info, field) for field in
-                               ['st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink'])
-    parents = set()
-    for item, owner, executable in files:
-        path = Path(item['path']); info = path.lstat()
-        require(path.resolve(strict=True) == path and stat.S_ISREG(info.st_mode))
-        require(info.st_uid == owner and info.st_nlink == 1 and info.st_size == item['bytes'])
-        require((info.st_dev, info.st_ino) == (item['device'], item['inode']))
-        require(not info.st_mode & 0o022 if owner == 0 else stat.S_IMODE(info.st_mode) == 0o600)
-        require(not executable or info.st_mode & 0o111)
-        result[str(path)] = tuple(getattr(info, field) for field in
-                                 ['st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink'])
-        parents.update(path.parents)
-    for parent in parents:
-        if parent in [root, *root.parents] or parent not in [root/'configuration', root/'ssh-host']:
-            value = parent.lstat()
-            # Every ancestor is inspected with lstat; file canonicalization and
-            # both full fingerprints also bracket these directory identities.
-            require(stat.S_ISDIR(value.st_mode))
-            if parent == root:
-                require(value.st_uid == uid and stat.S_IMODE(value.st_mode) == 0o700)
-            else:
-                require(value.st_uid == 0 and not value.st_mode & 0o022)
-            result[str(parent)] = (value.st_dev, value.st_ino, value.st_uid, value.st_mode)
-    return result
+    return _PersistentFingerprintPlan(binding).read()
+
+
+class _PersistentFingerprintPlan:
+    """Fixed path structure only; every read observes all filesystem metadata anew.
+
+    A retaining caller must separately check its original sealed binding before
+    reading. No filesystem observation, file content or returned result is held.
+    """
+    def __init__(self, binding):
+        self.uid = binding['account']['uid']
+        resources = binding['resources']
+        require(set(resources) == {'root', 'configuration', 'storage', 'ssh-host', 'history', 'staging'})
+        root = _fingerprint_path(resources['root']['path'])
+        self.entries = ((root, frozenset(resources) - {'root'}),
+            (root/'configuration', frozenset(binding['configuration'])),
+            (root/'ssh-host', frozenset(binding['ssh_host_keys'])))
+        parents = set(root.parents);recorded_parents = set();directories = []
+        for item in resources.values():
+            path = _fingerprint_path(item['path'])
+            directories.append((path, str(path), item['device'], item['inode'], item['uid']))
+            parents.update(path.parents)
+        self.directories = tuple(directories)
+        files = [(item, self.uid, False) for name in ['configuration', 'ssh_host_keys'] for item in binding[name].values()]
+        files += [(item, 0, True) for item in binding['executables'].values()]
+        files.append((binding['host']['os_release'], 0, False))
+        self.machine = _fingerprint_path('/etc/machine-id');parents.update(self.machine.parents)
+        file_paths = []
+        for item, owner, executable in files:
+            path = _fingerprint_path(item['path'])
+            file_paths.append((path, str(path), owner, executable, item['bytes'], item['device'], item['inode']))
+            parents.update(path.parents);recorded_parents.update(path.parents)
+        self.files = tuple(file_paths)
+        root_ancestors = {root, *root.parents};private = {root/'configuration', root/'ssh-host'}
+        self.parents = tuple((parent, str(parent), parent in recorded_parents and
+            (parent in root_ancestors or parent not in private), parent == root) for parent in parents)
+
+    def read(self):
+        uid = self.uid;result = {}
+        for path, names in self.entries:
+            require({p.name for p in path.iterdir()} == names)
+        for path, key, device, inode, owner in self.directories:
+            info = path.lstat()
+            require(stat.S_ISDIR(info.st_mode))
+            require(info.st_uid == uid and stat.S_IMODE(info.st_mode) == 0o700)
+            require((info.st_dev, info.st_ino, info.st_uid) == (device, inode, owner))
+            result[key] = (info.st_dev, info.st_ino, info.st_uid, info.st_mode)
+        # machine-id's content was checked in the full persistent observation.
+        info = self.machine.lstat()
+        require(stat.S_ISREG(info.st_mode))
+        require(info.st_uid == 0 and info.st_nlink == 1 and not info.st_mode & 0o022)
+        result[str(self.machine)] = tuple(getattr(info, field) for field in
+            ['st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink'])
+        for path, key, owner, executable, size, device, inode in self.files:
+            info = path.lstat()
+            require(stat.S_ISREG(info.st_mode))
+            require(info.st_uid == owner and info.st_nlink == 1 and info.st_size == size)
+            require((info.st_dev, info.st_ino) == (device, inode))
+            require(not info.st_mode & 0o022 if owner == 0 else stat.S_IMODE(info.st_mode) == 0o600)
+            require(not executable or info.st_mode & 0o111)
+            result[key] = tuple(getattr(info, field) for field in
+                ['st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink'])
+        for parent, key, recorded, is_root in self.parents:
+            value = parent.lstat();require(stat.S_ISDIR(value.st_mode))
+            if recorded:
+                if is_root:
+                    require(value.st_uid == uid and stat.S_IMODE(value.st_mode) == 0o700)
+                else:
+                    require(value.st_uid == 0 and not value.st_mode & 0o022)
+                result[key] = (value.st_dev, value.st_ino, value.st_uid, value.st_mode)
+        return result
 
 
 class NativeGenerationLeaseGuard:

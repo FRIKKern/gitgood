@@ -1,0 +1,9 @@
+{
+  "id": "native-artifact-inspection-controller",
+  "category": "Added",
+  "impact": "operator",
+  "summary": "Connect ordinary controller inspection to serialized Root artifact extraction and independent output validation before durable stage completion. Extend the hosted default-release case to run the full production archive from staged code; live integration, production provisioning, activation and recovery remain unverified.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-artifact-controller.md", "docs/implementation/native-root-artifact-dispatch.md", "tools/deployment/native_artifact_controller.py", "tools/deployment/native_root_artifact_dispatch.py", "tools/deployment/test_native_artifact_controller.py", "tools/deployment/test_native_root_artifact_dispatch.py"],
+  "withdrawn": false
+}

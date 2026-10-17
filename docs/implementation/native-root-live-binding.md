@@ -37,6 +37,45 @@ original sealed current binding, including canonical types. Root namespaces and
 cached binary metadata remain checked; changed original files, resources, live
 database identity, history or process/thread permanently poison the view.
 
+The view prepares the original binding's path objects, expected scalar identity
+records, ancestor union and recorded-parent flags once. This private structural
+plan performs no filesystem I/O and retains no observed metadata or result.
+Every read still enumerates all three directory entry sets and freshly checks
+every original resource, file, machine-id and ancestor with `lstat`. The exact
+original output keys and four/eight metadata fields remain unchanged. The
+canonical sealed binding comparison precedes each plan read, so a changed input
+cannot select another path or identity. Both fingerprints around every live
+observation and the independent final Root observation pass remain required.
+Standalone `persistent_fingerprint` callers construct a fresh plan per call.
+
+Each process identity observation reads its original status text freshly and
+parses the required fields once. The same parsed values feed UID/GID and
+privilege checks; duplicates remain visible and refuse. Four matching credential
+values, the expected UID/GID, bounded supplementary groups, all five empty
+capability sets and enabled `NoNewPrivs` remain required. Unknown fields retain
+their original ignored semantics. Process birth/state, cgroup and namespace
+reads remain fresh and in their original order; no status or identity result is
+cached between observations.
+
+Eight portable parser cases check the original result shape, duplicate and
+missing fields, ignored unknown fields, credential/group/capability predicates,
+fresh reads and refusal order. Three hosted Linux Root cases use only owned
+disposable children with dropped credentials and capabilities to check twenty
+fresh observations, wrong selectors and original-child loss. These actual child
+cases require exact hosted evidence; they grant no service allocation or staging
+authority.
+
+Root file checks reuse a bounded plan of immutable parent paths and names to
+avoid reconstructing the same lexical walk. Spelling validation still precedes
+each walk. At most 64 plans are retained, each for a path of at most 1024
+characters and 64 components; longer paths keep the original lazy walk without
+a new admission limit. Every original ordered parent and leaf metadata read,
+content read and before/after comparison remains fresh. Plans contain no file
+metadata, content, identity or validation outcome. Portable structure, bounds
+and fresh-observation tests accompany a hosted repeat of all eleven Root file
+mutation/observation cases with the plan already warm. These checks do not
+establish the full production archive's staging deadline or staged runtime.
+
 Status includes only operation/candidate references and fixed observation flags.
 It does not return configuration, keys, database details, executable maps or
 private payloads. Closing or refusing leaves every original file, directory,
@@ -50,6 +89,13 @@ constructs it against the actual controller and live binding before the first
 maintenance owner in lifecycle cases. Those observations remain unverified until
 the exact candidate's installed evidence passes; local tests do not establish
 actual PostgreSQL or resource custody.
+
+The reusable plan repeats the standalone fingerprint's actual Root filesystem
+cases, including aliases, same-content replacement, restored modification time,
+ownership, modes, hardlinks and parent replacement preserving executable inodes.
+Additional cases check fresh entry sets and independent returned dictionaries.
+Those synthetic filesystem cases do not establish full binding/content admission,
+the complete archive's staging deadline or subsequent runtime readiness.
 
 Successful live identity observation still grants no lifecycle/database writer
 exclusion, authenticated peer dispatch or artifact allocation. Those boundaries,

@@ -7,9 +7,12 @@ starts a VM, or removes a retained marker. See native-hosted-ownership.md.
 """
 import argparse
 from contextlib import ExitStack
+from functools import cached_property
 import ast
 import base64
+import copy
 import ctypes
+import cProfile
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
@@ -18,6 +21,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import pstats
 import re
 import secrets
 import shutil
@@ -25,12 +29,17 @@ import signal
 import stat
 import subprocess
 import sys
+import tarfile
 import time
 import uuid
 import urllib.error
 import urllib.request
 import socket
 import ssl
+import root_runtime_probe
+import native_read_probe
+import native_path_probe
+import native_role_probe
 
 sys.dont_write_bytecode = True
 LIMITS = {"cpu_quota_us": 200000, "memory_bytes": 536870912}
@@ -319,7 +328,8 @@ def failure_check_site(error):
 
 def manager_failure(detail):
     """Closed metadata only, including an optional fixed manager source site."""
-    if type(detail) is not dict or set(detail) not in ({'phase','error_type'},{'phase','error_type','check_site'}):return None
+    if type(detail) is not dict or set(detail) not in ({'phase','error_type'},
+            {'phase','error_type','check_site'},{'phase','error_type','check_site','artifact_failure'}):return None
     if not all(type(detail[name]) is str and re.fullmatch(r'[a-zA-Z-]{1,64}',detail[name]) for name in ('phase','error_type')):return None
     result = {name:detail[name] for name in ('phase','error_type')}
     if 'check_site' in detail:
@@ -330,7 +340,51 @@ def manager_failure(detail):
                 and type(site['function']) is str and re.fullmatch(r'[a-zA-Z_][a-zA-Z_0-9]{0,63}',site['function'])
                 and type(site['line']) is int and 0 < site['line'] < 10000):result['check_site'] = dict(site)
         else:return None
+    if 'artifact_failure' in detail:
+        observed = artifact_failure(detail['artifact_failure'])
+        if observed is None or detail['phase'] != 'actual-controller-root-artifact-stage':return None
+        result['artifact_failure'] = observed
     return result
+
+
+def artifact_failure(detail):
+    """Validate bounded fixed source metadata, never a free-form traceback."""
+    files = {'native_artifact_controller.py','native_root_artifact_dispatch.py',
+        'native_root_artifact_policy.py','native_protected_artifact.py',
+        'native_root_controller_request.py','native_root_database_exclusion.py',
+        'native_root_live_binding.py','native_root_lifecycle.py',
+        'native_root_controller.py','native_ownership_database.py','native_root_database_reader.py'}
+    functions = {'__init__','check','stage','begin_stage','allocate',
+        '_preflight_archive','_check_archive_input','_inspect','_base','_current','_observe','_query',
+        '_query_database','_lease','_socket','_client','_lock','_validate_stage',
+        '_staged_output','serve_artifact_stage','_exchange','identity','exclusion',
+        '_socket_for_process','_tcp_socket_inode','_tcp_socket_reply'}
+    types = {'RootArtifactDispatchRefused','ArtifactControllerRefused',
+        'RootArtifactPolicyRefused','ProtectedArtifactRefused','RootControllerRequestRefused',
+        'RootDatabaseExclusionRefused','RootLiveBindingRefused','RootLifecycleRefused',
+        'RootControllerRefused','OwnershipDatabaseRefused','RootDatabaseReaderRefused','TimeoutError',
+        'BrokenPipeError','ConnectionResetError','OSError','ValueError','AssertionError','other'}
+    if (type(detail) is not dict or set(detail) != {'chain','elapsed_ms'}
+            or type(detail['elapsed_ms']) is not int or not 0 <= detail['elapsed_ms'] <= 1200000
+            or type(detail['chain']) is not list or not 1 <= len(detail['chain']) <= 16):return None
+    for item in detail['chain']:
+        if (type(item) is not dict or set(item) != {'error_type','check_site'}
+                or type(item['error_type']) is not str or item['error_type'] not in types):return None
+        site = item['check_site']
+        if site == {'status':'unavailable'}:continue
+        if (type(site) is not dict or set(site) != {'file','function','line'}
+                or type(site['file']) is not str or site['file'] not in files
+                or type(site['function']) is not str or site['function'] not in functions
+                or type(site['line']) is not int or not 0 < site['line'] < 10000):return None
+    return json.loads(canonical(detail))
+
+
+def root_stage_refusal(result, elapsed_ms):
+    """Local Root metadata only; ordinary refusal frames contain no diagnosis."""
+    if (type(result) is not dict or set(result) != {'protocol','kind','status','root_refusal'}
+            or type(result['protocol']) is not int or result['protocol'] != 2
+            or result['kind'] != 'native_root_artifact_result' or result['status'] != 'refused'):return None
+    return artifact_failure({'chain':result['root_refusal'],'elapsed_ms':elapsed_ms})
 
 
 def bounded_diagnostic_read(path, maximum=4096):
@@ -667,7 +721,7 @@ StandardError=null
 """.encode()
 
 
-def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False, runtime_effects=False, runtime_schema_refusal=False, public_runtime=False, default_release=False):
+def allocate_case(label, runtime, database, candidate, *, controller=False, lifecycle=False, business_inputs=False, business_effects=False, schema_refusal=False, inventory_refusal=False, runtime_effects=False, runtime_schema_refusal=False, public_runtime=False, default_release=False, artifact_stage=False):
     installation = str(uuid.uuid4())
     account = "gg_" + base64.b32encode(uuid.UUID(installation).bytes).decode().lower().rstrip("=")
     command(["/usr/sbin/useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent",
@@ -746,6 +800,9 @@ def allocate_case(label, runtime, database, candidate, *, controller=False, life
     if default_release:
         require(public_runtime)
         seed['default_release_fixture'] = True
+    if artifact_stage:
+        require(default_release)
+        seed['artifact_stage_fixture'] = True
     if controller:
         directory = Path('/run/gitgood/installations') / installation
         root_directory(directory.parent)
@@ -954,12 +1011,12 @@ def capture_default_attachment(seed, launched, config, database, server_scope):
 def inject_loss(label, captured, session, database):
     if label == "helper-loss":
         helper = captured["helper"]
-        descriptor = os.pidfd_open(helper["pid"], 0)
+        descriptor = root_runtime_probe.pidfd_open(helper["pid"])
         try:
             current = process(helper["pid"])
             require(all(current[name] == helper[name] for name in ["pid", "birth", "uid", "parent", "cgroup"]))
             require(current["state"] not in ["Z", "X"])
-            signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+            root_runtime_probe.pidfd_sigkill(descriptor)
         finally:
             os.close(descriptor)
     elif label == "marker-permission-loss":
@@ -1044,6 +1101,62 @@ def run_case(seed, config, password, database, server_scope):
             "lifecycle_policy_absent": True, "native_application_acceptance": False, "product_controller_verified": False}
 
 
+def provision_stage_archive(seed):
+    """Only the fresh hosted fixture: original complete production payload."""
+    from native_protected_artifact import MAX_ARCHIVE,MAX_CONTENT,MAX_MEMBERS,RESERVE
+    from inspect_native_artifact import inspect_native_artifact
+    source = Path('/var/lib/gitgood/artifact-inputs')/seed['installation']/seed['ownership_operation']
+    policy = Path(seed['seal_directory'])/'artifacts'
+    destination = Path('/opt/gitgood/artifacts')/seed['installation']
+    for directory in (source,policy,destination):
+        require(not directory.exists());root_directory(directory)
+    write_new(policy/'allocation-lock-v1',b'',0o600)
+    payloads = [];total = 0
+    for name,path in (('forge',Path(seed['release'])),('web',Path(seed['web']))):
+        paths,amount = copy_inventory(path);total += amount
+        payloads.append((path,name))
+        payloads.extend((entry,name+'/'+str(entry.relative_to(path))) for entry in paths)
+    require(len(payloads) <= MAX_MEMBERS and total <= MAX_CONTENT)
+    estimate = total+len(payloads)*8192+1048576
+    for directory in (Path('/'),source):
+        capacity = os.statvfs(directory);require(capacity.f_bavail*capacity.f_frsize >= RESERVE+estimate)
+    archive = source/'archive.tar.gz'
+    originals = {path:tuple(getattr(path.lstat(),field) for field in
+        ('st_dev','st_ino','st_uid','st_gid','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns')) for path,_ in payloads}
+    metrics = {'members':0,'declared_bytes':0,'max_member_bytes':0,'max_name_length':0}
+    with archive.open('xb') as output:
+        with tarfile.open(fileobj=output,mode='w:gz',format=tarfile.PAX_FORMAT) as target:
+            for path,name in payloads:
+                info = target.gettarinfo(str(path),name);info.uid=info.gid=0;info.uname=info.gname=''
+                metrics['members'] += 1;metrics['declared_bytes'] += info.size
+                metrics['max_member_bytes'] = max(metrics['max_member_bytes'],info.size)
+                metrics['max_name_length'] = max(metrics['max_name_length'],len(info.name))
+                if info.isfile():
+                    with path.open('rb') as content:target.addfile(info,content)
+                else:require(info.isdir());target.addfile(info)
+        output.flush();os.fchmod(output.fileno(),0o444);os.fsync(output.fileno())
+    require(0 < archive.stat().st_size <= MAX_ARCHIVE)
+    for path,original in originals.items():
+        require(tuple(getattr(path.lstat(),field) for field in
+            ('st_dev','st_ino','st_uid','st_gid','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns')) == original)
+    sha = digest(archive);inspected = inspect_native_artifact(archive,sha,seed['candidate'])
+    require(inspected['members'] == len(payloads))
+    require(metrics['members'] == inspected['members'] and metrics['declared_bytes'] == inspected['declared_bytes'])
+    seed['archive_member_metrics'] = metrics
+    return {'protocol':2,'kind':'native_artifact_declaration','installation':seed['installation'],
+        'operation':seed['ownership_operation'],'candidate':seed['candidate'],'sha256':sha,'bytes':archive.stat().st_size}
+
+
+def seal_public_runtime(seed,binding_sha256):
+    from native_public_runtime import web_inventory
+    from native_service_scope import root_file
+    web,_ = web_inventory(seed['web'],seed['candidate'])
+    edge_template,_ = root_file(Path(seed['edge_template']),16384)
+    write_new(Path(seed['seal_directory'])/'public-runtime-v2.json',{'protocol':2,'kind':'native_public_runtime_seal',
+        'installation':seed['installation'],'operation':seed['ownership_operation'],
+        'candidate':seed['candidate'],'binding_sha256':binding_sha256,'web':web,'edge_template':edge_template})
+
+
 def seal_lifecycle_fixture(seed, binding_sha256):
     """Real Root/input custody, with explicitly synthetic stage observations."""
     from native_operation_inputs import file_identity, file_record
@@ -1052,6 +1165,7 @@ def seal_lifecycle_fixture(seed, binding_sha256):
     root_directory(directory.parent)
     directory.mkdir(mode=0o700)
     os.chown(directory, seed['uid'], seed['gid'])
+    artifact = provision_stage_archive(seed) if seed.get('artifact_stage_fixture') else None
     for name in ('allocation.json', 'inputs.json'):
         payload = {'protocol': 2, 'fixture_only': True, 'business_stage_effects_verified': False}
         if name == 'inputs.json' and seed.get('business_inputs_fixture'):
@@ -1068,6 +1182,7 @@ def seal_lifecycle_fixture(seed, binding_sha256):
                 'migrations': {'before_versions': [], 'target_versions': target_versions},
                 'bootstrap': {'installation': seed['installation'], 'request': seed['ownership_operation'],
                     'username': 'owner', 'team': 'pilot', 'password': 'synthetic-secret-éé'}}
+        if name == 'inputs.json' and artifact is not None:payload['artifact'] = artifact
         write_new(directory / name, payload, 0o600, seed['uid'], seed['gid'])
     declared = {name: {'bytes': (directory / name).stat().st_size,
                       'sha256': hashlib.sha256((directory / name).read_bytes()).hexdigest()}
@@ -1091,15 +1206,7 @@ def seal_lifecycle_fixture(seed, binding_sha256):
         'candidate': seed['candidate'], 'request_sha256': hashlib.sha256(canonical(request)).hexdigest(),
         'inputs_seal_sha256': hashlib.sha256(canonical(operation)).hexdigest(), 'uid': seed['uid'], 'gid': seed['gid']}
     write_new(seal / 'lifecycle-worker-admission-v2.json', policy)
-    if seed.get('public_runtime_fixture'):
-        from native_public_runtime import web_inventory
-        from native_service_scope import root_file
-        web, _ = web_inventory(seed['web'], seed['candidate'])
-        edge_template, _ = root_file(Path(seed['edge_template']), 16384)
-        write_new(seal / 'public-runtime-v2.json', {'protocol': 2, 'kind': 'native_public_runtime_seal',
-            'installation': seed['installation'], 'operation': seed['ownership_operation'],
-            'candidate': seed['candidate'], 'binding_sha256': binding_sha256,
-            'web': web, 'edge_template': edge_template})
+    if seed.get('public_runtime_fixture') and artifact is None:seal_public_runtime(seed,binding_sha256)
     paths = [seal / 'lifecycle-worker-admission-v2.json',
              seal / 'operations' / (seed['ownership_operation'] + '.json'),
              *(directory / name for name in ('request.json', 'allocation.json', 'inputs.json'))]
@@ -1160,6 +1267,9 @@ def observe_fixture_lifecycle_history(seed, pointer, preserved):
     receipts = {stage: sha({'fixture_only': True, 'business_stage_effects_verified': False,
         **({'ownership_boundary_observed': label} if label else {})})
         for stage, label in zip(stages, (None, None, 'migration-owner', 'bootstrap-owner', 'runtime-owner'))}
+    if seed.get('artifact_stage_fixture'):
+        actual = read_json(Path(seed['run'])/'artifact-stage-complete.json')
+        receipts.update(inspect=actual['inspection_receipt_sha256'],stage=actual['stage_receipt_sha256'])
     require([(event['stage'], event['evidence']['receipt_sha256']) for event in tip['events']
              if event['kind'] == 'succeeded'] == [(stage, receipts[stage]) for stage in stages])
     check_inputs()
@@ -1170,6 +1280,496 @@ def observe_fixture_lifecycle_history(seed, pointer, preserved):
 def run_successor_case(seed, config, password, database, server_scope):
     with ExitStack() as root_views:
         return _run_successor_case(seed,config,password,database,server_scope,root_views)
+
+
+def root_reader_loss_checks(seed, database, server_scope):
+    """Disposable fixture faults target only its newly owned Root SQL readers."""
+    from native_root_live_binding import NativeRootLiveBindingObservation, RootLiveBindingRefused
+    name = 'gg_proof_'+seed['installation'].replace('-','')
+    def writer():
+        rows = database.query("SELECT a.pid::text||':'||floor(extract(epoch FROM a.backend_start)*1000000)::bigint::text "
+            "FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid WHERE a.datname='"+name+
+            "' AND a.usename='"+seed['account']+"' AND l.locktype='advisory' AND l.granted "
+            "AND l.classid::bigint=1197034575 AND l.objid::bigint=1 AND l.objsubid=2 "
+            "AND l.mode='ExclusiveLock'").splitlines()
+        require(len(rows) == 1 and re.fullmatch(r'[1-9][0-9]{0,9}:[1-9][0-9]{0,19}',rows[0]))
+        pid = int(rows[0].split(':')[0]);require(pid < 2**31)
+        actual = process(pid);require(actual['uid'] == server_scope['postgres_uid'] and actual['state'] not in {'Z','X'})
+        return rows[0],{name:actual[name] for name in ('pid','birth','uid','cgroup')}
+    original_writer = writer();results = {}
+    for fault in ('owned-client-loss','owned-backend-loss'):
+        view = NativeRootLiveBindingObservation(seed['installation'],seed['ownership_operation'])
+        try:
+            require(view.check() == view.check())
+            reader = view.database_reader;require(reader is not None)
+            client = process(reader.child.pid);backend = process(reader.reader['backend_pid'])
+            require(client['uid'] == 0 and client['birth'] == reader.client['birth'] and client['state'] not in {'Z','X'})
+            require(backend['uid'] == server_scope['postgres_uid'] and backend['birth'] == reader.kernel
+                and backend['state'] not in {'Z','X'})
+            require(reader.reader['read_only'] == 'on' and reader.reader['isolation'] == 'read committed'
+                and reader.reader['held'] is False and writer() == original_writer)
+            pid = reader.reader['backend_pid'];birth = reader.reader['backend_birth']
+            require(type(pid) is int and 0 < pid < 2**31 and re.fullmatch(r'[1-9][0-9]{0,19}',birth))
+            predicate = (f"pid={pid} AND floor(extract(epoch FROM backend_start)*1000000)::bigint={birth} "
+                "AND datname='"+name+"' AND usename='"+seed['account']+
+                "' AND application_name='gitgood native root read-only observer v2'")
+            require(database.query('SELECT count(*) FROM pg_stat_activity WHERE '+predicate) == '1')
+            if fault == 'owned-client-loss':
+                reader.child.kill();reader.child.wait(timeout=5)
+            else:
+                require(database.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE '+predicate) == 't')
+            try:view.check()
+            except RootLiveBindingRefused:require(not view.usable and not reader.usable)
+            else:require(False)
+            try:view.check()
+            except RootLiveBindingRefused:require(not view.usable and not reader.usable)
+            else:require(False)
+            require(writer() == original_writer and not absent(original_writer[1]))
+            results[fault] = True
+        finally:view.close()
+    require(set(results) == {'owned-client-loss','owned-backend-loss'} and all(results.values()))
+    return {'owned_root_client_loss_refused':True,'owned_root_backend_loss_refused':True,
+        'original_ordinary_writer_retained':True,'reconnection_or_replacement':False,
+        'complete_journey_acceptance':False}
+
+
+def root_guard_self_costs(stats):
+    """Disjoint self-time totals only; unknown names remain unnamed."""
+    totals = {name:[0,0.0] for name in ('installed_python','pathlib_python','copy_python',
+        'json_python','regex_python','uuid_python','builtin','other_python')}
+    path_files = {method.__code__.co_filename for method in
+        (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
+    path_packages = {Path(name).parent for name in path_files if Path(name).parent.name == 'pathlib'}
+    for (filename,line,_function),(_primitive,calls,total,_cumulative,_callers) in stats.items():
+        require(type(filename) is str and type(line) is int)
+        require(type(calls) is int and 0 <= calls <= 10000000)
+        require(type(total) in {int,float} and 0 <= total <= 1200)
+        path = Path(filename)
+        if filename == '~' and line == 0:category = 'builtin'
+        elif path.parent == MODULES and path.suffix == '.py':category = 'installed_python'
+        elif filename in path_files or any(path.is_relative_to(parent) for parent in path_packages):category = 'pathlib_python'
+        elif path == Path(copy.__file__):category = 'copy_python'
+        elif path.parent == Path(json.__file__).parent:category = 'json_python'
+        elif path.parent == Path(re.__file__).parent:category = 'regex_python'
+        elif path == Path(uuid.__file__):category = 'uuid_python'
+        else:category = 'other_python'
+        totals[category][0] += calls;totals[category][1] += total
+    require(all(calls <= 10000000 and total <= 1200 for calls,total in totals.values()))
+    return [{'file':'guard-self-costs.py','function':category,'line':0,'calls':calls,
+        'self_ms':int(total*1000),'cumulative_ms':int(total*1000),
+        'self_us':int(total*1000000),'cumulative_us':int(total*1000000)}
+        for category,(calls,total) in sorted(totals.items())]
+
+
+def root_guard_builtin_self_codes():
+    """Closed CPython builtin keys; no names taken from measured values."""
+    functions = ('all','any','getattr','hasattr','hash','isinstance','issubclass','iter','len','next','setattr','sorted','sum','min','max')
+    methods = (
+        ('dict','get','dict_get'),('dict','items','dict_items'),('dict','values','dict_values'),
+        ('dict','keys','dict_keys'),('dict','copy','dict_copy'),('dict','update','dict_update'),
+        ('dict','setdefault','dict_setdefault'),('dict','pop','dict_pop'),
+        ('list','append','list_append'),('list','extend','list_extend'),('list','pop','list_pop'),
+        ('set','add','set_add'),('set','update','set_update'),
+        ('str','join','str_join'),('str','split','str_split'),('str','splitlines','str_splitlines'),
+        ('str','startswith','str_startswith'),('str','endswith','str_endswith'),('str','partition','str_partition'),
+        ('str','encode','str_encode'),('str','strip','str_strip'),('str','rfind','str_rfind'),('str','replace','str_replace'),
+        ('bytes','decode','bytes_decode'),('bytes','split','bytes_split'),('bytes','splitlines','bytes_splitlines'),
+        ('bytes','startswith','bytes_startswith'),('bytes','partition','bytes_partition'),('bytes','strip','bytes_strip'),
+        ('bytearray','extend','bytearray_extend'),
+        ('_io.BufferedReader','read','buffered_read'),('_io.BufferedRandom','read','buffered_random_read'),
+        ('_io.FileIO','read','file_read'),('_io.FileIO','readall','file_readall'),
+        ('_io.TextIOWrapper','read','text_read'),('_io._IOBase','__exit__','io_exit'),
+        ('_io.BufferedWriter','write','buffered_write'),('_io.BufferedWriter','flush','buffered_flush'),
+        ('_io.FileIO','write','file_write'),('_io._IOBase','flush','io_flush'),
+        ('_thread.lock','acquire','lock_acquire'),('select.epoll','poll','epoll_poll'))
+    others = (('_io.open','io_open'),('posix.getuid','getuid'),('posix.geteuid','geteuid'),
+        ('posix.getgid','getgid'),('posix.getegid','getegid'),('posix.getpid','getpid'),
+        ('posix.getxattr','getxattr'),('posix.dup','dup'),('_thread.get_ident','thread_ident'),
+        ('time.monotonic','monotonic'),('time.perf_counter','perf_counter'),('pwd.getpwnam','account_lookup'),
+        ('_ctypes.byref','ctypes_byref'),('_ctypes.sizeof','ctypes_sizeof'))
+    codes = {('~',0,'<built-in method builtins.'+name+'>'):name for name in functions}
+    codes.update({('~',0,"<method '"+method+"' of '"+owner+"' objects>"):tag for owner,method,tag in methods})
+    codes.update({('~',0,'<built-in method '+name+'>'):tag for name,tag in others})
+    return codes
+
+
+def root_guard_path_helper_codes(excluded):
+    """Only fixed attributes' exact loaded pathlib code objects."""
+    names = ('__new__','__init__','__fspath__','__hash__','__eq__','__lt__','__le__','__gt__','__ge__',
+        '__getitem__','__len__','_load_parts','_parse_path','_parse_parts','_parse_args',
+        '_from_parts','_from_parsed_parts','_from_parsed_string','_format_parsed_parts',
+        '_make_child','_make_child_relpath','_str','_str_normcase','_parts_normcase','_tail',
+        'with_segments','drive','root','anchor','name','parts','parents','parent','is_absolute',
+        'as_posix','joinpath','relative_to','is_relative_to')
+    files = {method.__code__.co_filename for method in
+        (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
+    packages = {Path(name).parent for name in files if Path(name).parent.name == 'pathlib'}
+    codes = {}
+    for owner in (*Path.__mro__,type(Path('/').parents)):
+        for name in names:
+            value = vars(owner).get(name)
+            if isinstance(value,property):value = value.fget
+            elif isinstance(value,(staticmethod,classmethod)):value = value.__func__
+            elif isinstance(value,cached_property):value = value.func
+            for _ in range(4):
+                wrapped = getattr(value,'__wrapped__',None)
+                if wrapped is None:break
+                value = wrapped
+            code = getattr(value,'__code__',None)
+            if code is None or code.co_name not in names:continue
+            key = (code.co_filename,code.co_firstlineno,code.co_name)
+            if key not in excluded and (code.co_filename in files or
+                    any(Path(code.co_filename).is_relative_to(parent) for parent in packages)):
+                codes[key] = code.co_name
+    return codes
+
+
+def root_guard_hot_self(stats,excluded_path_codes):
+    """Bounded self-cost rows from public modules and closed runtime keys."""
+    modules = {
+        'enrollment_journal.py','generation_custody.py','generation_publication.py','inspect_native_artifact.py',
+        'native_actions.py','native_artifact_controller.py','native_backend_observation.py','native_backend_observation_entry.py',
+        'native_backend_scope.py','native_command_endpoint.py','native_command_wire.py','native_controller_scope.py',
+        'native_durable_binding.py','native_durable_database.py','native_generation_admission.py','native_generation_admission_entry.py',
+        'native_generation_lease_guard.py','native_generation_monitor.py','native_generation_monitor_entry.py','native_generation_reader.py',
+        'native_inventory.py','native_kernel_backend.py','native_lifecycle_business_inputs.py','native_lifecycle_generation_reader.py',
+        'native_lifecycle_history.py','native_lifecycle_responsibility.py','native_lifecycle_worker_inputs.py',
+        'native_monitor_business_inputs.py','native_monitor_ownership_attachment.py','native_operation_inputs.py',
+        'native_ownership_controller.py','native_ownership_database.py','native_ownership_handoff.py','native_ownership_handoff_entry.py',
+        'native_ownership_marker_guard.py','native_ownership_markers.py','native_ownership_observation.py',
+        'native_ownership_publication.py','native_ownership_publication_entry.py','native_ownership_records.py',
+        'native_ownership_transition.py','native_prior_backend.py','native_protected_artifact.py','native_public_runtime.py',
+        'native_root_artifact_dispatch.py','native_root_artifact_policy.py','native_root_controller.py','native_root_controller_request.py',
+        'native_root_database_exclusion.py','native_root_database_reader.py','native_root_lifecycle.py','native_root_live_binding.py',
+        'native_service_scope.py','native_systemd_properties.py','native_worker_scope.py','native_writer_exclusion.py',
+        'resource_generations.py','stage_native_artifact.py','upgrade_journal.py'}
+    builtin_codes = root_guard_builtin_self_codes();path_codes = root_guard_path_helper_codes(excluded_path_codes)
+    module_totals = {};builtin_totals = {};path_totals = {}
+    def add(totals,key,calls,total):
+        count,elapsed = totals.get(key,(0,0.0));count += calls;elapsed += total
+        require(count <= 10000000 and elapsed <= 1200);totals[key] = count,elapsed
+    for (filename,line,function),(_primitive,calls,total,_cumulative,_callers) in stats.items():
+        require(type(filename) is str and type(line) is int and type(function) is str)
+        require(type(calls) is int and 0 <= calls <= 10000000)
+        require(type(total) in {int,float} and 0 <= total <= 1200)
+        path = Path(filename);key = filename,line,function
+        if path.parent == MODULES and path.name in modules:add(module_totals,(path.name,'module_self',0),calls,total)
+        if key in builtin_codes:add(builtin_totals,('builtin-self.py',builtin_codes[key],0),calls,total)
+        if key in path_codes and 0 < line < 10000:add(path_totals,('pathlib-self.py',path_codes[key],line),calls,total)
+    def selected(totals,maximum):
+        rows = [{'file':file,'function':function,'line':line,'calls':calls,
+            'self_ms':int(total*1000),'cumulative_ms':int(total*1000),
+            'self_us':int(total*1000000),'cumulative_us':int(total*1000000)}
+            for (file,function,line),(calls,total) in totals.items()]
+        return sorted(rows,key=lambda row:(-row['self_us'],-row['calls'],row['file'],row['function'],row['line']))[:maximum]
+    return selected(module_totals,8)+selected(builtin_totals,8)+selected(path_totals,9)
+
+
+def root_guard_path_callers(stats, allowed, path_codes):
+    """Direct public source-to-pathlib edge totals from the existing sample."""
+    totals = {}
+    for key, values in stats.items():
+        if key not in path_codes:continue
+        callers = values[4];require(type(callers) is dict)
+        for caller, costs in callers.items():
+            if type(caller) is not tuple or len(caller) != 3:continue
+            filename,line,function = caller
+            if type(filename) is not str or type(function) is not str:continue
+            path = Path(filename)
+            if (path.parent != MODULES or not path.name.startswith('native_') or
+                    path.name not in allowed or function not in allowed[path.name]):continue
+            require(type(line) is int and 0 < line < 10000)
+            require(type(costs) is tuple and len(costs) == 4)
+            primitive,calls,total,cumulative = costs
+            require(all(type(value) is int and 0 <= value <= 10000000 for value in (primitive,calls)))
+            require(all(type(value) in {int,float} and 0 <= value <= 1200 for value in (total,cumulative)))
+            label = (path.name[:-3]+'.'+function,line)
+            count,elapsed = totals.get(label,(0,0.0));count += calls;elapsed += cumulative
+            require(count <= 10000000 and elapsed <= 1200);totals[label] = count,elapsed
+    rows = [{'file':'path-callers.py','function':function,'line':line,'calls':calls,
+        'self_ms':0,'self_us':0,'cumulative_ms':int(elapsed*1000),'cumulative_us':int(elapsed*1000000)}
+        for (function,line),(calls,elapsed) in totals.items()]
+    return sorted(rows,key=lambda row:(-row['cumulative_us'],-row['calls'],row['function'],row['line']))[:8]
+
+
+ROOT_GUARD_SELF_FUNCTIONS = {
+    'native_service_scope.py': {
+        '__init__','_fingerprint','_observe_allocated_service','_observe_root_controller','_observe_service',
+        '_process_security_fields','_process_status_fields','_root_file_parent_plan','_root_file_parents',
+        '_root_file_path','bounded_command','close','field','freeze','group_identity','installed_version',
+        'members','observe_service','parse_properties','process_identity','process_security','read',
+        'read_bytes','require','root_file','systemd_properties',},
+    'native_systemd_properties.py': {
+        '__init__','_get','_get_all','_get_many','_get_many_serial','_read_property','_read_selected',
+        '_read_value','_string','close','completed','manager_version','require','unit_properties',},
+    'native_kernel_backend.py': {
+        '_capture_process','_check_scope','_kernel_absence','_positive','_read','_stat','_status',
+        '_validate_record','_validate_scope','capture_backend_kernel_identity',
+        'observe_held_backend_kernel_identity','observe_prior_backend_identity_absence','require',},
+    'native_durable_binding.py': {
+        '__init__','_canonical_private_path','_fingerprint','_persistent_identity',
+        '_root_persistent_identity','close','configuration','directory','executable','freeze',
+        'observe_durable_binding','persistent_identity','private_file','read','require','unique',},
+    'native_root_database_reader.py': {
+        '__init__','_base','_binary','_client','_configuration','_exchange','_file','_reader',
+        '_stage_observation','_statement','close','exclusion','identity','require',},
+    'native_root_lifecycle.py': {
+        '__enter__','__exit__','__init__','_current','_directory','_directory_metadata','_file','_identity',
+        '_layout','_lifecycle_view','_names','_open','_pin_snapshot','_root','_snapshot','_write','admit',
+        'borrow_custody','check','close','parse_generation_seal','publish','require','retain','root_owner',},
+    'resource_generations.py': {
+        'canonical','closed','digest','directory','generation_sha256','identifier','integer',
+        'make_generation','parse_generation','require','unique','validate_generation','validate_scope',
+        'validate_successor',},
+}
+
+
+def root_guard_installed_self(stats):
+    """Eight public function self costs from the same existing guard profile.
+
+    This closed source inventory names functions in measured hot modules. Only
+    their public source label/line and bounded numeric costs leave the profile.
+    No source, caller mapping, argument, local or observation is read here.
+    """
+    rows = []
+    for (filename,line,function),(_primitive,calls,total,_cumulative,_callers) in stats.items():
+        if type(filename) is not str or type(function) is not str:continue
+        path = Path(filename)
+        if (path.parent != MODULES or path.name not in ROOT_GUARD_SELF_FUNCTIONS or
+                function not in ROOT_GUARD_SELF_FUNCTIONS[path.name]):continue
+        require(type(line) is int and 0 < line < 10000)
+        require(type(calls) is int and 0 <= calls <= 10000000)
+        require(type(total) in {int,float} and 0 <= total <= 1200)
+        rows.append({'file':'installed-self.py','function':path.stem+'.'+function,'line':line,'calls':calls,
+            'self_ms':int(total*1000),'cumulative_ms':int(total*1000),
+            'self_us':int(total*1000000),'cumulative_us':int(total*1000000)})
+    return sorted(rows,key=lambda row:(-row['self_us'],-row['calls'],row['function'],row['line']))[:8]
+
+
+def root_stage_profile(profile):
+    """Closed public code counters only; no stacks, argument values or paths."""
+    allowed = {
+        'native_protected_artifact.py':{'stage','check','_preflight_archive','_check_archive_input','_check_output','directory','_artifact_path'},
+        'native_root_artifact_dispatch.py':{'stage','check','serve_artifact_stage'},
+        'native_root_artifact_policy.py':{'allocate','check','_inspect','_directory','_root_directory_metadata'},
+        'native_root_database_exclusion.py':{'check','_base','_query','_socket','_client'},
+        'native_root_database_reader.py':{'_base','_exchange','_client','_configuration'},
+        'native_root_live_binding.py':{'check','_observe','_current'},
+        'native_root_lifecycle.py':{'check','_snapshot','_current','_identity','_names','_file'},
+        'native_root_controller.py':{'check','_service','observed'},
+        'native_service_scope.py':{'_observe_allocated_service','read_bytes','root_file',
+            'read','_fingerprint','_root_file_path','process_identity','process_security',
+            '_process_status_fields','_process_security_fields','group_identity','members',
+            '_root_file_parents','_root_file_parent_plan'},
+        'native_systemd_properties.py':{'unit_properties','_get_many'},
+        'native_lifecycle_history.py':{'__init__','check','_check_files','_read'},
+        'native_ownership_database.py':{'_socket_for_process'},
+        'native_kernel_backend.py':{'_check_scope','_capture_process','_stat','_read'},
+        'native_durable_binding.py':{'configuration','_persistent_identity','read','private_file','directory','_canonical_private_path'},
+        'native_backend_scope.py':{'check'},
+        'native_generation_lease_guard.py':{'persistent_fingerprint','_fingerprint_path','read'},
+        'native_controller_scope.py':{'private_directory'},
+        'resource_generations.py':{'canonical'},
+        'copy.py':{'deepcopy','_deepcopy_dict','_deepcopy_list','_deepcopy_tuple'},
+        'pathlib.py':{'__init__','__str__','__truediv__','resolve','stat','lstat'},
+        'posix.py':{'stat','lstat','fstat','open','read','readlink','scandir','listdir','close'},
+        'socket.py':{'sendto','recvmsg','send','recv'},
+        'guard-self-costs.py':{'installed_python','pathlib_python','copy_python','json_python',
+            'regex_python','uuid_python','builtin','other_python'},
+    }
+    # Match only these six loaded code objects, including their original line.
+    # This also handles stdlib layouts split across implementation modules.
+    path_codes = {(method.__code__.co_filename,method.__code__.co_firstlineno,method.__code__.co_name)
+        for method in (Path.__init__,Path.__str__,Path.__truediv__,Path.resolve,Path.stat,Path.lstat)}
+    # CPython C entries have a closed profiler name and no source line. Match
+    # the complete key; never infer a primitive from a filename or substring.
+    builtin_codes = {('~',0,'<built-in method posix.'+name+'>'):('posix.py',name)
+        for name in allowed['posix.py']}
+    builtin_codes.update({('~',0,"<method '"+name+"' of '_socket.socket' objects>"):('socket.py',name)
+        for name in allowed['socket.py']})
+    reserved = {('native_root_artifact_policy.py','_directory'),
+        ('native_root_artifact_policy.py','_root_directory_metadata'),
+        ('native_protected_artifact.py','directory'),('native_protected_artifact.py','_artifact_path'),
+        ('copy.py','deepcopy'),('resource_generations.py','canonical'),('native_root_controller.py','observed'),
+        ('native_service_scope.py','_process_status_fields'),('native_service_scope.py','_process_security_fields'),
+        ('native_service_scope.py','_root_file_parents'),('native_generation_lease_guard.py','read'),
+        ('native_root_artifact_dispatch.py','check')}
+    reserved.update((label,name) for label in ('pathlib.py','posix.py','socket.py','guard-self-costs.py') for name in allowed[label])
+    rows = []
+    stats = pstats.Stats(profile).stats
+    for (filename,line,function),(primitive,calls,total,cumulative,_callers) in stats.items():
+        path = Path(filename)
+        builtin = (filename,line,function) in builtin_codes
+        if builtin:label,function = builtin_codes[(filename,line,function)]
+        elif path.parent == MODULES and path.name not in {'copy.py','pathlib.py','posix.py','socket.py','guard-self-costs.py','builtin-self.py','pathlib-self.py'}:label = path.name
+        elif path == Path(copy.__file__):label = 'copy.py'
+        elif (filename,line,function) in path_codes:label = 'pathlib.py'
+        else:continue
+        if function == 'module_self' or label not in allowed or function not in allowed[label]:continue
+        if (type(line) is not int or not (line == 0 if builtin else 0 < line < 10000) or type(calls) is not int
+                or not 0 <= calls <= 10000000):continue
+        values = [total,cumulative]
+        if not all(type(value) in {int,float} and 0 <= value <= 1200 for value in values):continue
+        rows.append({'file':label,'function':function,'line':line,'calls':calls,
+            'self_ms':int(total*1000),'cumulative_ms':int(cumulative*1000),
+            'self_us':int(total*1000000),'cumulative_us':int(cumulative*1000000)})
+    # Category totals apply only to the installed staging guard sample. They
+    # are postprocessing of that same profile, not another measured invocation.
+    if any(filename == str(MODULES/'native_root_artifact_dispatch.py') and
+            type(line) is int and 0 < line < 10000 and function == 'check'
+            for filename,line,function in stats):
+        rows.extend(root_guard_self_costs(stats))
+        hot = root_guard_hot_self(stats,path_codes)
+        detail = root_guard_installed_self(stats)
+        # Refine the eight coarse installed-module slots. Their category
+        # aggregate remains above; keep the original primitive/path quotas and
+        # direct caller attribution within the same total64-row bound.
+        if detail:hot = [row for row in hot if row['function'] != 'module_self'] + detail
+        rows.extend(hot)
+        callers = root_guard_path_callers(stats,allowed,path_codes | set(root_guard_path_helper_codes(path_codes)))
+        rows.extend(callers)
+        reserved.update((row['file'],row['function']) for row in callers)
+    # Reserve the fixed diagnostic questions before filling remaining slots by
+    # cost. Low-cost required helpers must not disappear at the 64-row cap.
+    rows = sorted(rows,key=lambda value:(0 if (value['file'],value['function']) in reserved else
+        1 if value['file'] in {'builtin-self.py','pathlib-self.py','installed-self.py'} or value['function']=='module_self' else 2,
+        -value['cumulative_us'],-value['self_us'],
+        value['file'],value['function'],value['line']))[:64]
+    return sorted(rows,key=lambda value:(value['file'],value['function'],value['line']))
+
+
+class RootGuardSample:
+    """Profile only fixed read-only guard ten; never a whole stage or effect."""
+    def __init__(self):
+        self.calls = 0;self.profile = None;self.completed = False
+
+    def wrap(self, original):
+        def checked(*arguments, **keywords):
+            self.calls += 1
+            if self.calls != 10 or sys.implementation.name != 'cpython':
+                return original(*arguments, **keywords)
+            monitoring = getattr(sys,'monitoring',None)
+            if (sys.getprofile() is not None or (monitoring is not None
+                    and monitoring.get_tool(monitoring.PROFILER_ID) is not None)):
+                return original(*arguments, **keywords)
+            self.profile = cProfile.Profile()
+            try:return self.profile.runcall(original,*arguments,**keywords)
+            finally:self.completed = True
+        return checked
+
+    def values(self):
+        if not self.completed:return None
+        return {'diagnostic_only':True,'guard_number':10,'profiled_checks':1,
+            'rows':root_stage_profile(self.profile)}
+
+
+STAGE_MEASUREMENT_TARGETS = (
+    ('native_root_artifact_dispatch','_ObservedArtifactStage','check'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_preflight_archive'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_check_archive_input'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_check_output'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_code_parent'),
+    ('native_protected_artifact','NativeProtectedArtifactStage','_code_directory'),
+    ('native_root_artifact_policy','NativeRootArtifactPolicyAllocation','check'),
+    ('native_root_database_exclusion','NativeRootDatabaseExclusionObservation','check'),
+    ('native_root_database_reader','NativeRootDatabaseReader','_base'),
+    ('native_root_database_reader','NativeRootDatabaseReader','_exchange'),
+    ('native_root_controller','NativeRootControllerObservation','_service'),
+    ('native_systemd_properties','ReadOnlySystemdProperties','_get_many'),
+    ('native_systemd_properties','ReadOnlySystemdProperties','_get_all'),
+    ('native_service_scope','_CapturedRootFiles','read'),
+    ('native_durable_binding','_CapturedExecutableDigests','read'),
+    ('native_root_lifecycle','NativeRootLifecycleObservation','_current'),
+    ('native_root_live_binding','NativeRootLiveBindingObservation','_observe'),
+)
+
+
+def _timed_stage_method(original, counter):
+    """Forward the exact call/result/error; retain only count and elapsed time."""
+    def timed(*arguments, **keywords):
+        started = time.monotonic_ns()
+        try:return original(*arguments, **keywords)
+        finally:
+            counter['calls'] += 1
+            counter['elapsed_ns'] += max(0,time.monotonic_ns()-started)
+    return timed
+
+
+def stage_measurement_values(counters):
+    names = {'.'.join(target) for target in STAGE_MEASUREMENT_TARGETS}
+    require(type(counters) is dict and set(counters) == names)
+    rows = []
+    for name in sorted(names):
+        value = counters[name]
+        require(type(value) is dict and set(value) == {'calls','elapsed_ns'})
+        require(type(value['calls']) is int and 0 <= value['calls'] <= 10000000)
+        require(type(value['elapsed_ns']) is int and 0 <= value['elapsed_ns'] <= 1200000000000)
+        rows.append({'method':name,'calls':value['calls'],'cumulative_ms':value['elapsed_ns']//1000000})
+    return {'diagnostic_only':True,'overlapping_cumulative_times':True,'methods':rows}
+
+
+class RootGuardCPU:
+    """CPU clocks around existing guards only; exclude child/server CPU."""
+    def __init__(self):
+        self.calls = 0;self.wall_ns = 0;self.process_ns = 0;self.thread_ns = 0
+
+    def wrap(self, original):
+        def checked(*arguments, **keywords):
+            wall = time.monotonic_ns();process = time.process_time_ns();thread = time.thread_time_ns()
+            try:return original(*arguments, **keywords)
+            finally:
+                self.calls += 1
+                self.thread_ns += max(0,time.thread_time_ns()-thread)
+                self.process_ns += max(0,time.process_time_ns()-process)
+                self.wall_ns += max(0,time.monotonic_ns()-wall)
+        return checked
+
+    def values(self):
+        require(type(self.calls) is int and 0 <= self.calls <= 10000000)
+        require(all(type(value) is int and 0 <= value <= 1200000000000
+            for value in (self.wall_ns,self.process_ns,self.thread_ns)))
+        return {'diagnostic_only':True,'existing_guards_only':True,'calls':self.calls,
+            'wall_ms':self.wall_ns//1000000,'process_cpu_ms':self.process_ns//1000000,
+            'calling_thread_cpu_ms':self.thread_ns//1000000,'child_cpu_included':False}
+
+
+class RootStageMeasurements:
+    """Fixture-only fixed method timers, restored even on interrupted staging.
+
+    Aggregate timers never inspect arguments or retain results. One fixed
+    read-only guard is sampled separately; no profile spans a stage effect.
+    An uninstrumented full production run is required for deadline acceptance.
+    """
+    def __init__(self):
+        self.originals = []
+        self.sample = RootGuardSample()
+        self.cpu = RootGuardCPU()
+        self.counters = {'.'.join(target):{'calls':0,'elapsed_ns':0}
+            for target in STAGE_MEASUREMENT_TARGETS}
+
+    def __enter__(self):
+        try:
+            for module_name,class_name,method_name in STAGE_MEASUREMENT_TARGETS:
+                module = sys.modules[module_name]
+                require(Path(module.__file__).parent == MODULES)
+                owner = getattr(module,class_name)
+                original = owner.__dict__[method_name]
+                require(callable(original))
+                self.originals.append((owner,method_name,original))
+                wrapped = _timed_stage_method(original,self.counters['.'.join((module_name,class_name,method_name))])
+                if (module_name,class_name,method_name) == STAGE_MEASUREMENT_TARGETS[0]:
+                    wrapped = self.cpu.wrap(self.sample.wrap(wrapped))
+                setattr(owner,method_name,wrapped)
+            return self
+        except BaseException:
+            self.__exit__(None,None,None);raise
+
+    def __exit__(self, *_):
+        for owner,name,original in reversed(self.originals):setattr(owner,name,original)
+        self.originals.clear()
+
+    def values(self):
+        return stage_measurement_values(self.counters)
 
 
 def _run_successor_case(seed, config, password, database, server_scope, root_views):
@@ -1195,7 +1795,52 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
     if seed.get('schema_refusal_fixture'):
         database.query('CREATE TABLE public.fixture_unexpected_relation (id integer)',
             database=business_database, role=seed['account'], password=password)
+    staged_artifact_observation = None
+    if seed.get('artifact_stage_fixture'):
+        from native_root_artifact_dispatch import serve_artifact_stage
+        root_directory(Path('/run/gitgood/root-artifacts'))
+        listener = root_views.enter_context(socket.socket(socket.AF_UNIX,socket.SOCK_STREAM))
+        path = Path('/run/gitgood/root-artifacts')/(seed['installation']+'.sock')
+        require(not path.exists());listener.bind(str(path));os.chown(path,0,seed['gid']);os.chmod(path,0o620)
+        listener.listen(1);listener.settimeout(30)
     write_new(seal / 'fixture-start.json', {'start': True})
+    if seed.get('artifact_stage_fixture'):
+        seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
+        connection,_ = listener.accept()
+        seed['artifact_stage_started'] = time.monotonic()
+        seed['proof_phase'] = 'original-root-read-only-observer-loss-checks'
+        seed['root_reader_refusal_observation'] = root_reader_loss_checks(seed,database,server_scope)
+        seed['proof_phase'] = 'actual-ordinary-inspection-and-serialized-root-stage'
+        # Compare complete C roles on the original guard, retaining SDK methods,
+        # then restore role entries, clear plans and revalidate custody before
+        # original measurements/effects. Full staging and deadlines are unchanged.
+        measurements = RootStageMeasurements()
+        from native_root_artifact_dispatch import _ObservedArtifactStage
+        metadata = native_role_probe.Loaded(Path(seed['release']).parent/'native-metadata-probe')
+        diagnostic = native_path_probe.AtFirstGuard(metadata,_ObservedArtifactStage,measurements,
+            comparison=native_role_probe.compare_guard)
+        try:
+            with diagnostic:
+                served = serve_artifact_stage(seed['installation'],seed['ownership_operation'],connection)
+        finally:
+            if diagnostic.result is not None:seed['native_role_comparison'] = diagnostic.result
+            seed['root_stage_measurements'] = measurements.values()
+            seed['root_guard_cpu'] = measurements.cpu.values()
+            sample = measurements.sample.values()
+            if sample is not None:seed['root_guard_sample'] = sample
+        if served['status'] == 'refused':
+            elapsed = min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))
+            seed['root_stage_refusal'] = root_stage_refusal(served,elapsed)
+            require(seed['root_stage_refusal'] is not None)
+        require(served['status'] == 'staged')
+        staged_artifact_observation = wait_for(run/'artifact-stage-complete.json',run,20)
+        require(staged_artifact_observation['actual_ordinary_controller_inspection'] is True
+            and staged_artifact_observation['actual_root_stage_output_independently_checked'] is True
+            and staged_artifact_observation['complete_journey_acceptance'] is False
+            and staged_artifact_observation['stage_receipt_sha256'] == served['receipt_sha256'])
+        code = Path('/opt/gitgood/artifacts')/seed['installation']/('native-'+seed['ownership_operation'])/'code'
+        seed['release'] = str(code/'forge');seed['web'] = str(code/'web')
+        seal_public_runtime(seed,observed['binding_sha256'])
     opened = wait_for(run / 'controller-open.json', run, 15)
     manager = process(opened['actual_main_pid'])
     require(opened['controller_identity'] == observed['scope']['manager'])
@@ -1608,6 +2253,16 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
         'root_original_controller_database_exclusion_observed': root_database_exclusion_observation is not None,
         'root_original_database_client_loss_refused': root_database_exclusion_loss_refused,
         'lifecycle_stage_effect_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture')),
+        'inspection_and_stage_receipts_are_fixture_metadata': bool(seed.get('lifecycle_fixture') and not seed.get('artifact_stage_fixture')),
+        'actual_ordinary_inspection_and_serialized_root_stage_verified': staged_artifact_observation is not None,
+        'actual_runtime_from_staged_output_verified': staged_artifact_observation is not None and bool(seed.get('default_release_fixture')),
+        **({'artifact_stage_observation':staged_artifact_observation,
+            'root_reader_refusal_observation':seed['root_reader_refusal_observation']} if staged_artifact_observation is not None else {}),
+        **({'root_stage_profile':seed['root_stage_profile']} if seed.get('root_stage_profile') is not None else {}),
+        **({'root_stage_measurements':seed['root_stage_measurements']} if seed.get('root_stage_measurements') is not None else {}),
+        **({'root_guard_cpu':seed['root_guard_cpu']} if seed.get('root_guard_cpu') is not None else {}),
+        **({'root_guard_sample':seed['root_guard_sample']} if seed.get('root_guard_sample') is not None else {}),
+        **({'native_role_comparison':seed['native_role_comparison']} if seed.get('native_role_comparison') is not None else {}),
         'actual_private_input_stream_verified': bool(seed.get('business_inputs_fixture')),
         'actual_migration_and_bootstrap_effects_observed': bool(seed.get('business_effects_fixture')),
         'actual_shadow_namespace_excluded': bool(seed.get('business_effects_fixture')),
@@ -1618,6 +2273,7 @@ def _run_successor_case(seed, config, password, database, server_scope, root_vie
 
 def preflight(args):
     require(sys.platform == "linux" and platform.machine() == "x86_64" and os.geteuid() == 0)
+    require(sys.implementation.name in {'cpython','pypy'})
     require(os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted")
     require(Path("/proc/1/comm").read_text() == "systemd\n")
     release = Path("/etc/os-release").read_text()
@@ -1646,8 +2302,15 @@ def preflight(args):
     extra = [workspace / 'tools/ci' / name for name in ('native-owned-manager.py', 'native-owned-worker.exs', 'native-successor-manager.py')]
     extra += [workspace / 'tools/deployment' / name for name in module_closure(workspace / 'tools/deployment')]
     extra += [workspace / '.gitgood/native-web-product', workspace / 'docs/deployment/Caddyfile.example']
+    extra += [workspace/'tools/ci'/name for name in native_role_probe.HELPERS]
+    extra += [workspace/'.gitgood/native-metadata-probe'/name for name in ('manifest.json',native_read_probe.metadata.extension_name())]
     total = sum(copy_inventory(path)[1] for path in [args.release, args.postgres, args.node, args.caddy, Path("/usr/bin/git"), *extra])
-    require(total <= COPY_LIMIT and shutil.disk_usage("/opt").free >= total + 1024**3, "bounded disk preflight")
+    require(total <= COPY_LIMIT, "bounded copy preflight")
+    # Include the private runtime copy and complete archive/output staging;
+    # both the system and each output volume retain the required reserve.
+    estimate = total * 4 + 1024**3
+    for path in (Path('/'),Path('/opt'),args.output.parent):
+        require(shutil.disk_usage(path).free-estimate >= 20*1024**3, "bounded disk preflight")
     return workspace, total
 
 
@@ -1685,6 +2348,9 @@ def main(args):
         args.output.mkdir(mode=0o755)
         os.chmod(args.output, 0o755)
         output = args.output
+        if sys.implementation.name == 'pypy':
+            phase = 'verify-diagnostic-root-runtime'
+            receipt['root_runtime_probe'] = root_runtime_probe.observe()
         phase = "secure-disposable-host-opt"
         receipt["hosted_opt_custody"] = harden_hosted_opt()
         phase = "create-protected-runtime-prefix"
@@ -1699,6 +2365,12 @@ def main(args):
         for name in ["native-owned-manager.py", "native-owned-worker.exs", "native-successor-manager.py"]:
             phase = "copy-fixture-" + name.removeprefix("native-owned-").split(".")[0]
             copy_runtime(workspace / "tools/ci" / name, runtime / name)
+        phase = 'copy-fresh-native-metadata-diagnostic'
+        metadata_directory = runtime/'native-metadata-probe';metadata_directory.mkdir(mode=0o755)
+        for name in native_role_probe.HELPERS:
+            copy_runtime(workspace/'tools/ci'/name,metadata_directory/name)
+        for name in ('manifest.json',native_read_probe.metadata.extension_name()):
+            copy_runtime(workspace/'.gitgood/native-metadata-probe'/name,metadata_directory/name)
         phase = "relocate-private-postgresql-client"
         receipt["postgresql_client_relocation"] = relocate_postgresql_client(runtime)
         modules = module_closure(workspace / "tools/deployment")
@@ -1803,7 +2475,7 @@ def main(args):
         phase = 'native-default-release:allocate'
         seed, config, password = allocate_case('native-default-release', runtime, database,
             args.candidate, controller=True, lifecycle=True, business_inputs=True, business_effects=True,
-            runtime_effects=True, public_runtime=True, default_release=True)
+            runtime_effects=True, public_runtime=True, default_release=True, artifact_stage=True)
         units.append(seed['unit'])
         phase = 'native-default-release:ordinary-boot-public-function-and-original-loss'
         result = run_successor_case(seed, config, password, database, server_scope)
@@ -1875,9 +2547,31 @@ def main(args):
         if seed is not None:
             receipt["failure"]["component_phase"] = seed.get("proof_phase", "allocation")
             receipt["failure"]["startup"] = case_startup_diagnostics(seed)
+            if seed.get('artifact_stage_started') is not None:
+                from native_root_artifact_dispatch import failure_observation
+                detail = {'chain':failure_observation(error),
+                    'elapsed_ms':min(1200000,max(0,int((time.monotonic()-seed['artifact_stage_started'])*1000)))}
+                observed = artifact_failure(detail)
+                if observed is not None:receipt['failure']['artifact_failure'] = observed
+            if seed.get('root_reader_refusal_observation') is not None:
+                receipt['failure']['root_reader_refusal_observation'] = seed['root_reader_refusal_observation']
+            if seed.get('root_stage_profile') is not None:
+                receipt['failure']['root_stage_profile'] = seed['root_stage_profile']
+            if seed.get('root_stage_measurements') is not None:
+                receipt['failure']['root_stage_measurements'] = seed['root_stage_measurements']
+            if seed.get('root_guard_cpu') is not None:
+                receipt['failure']['root_guard_cpu'] = seed['root_guard_cpu']
+            if seed.get('root_guard_sample') is not None:
+                receipt['failure']['root_guard_sample'] = seed['root_guard_sample']
+            if seed.get('native_role_comparison') is not None:
+                receipt['failure']['native_role_comparison'] = seed['native_role_comparison']
+            if seed.get('root_stage_refusal') is not None:
+                receipt['failure']['root_stage_refusal'] = seed['root_stage_refusal']
+            if seed.get('archive_member_metrics') is not None:
+                receipt['failure']['archive_member_metrics'] = seed['archive_member_metrics']
             failed = Path(seed["run"]) / "manager-failed.json"
             if failed.exists():
-                detail = read_json(failed, 1024)
+                detail = read_json(failed, 8192)
                 observed_manager = manager_failure(detail)
                 if observed_manager is not None:receipt["failure"]["manager"] = observed_manager
         # No exception string, stack, configuration, private logs, SQL or secret

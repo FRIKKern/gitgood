@@ -95,7 +95,8 @@ class RootOriginalExclusionTest(unittest.TestCase):
         return value
 
     def test_non_root_or_caller_map_refuses_before_request_or_database_reads(self):
-        with patch.object(root.os,'getuid',return_value=1000,create=True),patch.object(root,'_query_database') as query:
+        with patch.object(root.os,'getuid',return_value=1000,create=True), \
+                patch.object(root.NativeRootDatabaseExclusionObservation,'_query') as query:
             with self.assertRaises(root.RootDatabaseExclusionRefused):root.NativeRootDatabaseExclusionObservation({'authority':True})
             query.assert_not_called()
 

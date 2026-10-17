@@ -2,13 +2,15 @@ import copy
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
 from native_durable_binding import BindingRefused, configuration, directory, executable, observe_durable_binding, private_file
+import native_durable_binding as binding
 from native_service_scope import ServiceRefused
 from resource_generations import canonical
 import test_resource_generations as record_fixture
@@ -55,6 +57,15 @@ class DurableBindingAdmissionTest(unittest.TestCase):
             with patch("native_durable_binding.observe_service") as service, self.assertRaises(BindingRefused):
                 observe_durable_binding(self.root, installation, "a" * 64, self.executables, **self.options)
             service.assert_not_called()
+
+
+class PrivateBindingPathSpellingTest(unittest.TestCase):
+    def test_relative_parent_traversal_and_double_root_refuse_before_filesystem_access(self):
+        # Explicit POSIX grammar stand-in; no Linux filesystem claim.
+        with patch.object(binding,'Path',PurePosixPath):
+            for path in ['private','../private','/var/../private','//var/private']:
+                with self.subTest(path=path),self.assertRaises(BindingRefused):
+                    binding._canonical_private_path(path)
 
 
 @unittest.skipUnless(sys.platform == "linux", "Persistent file identities require Linux")
@@ -156,6 +167,52 @@ class ActualDurableFileCustodyTest(unittest.TestCase):
             path.write_text(json.dumps(changed))
             with self.assertRaises(BindingRefused):
                 configuration(self.root, installation, os.getuid())
+
+    def test_actual_ancestor_alias_refuses_for_files_and_directories_with_same_target_inode(self):
+        real=self.root/'real';real.mkdir(mode=0o700)
+        leaf=real/'private';leaf.write_bytes(b'synthetic');leaf.chmod(0o600)
+        alias=self.root/'alias';alias.symlink_to(real,target_is_directory=True)
+        self.assertEqual((alias/'private').stat().st_ino,leaf.stat().st_ino)
+        with self.assertRaises(BindingRefused):private_file(alias/'private',os.getuid())
+        child=real/'child';child.mkdir(mode=0o700)
+        with self.assertRaises(BindingRefused):directory(alias/'child',os.getuid())
+
+    def test_actual_parent_traversal_cannot_select_the_original_file_or_directory(self):
+        child=self.root/'child';child.mkdir(mode=0o700)
+        for call,path in [(private_file,child/'..'/'private'),(directory,child/'..')]:
+            with self.subTest(path=path),self.assertRaises(BindingRefused):call(path,os.getuid())
+
+    def test_actual_same_content_replacement_changes_identity_and_retains_original(self):
+        before,raw=private_file(self.path,os.getuid())
+        original=self.root/'retained-private';self.path.rename(original)
+        self.path.write_bytes(raw);self.path.chmod(0o600)
+        after,observed=private_file(self.path,os.getuid())
+        self.assertEqual(raw,observed);self.assertEqual(before['sha256'],after['sha256'])
+        self.assertNotEqual(before['inode'],after['inode'])
+        self.assertEqual(original.stat().st_ino,before['inode'])
+
+    def test_actual_in_place_edit_with_restored_mtime_is_read_and_hashed_fresh(self):
+        before,_=private_file(self.path,os.getuid());info=self.path.stat()
+        self.path.write_bytes(b'x'*info.st_size)
+        os.utime(self.path,ns=(info.st_atime_ns,info.st_mtime_ns))
+        after,raw=private_file(self.path,os.getuid())
+        self.assertEqual(before['inode'],after['inode']);self.assertEqual(before['bytes'],after['bytes'])
+        self.assertNotEqual(before['sha256'],after['sha256'])
+        self.assertEqual(after['sha256'],hashlib.sha256(raw).hexdigest())
+
+    def test_actual_regular_or_missing_ancestor_never_traverses_to_private_data(self):
+        for path in [self.path/'child',self.root/'absent'/'private']:
+            for call in [private_file,directory]:
+                with self.subTest(path=path,call=call),self.assertRaises((BindingRefused,OSError)):
+                    call(path,os.getuid())
+
+    def test_twenty_actual_private_metadata_and_content_pairs_remain_fresh(self):
+        expected=directory(self.root,os.getuid()),private_file(self.path,os.getuid())
+        started=time.monotonic_ns()
+        for _ in range(20):
+            self.assertEqual((directory(self.root,os.getuid()),private_file(self.path,os.getuid())),expected)
+        elapsed=(time.monotonic_ns()-started)//1000000
+        print('actual_private_binding_observation_pairs=20 elapsed_ms='+str(elapsed),flush=True)
 
 
 if __name__ == "__main__":

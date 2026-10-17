@@ -16,7 +16,7 @@ from native_lifecycle_responsibility import HISTORY_NAMES, generation_owner
 from native_lifecycle_worker_inputs import parse_worker_seal
 from native_operation_inputs import (POLICIES, directory_identity, document,
     file_identity, file_record, parse_request, parse_seal)
-from native_root_controller import NativeRootControllerObservation
+from native_root_controller import NativeRootControllerObservation, _within_root_observation_pass
 from native_service_scope import _CapturedRootFiles, root_file
 from resource_generations import canonical, digest, identifier
 
@@ -67,6 +67,7 @@ class _RootReadOnlyCustody(GenerationRecordCustody):
     """Internal original ordinary-file custody observed by Root, never locked."""
     def __init__(self, installation, scope, seal):
         self.usable = False;self.directories = {};self.known = {};self.lock = None
+        self.retained = {};self.entries = None;self.directory_metadata = {}
         self.owner = root_owner();self.installation = installation
         self.uid, self.gid = scope['uid'], scope['gid']
         self.root = Path('/var/lib/gitgood/installations')/installation
@@ -126,22 +127,84 @@ class _RootReadOnlyCustody(GenerationRecordCustody):
             return fd
         except BaseException:os.close(fd);raise
 
+    @_within_root_observation_pass
     def check(self):
         require(self.usable and root_owner() == self.owner)
         require(private_directory(self.root,self.uid,self.gid) == self.root_custody)
-        for path in tuple(self.directories):self._identity(path)
+        # Check the complete held parent chain once, rather than resolving that
+        # same chain again for every file and every already captured directory.
+        for path,(fd,original) in self.directories.items():
+            named = path.lstat() if path == self.directory else os.stat(path.name,
+                dir_fd=self.directories[path.parent][0],follow_symlinks=False)
+            require(directory_identity(os.fstat(fd),self.uid,self.gid) == original
+                == directory_identity(named,self.uid,self.gid))
+            if self.entries is not None:
+                require(self._directory_metadata(os.fstat(fd)) == self.directory_metadata[path]
+                    == self._directory_metadata(named))
+                require(self._names(fd) == self.entries[path])
         for path,original in self.known.items():
             parent = self.directories[path.parent][0]
             require(self._file(os.stat(path.name,dir_fd=parent,follow_symlinks=False)) == original)
+            if path in self.retained:require(self._file(os.fstat(self.retained[path])) == original)
         if self.lock is not None:require(self._file(os.fstat(self.lock)) == self.known[self.lock_path])
+
+    @staticmethod
+    def _directory_metadata(info):
+        return tuple(getattr(info,name) for name in ('st_dev','st_ino','st_uid','st_gid','st_mode',
+            'st_nlink','st_size','st_mtime_ns','st_ctime_ns'))
+
+    @staticmethod
+    def _names(fd):
+        with os.scandir(fd) as entries:
+            names = [entry.name for entry in itertools.islice(entries,1025)]
+        require(len(names) <= 1024);return sorted(names)
+
+    def _pin_snapshot(self, snapshot):
+        """Retain only files from the fully replayed, unchanged original view."""
+        require(self.entries is None and not self.retained);self.check()
+        generation = snapshot['generation']['files']
+        lifecycle = snapshot['lifecycle_files']
+        paths = {self.directory/name: ('generation',identity) for name,identity in generation.items()}
+        lifecycle_root = self.directory/'lifecycle-responsibility-v2'
+        paths.update({lifecycle_root/name: ('lifecycle',identity) for name,identity in lifecycle['files'].items()})
+        expected_names = {self.directory:sorted(HISTORY_NAMES),
+            lifecycle_root:['heads','records'],lifecycle_root/'heads':[],lifecycle_root/'records':[],
+            self.store:[],self.directory/'generation-transitions-v2':[],self.directory/'generation-receipts-v2':[]}
+        for path in paths:
+            require(path.parent in expected_names)
+            if path.parent != self.directory:expected_names[path.parent].append(path.name)
+        for path in expected_names:self._identity(path)
+        for role,original in lifecycle['directories'].items():
+            path = lifecycle_root if role == 'lifecycle' else lifecycle_root/role
+            info = os.fstat(self.directories[path][0])
+            # The shared directory identity already includes mtime and ctime.
+            require(directory_identity(info,self.uid,self.gid) == original)
+        generation_fields = ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_mode','st_nlink')
+        for path,(kind,original) in paths.items():
+            fd = self._open(path,os.O_RDONLY)
+            try:
+                info = os.fstat(fd)
+                require((tuple(getattr(info,name) for name in generation_fields) if kind == 'generation'
+                    else self._file(info)) == original)
+                self.retained[path] = fd
+            except BaseException:os.close(fd);raise
+        require(set(self.known) == set(paths))
+        self.directory_metadata = {self.directory/name:identity for name,identity in snapshot['directories'].items()}
+        self.entries = {path:sorted(names) for path,names in expected_names.items()}
+        require(set(self.entries) == set(self.directories));self.check()
 
     def __enter__(self):self.check();return self
 
     def __exit__(self, *_):
         self.usable = False
-        if self.lock is not None:os.close(self.lock);self.lock = None
-        for fd,_ in self.directories.values():os.close(fd)
-        self.directories.clear()
+        descriptors = [*self.retained.values(),*(fd for fd,_ in self.directories.values())]
+        if self.lock is not None:descriptors.append(self.lock)
+        self.lock = None;self.retained.clear();self.directories.clear()
+        # Original descriptor loss is itself a refusal, but must not stop
+        # closure of the other owned observers or mask the public refusal.
+        for fd in descriptors:
+            try:os.close(fd)
+            except OSError:pass
 
     def retain(self, *_):raise RootLifecycleRefused('Read-only Root observation cannot retain records')
 
@@ -269,7 +332,9 @@ class NativeRootLifecycleObservation:
             for name,raw in self.inputs.raw.items():
                 if name != 'request.json':require(type(document(raw).get('protocol')) is int and document(raw)['protocol'] == 2)
             self.history = _RootGenerationHistory(installation,self.scope,self.generation_seal)
-            self.usable = True;self.original = self._snapshot();self.check()
+            self.usable = True;self.original = self._snapshot()
+            self.original_raw = canonical(self.original)
+            self.history.custody._pin_snapshot(self.original);self.check()
         except BaseException:
             self.close();raise RootLifecycleRefused('Original native lifecycle unavailable or changed') from None
 
@@ -281,6 +346,7 @@ class NativeRootLifecycleObservation:
         self.root_files[path] = (maximum,before,identity,raw)
         return raw
 
+    @_within_root_observation_pass
     def _current(self):
         require(self.usable and root_owner() == self.owner and self.controller.check() == self.scope)
         for path,(maximum,original,identity,raw) in self.root_files.items():
@@ -293,7 +359,13 @@ class NativeRootLifecycleObservation:
         self.history.custody.check()
 
     def _snapshot(self):
-        self._current();generation = self.history._snapshot(self.scope)
+        self._current();custody = self.history.custody
+        lifecycle_root = custody.directory/'lifecycle-responsibility-v2'
+        for path in (custody.directory,custody.store,self.history.transitions,self.history.receipts,
+                lifecycle_root,lifecycle_root/'records',lifecycle_root/'heads'):custody._identity(path)
+        directories = {str(path.relative_to(custody.directory)):custody._directory_metadata(os.fstat(fd))
+            for path,(fd,_) in custody.directories.items()}
+        generation = self.history._snapshot(self.scope)
         view = self.history._lifecycle_view()
         try:
             record = view.snapshot(self.operation)
@@ -307,12 +379,18 @@ class NativeRootLifecycleObservation:
             lifecycle_files = view.fingerprint();view.check()
         finally:view.close()
         self._current()
-        return {'generation':generation,'lifecycle':record,'lifecycle_files':lifecycle_files}
+        require({str(path.relative_to(custody.directory)):custody._directory_metadata(os.fstat(fd))
+            for path,(fd,_) in custody.directories.items()} == directories)
+        return {'generation':generation,'lifecycle':record,'lifecycle_files':lifecycle_files,'directories':directories}
 
+    @_within_root_observation_pass
     def check(self):
         try:
             require(self.usable and root_owner() == self.owner)
-            require(self._snapshot() == self.original)
+            self._current()
+            require(canonical(self.original) == self.original_raw)
+            self.history.custody.check()
+            self._current()
             record = self.original['lifecycle']
             return {'installation':self.installation,'operation':self.operation,'candidate':self.worker['candidate'],
                 'request_sha256':self.worker['request_sha256'],'generation_sha256':record['generation_sha256'],

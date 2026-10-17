@@ -1,0 +1,124 @@
+# Serialized Root artifact dispatch
+
+`NativeRootArtifactStageDispatch` connects a successful ordinary controller
+inspection to fixed Root extraction. It takes custody of an exact authenticated
+`NativeRootControllerRequest`; caller paths, programs, environment maps, callbacks
+and authority booleans are not accepted. Live integration remains unverified
+until the expanded hosted default-release case passes exact evidence review.
+
+The dispatcher independently observes the original ordinary SQL writer client,
+socket and PostgreSQL backend, then allocates the operation's fixed stage policy
+under the original Root allocation flock. It retains that observation and flock
+through extraction. Its private protected-stager subclass brackets every existing
+effect check with the original allocation/exclusion check. Lost original custody
+permanently refuses before further effects; partial and published files remain.
+The underlying stager retains bounded archive inspection, system/output reserves,
+descriptor custody, safe entry handling, read-only code and no-replace publication.
+
+Each staging guard uses two private read-only observation passes. The first
+validates allocation and the existing stager guard; the second starts with an
+empty result set and validates allocation again before returning permission for
+the next write. Repeated upstream controller, lifecycle, live-binding and request
+observations, plus private lifecycle-current and held-history custody checks,
+reuse their original view's result only within the same pass. No
+pass includes extraction, archive writes, metadata changes or publication, and
+no result survives a pass or effect boundary. Independent observers never share
+results; original-view loss poisons the pass, and interrupted passes discard all
+retained results. Nested/reused passes and an ordinary caller refuse.
+
+This composition does not replace the held archive, Root allocation lock, peer,
+history-descriptor or writer-exclusion checks. Direct SQL exchanges continue to
+check their own original client/backend and nonce; allocation still re-observes
+exclusion in both passes. Standalone observer calls retain their previous full
+fresh behavior. The implementation accepts no caller-supplied result, callback,
+path or authority token. Full production staging and loss/refusal cases remain
+required on the exact hosted revision before this component can be accepted.
+
+Fourteen portable pass cases retain explicit identity/file/controller stand-ins.
+They include fresh standalone lifecycle-current reads, duplicate reads only in
+one pass, a changed original history in the separate final pass, and refusal to
+reuse or revive a closed view. Actual Root history tests also repeat retained
+metadata checks in a pass, then require fresh refusal after a file-mode change
+or original descriptor loss between passes. These cases do not replace the
+complete installed staging and subsequent runtime proof.
+
+After extraction, the result must bind the same installation, operation and
+candidate, identify actual staged Root-controlled code, and keep journey
+acceptance false. Repeated execution refuses rather than adopting existing code.
+Closing releases only owned Root observation views, descriptors and the allocation
+lock; it neither terminates nor replaces the ordinary controller's writer client
+or history lock, and it deletes no effect.
+
+`serve_artifact_stage` serves one already accepted Unix socket through this exact
+request/dispatch path. It retains a duplicate reply descriptor, closes Root SQL
+observers before acknowledgement, and sends a canonical response of at most
+512 bytes containing only the staged receipt hash and fixed identifiers. Errors
+produce a fixed refusal without private exception details. A failed response
+does not erase a published stage. [The ordinary controller](native-artifact-controller.md)
+independently checks the original writer session and complete fixed Root output
+before advancing its durable journal.
+
+If sending a refusal also loses its transport, the server retains the original
+refusal as the exception cause. A successfully delivered refusal also returns
+a separate `root_refusal` observation to the local Root caller. This field is
+never included in the ordinary socket frame; successful local results remain
+unchanged. The hosted fixture validates and retains this observation rather than
+replacing the original failure with its own generic status assertion. It can
+record at most sixteen
+closed error classifications and fixed source locations plus bounded elapsed
+time. Messages, arbitrary file paths, source text, SQL, inputs and credentials
+are excluded; the ordinary socket response remains unchanged. These observations
+locate a failed boundary and grant no staging or recovery authority.
+
+Retained diagnostic stage profiles also include fixed file-custody,
+configuration, kernel-process and socket-observation functions. It reports only
+installed source basenames, function names, line numbers, call counts and elapsed
+times; private paths, callers, arguments and values remain excluded. This helps
+separate the underlying costs from their overlapping parent observations. The
+same 64-row bound applies. Profiling grants no authority and does not change any
+production check, archive payload, resource bound or response deadline. These
+profiles come from earlier instrumented runs. The full acceptance fixture now
+calls the installed production stage without whole-call tracing, under the same
+ordinary response deadline. Its complete payload, Root loss checks, original
+custody and every extraction/publication guard remain required; removing tracing
+does not by itself establish that extraction finishes in time.
+
+The fixture also records aggregate member count, declared bytes, largest member
+and longest name for the complete production archive. These counters contain no
+member names or payload data. Archive/effect guards, size limits, deadlines and
+the complete Forge/web payload remain unchanged.
+
+Twelve portable boundary/socket checks and private observation-pass tests use
+explicit authority and stage stand-ins;
+the response socket, bounded canonical bytes and close-before-response ordering
+are actual. The hosted default-release case supplies actual systemd MainPID,
+history/SQL custody, Root parents/lock/input declaration, full production archive,
+fixed socket and staged runtime. That fixture's provisioning is not a production
+installer or long-lived listener. Interrupted-effect reconciliation, actual
+activation/enrollment and reboot/replacement remain unfinished; this component
+alone establishes neither J14/J15 acceptance nor original VM retirement.
+
+## One original Root controller observer
+
+The integrated extraction view now uses the allocation's original lifecycle
+controller observer. A private source-defined factory selects only that object,
+after checking Root identity, the original process/thread, exact allocation and
+observer types, installation and usability. There is no caller callback,
+selector or new constructor parameter. A standalone protected stage still
+captures its own observer through the unchanged UUID-only constructor.
+
+Allocation and extraction retain their existing controller and scope comparisons.
+Because both now refer to the same original object, the existing read-only pass
+can share its result. The separate final pass observes the actual service again;
+every effect guard still has two fresh passes. No result survives an effect.
+All existing extraction, publication, SQL, socket, history, metadata and close
+methods remain unchanged. Closing the extraction view invalidates this shared
+Root observer; the dispatcher still closes all its owned views before replying.
+The ordinary controller, writer and retained resources are preserved.
+
+Ten portable composition cases use explicit Root/service/allocation/stage
+stand-ins for default isolation, original-object selection, closed and foreign
+views, two fresh service observations per guard, loss during the first pass and
+shared-view cleanup. Actual systemd custody, complete production staging and
+staged runtime still require hosted evidence, followed by an uninstrumented full
+proof before deadline acceptance.

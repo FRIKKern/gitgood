@@ -14,22 +14,12 @@ from native_durable_binding import configuration
 from native_durable_database import SQL, unique, validate_database
 from native_inventory import database_environment
 from native_kernel_backend import _capture_process, _check_scope, capture_backend_kernel_identity
-from native_ownership_database import OBSERVATION_OPTIONS, _query_database, _socket_for_process, validate_session
+from native_ownership_database import OBSERVATION_OPTIONS, ROOT_EXCLUSION_SQL, _query_database, _socket_for_process, validate_session
 from native_root_controller_request import NativeRootControllerRequest
 from native_service_scope import process_identity, read_bytes
 from resource_generations import canonical
 
-LEASE_SQL = """SELECT json_build_object('database',("""+SQL+"""),
- 'holders',(SELECT coalesce(json_agg(json_build_object(
-  'backend_pid',a.pid,'backend_birth',floor(extract(epoch FROM a.backend_start)*1000000)::bigint::text,
-  'client_address',host(a.client_addr),'client_port',a.client_port) ORDER BY a.pid),'[]'::json)
-  FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid
-  WHERE l.locktype='advisory' AND l.classid::bigint=1197034575 AND l.objid::bigint=1
-   AND l.objsubid=2 AND l.mode='ExclusiveLock' AND l.granted
-   AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database())
-   AND a.backend_type='client backend' AND a.usename=current_user AND a.datname=current_database()),
- 'clients',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database()
-  AND backend_type='client backend'))"""
+LEASE_SQL = ROOT_EXCLUSION_SQL
 
 
 class RootDatabaseExclusionRefused(Exception):
@@ -47,7 +37,7 @@ def _lease(raw, expected, environment):
     require(type(value) is dict and set(value) == {'database','holders','clients'})
     validate_database(value['database'],environment)
     require(value['database'] == expected and canonical(value['database']) == canonical(expected))
-    # One retained writer client and this short-lived read-only observer.
+    # One retained writer client and the same retained read-only Root observer.
     # Unexpected other client backends refuse, rather than claiming exclusion.
     require(type(value['clients']) is int and value['clients'] == 2)
     require(type(value['holders']) is list and len(value['holders']) == 1)
@@ -136,7 +126,9 @@ class NativeRootDatabaseExclusionObservation:
         return found[0]
 
     def _query(self):
-        return _lease(_query_database(self.psql,self.environment,LEASE_SQL),self.database,self.environment)
+        raw = (self.live.database_reader.exclusion() if self.live.database_reader is not None
+            else _query_database(self.psql,self.environment,LEASE_SQL))
+        return _lease(raw,self.database,self.environment)
 
     def _socket(self):
         require(self._client(self.client['pid']) == self.client)
@@ -150,8 +142,9 @@ class NativeRootDatabaseExclusionObservation:
         require(os.getuid() == os.geteuid() == os.getgid() == os.getegid() == 0)
         require(self.request.check() == self.observed and self.server.check() == self.server_scope)
         require(self._client(self.client['pid']) == self.client)
-        require(configuration(self.live.root,self.observed['installation'],self.scope['uid']) ==
-            (self.binding['configuration'],self.url))
+        files = (configuration(self.live.root,self.observed['installation'],self.scope['uid'])
+            if self.live.database_reader is None else self.live.database_reader._configuration())
+        require(files == (self.binding['configuration'],self.url))
         require(canonical(self.binding['database']) == canonical(self.database))
         _check_scope(self.server_scope)
 

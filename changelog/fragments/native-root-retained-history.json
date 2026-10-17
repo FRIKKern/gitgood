@@ -1,0 +1,9 @@
+{
+  "id": "native-root-retained-history",
+  "category": "Changed",
+  "impact": "operator",
+  "summary": "Retain validated original generation and lifecycle descriptors for Root staging checks instead of repeatedly replaying unchanged history. Recheck every original file identity, complete directory entry set and change time; preserve effect guards and refuse replacements, edits or lost descriptors. Full production staging and recovery remain subject to hosted verification.",
+  "journeys": ["J14", "J15"],
+  "references": ["docs/implementation/native-root-lifecycle.md", "tools/deployment/native_root_lifecycle.py", "tools/deployment/test_native_root_lifecycle.py"],
+  "withdrawn": false
+}
